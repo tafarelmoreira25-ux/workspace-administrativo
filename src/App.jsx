@@ -96,7 +96,7 @@ function Login({ onLogin }) {
   return (
     <div className="login-page">
       <div className="login-card">
-        <div className="brand-badge">WA</div>
+        <img src="/logo.png" alt="Logo Platino" className="brand-badge" />
         <h1>WORKSPACE ADMINISTRATIVO</h1>
         <p>Gestão Inteligente e Centralizada.</p>
         
@@ -146,7 +146,7 @@ function AdminDashboard({ usuario, onLogout, state }) {
     <div className="app-layout">
       <aside className="sidebar">
         <div className="brand">
-          <div className="brand-icon">WA</div>
+          <img src="/logo.png" alt="Logo Platino" className="brand-icon" />
           <div>
             <strong>WORKSPACE</strong>
             <span>Administrativo</span>
@@ -237,7 +237,7 @@ function EmployeeDashboard({ usuario, onLogout, state }) {
     <div className="app-layout">
       <aside className="sidebar">
         <div className="brand">
-          <div className="brand-icon">WA</div>
+         <img src="/logo.png" alt="Logo Platino" className="brand-icon" />
           <div>
             <strong>WORKSPACE</strong>
             <span>Administrativo</span>
@@ -365,7 +365,25 @@ export default function App() {
         .login-page { min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 24px; }
         .login-card { width: 100%; max-width: 440px; background: var(--bg-card); border-radius: 24px; padding: 40px; box-shadow: 0 20px 40px rgba(30, 58, 138, 0.08); text-align: center; }
         
-        .brand-badge { width: 70px; height: 70px; border-radius: 20px; background: var(--accent); color: white; display: flex; align-items: center; justify-content: center; font-weight: 900; font-size: 24px; margin: 0 auto 20px auto; letter-spacing: 1px; }
+        /* CORRIGIDO AQUI: Estilos focados em Imagem */
+        .brand-badge { 
+          width: 100px; 
+          height: 100px; 
+          border-radius: 50%; 
+          object-fit: cover;
+          display: block;
+          margin: 0 auto 20px auto; 
+          box-shadow: 0 8px 16px rgba(30, 58, 138, 0.15); 
+        }
+
+        .brand-icon { 
+          width: 46px; 
+          height: 46px; 
+          border-radius: 50%; 
+          object-fit: cover;
+          box-shadow: 0 4px 8px rgba(30, 58, 138, 0.1);
+        }
+        
         h1 { font-size: 22px; color: var(--dark); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px; }
         p { color: var(--muted); line-height: 1.5; }
 
@@ -373,7 +391,6 @@ export default function App() {
         .sidebar { background: var(--bg-card); border-right: 1px solid #dbeafe; padding: 24px; display: flex; flex-direction: column; gap: 30px; height: 100vh; position: sticky; top: 0; }
         
         .brand { display: flex; align-items: center; gap: 12px; }
-        .brand-icon { width: 44px; height: 44px; border-radius: 12px; background: var(--accent); color: white; display: flex; align-items: center; justify-content: center; font-weight: 900; }
         .brand strong { display: block; color: var(--dark); font-size: 16px; letter-spacing: 0.5px;}
         .brand span { font-size: 12px; color: var(--muted); text-transform: uppercase;}
 
