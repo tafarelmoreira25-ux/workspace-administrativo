@@ -12,4 +12,4 @@ export default function MeuHistorico({ funcionariaLogadaId }) {
       <p>Em breve: aqui aparecerá o histórico completo das suas tarefas concluídas.</p>
     </div>
   );
-}
+} 
