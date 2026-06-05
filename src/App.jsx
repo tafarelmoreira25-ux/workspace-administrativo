@@ -416,7 +416,7 @@ function AdminDashboard({ usuario, onLogout, state }) {
 }
 
 // ==========================================
-// 5. PAINEL DA FUNCIONÁRIA (ATUALIZADO)
+// 5. PAINEL DA FUNCIONÁRIA (ATUALIZADO COM PLANNER E HISTÓRICO)
 // ==========================================
 
 function EmployeeDashboard({ usuario, onLogout, state }) {
@@ -521,7 +521,6 @@ function EmployeeDashboard({ usuario, onLogout, state }) {
           <MeuHistorico funcionariaLogadaId={usuario.id} />
         )}
 
-        {/* 5. A TELA DO PLANNER ENTRA AQUI */}
         {abaAtiva === "planner" && (
           <MeuPlanner funcionariaLogadaId={usuario.id} />
         )}
@@ -645,7 +644,7 @@ export default function App() {
         .toast-message { position: fixed; bottom: 30px; right: 30px; background: var(--dark); color: white; padding: 16px 24px; border-radius: 12px; z-index: 1000; box-shadow: 0 10px 30px rgba(0,0,0,0.2); font-weight: 500; animation: slideUp 0.3s ease-out; }
         @keyframes slideUp { from { transform: translateY(50px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
 
-       @media (max-width: 1024px) {
+        @media (max-width: 1024px) {
           .app-layout { grid-template-columns: 1fr; }
           .sidebar { height: auto; position: relative; }
           .cards-grid { grid-template-columns: repeat(2, 1fr); }
