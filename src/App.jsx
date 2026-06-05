@@ -1,10 +1,11 @@
+import MeuHistorico from './MeuHistorico';
+import MeuPlanner from './MeuPlanner';
 import React, { useState, useEffect } from "react";
 import { createClient } from "@supabase/supabase-js";
 
 // ==========================================
 // 1. CONFIGURAÇÕES E CONEXÕES
 // ==========================================
-// O Vite puxa essas chaves automaticamente do seu arquivo .env
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || "SUA_URL_AQUI";
 const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY || "SUA_CHAVE_AQUI";
 const supabase = createClient(supabaseUrl, supabaseKey);
@@ -30,7 +31,7 @@ function IconPlaceholder({ type }) {
       alignItems: 'center', justifyContent: 'center', fontSize: '32px',
       boxShadow: 'inset 0 2px 4px rgba(0,0,0,0.05)'
     }}>
-      {type === 'feedback' ? '💬' : type === 'ranking' ? '🏆' : type === 'tarefas' ? '📋' : '📚'}
+      {type === 'feedback' ? '💬' : type === 'ranking' ? '🏆' : type === 'tarefas' ? '📋' : '👥'}
     </div>
   );
 }
@@ -137,10 +138,89 @@ function Login({ onLogin }) {
 // ==========================================
 
 function AdminDashboard({ usuario, onLogout, state }) {
-  const { listaTarefas, setListaTarefas, funcionarios, showToast } = state;
+  const { listaTarefas, setListaTarefas, funcionarios, setFuncionarios, showToast } = state;
+  const [abaAtiva, setAbaAtiva] = useState("dashboard"); 
+
+  const [titulo, setTitulo] = useState("");
+  const [descricao, setDescricao] = useState("");
+  const [funcId, setFuncId] = useState("");
+  const [pontosTarefa, setPontosTarefa] = useState(10);
+  const [dataLimite, setDataLimite] = useState("");
+
+  const [feedbackFuncId, setFeedbackFuncId] = useState("");
+  const [feedbackMsg, setFeedbackMsg] = useState("");
+  const [feedbackTipo, setFeedbackTipo] = useState("positivo");
 
   const tarefasPendentes = listaTarefas.filter((t) => t.status === "pendente");
-  const tarefasConcluidas = listaTarefas.filter((t) => t.status === "concluida");
+
+  async function handleCriarTarefa(e) {
+    e.preventDefault();
+    if (!titulo || !funcId) return alert("Preencha o título e selecione a responsável.");
+
+    const novaTarefa = {
+      titulo: titulo,
+      descricao: descricao,
+      funcionaria_id: parseInt(funcId),
+      pontos_tarefa: parseInt(pontosTarefa),
+      data_limite: dataLimite || null,
+      status: "pendente"
+    };
+
+    const { data, error } = await supabase.from("tarefas").insert([novaTarefa]).select();
+
+    if (error) {
+      alert("Erro ao salvar tarefa: " + error.message);
+    } else {
+      if (data) setListaTarefas((anteriores) => [...anteriores, data[0]]);
+      showToast("Tarefa delegada com sucesso!");
+      setTitulo("");
+      setDescricao("");
+      setFuncId("");
+      setDataLimite("");
+    }
+  }
+
+  async function alterarPontosFuncionario(id, quantidade) {
+    const funcionario = funcionarios.find(f => f.id === id);
+    if (!funcionario) return;
+
+    const novosPontos = Math.max(0, (funcionario.pontos || 0) + quantidade);
+
+    const { error } = await supabase
+      .from("funcionarios")
+      .update({ pontos: novosPontos })
+      .eq("id", id);
+
+    if (error) {
+      alert("Erro ao atualizar pontos: " + error.message);
+    } else {
+      setFuncionarios((anteriores) =>
+        anteriores.map((f) => (f.id === id ? { ...f, pontos: novosPontos } : f))
+      );
+      showToast(`Pontos atualizados com sucesso!`);
+    }
+  }
+
+  async function handleEnviarFeedback(e) {
+    e.preventDefault();
+    if (!feedbackFuncId || !feedbackMsg) return alert("Selecione a funcionária e digite a mensagem.");
+
+    const novoFeedback = {
+      funcionaria_id: parseInt(feedbackFuncId),
+      mensagem: feedbackMsg,
+      tipo: feedbackTipo
+    };
+
+    const { error } = await supabase.from("feedbacks").insert([novoFeedback]);
+
+    if (error) {
+      alert("Erro ao enviar feedback: " + error.message);
+    } else {
+      showToast("Feedback enviado com sucesso!");
+      setFeedbackMsg("");
+      setFeedbackFuncId("");
+    }
+  }
 
   return (
     <div className="app-layout">
@@ -153,9 +233,9 @@ function AdminDashboard({ usuario, onLogout, state }) {
           </div>
         </div>
         <nav>
-          <a>Dashboard</a>
-          <a>Tarefas</a>
-          <a>Equipe</a>
+          <a onClick={() => setAbaAtiva("dashboard")} className={abaAtiva === "dashboard" ? "active-tab" : ""}>Dashboard</a>
+          <a onClick={() => setAbaAtiva("tarefas")} className={abaAtiva === "tarefas" ? "active-tab" : ""}>Tarefas</a>
+          <a onClick={() => setAbaAtiva("equipe")} className={abaAtiva === "equipe" ? "active-tab" : ""}>Equipe</a>
         </nav>
         <button className="btn-secondary full" onClick={onLogout}>Sair do Sistema</button>
       </aside>
@@ -171,58 +251,178 @@ function AdminDashboard({ usuario, onLogout, state }) {
           </div>
         </header>
 
-        <section className="cards-grid">
-          <div className="card">
-            <IconPlaceholder type="tarefas" />
-            <span>Tarefas Pendentes</span>
-            <strong>{tarefasPendentes.length}</strong>
-          </div>
-          <div className="card">
-            <IconPlaceholder type="ranking" />
-            <span>Ranking Geral</span>
-            <strong>Top 3</strong>
-          </div>
-          <div className="card">
-            <IconPlaceholder type="feedback" />
-            <span>Feedbacks</span>
-            <strong>Gerenciar</strong>
-          </div>
-          <div className="card">
-            <IconPlaceholder type="documentos" />
-            <span>Equipe</span>
-            <strong>{funcionarios.length} Ativas</strong>
-          </div>
-        </section>
+        {abaAtiva === "dashboard" && (
+          <>
+            <section className="cards-grid">
+              <div className="card" onClick={() => setAbaAtiva("tarefas")} style={{ cursor: 'pointer' }}>
+                <IconPlaceholder type="tarefas" />
+                <span>Tarefas Pendentes</span>
+                <strong>{tarefasPendentes.length}</strong>
+              </div>
+              <div className="card" onClick={() => setAbaAtiva("equipe")} style={{ cursor: 'pointer' }}>
+                <IconPlaceholder type="ranking" />
+                <span>Ranking Geral</span>
+                <strong>Top 3</strong>
+              </div>
+              <div className="card" onClick={() => setAbaAtiva("equipe")} style={{ cursor: 'pointer' }}>
+                <IconPlaceholder type="feedback" />
+                <span>Feedbacks</span>
+                <strong>Gerenciar</strong>
+              </div>
+              <div className="card" onClick={() => setAbaAtiva("equipe")} style={{ cursor: 'pointer' }}>
+                <IconPlaceholder type="equipe" />
+                <span>Equipe</span>
+                <strong>{funcionarios.length} Ativas</strong>
+              </div>
+            </section>
 
-        <section className="content-grid">
-          <div className="panel large">
-            <h2 className="section-title">Acompanhamento da Esteira (Tarefas)</h2>
-            {listaTarefas.map((tarefa) => {
-              const func = funcionarios.find((item) => item.id === tarefa.funcionaria_id);
-              return (
-                <div className="task-item" key={tarefa.id}>
-                  <div>
-                    <h3>{tarefa.titulo}</h3>
-                    <p style={{fontSize: '14px', color: '#64748b', marginBottom: '8px'}}>{tarefa.descricao}</p>
-                    <small>Responsável: <strong>{func?.nome || 'Não atribuída'}</strong> | Pontos: {tarefa.pontos}</small>
+            <section className="content-grid" style={{ gridTemplateColumns: "1fr" }}>
+              <div className="panel large">
+                <h2 className="section-title">Acompanhamento da Esteira (Visão Geral)</h2>
+                {listaTarefas.length === 0 ? <p>Nenhuma tarefa listada no sistema.</p> : null}
+                {listaTarefas.map((tarefa) => {
+                  const func = funcionarios.find((item) => item.id === tarefa.funcionaria_id);
+                  return (
+                    <div className="task-item" key={tarefa.id}>
+                      <div>
+                        <h3>{tarefa.titulo}</h3>
+                        <p style={{ fontSize: '14px', color: '#64748b', marginBottom: '8px' }}>{tarefa.descricao}</p>
+                        <small>
+                          Responsável: <strong>{func?.nome || 'Não atribuída'}</strong> | 
+                          Pontos: {tarefa.pontos_tarefa || 10} | 
+                          Prazo: {tarefa.data_limite ? new Date(tarefa.data_limite).toLocaleDateString('pt-BR') : 'Sem prazo'}
+                        </small>
+                      </div>
+                      <span className={`status ${tarefa.status}`}>{tarefa.status}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            </section>
+          </>
+        )}
+
+        {abaAtiva === "tarefas" && (
+          <section className="content-grid" style={{ gridTemplateColumns: "1fr 1fr" }}>
+            <div className="panel">
+              <h2>Delegar Nova Tarefa</h2>
+              <form onSubmit={handleCriarTarefa} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                <input 
+                  type="text" placeholder="Título da tarefa" value={titulo} 
+                  onChange={(e) => setTitulo(e.target.value)}
+                  style={{ padding: '10px', borderRadius: '8px', border: '1px solid #cbd5e1' }} required
+                />
+                <textarea 
+                  placeholder="Descrição das tratativas ou procedimentos" value={descricao} 
+                  onChange={(e) => setDescricao(e.target.value)}
+                  style={{ padding: '10px', borderRadius: '8px', border: '1px solid #cbd5e1', height: '100px' }}
+                />
+                <select 
+                  value={funcId} onChange={(e) => setFuncId(e.target.value)}
+                  style={{ padding: '10px', borderRadius: '8px', border: '1px solid #cbd5e1' }} required
+                >
+                  <option value="">Atribuir para...</option>
+                  {funcionarios.map(f => (
+                    <option key={f.id} value={f.id}>{f.nome} ({f.cargo})</option>
+                  ))}
+                </select>
+                <div style={{ display: 'flex', gap: '10px' }}>
+                  <div style={{ flex: 1 }}>
+                    <label style={{ fontSize: '12px', fontWeight: 'bold' }}>Pontos da Missão</label>
+                    <input 
+                      type="number" value={pontosTarefa} onChange={(e) => setPontosTarefa(e.target.value)}
+                      style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #cbd5e1' }}
+                    />
                   </div>
-                  <span className={`status ${tarefa.status}`}>{tarefa.status.replaceAll("_", " ")}</span>
+                  <div style={{ flex: 1 }}>
+                    <label style={{ fontSize: '12px', fontWeight: 'bold' }}>Data Limite / Prazo</label>
+                    <input 
+                      type="date" value={dataLimite} onChange={(e) => setDataLimite(e.target.value)}
+                      style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #cbd5e1' }}
+                    />
+                  </div>
                 </div>
-              );
-            })}
-          </div>
-        </section>
+                <button type="submit" className="btn-primary" style={{ marginTop: '10px' }}>Publicar Tarefa na Esteira</button>
+              </form>
+            </div>
+
+            <div className="panel">
+              <h2>Lista Completa das Atividades</h2>
+              {listaTarefas.map((tarefa) => (
+                <div className="task-item" key={tarefa.id} style={{ padding: '12px', marginBottom: '8px' }}>
+                  <div>
+                    <h4>{tarefa.titulo}</h4>
+                    <span className={`status ${tarefa.status}`} style={{ fontSize: '10px', padding: '2px 8px' }}>{tarefa.status}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
+
+        {abaAtiva === "equipe" && (
+          <section className="content-grid" style={{ gridTemplateColumns: "1fr 1fr" }}>
+            <div className="panel">
+              <h2>Membros da Equipe e Placar de Pontos</h2>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', marginTop: '15px' }}>
+                {funcionarios.map((f) => (
+                  <div key={f.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px', background: '#f8fafc', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
+                    <div>
+                      <strong style={{ fontSize: '16px', color: '#1e3a8a' }}>{f.nome}</strong>
+                      <p style={{ fontSize: '13px', margin: 0 }}>Esteira: {f.cargo}</p>
+                      <span style={{ fontSize: '14px', fontWeight: 'bold', color: '#22c55e' }}>✨ {f.pontos || 0} Pontos Acumulados</span>
+                    </div>
+                    <div style={{ display: 'flex', gap: '6px' }}>
+                      <button className="btn-success" onClick={() => alterarPontosFuncionario(f.id, 10)} style={{ padding: '6px 12px', fontSize: '12px' }}>+10 Pts</button>
+                      <button className="btn-secondary" onClick={() => alterarPontosFuncionario(f.id, -10)} style={{ padding: '6px 12px', fontSize: '12px', background: '#fee2e2', color: '#ef4444', border: 'none' }}>-10 Pts</button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="panel">
+              <h2>Enviar Feedback Profissional</h2>
+              <form onSubmit={handleEnviarFeedback} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                <select 
+                  value={feedbackFuncId} onChange={(e) => setFeedbackFuncId(e.target.value)}
+                  style={{ padding: '10px', borderRadius: '8px', border: '1px solid #cbd5e1' }} required
+                >
+                  <option value="">Escolha a colaboradora...</option>
+                  {funcionarios.map(f => (
+                    <option key={f.id} value={f.id}>{f.nome}</option>
+                  ))}
+                </select>
+                <select 
+                  value={feedbackTipo} onChange={(e) => setFeedbackTipo(e.target.value)}
+                  style={{ padding: '10px', borderRadius: '8px', border: '1px solid #cbd5e1' }}
+                >
+                  <option value="positivo">Elogio / Reconhecimento Positivo</option>
+                  <option value="construtivo">Ponto de Melhoria / Alinhamento</option>
+                </select>
+                <textarea 
+                  placeholder="Escreva a mensagem de feedback ou orientação motivacional..." value={feedbackMsg} 
+                  onChange={(e) => setFeedbackMsg(e.target.value)}
+                  style={{ padding: '10px', borderRadius: '8px', border: '1px solid #cbd5e1', height: '120px' }} required
+                />
+                <button type="submit" className="btn-primary">Registrar Feedback no Painel</button>
+              </form>
+            </div>
+          </section>
+        )}
       </main>
     </div>
   );
 }
 
 // ==========================================
-// 5. PAINEL DA FUNCIONÁRIA
+// 5. PAINEL DA FUNCIONÁRIA (ATUALIZADO)
 // ==========================================
 
 function EmployeeDashboard({ usuario, onLogout, state }) {
   const { listaTarefas, setListaTarefas, showToast } = state;
+  const [abaAtiva, setAbaAtiva] = useState("tarefas");
+
   const minhasTarefas = listaTarefas.filter((tarefa) => tarefa.funcionaria_id === usuario.id);
 
   async function concluirTarefa(tarefa) {
@@ -244,8 +444,9 @@ function EmployeeDashboard({ usuario, onLogout, state }) {
           </div>
         </div>
         <nav>
-          <a>Minhas Tarefas</a>
-          <a>Central de Recursos</a>
+          <a onClick={() => setAbaAtiva("tarefas")} className={abaAtiva === "tarefas" ? "active-tab" : ""}>Minhas Tarefas</a>
+          <a onClick={() => setAbaAtiva("historico")} className={abaAtiva === "historico" ? "active-tab" : ""}>Meu Histórico</a>
+          <a onClick={() => setAbaAtiva("planner")} className={abaAtiva === "planner" ? "active-tab" : ""}>Meu Planner</a>
         </nav>
         <button className="btn-secondary full" onClick={onLogout}>Sair</button>
       </aside>
@@ -261,55 +462,70 @@ function EmployeeDashboard({ usuario, onLogout, state }) {
           </div>
         </header>
 
-        <section className="content-grid">
-          <div className="panel large">
-            <h2>Minhas tarefas</h2>
-            {minhasTarefas.length === 0 ? <p>Nenhuma tarefa atribuída no momento.</p> : null}
-            
-            {minhasTarefas.map((tarefa) => (
-              <div className="task-item" key={tarefa.id}>
-                <div>
-                  <h3>{tarefa.titulo}</h3>
-                  <p>{tarefa.descricao}</p>
-                  <small>Prazo: {tarefa.prazo}</small>
-                </div>
-                <div className="task-actions">
-                  <span className={`status ${tarefa.status}`}>
-                    {tarefa.status.replaceAll("_", " ")}
-                  </span>
-                  {tarefa.status === "pendente" && (
-                    <button className="btn-success" onClick={() => concluirTarefa(tarefa)}>
-                      Concluir
-                    </button>
-                  )}
-                </div>
-              </div>
-            ))}
-          </div>
-
-          <div className="side-stack">
-            <div className="panel" style={{ border: '1px solid #3b82f6' }}>
-              <h2 style={{ color: '#1e3a8a' }}>Central de Recursos</h2>
-              <p style={{ marginBottom: '16px', fontSize: '14px' }}>Acesse rapidamente os documentos e planilhas da operação.</p>
+        {abaAtiva === "tarefas" && (
+          <section className="content-grid">
+            <div className="panel large">
+              <h2>Minhas tarefas</h2>
+              {minhasTarefas.length === 0 ? <p>Nenhuma tarefa atribuída no momento.</p> : null}
               
-              <a href="https://docs.google.com/spreadsheets/d/1MvKj4uO1GJL1XKJMqM5c2dauAG6q8yKt7fYxGaRMBKI/edit?usp=sharing" target="_blank" rel="noreferrer" style={{textDecoration: 'none'}}>
-                <button className="btn-primary full" style={{ marginBottom: '10px' }}>📊 Planilha Geral 2026</button>
-              </a>
-
-              <a href="https://drive.google.com/drive/folders/1lAyvvD_NawsHSDpcYxXdruhv5COmjXXI?usp=drive_link" target="_blank" rel="noreferrer" style={{textDecoration: 'none'}}>
-                <button className="btn-secondary full" style={{ marginBottom: '10px' }}>📁 Modelos Judiciais (Drive)</button>
-              </a>
-
-              <a href="https://ledjqodwccotuxdrkjgk.supabase.co/storage/v1/object/sign/TRATATIVAS%20JURIDICO/esteira-juridico.pdf?token=eyJraWQiOiJzdG9yYWdlLXVybC1zaWduaW5nLWtleV83NmQyNjRmMy1mNjg4LTQ1YmItYjlkNS1mMjQ1MjM3YTJhODUiLCJhbGciOiJIUzI1NiJ9.eyJ1cmwiOiJUUkFUQVRJVkFTIEpVUklESUNPL2VzdGVpcmEtanVyaWRpY28ucGRmIiwiaWF0IjoxNzgwMzg2Mzc2LCJleHAiOjE4MTE5MjIzNzZ9.xoVDXx75TgGiuBIzfhi5n1X01sWAWOkGsyYU4HMOU-M" target="_blank" rel="noreferrer" style={{textDecoration: 'none'}}>
-                <button className="btn-secondary full" style={{ marginBottom: '10px' }}>📄 Esteira Jurídico (PDF)</button>
-              </a>
-
-              <a href="https://ledjqodwccotuxdrkjgk.supabase.co/storage/v1/object/sign/TRATATIVAS%20ADM/esteira-adm.pdf?token=eyJraWQiOiJzdG9yYWdlLXVybC1zaWduaW5nLWtleV83NmQyNjRmMy1mNjg4LTQ1YmItYjlkNS1mMjQ1MjM3YTJhODUiLCJhbGciOiJIUzI1NiJ9.eyJ1cmwiOiJUUkFUQVRJVkFTIEFETS9lc3RlaXJhLWFkbS5wZGYiLCJpYXQiOjE3ODAzODY0MTUsImV4cCI6MTgxMTkyMjQxNX0.foSBNz4TUEF_QuIVLXa8auQvUFeoqHMTiH-GFTaSJYQ" target="_blank" rel="noreferrer" style={{textDecoration: 'none'}}>
-                <button className="btn-secondary full">📄 Esteira ADM (PDF)</button>
-              </a>
+              {minhasTarefas.map((tarefa) => (
+                <div className="task-item" key={tarefa.id}>
+                  <div>
+                    <h3>{tarefa.titulo}</h3>
+                    <p>{tarefa.descricao}</p>
+                    <small>
+                      Prazo final: {tarefa.data_limite ? new Date(tarefa.data_limite).toLocaleDateString('pt-BR') : 'Sem prazo definido'} | 
+                      Recompensa: +{tarefa.pontos_tarefa || 10} Pontos
+                    </small>
+                  </div>
+                  <div className="task-actions">
+                    <span className={`status ${tarefa.status}`}>
+                      {tarefa.status}
+                    </span>
+                    {tarefa.status === "pendente" && (
+                      <button className="btn-success" onClick={() => concluirTarefa(tarefa)}>
+                        Concluir
+                      </button>
+                    )}
+                  </div>
+                </div>
+              ))}
             </div>
-          </div>
-        </section>
+
+            <div className="side-stack">
+              <div className="panel" style={{ border: '1px solid #3b82f6' }}>
+                <h2 style={{ color: '#1e3a8a' }}>Central de Recursos</h2>
+                <p style={{ marginBottom: '16px', fontSize: '14px' }}>Acesse rapidamente os documentos e planilhas da operação.</p>
+                
+                <a href="https://docs.google.com/spreadsheets/d/1MvKj4uO1GJL1XKJMqM5c2dauAG6q8yKt7fYxGaRMBKI/edit?usp=sharing" target="_blank" rel="noreferrer" style={{textDecoration: 'none'}}>
+                  <button className="btn-primary full" style={{ marginBottom: '10px' }}>📊 Planilha Geral 2026</button>
+                </a>
+
+                <a href="https://drive.google.com/drive/folders/1lAyvvD_NawsHSDpcYxXdruhv5COmjXXI?usp=drive_link" target="_blank" rel="noreferrer" style={{textDecoration: 'none'}}>
+                  <button className="btn-secondary full" style={{ marginBottom: '10px' }}>📁 Modelos Judiciais (Drive)</button>
+                </a>
+
+                <a href="https://ledjqodwccotuxdrkjgk.supabase.co/storage/v1/object/sign/TRATATIVAS%20JURIDICO/esteira-juridico.pdf?token=eyJraWQiOiJzdG9yYWdlLXVybC1zaWduaW5nLWtleV83NmQyNjRmMy1mNjg4LTQ1YmItYjlkNS1mMjQ1MjM3YTJhODUiLCJhbGciOiJIUzI1NiJ9.eyJ1cmwiOiJUUkFUQVRJVkFTIEpVUklESUNPL2VzdGVpcmEtanVyaWRpY28ucGRmIiwiaWF0IjoxNzgwMzg2Mzc2LCJleHAiOjE4MTE5MjIzNzZ9.xoVDXx75TgGiuBIzfhi5n1X01sWAWOkGsyYU4HMOU-M" target="_blank" rel="noreferrer" style={{textDecoration: 'none'}}>
+                  <button className="btn-secondary full" style={{ marginBottom: '10px' }}>📄 Esteira Jurídico (PDF)</button>
+                </a>
+
+                <a href="https://ledjqodwccotuxdrkjgk.supabase.co/storage/v1/object/sign/TRATATIVAS%20ADM/esteira-adm.pdf?token=eyJraWQiOiJzdG9yYWdlLXVybC1zaWduaW5nLWtleV83NmQyNjRmMy1mNjg4LTQ1YmItYjlkNS1mMjQ1MjM3YTJhODUiLCJhbGciOiJIUzI1NiJ9.eyJ1cmwiOiJUUkFUQVRJVkFTIEFETS9lc3RlaXJhLWFkbS5wZGYiLCJpYXQiOjE3ODAzODY0MTUsImV4cCI6MTgxMTkyMjQxNX0.foSBNz4TUEF_QuIVLXa8auQvUFeoqHMTiH-GFTaSJYQ" target="_blank" rel="noreferrer" style={{textDecoration: 'none'}}>
+                  <button className="btn-secondary full">📄 Esteira ADM (PDF)</button>
+                </a>
+              </div>
+            </div>
+          </section>
+        )}
+
+        {abaAtiva === "historico" && (
+          <MeuHistorico funcionariaLogadaId={usuario.id} />
+        )}
+
+        {/* 5. A TELA DO PLANNER ENTRA AQUI */}
+        {abaAtiva === "planner" && (
+          <MeuPlanner funcionariaLogadaId={usuario.id} />
+        )}
+
       </main>
     </div>
   );
@@ -330,19 +546,18 @@ export default function App() {
     setTimeout(() => setToastMessage(""), 4000);
   }
 
-  // Busca dados do Supabase ao iniciar
   useEffect(() => {
     async function fetchData() {
       const { data: tarefasData } = await supabase.from('tarefas').select('*');
       if (tarefasData) setListaTarefas(tarefasData);
 
-      const { data: funcData } = await supabase.from('funcionarios').select('*');
+      const { data: funcData } = await supabase.from('funcionarios').select('*').order('pontos', { ascending: false });
       if (funcData) setFuncionarios(funcData);
     }
     fetchData();
   }, []);
 
-  const globais = { listaTarefas, setListaTarefas, funcionarios, showToast };
+  const globais = { listaTarefas, setListaTarefas, funcionarios, setFuncionarios, showToast };
 
   return (
     <>
@@ -360,12 +575,11 @@ export default function App() {
 
         * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', Inter, sans-serif; }
         body { background: var(--bg-main); color: var(--text); }
-        button, input { font-family: inherit; }
+        button, input, select, textarea { font-family: inherit; }
 
         .login-page { min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 24px; }
         .login-card { width: 100%; max-width: 440px; background: var(--bg-card); border-radius: 24px; padding: 40px; box-shadow: 0 20px 40px rgba(30, 58, 138, 0.08); text-align: center; }
         
-        /* CORRIGIDO AQUI: Estilos focados em Imagem */
         .brand-badge { 
           width: 100px; 
           height: 100px; 
@@ -396,7 +610,7 @@ export default function App() {
 
         .sidebar nav { display: flex; flex-direction: column; gap: 8px; flex: 1; }
         .sidebar nav a { padding: 12px 16px; border-radius: 12px; color: var(--text); font-weight: 500; cursor: pointer; transition: 0.2s; }
-        .sidebar nav a:hover { background: #eef7ff; color: var(--accent); }
+        .sidebar nav a:hover, .sidebar nav a.active-tab { background: #eef7ff; color: var(--accent); font-weight: bold; }
 
         .main-content { padding: 32px; }
         .topbar { background: var(--bg-card); border-radius: 20px; padding: 24px; box-shadow: 0 10px 30px rgba(30, 58, 138, 0.03); display: flex; align-items: center; justify-content: space-between; margin-bottom: 30px; }
@@ -431,7 +645,7 @@ export default function App() {
         .toast-message { position: fixed; bottom: 30px; right: 30px; background: var(--dark); color: white; padding: 16px 24px; border-radius: 12px; z-index: 1000; box-shadow: 0 10px 30px rgba(0,0,0,0.2); font-weight: 500; animation: slideUp 0.3s ease-out; }
         @keyframes slideUp { from { transform: translateY(50px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
 
-        @media (max-width: 1024px) {
+       @media (max-width: 1024px) {
           .app-layout { grid-template-columns: 1fr; }
           .sidebar { height: auto; position: relative; }
           .cards-grid { grid-template-columns: repeat(2, 1fr); }
