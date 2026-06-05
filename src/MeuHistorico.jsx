@@ -1,7 +1,10 @@
 import { useState, useEffect } from 'react';
 // Atenção: Você precisará ajustar o caminho abaixo para onde está o seu arquivo de conexão do Supabase!
-import { supabase } from '../supabaseClient'; 
+import { createClient } from '@supabase/supabase-js';
 
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+const supabase = createClient(supabaseUrl, supabaseKey);
 export default function MeuHistorico({ funcionariaLogadaId }) {
   // Criando os espaços para guardar os dados
   const [tarefasConcluidas, setTarefasConcluidas] = useState([]);
