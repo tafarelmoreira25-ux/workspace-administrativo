@@ -652,7 +652,7 @@ export default function App() {
           .task-item { flex-direction: column; align-items: flex-start; }
         }
       `}</style>
-      
+        
       <Toast message={toastMessage} onClose={() => setToastMessage("")} />
 
       {!usuarioLogado ? (
