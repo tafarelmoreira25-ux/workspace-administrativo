@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { createClient } from '@supabase/supabase-js';
 
 // Conexão com o banco de dados (mesmo padrão do seu App.jsx)
@@ -14,19 +14,21 @@ export default function MeuPlanner({ funcionariaLogadaId }) {
 
   // Busca as notas assim que a tela abre
   useEffect(() => {
-    if (funcionariaLogadaId) buscarNotas();
-  }, [funcionariaLogadaId]);
+    if (!funcionariaLogadaId) return;
 
-  const buscarNotas = async () => {
-    const { data } = await supabase
-      .from('planner_diario')
-      .select('*')
-      .eq('funcionaria_id', funcionariaLogadaId)
-      .order('created_at', { ascending: false }); // As mais novas aparecem primeiro
-    
-    if (data) setNotas(data);
-    setCarregando(false);
-  };
+    async function buscarNotas() {
+      const { data } = await supabase
+        .from('planner_diario')
+        .select('*')
+        .eq('funcionaria_id', funcionariaLogadaId)
+        .order('created_at', { ascending: false });
+
+      if (data) setNotas(data);
+      setCarregando(false);
+    }
+
+    buscarNotas();
+  }, [funcionariaLogadaId]);
 
   // Salva uma nova nota
   const adicionarNota = async (e) => {

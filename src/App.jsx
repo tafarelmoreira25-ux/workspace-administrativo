@@ -1,6 +1,7 @@
 import MeuHistorico from './MeuHistorico';
 import MeuPlanner from './MeuPlanner';
-import React, { useState, useEffect } from "react";
+import GeradorDocumentos from './GeradorDocumentos';
+import { useState } from "react";
 import { createClient } from "@supabase/supabase-js";
 
 // ==========================================
@@ -56,7 +57,7 @@ function Login({ onLogin }) {
     }
 
     // Autenticação Supabase
-    const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
+    const { error: authError } = await supabase.auth.signInWithPassword({
       email: email,
       password: senha,
     });
@@ -69,7 +70,7 @@ function Login({ onLogin }) {
 
     // Verifica se é o Administrador
     if (email === "tafarel@platino.com") {
-      onLogin({
+      await onLogin({
         id: 999,
         nome: "Tafarel Moreira",
         tipo: "admin",
@@ -91,7 +92,7 @@ function Login({ onLogin }) {
       return;
     }
 
-    onLogin({ ...funcData, tipo: "funcionaria" });
+    await onLogin({ ...funcData, tipo: "funcionaria" });
   }
 
   return (
@@ -236,6 +237,7 @@ function AdminDashboard({ usuario, onLogout, state }) {
           <a onClick={() => setAbaAtiva("dashboard")} className={abaAtiva === "dashboard" ? "active-tab" : ""}>Dashboard</a>
           <a onClick={() => setAbaAtiva("tarefas")} className={abaAtiva === "tarefas" ? "active-tab" : ""}>Tarefas</a>
           <a onClick={() => setAbaAtiva("equipe")} className={abaAtiva === "equipe" ? "active-tab" : ""}>Equipe</a>
+          <a onClick={() => setAbaAtiva("documentos")} className={abaAtiva === "documentos" ? "active-tab" : ""}>Documentos PDF</a>
         </nav>
         <button className="btn-secondary full" onClick={onLogout}>Sair do Sistema</button>
       </aside>
@@ -410,6 +412,10 @@ function AdminDashboard({ usuario, onLogout, state }) {
             </div>
           </section>
         )}
+
+        {abaAtiva === "documentos" && (
+          <GeradorDocumentos responsavel={usuario.nome} onSuccess={showToast} />
+        )}
       </main>
     </div>
   );
@@ -420,16 +426,54 @@ function AdminDashboard({ usuario, onLogout, state }) {
 // ==========================================
 
 function EmployeeDashboard({ usuario, onLogout, state }) {
-  const { listaTarefas, setListaTarefas, showToast } = state;
+  const { listaTarefas, setListaTarefas, recarregarTarefas, showToast } = state;
   const [abaAtiva, setAbaAtiva] = useState("tarefas");
+  const [tarefaConcluindoId, setTarefaConcluindoId] = useState(null);
 
-  const minhasTarefas = listaTarefas.filter((tarefa) => tarefa.funcionaria_id === usuario.id);
+  const minhasTarefas = listaTarefas.filter(
+    (tarefa) => String(tarefa.funcionaria_id) === String(usuario.id),
+  );
 
   async function concluirTarefa(tarefa) {
-    const { error } = await supabase.from('tarefas').update({ status: 'concluida' }).eq('id', tarefa.id);
-    if (!error) {
-      setListaTarefas((atuais) => atuais.map((t) => t.id === tarefa.id ? { ...t, status: "concluida" } : t));
+    setTarefaConcluindoId(tarefa.id);
+
+    const { data: tarefaAtualizada, error } = await supabase
+      .from("tarefas")
+      .update({ status: "concluida" })
+      .eq("id", tarefa.id)
+      .eq("funcionaria_id", usuario.id)
+      .select("id, status")
+      .maybeSingle();
+
+    if (error) {
+      console.error("Erro ao concluir tarefa:", error);
+      alert(`Não foi possível concluir a tarefa: ${error.message}`);
+      setTarefaConcluindoId(null);
+      return;
+    }
+
+    if (!tarefaAtualizada || tarefaAtualizada.status !== "concluida") {
+      alert(
+        "A tarefa não foi atualizada no banco. O acesso desta usuária precisa da permissão de atualização no Supabase.",
+      );
+      setTarefaConcluindoId(null);
+      return;
+    }
+
+    setListaTarefas((atuais) =>
+      atuais.map((item) =>
+        item.id === tarefa.id ? { ...item, status: tarefaAtualizada.status } : item,
+      ),
+    );
+
+    try {
+      await recarregarTarefas();
       showToast("Parabéns! Tarefa concluída com sucesso.");
+    } catch (erroRecarregamento) {
+      console.error("Erro ao confirmar tarefa no servidor:", erroRecarregamento);
+      showToast("Tarefa concluída. Atualize a página para sincronizar a lista.");
+    } finally {
+      setTarefaConcluindoId(null);
     }
   }
 
@@ -447,6 +491,7 @@ function EmployeeDashboard({ usuario, onLogout, state }) {
           <a onClick={() => setAbaAtiva("tarefas")} className={abaAtiva === "tarefas" ? "active-tab" : ""}>Minhas Tarefas</a>
           <a onClick={() => setAbaAtiva("historico")} className={abaAtiva === "historico" ? "active-tab" : ""}>Meu Histórico</a>
           <a onClick={() => setAbaAtiva("planner")} className={abaAtiva === "planner" ? "active-tab" : ""}>Meu Planner</a>
+          <a onClick={() => setAbaAtiva("documentos")} className={abaAtiva === "documentos" ? "active-tab" : ""}>Documentos PDF</a>
         </nav>
         <button className="btn-secondary full" onClick={onLogout}>Sair</button>
       </aside>
@@ -483,8 +528,12 @@ function EmployeeDashboard({ usuario, onLogout, state }) {
                       {tarefa.status}
                     </span>
                     {tarefa.status === "pendente" && (
-                      <button className="btn-success" onClick={() => concluirTarefa(tarefa)}>
-                        Concluir
+                      <button
+                        className="btn-success"
+                        disabled={tarefaConcluindoId === tarefa.id}
+                        onClick={() => concluirTarefa(tarefa)}
+                      >
+                        {tarefaConcluindoId === tarefa.id ? "Confirmando..." : "Concluir"}
                       </button>
                     )}
                   </div>
@@ -525,6 +574,10 @@ function EmployeeDashboard({ usuario, onLogout, state }) {
           <MeuPlanner funcionariaLogadaId={usuario.id} />
         )}
 
+        {abaAtiva === "documentos" && (
+          <GeradorDocumentos responsavel={usuario.nome} onSuccess={showToast} />
+        )}
+
       </main>
     </div>
   );
@@ -545,18 +598,54 @@ export default function App() {
     setTimeout(() => setToastMessage(""), 4000);
   }
 
-  useEffect(() => {
-    async function fetchData() {
-      const { data: tarefasData } = await supabase.from('tarefas').select('*');
-      if (tarefasData) setListaTarefas(tarefasData);
+  async function recarregarTarefas() {
+    const { data, error } = await supabase
+      .from("tarefas")
+      .select("*")
+      .order("id", { ascending: false });
 
-      const { data: funcData } = await supabase.from('funcionarios').select('*').order('pontos', { ascending: false });
-      if (funcData) setFuncionarios(funcData);
+    if (error) throw error;
+    setListaTarefas(data || []);
+    return data || [];
+  }
+
+  async function recarregarFuncionarios() {
+    const { data, error } = await supabase
+      .from("funcionarios")
+      .select("*")
+      .order("pontos", { ascending: false });
+
+    if (error) throw error;
+    setFuncionarios(data || []);
+    return data || [];
+  }
+
+  async function handleLogin(usuario) {
+    setUsuarioLogado(usuario);
+
+    try {
+      await Promise.all([recarregarTarefas(), recarregarFuncionarios()]);
+    } catch (error) {
+      console.error("Erro ao carregar dados após o login:", error);
+      showToast("Login realizado, mas houve erro ao sincronizar os dados.");
     }
-    fetchData();
-  }, []);
+  }
 
-  const globais = { listaTarefas, setListaTarefas, funcionarios, setFuncionarios, showToast };
+  async function handleLogout() {
+    await supabase.auth.signOut();
+    setUsuarioLogado(null);
+    setListaTarefas([]);
+    setFuncionarios([]);
+  }
+
+  const globais = {
+    listaTarefas,
+    setListaTarefas,
+    funcionarios,
+    setFuncionarios,
+    recarregarTarefas,
+    showToast,
+  };
 
   return (
     <>
@@ -644,23 +733,73 @@ export default function App() {
         .toast-message { position: fixed; bottom: 30px; right: 30px; background: var(--dark); color: white; padding: 16px 24px; border-radius: 12px; z-index: 1000; box-shadow: 0 10px 30px rgba(0,0,0,0.2); font-weight: 500; animation: slideUp 0.3s ease-out; }
         @keyframes slideUp { from { transform: translateY(50px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
 
+        .document-workspace { display: flex; flex-direction: column; gap: 24px; }
+        .document-heading { display: flex; align-items: flex-end; justify-content: space-between; gap: 24px; }
+        .document-heading h2 { color: var(--dark); font-size: 28px; margin: 4px 0 6px; }
+        .eyebrow { color: var(--accent); font-size: 12px; font-weight: 800; letter-spacing: 1.2px; text-transform: uppercase; }
+        .document-number { background: #dbeafe; border: 1px solid #bfdbfe; border-radius: 14px; padding: 12px 16px; color: var(--dark); }
+        .document-number span { display: block; color: var(--muted); font-size: 11px; margin-bottom: 4px; text-transform: uppercase; }
+        .document-grid { display: grid; grid-template-columns: minmax(0, 1.55fr) minmax(320px, 0.75fr); gap: 24px; align-items: start; }
+        .document-form { display: flex; flex-direction: column; gap: 24px; }
+        .document-form fieldset { border: 0; padding: 0; }
+        .document-form legend { color: var(--dark); font-size: 15px; font-weight: 800; margin-bottom: 14px; text-transform: uppercase; }
+        .form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+        .form-grid label { color: #475569; display: flex; flex-direction: column; font-size: 12px; font-weight: 700; gap: 6px; }
+        .form-grid .span-2 { grid-column: span 2; }
+        .form-grid input, .form-grid select, .form-grid textarea { background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 10px; color: var(--text); font-size: 14px; outline: none; padding: 11px 12px; width: 100%; }
+        .form-grid textarea { line-height: 1.5; resize: vertical; }
+        .form-grid input:focus, .form-grid select:focus, .form-grid textarea:focus { background: white; border-color: var(--accent); box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.12); }
+        .form-error { background: #fef2f2; border: 1px solid #fecaca; border-radius: 10px; color: #b91c1c; font-size: 13px; padding: 10px 12px; }
+        .document-actions { border-top: 1px solid #e2e8f0; display: flex; justify-content: flex-end; gap: 10px; padding-top: 20px; }
+        button:disabled { cursor: wait; opacity: 0.65; }
+        .pdf-preview { position: sticky; top: 24px; }
+        .preview-page { aspect-ratio: 1 / 1.414; background: white; border: 1px solid #dbeafe; box-shadow: 0 18px 40px rgba(30, 58, 138, 0.12); color: #334155; display: flex; flex-direction: column; padding: 28px; }
+        .preview-header { align-items: center; background: var(--dark); color: white; display: flex; gap: 10px; margin: -28px -28px 18px; padding: 18px 24px; }
+        .preview-header img { background: white; border-radius: 50%; height: 34px; object-fit: cover; width: 34px; }
+        .preview-header strong, .preview-header span { display: block; }
+        .preview-header span { font-size: 8px; opacity: 0.8; }
+        .preview-meta { display: flex; justify-content: space-between; color: #64748b; font-size: 8px; text-transform: uppercase; }
+        .preview-page h3 { color: var(--dark); font-size: 17px; margin: 22px 0; text-align: center; text-transform: uppercase; }
+        .preview-section { border-top: 1px solid #dbeafe; padding: 12px 0 4px; }
+        .preview-section span, .preview-highlight span { color: var(--accent); display: block; font-size: 8px; font-weight: 800; margin-bottom: 5px; text-transform: uppercase; }
+        .preview-section strong { color: var(--dark); font-size: 11px; }
+        .preview-section p { display: -webkit-box; font-size: 9px; line-height: 1.5; overflow: hidden; -webkit-box-orient: vertical; -webkit-line-clamp: 4; }
+        .preview-highlight { align-items: center; background: #eff6ff; border-radius: 8px; display: flex; justify-content: space-between; margin-top: 12px; padding: 10px; }
+        .preview-highlight span { margin: 0; }
+        .preview-highlight strong { color: var(--dark); font-size: 12px; }
+        .preview-signatures { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-top: auto; padding-top: 20px; }
+        .preview-signatures span { border-top: 1px solid #94a3b8; color: #64748b; font-size: 8px; padding-top: 5px; text-align: center; }
+        .preview-note { font-size: 11px; margin-top: 12px; text-align: center; }
+
         @media (max-width: 1024px) {
           .app-layout { grid-template-columns: 1fr; }
           .sidebar { height: auto; position: relative; }
           .cards-grid { grid-template-columns: repeat(2, 1fr); }
           .content-grid { grid-template-columns: 1fr; }
           .task-item { flex-direction: column; align-items: flex-start; }
+          .document-grid { grid-template-columns: 1fr; }
+          .pdf-preview { margin: 0 auto; max-width: 480px; position: static; width: 100%; }
+        }
+
+        @media (max-width: 640px) {
+          .main-content { padding: 18px; }
+          .document-heading { align-items: flex-start; flex-direction: column; }
+          .document-number { width: 100%; }
+          .form-grid { grid-template-columns: 1fr; }
+          .form-grid .span-2 { grid-column: span 1; }
+          .document-actions { flex-direction: column-reverse; }
+          .document-actions button { width: 100%; }
         }
       `}</style>
       
       <Toast message={toastMessage} onClose={() => setToastMessage("")} />
 
       {!usuarioLogado ? (
-        <Login onLogin={setUsuarioLogado} />
+        <Login onLogin={handleLogin} />
       ) : usuarioLogado.tipo === "admin" ? (
-        <AdminDashboard usuario={usuarioLogado} onLogout={() => setUsuarioLogado(null)} state={globais} />
+        <AdminDashboard usuario={usuarioLogado} onLogout={handleLogout} state={globais} />
       ) : (
-        <EmployeeDashboard usuario={usuarioLogado} onLogout={() => setUsuarioLogado(null)} state={globais} />
+        <EmployeeDashboard usuario={usuarioLogado} onLogout={handleLogout} state={globais} />
       )}
     </>
   );
