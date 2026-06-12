@@ -1,27 +1,25 @@
-import { useState, useEffect } from 'react';
-import { createClient } from '@supabase/supabase-js';
-
-// Conexão com o banco de dados (mesmo padrão do seu App.jsx)
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || "SUA_URL_AQUI";
-const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY || "SUA_CHAVE_AQUI";
-const supabase = createClient(supabaseUrl, supabaseKey);
+import { useEffect, useState } from 'react';
+import { supabase } from './lib/supabase';
 
 export default function MeuPlanner({ funcionariaLogadaId }) {
   const [notas, setNotas] = useState([]);
-  const [conteudo, setConteudo] = useState("");
-  const [categoria, setCategoria] = useState("Avisos");
+  const [conteudo, setConteudo] = useState('');
+  const [categoria, setCategoria] = useState('Avisos');
   const [carregando, setCarregando] = useState(true);
 
-  // Busca as notas assim que a tela abre
   useEffect(() => {
     if (!funcionariaLogadaId) return;
 
     async function buscarNotas() {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from('planner_diario')
         .select('*')
         .eq('funcionaria_id', funcionariaLogadaId)
         .order('created_at', { ascending: false });
+
+      if (error) {
+        alert(`Erro ao abrir o planner: ${error.message}`);
+      }
 
       if (data) setNotas(data);
       setCarregando(false);
@@ -30,140 +28,189 @@ export default function MeuPlanner({ funcionariaLogadaId }) {
     buscarNotas();
   }, [funcionariaLogadaId]);
 
-  // Salva uma nova nota
-  const adicionarNota = async (e) => {
-    e.preventDefault();
+  const adicionarNota = async (event) => {
+    event.preventDefault();
     if (!conteudo.trim()) return;
 
     const novaNota = {
       funcionaria_id: funcionariaLogadaId,
-      categoria: categoria,
-      conteudo: conteudo,
-      concluido: false
+      categoria,
+      conteudo: conteudo.trim(),
+      concluido: false,
     };
 
-    const { data, error } = await supabase.from('planner_diario').insert([novaNota]).select();
+    const { data, error } = await supabase
+      .from('planner_diario')
+      .insert([novaNota])
+      .select();
 
     if (!error && data) {
-      setNotas([data[0], ...notas]); // Adiciona na tela na hora
-      setConteudo(""); // Limpa o campo de texto
+      setNotas((atuais) => [data[0], ...atuais]);
+      setConteudo('');
     } else {
-      alert("Erro ao salvar nota no planner.");
+      alert(`Erro ao salvar nota no planner: ${error?.message || 'registro não confirmado'}`);
     }
   };
 
-  // Marca como concluído ou pendente
   const alternarStatus = async (id, statusAtual) => {
-    const { error } = await supabase.from('planner_diario').update({ concluido: !statusAtual }).eq('id', id);
-    if (!error) {
-      setNotas(notas.map(n => n.id === id ? { ...n, concluido: !statusAtual } : n));
+    const { data, error } = await supabase
+      .from('planner_diario')
+      .update({ concluido: !statusAtual })
+      .eq('id', id)
+      .eq('funcionaria_id', funcionariaLogadaId)
+      .select('id, concluido')
+      .maybeSingle();
+
+    if (!error && data) {
+      setNotas((atuais) =>
+        atuais.map((nota) =>
+          nota.id === id ? { ...nota, concluido: data.concluido } : nota,
+        ),
+      );
+    } else {
+      alert(`Erro ao atualizar nota: ${error?.message || 'registro não confirmado'}`);
     }
   };
 
-  // Apaga a nota
   const deletarNota = async (id) => {
-    const { error } = await supabase.from('planner_diario').delete().eq('id', id);
-    if (!error) {
-      setNotas(notas.filter(n => n.id !== id));
+    const { data, error } = await supabase
+      .from('planner_diario')
+      .delete()
+      .eq('id', id)
+      .eq('funcionaria_id', funcionariaLogadaId)
+      .select('id')
+      .maybeSingle();
+
+    if (!error && data) {
+      setNotas((atuais) => atuais.filter((nota) => nota.id !== id));
+    } else {
+      alert(`Erro ao excluir nota: ${error?.message || 'registro não confirmado'}`);
     }
   };
 
-  // Separando as notas pelas colunas corretas
-  const avisos = notas.filter(n => n.categoria === "Avisos");
-  const metas = notas.filter(n => n.categoria === "Metas");
-  const cronograma = notas.filter(n => n.categoria === "Cronograma");
+  const colunas = [
+    {
+      categoria: 'Avisos',
+      legenda: 'Acompanhar',
+      titulo: 'Avisos importantes',
+      vazio: 'Nenhum aviso no momento.',
+      classe: 'planner-avisos',
+      cor: '#6fa8ed',
+    },
+    {
+      categoria: 'Metas',
+      legenda: 'Priorizar',
+      titulo: 'Metas do dia',
+      vazio: 'Registre seus objetivos de hoje.',
+      classe: 'planner-metas',
+      cor: '#7d91e8',
+    },
+    {
+      categoria: 'Cronograma',
+      legenda: 'Planejar',
+      titulo: 'Cronograma',
+      vazio: 'Organize seus horários.',
+      classe: 'planner-cronograma',
+      cor: '#55b9d5',
+    },
+  ];
 
-  if (carregando) return <p>Abrindo seu planner...</p>;
+  if (carregando) {
+    return <p className="loading-state">Abrindo seu planner...</p>;
+  }
 
   return (
-    <div style={{ padding: '10px', fontFamily: 'sans-serif' }}>
-      
-      {/* CABEÇALHO DO PLANNER */}
-      <div style={{ background: '#ffffff', padding: '20px', borderRadius: '16px', marginBottom: '24px', boxShadow: '0 4px 10px rgba(0,0,0,0.03)' }}>
-        <h2 style={{ margin: '0 0 16px 0', color: '#1e3a8a' }}>✨ Meu Planner Diário</h2>
-        
-        <form onSubmit={adicionarNota} style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
-          <select 
-            value={categoria} 
-            onChange={(e) => setCategoria(e.target.value)}
-            style={{ padding: '12px', borderRadius: '10px', border: '1px solid #cbd5e1', outline: 'none' }}
+    <div className="planner-workspace">
+      <div className="planner-header panel">
+        <span className="eyebrow">Organização pessoal</span>
+        <h2>Meu Planner Diário</h2>
+        <p>Registre prioridades, acompanhe metas e mantenha o dia sob controle.</p>
+
+        <form onSubmit={adicionarNota} className="planner-form">
+          <select
+            value={categoria}
+            onChange={(event) => setCategoria(event.target.value)}
+            aria-label="Categoria da nota"
           >
-            <option value="Avisos">📌 Lembretes e Avisos</option>
-            <option value="Metas">🎯 Metas do Dia</option>
-            <option value="Cronograma">⏰ Cronograma de Horários</option>
+            <option value="Avisos">Lembretes e avisos</option>
+            <option value="Metas">Metas do dia</option>
+            <option value="Cronograma">Cronograma de horários</option>
           </select>
-          
-          <input 
-            type="text" 
-            placeholder="O que você precisa registrar?" 
+
+          <input
+            type="text"
+            placeholder="O que você precisa registrar?"
             value={conteudo}
-            onChange={(e) => setConteudo(e.target.value)}
-            style={{ flex: 1, minWidth: '200px', padding: '12px', borderRadius: '10px', border: '1px solid #cbd5e1', outline: 'none' }}
+            onChange={(event) => setConteudo(event.target.value)}
           />
-          
-          <button type="submit" style={{ padding: '12px 24px', borderRadius: '10px', border: 'none', background: '#3b82f6', color: 'white', fontWeight: 'bold', cursor: 'pointer' }}>
-            + Adicionar
+
+          <button type="submit" className="btn-primary">
+            Adicionar nota
           </button>
         </form>
       </div>
 
-      {/* AS TRÊS COLUNAS ACOLHEDORAS */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '20px' }}>
-        
-        {/* COLUNA 1: AVISOS (Amarelinho/Laranja pastel) */}
-        <div style={{ background: '#fffbeb', padding: '20px', borderRadius: '16px', border: '1px solid #fde68a' }}>
-          <h3 style={{ margin: '0 0 15px 0', color: '#b45309', display: 'flex', alignItems: 'center', gap: '8px' }}>📌 Avisos Importantes</h3>
-          {avisos.length === 0 && <p style={{ fontSize: '14px', color: '#92400e' }}>Nenhum aviso no momento.</p>}
-          {avisos.map(nota => (
-            <NotaCard key={nota.id} nota={nota} onToggle={alternarStatus} onDelete={deletarNota} corCheck="#d97706" />
-          ))}
-        </div>
+      <div className="planner-grid">
+        {colunas.map((coluna) => {
+          const notasDaColuna = notas.filter(
+            (nota) => nota.categoria === coluna.categoria,
+          );
 
-        {/* COLUNA 2: METAS (Rosa pastel) */}
-        <div style={{ background: '#fdf2f8', padding: '20px', borderRadius: '16px', border: '1px solid #fbcfe8' }}>
-          <h3 style={{ margin: '0 0 15px 0', color: '#be185d', display: 'flex', alignItems: 'center', gap: '8px' }}>🎯 Metas do Dia</h3>
-          {metas.length === 0 && <p style={{ fontSize: '14px', color: '#9d174d' }}>Quais são seus objetivos hoje?</p>}
-          {metas.map(nota => (
-            <NotaCard key={nota.id} nota={nota} onToggle={alternarStatus} onDelete={deletarNota} corCheck="#db2777" />
-          ))}
-        </div>
+          return (
+            <section
+              className={`planner-column ${coluna.classe}`}
+              key={coluna.categoria}
+            >
+              <div className="planner-column-title">
+                <span className="planner-dot" />
+                <div>
+                  <span>{coluna.legenda}</span>
+                  <h3>{coluna.titulo}</h3>
+                </div>
+              </div>
 
-        {/* COLUNA 3: CRONOGRAMA (Verde/Azul pastel) */}
-        <div style={{ background: '#f0fdf4', padding: '20px', borderRadius: '16px', border: '1px solid #bbf7d0' }}>
-          <h3 style={{ margin: '0 0 15px 0', color: '#15803d', display: 'flex', alignItems: 'center', gap: '8px' }}>⏰ Cronograma</h3>
-          {cronograma.length === 0 && <p style={{ fontSize: '14px', color: '#166534' }}>Organize seus horários.</p>}
-          {cronograma.map(nota => (
-            <NotaCard key={nota.id} nota={nota} onToggle={alternarStatus} onDelete={deletarNota} corCheck="#16a34a" />
-          ))}
-        </div>
+              {notasDaColuna.length === 0 && (
+                <p className="planner-empty">{coluna.vazio}</p>
+              )}
 
+              {notasDaColuna.map((nota) => (
+                <NotaCard
+                  key={nota.id}
+                  nota={nota}
+                  onToggle={alternarStatus}
+                  onDelete={deletarNota}
+                  corCheck={coluna.cor}
+                />
+              ))}
+            </section>
+          );
+        })}
       </div>
     </div>
   );
 }
 
-// Componente visual de cada "post-it" (Nota)
 function NotaCard({ nota, onToggle, onDelete, corCheck }) {
   return (
-    <div style={{ 
-      background: 'white', padding: '12px', borderRadius: '12px', marginBottom: '10px', 
-      display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-      boxShadow: '0 2px 4px rgba(0,0,0,0.02)', borderLeft: `4px solid ${corCheck}`,
-      opacity: nota.concluido ? 0.6 : 1
-    }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flex: 1 }}>
-        <input 
-          type="checkbox" 
-          checked={nota.concluido} 
-          onChange={() => onToggle(nota.id, nota.concluido)}
-          style={{ cursor: 'pointer', width: '18px', height: '18px', accentColor: corCheck }}
-        />
-        <span style={{ textDecoration: nota.concluido ? 'line-through' : 'none', color: '#334155', fontSize: '14px', lineHeight: '1.4' }}>
-          {nota.conteudo}
-        </span>
-      </div>
-      <button onClick={() => onDelete(nota.id)} style={{ background: 'transparent', border: 'none', color: '#cbd5e1', cursor: 'pointer', fontSize: '16px' }} title="Excluir">
-        ✖
+    <div
+      className={`note-card ${nota.concluido ? 'completed' : ''}`}
+      style={{ '--note-accent': corCheck }}
+    >
+      <input
+        type="checkbox"
+        checked={nota.concluido}
+        onChange={() => onToggle(nota.id, nota.concluido)}
+        className="note-check"
+        aria-label={nota.concluido ? 'Marcar como pendente' : 'Marcar como concluído'}
+      />
+      <span className="note-text">{nota.conteudo}</span>
+      <button
+        onClick={() => onDelete(nota.id)}
+        className="note-delete"
+        title="Excluir"
+        aria-label="Excluir nota"
+      >
+        ×
       </button>
     </div>
   );

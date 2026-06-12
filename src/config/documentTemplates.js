@@ -1,0 +1,90 @@
+const campoGenero = {
+  nome: "genero",
+  rotulo: "Gênero gramatical",
+  tipo: "select",
+  obrigatorio: true,
+  opcoes: [
+    { valor: "feminino", rotulo: "Feminino" },
+    { valor: "masculino", rotulo: "Masculino" },
+    { valor: "neutro", rotulo: "Neutro" },
+  ],
+};
+
+export const DOCUMENT_TEMPLATES = [
+  {
+    id: "procuracao-ad-judicia",
+    nome: "Procuração",
+    descricao:
+      "Procuração para Ação de Revisão de Contrato, baseada no modelo oficial enviado.",
+    modo: "procuracao",
+    titulo: "Procuração Ad Judicia",
+    campos: [
+      { nome: "nomeCliente", rotulo: "Nome completo", obrigatorio: true, largura: "total" },
+      campoGenero,
+      { nome: "nacionalidade", rotulo: "Nacionalidade", obrigatorio: true },
+      { nome: "estadoCivil", rotulo: "Estado civil", obrigatorio: true },
+      { nome: "profissao", rotulo: "Profissão", obrigatorio: true },
+      { nome: "rg", rotulo: "RG", obrigatorio: true },
+      { nome: "cpfCnpj", rotulo: "CPF", obrigatorio: true },
+      { nome: "email", rotulo: "E-mail", tipo: "email", obrigatorio: true },
+      { nome: "endereco", rotulo: "Endereço completo", obrigatorio: true, largura: "total" },
+      { nome: "cep", rotulo: "CEP", obrigatorio: true },
+      { nome: "banco", rotulo: "Banco", obrigatorio: true },
+      { nome: "numeroContrato", rotulo: "Número do contrato", obrigatorio: true },
+      { nome: "cidade", rotulo: "Cidade de assinatura", obrigatorio: true },
+    ],
+  },
+  {
+    id: "declaracao-isencao-irpf",
+    nome: "Declaração de isenção de Imposto de Renda",
+    descricao:
+      "Declaração de isenção de IRPF baseada no modelo Word oficial enviado.",
+    modo: "declaracao-isencao-irpf",
+    titulo: "Declaração de Isenção do Imposto de Renda Pessoa Física (IRPF)",
+    campos: [
+      { nome: "nomeCliente", rotulo: "Nome completo", obrigatorio: true, largura: "total" },
+      campoGenero,
+      { nome: "nacionalidade", rotulo: "Nacionalidade", obrigatorio: true },
+      { nome: "estadoCivil", rotulo: "Estado civil", obrigatorio: true },
+      { nome: "profissao", rotulo: "Profissão", obrigatorio: true },
+      { nome: "rg", rotulo: "RG", obrigatorio: true },
+      { nome: "cpfCnpj", rotulo: "CPF", obrigatorio: true },
+      { nome: "email", rotulo: "E-mail", tipo: "email", obrigatorio: true },
+      { nome: "endereco", rotulo: "Endereço completo", obrigatorio: true, largura: "total" },
+      {
+        nome: "exercicios",
+        rotulo: "Exercícios da isenção",
+        obrigatorio: true,
+        largura: "total",
+      },
+      { nome: "cidade", rotulo: "Cidade de assinatura", obrigatorio: true },
+      { nome: "uf", rotulo: "UF", obrigatorio: true },
+    ],
+  },
+  {
+    id: "declaracao-hipossuficiencia",
+    nome: "Declaração de hipossuficiência",
+    descricao:
+      "Declaração para solicitação dos benefícios da justiça gratuita, conforme o modelo Word oficial.",
+    modo: "declaracao-hipossuficiencia",
+    titulo: "Declaração de Hipossuficiência",
+    campos: [
+      { nome: "nomeCliente", rotulo: "Nome completo", obrigatorio: true, largura: "total" },
+      campoGenero,
+      { nome: "nacionalidade", rotulo: "Nacionalidade", obrigatorio: true },
+      { nome: "estadoCivil", rotulo: "Estado civil", obrigatorio: true },
+      { nome: "profissao", rotulo: "Profissão", obrigatorio: true },
+      { nome: "rg", rotulo: "RG", obrigatorio: true },
+      {
+        nome: "orgaoExpedidor",
+        rotulo: "Órgão expedidor do RG",
+        obrigatorio: true,
+      },
+      { nome: "cpfCnpj", rotulo: "CPF", obrigatorio: true },
+      { nome: "email", rotulo: "E-mail", tipo: "email", obrigatorio: true },
+      { nome: "endereco", rotulo: "Endereço completo", obrigatorio: true, largura: "total" },
+      { nome: "cidade", rotulo: "Cidade de assinatura", obrigatorio: true },
+      { nome: "uf", rotulo: "UF", obrigatorio: true },
+    ],
+  },
+];
