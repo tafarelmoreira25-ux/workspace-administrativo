@@ -40,13 +40,13 @@ function formasGenero(genero) {
 }
 
 function quebrarTexto(texto, fonte, tamanho, larguraMaxima) {
-  const lines = [];
+  const linhas = [];
 
   String(texto)
     .split("\n")
     .forEach((paragrafo) => {
       if (!paragrafo.trim()) {
-        lines.push("");
+        linhas.push("");
         return;
       }
 
@@ -58,15 +58,15 @@ function quebrarTexto(texto, fonte, tamanho, larguraMaxima) {
         if (fonte.widthOfTextAtSize(tentativa, tamanho) <= larguraMaxima) {
           linha = tentativa;
         } else {
-          if (linha) lines.push(linha);
+          if (linha) linhas.push(linha);
           linha = palavra;
         }
       });
 
-      if (linha) lines.push(linha);
+      if (linha) linhas.push(linha);
     });
 
-  return lines;
+  return linhas;
 }
 
 function desenharTexto({
@@ -144,7 +144,7 @@ export async function gerarDeclaracaoIsencaoIrpfPdf(dados) {
   const { pdf, pagina, fontes } = await criarDocumento();
   const genero = formasGenero(dados.genero);
   
-  // Iniciando um pouco mais abaixo do topo absoluto
+  // AUMENTADO: Iniciando um pouco mais abaixo do topo absoluto
   let y = A4[1] - 85; 
 
   y = desenharTexto({
@@ -178,7 +178,8 @@ export async function gerarDeclaracaoIsencaoIrpfPdf(dados) {
     fonte: fontes.normal,
     tamanho: 9.5,
     y,
-    alturaLinha: 16, // Aumentado levemente o espaçamento entre linhas do texto para encorpar
+    // AUMENTADO: Espaçamento entre linhas do texto para encorpar (era 14.2)
+    alturaLinha: 16, 
   });
 
   // AUMENTADO: Mais espaço antes da data/cidade (era 23)
@@ -194,7 +195,7 @@ export async function gerarDeclaracaoIsencaoIrpfPdf(dados) {
     alinhamento: "center",
   });
 
-  // AUMENTADO: Mais espaço antes da assinatura (era 34) para empurrá-la para baixo
+  // AUMENTADO: Mais espaço antes da assinatura para empurrá-la para baixo (era 34)
   y -= 75; 
   desenharAssinatura(pagina, fontes, dados.nomeCliente, y);
 
@@ -220,7 +221,8 @@ export async function gerarDeclaracaoIsencaoIrpfPdf(dados) {
     alturaLinha: 8.5,
   });
 
-  y -= 12; // Aumentado um pouco
+  // AUMENTADO: Espaço entre esclarecimento e lei (era 7)
+  y -= 12; 
   y = desenharTexto({
     pagina,
     texto: "LEI Nº 7.115, DE 29 DE AGOSTO DE 1983.",
@@ -257,7 +259,7 @@ export async function gerarDeclaracaoHipossuficienciaPdf(dados) {
   const { pdf, pagina, fontes } = await criarDocumento();
   const genero = formasGenero(dados.genero);
   
-  // Iniciando um pouco mais abaixo do topo (era 78)
+  // AUMENTADO: Iniciando um pouco mais abaixo do topo (era 78)
   let y = A4[1] - 100; 
 
   y = desenharTexto({
@@ -290,7 +292,8 @@ export async function gerarDeclaracaoHipossuficienciaPdf(dados) {
     fonte: fontes.normal,
     tamanho: 10.5,
     y,
-    alturaLinha: 18, // Espaçamento entre linhas aumentado para encorpar o texto na página
+    // AUMENTADO: Espaçamento entre linhas aumentado para encorpar o texto na página
+    alturaLinha: 18, 
   });
 
   // AUMENTADO: Espaço entre o parágrafo principal e a frase de efeito (era 24)
@@ -305,9 +308,8 @@ export async function gerarDeclaracaoHipossuficienciaPdf(dados) {
     alturaLinha: 16,
   });
 
-  // Como a declaração de hipossuficiência não possui textos legais compridos embaixo,
-  // podemos usar o marginTop dinâmico de forma fixa para jogá-la bem para baixo.
-  // Fixando o Y da Cidade/Data e Assinatura para ficarem distribuídos no terço inferior da página.
+  // FIXADO: Como a declaração de hipossuficiência não possui textos legais compridos embaixo,
+  // fixamos o Y da Cidade/Data para ficarem no terço inferior da página.
   y = 260; 
 
   y = desenharTexto({
@@ -320,7 +322,7 @@ export async function gerarDeclaracaoHipossuficienciaPdf(dados) {
     alinhamento: "center",
   });
 
-  // Distância confortável entre a data e a linha de assinatura
+  // AUMENTADO: Distância confortável entre a data e a linha de assinatura (era 70)
   y -= 85; 
   desenharAssinatura(pagina, fontes, dados.nomeCliente, y);
 
