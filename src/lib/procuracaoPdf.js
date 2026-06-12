@@ -250,3 +250,19 @@ export async function gerarProcuracaoPdf(dados, logoBytes) {
     start: { x: xAssinatura, y },
     end: { x: xAssinatura + larguraAssinatura, y },
     thickness: 0.8,
+    color: rgb(0, 0, 0),
+  });
+
+  y -= 17;
+  const assinatura = nome.toUpperCase();
+  const larguraNome = fontes.negrito.widthOfTextAtSize(assinatura, 9);
+  pagina.drawText(assinatura, {
+    x: (A4[0] - larguraNome) / 2,
+    y,
+    size: 9,
+    font: fontes.negrito,
+    color: rgb(0, 0, 0),
+  });
+
+  return pdf.save();
+}
