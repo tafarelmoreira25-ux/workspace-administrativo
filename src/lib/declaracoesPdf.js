@@ -308,7 +308,7 @@ export async function gerarDeclaracaoHipossuficienciaPdf(dados) {
     alturaLinha: 16,
   });
 
-  // FIXADO: Como a declaração de hipossuficiência não possui textos legais compridos embaixo,
+// FIXADO: Como a declaração de hipossuficiência não possui textos legais compridos embaixo,
   // fixamos o Y da Cidade/Data para ficarem no terço inferior da página.
   y = 260; 
 
@@ -319,12 +319,28 @@ export async function gerarDeclaracaoHipossuficienciaPdf(dados) {
     tamanho: 10,
     y,
     alturaLinha: 14,
-    alinhamento: "center",
+    alinhamento: "center", // Isso já garante que a data fique centralizada!
   });
 
   // AUMENTADO: Distância confortável entre a data e a linha de assinatura (era 70)
   y -= 85; 
   desenharAssinatura(pagina, fontes, dados.nomeCliente, y);
+
+  // --- LOGOTIPO NO RODAPÉ ---
+  if (logoBytes) {
+    const logo = await pdf.embedPng(logoBytes);
+    const escala = Math.min(35 / logo.width, 35 / logo.height);
+    const largura = logo.width * escala;
+    const altura = logo.height * escala;
+    
+    pagina.drawImage(logo, {
+      x: (A4[0] - largura) / 2,
+      y: 30, // Posição fixa no rodapé
+      width: largura,
+      height: altura,
+      opacity: 0.8,
+    });
+  }
 
   return pdf.save();
 }
