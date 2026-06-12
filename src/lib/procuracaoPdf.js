@@ -229,12 +229,16 @@ export async function gerarProcuracaoPdf(dados, logoBytes) {
     ],
   });
 
-  // ADICIONADO: Empurra a data um pouco mais para baixo após o último parágrafo
+// ADICIONADO: Empurra a data um pouco mais para baixo após o último parágrafo
   y -= 25; 
 
   const localData = `${dados.cidade}, ${dataPorExtenso(dados.dataEmissao)}.`;
+  
+  // Calcula a largura da frase da data para poder centralizar
+  const larguraData = fontes.normal.widthOfTextAtSize(localData, TAMANHO_TEXTO);
+  
   pagina.drawText(localData, {
-    x: MARGEM_HORIZONTAL,
+    x: (A4[0] - larguraData) / 2, // Centraliza a data perfeitamente na folha A4
     y,
     size: TAMANHO_TEXTO,
     font: fontes.normal,
@@ -263,6 +267,22 @@ export async function gerarProcuracaoPdf(dados, logoBytes) {
     font: fontes.negrito,
     color: rgb(0, 0, 0),
   });
+
+  // --- LOGOTIPO NO RODAPÉ ---
+  if (logoBytes) {
+    const logo = await pdf.embedPng(logoBytes);
+    const escala = Math.min(35 / logo.width, 35 / logo.height);
+    const largura = logo.width * escala;
+    const altura = logo.height * escala;
+    
+    pagina.drawImage(logo, {
+      x: (A4[0] - largura) / 2,
+      y: 30, // Posição fixa no rodapé
+      width: largura,
+      height: altura,
+      opacity: 0.8,
+    });
+  }
 
   return pdf.save();
 }
