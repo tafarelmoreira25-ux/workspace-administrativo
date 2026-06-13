@@ -28,7 +28,7 @@ function formasGenero(genero) {
   if (genero === "feminino") {
     return {
       portador: "portadora",
-      inscrito: "inscrita",
+      inscrita: "inscrita",
       domiciliado: "domiciliada",
     };
   }
@@ -124,7 +124,8 @@ function desenharParagrafo({
     y -= ALTURA_LINHA;
   });
 
-  return y - 11;
+  // AUMENTADO: Aumentei o espaço em branco após cada parágrafo (era 11, agora é 25)
+  return y - 25;
 }
 
 export async function gerarProcuracaoPdf(dados, logoBytes) {
@@ -135,7 +136,8 @@ export async function gerarProcuracaoPdf(dados, logoBytes) {
     negrito: await pdf.embedFont(StandardFonts.HelveticaBold),
   };
 
-  let y = A4[1] - 48;
+  // AUMENTADO: Começa a imprimir mais abaixo na folha (era 48)
+  let y = A4[1] - 80;
 
   if (logoBytes) {
     const logo = await pdf.embedPng(logoBytes);
@@ -160,7 +162,9 @@ export async function gerarProcuracaoPdf(dados, logoBytes) {
     font: fontes.negrito,
     color: rgb(0, 0, 0),
   });
-  y -= 35;
+  
+  // AUMENTADO: Mais respiro abaixo do título (era 35)
+  y -= 50;
 
   const genero = formasGenero(dados.genero);
   const nome = dados.nomeCliente?.trim() || "";
@@ -225,16 +229,25 @@ export async function gerarProcuracaoPdf(dados, logoBytes) {
     ],
   });
 
+// ADICIONADO: Empurra a data um pouco mais para baixo após o último parágrafo
+  y -= 25; 
+
   const localData = `${dados.cidade}, ${dataPorExtenso(dados.dataEmissao)}.`;
+  
+  // Calcula a largura da frase da data para poder centralizar
+  const larguraData = fontes.normal.widthOfTextAtSize(localData, TAMANHO_TEXTO);
+  
   pagina.drawText(localData, {
-    x: MARGEM_HORIZONTAL,
+    x: (A4[0] - larguraData) / 2, // Centraliza a data perfeitamente na folha A4
     y,
     size: TAMANHO_TEXTO,
     font: fontes.normal,
     color: rgb(0, 0, 0),
   });
 
-  y -= 52;
+  // AUMENTADO: Empurra a assinatura bem mais para baixo (era 52)
+  y -= 100;
+  
   const larguraAssinatura = 235;
   const xAssinatura = (A4[0] - larguraAssinatura) / 2;
   pagina.drawLine({
@@ -254,6 +267,22 @@ export async function gerarProcuracaoPdf(dados, logoBytes) {
     font: fontes.negrito,
     color: rgb(0, 0, 0),
   });
+
+  // --- LOGOTIPO NO RODAPÉ ---
+  if (logoBytes) {
+    const logo = await pdf.embedPng(logoBytes);
+    const escala = Math.min(35 / logo.width, 35 / logo.height);
+    const largura = logo.width * escala;
+    const altura = logo.height * escala;
+    
+    pagina.drawImage(logo, {
+      x: (A4[0] - largura) / 2,
+      y: 30, // Posição fixa no rodapé
+      width: largura,
+      height: altura,
+      opacity: 0.8,
+    });
+  }
 
   return pdf.save();
 }

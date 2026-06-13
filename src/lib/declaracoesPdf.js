@@ -27,7 +27,7 @@ function formasGenero(genero) {
   if (genero === "feminino") {
     return {
       portador: "portadora",
-      inscrito: "inscrita",
+      inscrita: "inscrita",
       domiciliado: "domiciliada",
     };
   }
@@ -143,7 +143,9 @@ async function criarDocumento() {
 export async function gerarDeclaracaoIsencaoIrpfPdf(dados) {
   const { pdf, pagina, fontes } = await criarDocumento();
   const genero = formasGenero(dados.genero);
-  let y = A4[1] - 68;
+  
+  // AUMENTADO: Iniciando um pouco mais abaixo do topo absoluto
+  let y = A4[1] - 85; 
 
   y = desenharTexto({
     pagina,
@@ -155,7 +157,9 @@ export async function gerarDeclaracaoIsencaoIrpfPdf(dados) {
     alinhamento: "center",
   });
 
-  y -= 30;
+  // AUMENTADO: Mais espaço entre o Título e o Texto da declaração (era 30)
+  y -= 60; 
+  
   const declaracao =
     `Eu, ${dados.nomeCliente}, ${dados.nacionalidade}, ${dados.estadoCivil}, ` +
     `${dados.profissao}, ${genero.portador} da Cédula de Identidade R.G. nº ${dados.rg}, ` +
@@ -174,10 +178,13 @@ export async function gerarDeclaracaoIsencaoIrpfPdf(dados) {
     fonte: fontes.normal,
     tamanho: 9.5,
     y,
-    alturaLinha: 14.2,
+    // AUMENTADO: Espaçamento entre linhas do texto para encorpar (era 14.2)
+    alturaLinha: 16, 
   });
 
-  y -= 23;
+  // AUMENTADO: Mais espaço antes da data/cidade (era 23)
+  y -= 50; 
+  
   y = desenharTexto({
     pagina,
     texto: `${dados.cidade.toUpperCase()}-${dados.uf.toUpperCase()}, ${dataPorExtenso(dados.dataEmissao).toUpperCase()}.`,
@@ -188,10 +195,13 @@ export async function gerarDeclaracaoIsencaoIrpfPdf(dados) {
     alinhamento: "center",
   });
 
-  y -= 34;
+  // AUMENTADO: Mais espaço antes da assinatura para empurrá-la para baixo (era 34)
+  y -= 75; 
   desenharAssinatura(pagina, fontes, dados.nomeCliente, y);
 
-  y -= 67;
+  // AUMENTADO: Mais espaço após a assinatura antes do rodapé de leis (era 67)
+  y -= 90; 
+  
   const esclarecimento =
     "* Esclarecemos que a Receita Federal do Brasil não emite declaração de que o(a) " +
     "cidadão(ã) está isento(a) de apresentar a Declaração do Imposto de Renda da Pessoa " +
@@ -211,7 +221,8 @@ export async function gerarDeclaracaoIsencaoIrpfPdf(dados) {
     alturaLinha: 8.5,
   });
 
-  y -= 7;
+  // AUMENTADO: Espaço entre esclarecimento e lei (era 7)
+  y -= 12; 
   y = desenharTexto({
     pagina,
     texto: "LEI Nº 7.115, DE 29 DE AGOSTO DE 1983.",
@@ -236,7 +247,8 @@ export async function gerarDeclaracaoIsencaoIrpfPdf(dados) {
     alturaLinha: 8,
   });
 
-  if (y < 34) {
+  // Ajustado o limite de segurança do rodapé
+  if (y < 20) {
     throw new Error("Os dados informados ultrapassaram o espaço disponível no modelo.");
   }
 
@@ -246,7 +258,9 @@ export async function gerarDeclaracaoIsencaoIrpfPdf(dados) {
 export async function gerarDeclaracaoHipossuficienciaPdf(dados) {
   const { pdf, pagina, fontes } = await criarDocumento();
   const genero = formasGenero(dados.genero);
-  let y = A4[1] - 78;
+  
+  // AUMENTADO: Iniciando um pouco mais abaixo do topo (era 78)
+  let y = A4[1] - 100; 
 
   y = desenharTexto({
     pagina,
@@ -258,7 +272,9 @@ export async function gerarDeclaracaoHipossuficienciaPdf(dados) {
     alinhamento: "center",
   });
 
-  y -= 42;
+  // AUMENTADO: Mais respiro abaixo do título (era 42)
+  y -= 80; 
+  
   const declaracao =
     `Eu, ${dados.nomeCliente}, ${dados.nacionalidade}, ${dados.estadoCivil}, ` +
     `${dados.profissao}, ${genero.portador} da Cédula de Identidade RG n.º ${dados.rg} ` +
@@ -276,10 +292,13 @@ export async function gerarDeclaracaoHipossuficienciaPdf(dados) {
     fonte: fontes.normal,
     tamanho: 10.5,
     y,
-    alturaLinha: 16,
+    // AUMENTADO: Espaçamento entre linhas aumentado para encorpar o texto na página
+    alturaLinha: 18, 
   });
 
-  y -= 24;
+  // AUMENTADO: Espaço entre o parágrafo principal e a frase de efeito (era 24)
+  y -= 40; 
+  
   y = desenharTexto({
     pagina,
     texto: "Esta declaração presume-se verdadeira, sob as penas da Lei.",
@@ -289,7 +308,10 @@ export async function gerarDeclaracaoHipossuficienciaPdf(dados) {
     alturaLinha: 16,
   });
 
-  y -= 45;
+// FIXADO: Como a declaração de hipossuficiência não possui textos legais compridos embaixo,
+  // fixamos o Y da Cidade/Data para ficarem no terço inferior da página.
+  y = 260; 
+
   y = desenharTexto({
     pagina,
     texto: `${dados.cidade.toUpperCase()}-${dados.uf.toUpperCase()}, ${dataPorExtenso(dados.dataEmissao)}.`,
@@ -297,11 +319,28 @@ export async function gerarDeclaracaoHipossuficienciaPdf(dados) {
     tamanho: 10,
     y,
     alturaLinha: 14,
-    alinhamento: "center",
+    alinhamento: "center", // Isso já garante que a data fique centralizada!
   });
 
-  y -= 70;
+  // AUMENTADO: Distância confortável entre a data e a linha de assinatura (era 70)
+  y -= 85; 
   desenharAssinatura(pagina, fontes, dados.nomeCliente, y);
+
+  // --- LOGOTIPO NO RODAPÉ ---
+  if (logoBytes) {
+    const logo = await pdf.embedPng(logoBytes);
+    const escala = Math.min(35 / logo.width, 35 / logo.height);
+    const largura = logo.width * escala;
+    const altura = logo.height * escala;
+    
+    pagina.drawImage(logo, {
+      x: (A4[0] - largura) / 2,
+      y: 30, // Posição fixa no rodapé
+      width: largura,
+      height: altura,
+      opacity: 0.8,
+    });
+  }
 
   return pdf.save();
 }
