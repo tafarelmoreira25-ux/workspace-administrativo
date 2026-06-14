@@ -87,7 +87,9 @@ alter table public.tarefas
       'PROCURAÇÕES',
       'ENC. PROCESSUAL',
       'AUDIÊNCIA',
-      'SEGUROS'
+      'SEGUROS',
+      'LAUDO',
+      'NOTIFICAÇÃO EXTRAJUDICIAL'
     )
   );
 

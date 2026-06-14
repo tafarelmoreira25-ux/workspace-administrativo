@@ -82,8 +82,9 @@ ou setor em texto livre, aparecem somente para o supervisor e não geram
 pontuação.
 
 As tarefas podem ser organizadas nas categorias **GOV**, **PROCURAÇÕES**,
-**ENC. PROCESSUAL**, **AUDIÊNCIA** e **SEGUROS**. A categoria aparece no
-painel da TV e pode ser usada como filtro na gestão do supervisor.
+**ENC. PROCESSUAL**, **AUDIÊNCIA**, **SEGUROS**, **LAUDO** e
+**NOTIFICAÇÃO EXTRAJUDICIAL**. A categoria aparece no painel da TV e pode ser
+usada como filtro na gestão do supervisor.
 
 O modelo original da procuração está arquivado em:
 

@@ -18,6 +18,8 @@ const CATEGORIAS_TAREFA = [
   "ENC. PROCESSUAL",
   "AUDIÊNCIA",
   "SEGUROS",
+  "LAUDO",
+  "NOTIFICAÇÃO EXTRAJUDICIAL",
 ];
 
 async function buscarPerfilUsuario(usuarioAuth) {
