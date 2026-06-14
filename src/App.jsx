@@ -1,6 +1,7 @@
 import MeuHistorico from './MeuHistorico';
 import MeuPlanner from './MeuPlanner';
 import GeradorDocumentos from './GeradorDocumentos';
+import PainelEquipeTV from './PainelEquipeTV';
 import { useCallback, useEffect, useState } from "react";
 import { supabase } from "./lib/supabase";
 
@@ -99,6 +100,16 @@ function rotuloTipoFeedback(tipo) {
     : "Reconhecimento positivo";
 }
 
+function rotuloStatusTarefa(status) {
+  return status === "concluida" ? "Concluida" : "Pendente";
+}
+
+function rotuloPrioridade(prioridade) {
+  if (prioridade === "urgente") return "Urgente";
+  if (prioridade === "alta") return "Alta";
+  return "Normal";
+}
+
 // ==========================================
 // 2. COMPONENTES VISUAIS
 // ==========================================
@@ -120,6 +131,7 @@ function UiIcon({ name, size = 20 }) {
     documentos: <><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z" /><path d="M14 2v6h6" /><path d="M8 13h8" /><path d="M8 17h6" /></>,
     historico: <><path d="M3 12a9 9 0 1 0 3-6.7L3 8" /><path d="M3 3v5h5" /><path d="M12 7v5l3 2" /></>,
     planner: <><rect x="3" y="5" width="18" height="16" rx="2" /><path d="M16 3v4" /><path d="M8 3v4" /><path d="M3 11h18" /><path d="m8 16 2 2 4-4" /></>,
+    tv: <><rect x="2" y="5" width="20" height="14" rx="2" /><path d="m8 2 4 3 4-3" /><path d="M8 22h8" /></>,
     ranking: <><path d="M8 21h8" /><path d="M12 17v4" /><path d="M7 4h10v5a5 5 0 0 1-10 0Z" /><path d="M7 6H4v2a4 4 0 0 0 4 4" /><path d="M17 6h3v2a4 4 0 0 1-4 4" /></>,
     feedback: <><path d="M21 15a4 4 0 0 1-4 4H8l-5 3V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4Z" /><path d="M8 9h8" /><path d="M8 13h5" /></>,
     logout: <><path d="M10 17l5-5-5-5" /><path d="M15 12H3" /><path d="M21 19V5a2 2 0 0 0-2-2h-6" /></>,
@@ -326,12 +338,21 @@ function AdminDashboard({ usuario, onLogout, state }) {
   } = state;
   const [abaAtiva, setAbaAtiva] = useState("dashboard"); 
   const [salvandoTarefa, setSalvandoTarefa] = useState(false);
+  const [modoTv, setModoTv] = useState(
+    () => new URLSearchParams(window.location.search).get("modo") === "tv",
+  );
+  const [tarefaEmEdicao, setTarefaEmEdicao] = useState(null);
+  const [salvandoEdicao, setSalvandoEdicao] = useState(false);
+  const [filtroTarefas, setFiltroTarefas] = useState("todas");
 
   const [titulo, setTitulo] = useState("");
   const [descricao, setDescricao] = useState("");
   const [funcId, setFuncId] = useState("");
   const [pontosTarefa, setPontosTarefa] = useState(10);
   const [dataLimite, setDataLimite] = useState("");
+  const [prioridade, setPrioridade] = useState("normal");
+  const [apontamento, setApontamento] = useState("");
+  const [exibirTv, setExibirTv] = useState(true);
 
   const [feedbackFuncId, setFeedbackFuncId] = useState("");
   const [feedbackMsg, setFeedbackMsg] = useState("");
@@ -347,6 +368,16 @@ function AdminDashboard({ usuario, onLogout, state }) {
     (funcionario) => funcionario.email?.toLowerCase() !== ADMIN_EMAIL,
   );
   const tarefasPendentes = listaTarefas.filter((t) => t.status === "pendente");
+  const tarefasUrgentes = tarefasPendentes.filter(
+    (tarefa) => tarefa.prioridade === "urgente",
+  );
+  const tarefasFiltradas = listaTarefas.filter((tarefa) => {
+    if (filtroTarefas === "todas") return true;
+    if (filtroTarefas === "urgente") {
+      return tarefa.status === "pendente" && tarefa.prioridade === "urgente";
+    }
+    return tarefa.status === filtroTarefas;
+  });
   const responsabilidadesSelecionadas = responsabilidadesMensais
     .filter(
       (item) =>
@@ -396,7 +427,10 @@ function AdminDashboard({ usuario, onLogout, state }) {
       funcionaria_id: Number(funcId),
       pontos_tarefa: Math.max(0, Number(pontosTarefa) || 0),
       data_limite: dataLimite || null,
-      status: "pendente"
+      status: "pendente",
+      prioridade,
+      apontamento: apontamento.trim() || null,
+      exibir_tv: exibirTv,
     };
 
     const { data, error } = await supabase
@@ -414,9 +448,124 @@ function AdminDashboard({ usuario, onLogout, state }) {
       setDescricao("");
       setFuncId("");
       setDataLimite("");
+      setPrioridade("normal");
+      setApontamento("");
+      setExibirTv(true);
     }
 
     setSalvandoTarefa(false);
+  }
+
+  function iniciarEdicaoTarefa(tarefa) {
+    setTarefaEmEdicao({
+      ...tarefa,
+      funcionaria_id: String(tarefa.funcionaria_id),
+      pontos_tarefa: tarefa.pontos_tarefa ?? 0,
+      data_limite: tarefa.data_limite || "",
+      prioridade: tarefa.prioridade || "normal",
+      apontamento: tarefa.apontamento || "",
+      exibir_tv: tarefa.exibir_tv !== false,
+    });
+  }
+
+  function atualizarCampoEdicao(campo, valor) {
+    setTarefaEmEdicao((atual) => ({ ...atual, [campo]: valor }));
+  }
+
+  async function salvarEdicaoTarefa(event) {
+    event.preventDefault();
+    if (!tarefaEmEdicao) return;
+
+    setSalvandoEdicao(true);
+    try {
+      const { data, error } = await supabase.rpc(
+        "atualizar_tarefa_supervisor",
+        {
+          p_tarefa_id: Number(tarefaEmEdicao.id),
+          p_titulo: tarefaEmEdicao.titulo.trim(),
+          p_descricao: tarefaEmEdicao.descricao?.trim() || null,
+          p_funcionaria_id: Number(tarefaEmEdicao.funcionaria_id),
+          p_pontos_tarefa: Math.max(
+            0,
+            Number(tarefaEmEdicao.pontos_tarefa) || 0,
+          ),
+          p_data_limite: tarefaEmEdicao.data_limite || null,
+          p_status: tarefaEmEdicao.status,
+          p_prioridade: tarefaEmEdicao.prioridade,
+          p_apontamento: tarefaEmEdicao.apontamento?.trim() || null,
+          p_exibir_tv: tarefaEmEdicao.exibir_tv,
+        },
+      );
+
+      if (error) throw error;
+
+      const tarefaAtualizada = Array.isArray(data) ? data[0] : data;
+      if (!tarefaAtualizada) {
+        throw new Error("O banco nao confirmou a atualizacao.");
+      }
+
+      setListaTarefas((atuais) =>
+        atuais.map((tarefa) =>
+          String(tarefa.id) === String(tarefaAtualizada.id)
+            ? tarefaAtualizada
+            : tarefa,
+        ),
+      );
+      setTarefaEmEdicao(null);
+      await recarregarTarefas();
+      showToast("Tarefa e apontamento atualizados.");
+    } catch (error) {
+      console.error("Erro ao editar tarefa:", error);
+      alert(
+        "Nao foi possivel atualizar a tarefa: " +
+          (error?.message || "operacao nao confirmada"),
+      );
+    } finally {
+      setSalvandoEdicao(false);
+    }
+  }
+
+  async function excluirTarefa(tarefa) {
+    const confirmou = window.confirm(
+      `Excluir definitivamente a tarefa "${tarefa.titulo}"?`,
+    );
+    if (!confirmou) return;
+
+    const { data, error } = await supabase
+      .from("tarefas")
+      .delete()
+      .eq("id", tarefa.id)
+      .select("id")
+      .maybeSingle();
+
+    if (error || !data) {
+      alert(
+        "Nao foi possivel excluir a tarefa: " +
+          (error?.message || "operacao nao confirmada"),
+      );
+      return;
+    }
+
+    setListaTarefas((atuais) =>
+      atuais.filter((item) => String(item.id) !== String(tarefa.id)),
+    );
+    if (String(tarefaEmEdicao?.id) === String(tarefa.id)) {
+      setTarefaEmEdicao(null);
+    }
+    showToast("Tarefa excluida.");
+  }
+
+  function abrirPainelTvNovaAba() {
+    const url = new URL(window.location.href);
+    url.searchParams.set("modo", "tv");
+    window.open(url.toString(), "_blank", "noopener,noreferrer");
+  }
+
+  function sairDoModoTv() {
+    const url = new URL(window.location.href);
+    url.searchParams.delete("modo");
+    window.history.replaceState({}, "", url);
+    setModoTv(false);
   }
 
   async function alterarPontosFuncionario(id, quantidade) {
@@ -577,6 +726,17 @@ function AdminDashboard({ usuario, onLogout, state }) {
     }
   }
 
+  if (modoTv) {
+    return (
+      <PainelEquipeTV
+        funcionarios={equipe}
+        onAtualizar={recarregarTarefas}
+        onSair={sairDoModoTv}
+        tarefas={listaTarefas}
+      />
+    );
+  }
+
   return (
     <div className="app-layout">
       <aside className="sidebar">
@@ -591,6 +751,7 @@ function AdminDashboard({ usuario, onLogout, state }) {
           <span className="nav-label">Navegação</span>
           <NavItem active={abaAtiva === "dashboard"} icon="dashboard" onClick={() => setAbaAtiva("dashboard")}>Dashboard</NavItem>
           <NavItem active={abaAtiva === "tarefas"} icon="tarefas" onClick={() => setAbaAtiva("tarefas")}>Tarefas</NavItem>
+          <NavItem active={false} icon="tv" onClick={() => setModoTv(true)}>Painel da TV</NavItem>
           <NavItem active={abaAtiva === "responsabilidades"} icon="planner" onClick={() => setAbaAtiva("responsabilidades")}>Tarefas do Mês</NavItem>
           <NavItem active={abaAtiva === "equipe"} icon="equipe" onClick={() => setAbaAtiva("equipe")}>Equipe</NavItem>
           <NavItem active={abaAtiva === "documentos"} icon="documentos" onClick={() => setAbaAtiva("documentos")}>Documentos PDF</NavItem>
@@ -613,15 +774,15 @@ function AdminDashboard({ usuario, onLogout, state }) {
         {abaAtiva === "dashboard" && (
           <>
             <section className="cards-grid">
-              <div className="card" onClick={() => setAbaAtiva("tarefas")} style={{ cursor: 'pointer' }}>
+              <div className="card" onClick={() => { setFiltroTarefas("pendente"); setAbaAtiva("tarefas"); }} style={{ cursor: 'pointer' }}>
                 <MetricIcon type="tarefas" />
                 <span>Tarefas Pendentes</span>
                 <strong>{tarefasPendentes.length}</strong>
               </div>
-              <div className="card" onClick={() => setAbaAtiva("equipe")} style={{ cursor: 'pointer' }}>
-                <MetricIcon type="ranking" />
-                <span>Ranking Geral</span>
-                <strong>Top 3</strong>
+              <div className="card" onClick={() => { setFiltroTarefas("urgente"); setAbaAtiva("tarefas"); }} style={{ cursor: 'pointer' }}>
+                <MetricIcon type="tv" />
+                <span>Tarefas Urgentes</span>
+                <strong>{tarefasUrgentes.length}</strong>
               </div>
               <div className="card" onClick={() => setAbaAtiva("equipe")} style={{ cursor: 'pointer' }}>
                 <MetricIcon type="feedback" />
@@ -654,7 +815,16 @@ function AdminDashboard({ usuario, onLogout, state }) {
                           Prazo: {formatarData(tarefa.data_limite)}
                         </small>
                       </div>
-                      <span className={`status ${tarefa.status}`}>{tarefa.status}</span>
+                      <div className="task-actions">
+                        <span
+                          className={`priority-badge priority-${tarefa.prioridade || "normal"}`}
+                        >
+                          {rotuloPrioridade(tarefa.prioridade)}
+                        </span>
+                        <span className={`status ${tarefa.status}`}>
+                          {rotuloStatusTarefa(tarefa.status)}
+                        </span>
+                      </div>
                     </div>
                   );
                 })}
@@ -664,73 +834,384 @@ function AdminDashboard({ usuario, onLogout, state }) {
         )}
 
         {abaAtiva === "tarefas" && (
-          <section className="content-grid" style={{ gridTemplateColumns: "1fr 1fr" }}>
-            <div className="panel">
-              <h2>Delegar Nova Tarefa</h2>
-              <form className="stack-form" onSubmit={handleCriarTarefa}>
-                <input 
-                  type="text" placeholder="Título da tarefa" value={titulo} 
-                  onChange={(e) => setTitulo(e.target.value)}
-                  style={{ padding: '10px', borderRadius: '8px', border: '1px solid #cbd5e1' }} required
-                />
-                <textarea 
-                  placeholder="Descrição das tratativas ou procedimentos" value={descricao} 
-                  onChange={(e) => setDescricao(e.target.value)}
-                  style={{ padding: '10px', borderRadius: '8px', border: '1px solid #cbd5e1', height: '100px' }}
-                />
-                <select 
-                  value={funcId} onChange={(e) => setFuncId(e.target.value)}
-                  style={{ padding: '10px', borderRadius: '8px', border: '1px solid #cbd5e1' }} required
-                >
-                  <option value="">Atribuir para...</option>
-                  {equipe.map(f => (
-                    <option key={f.id} value={f.id}>{f.nome} ({f.cargo})</option>
-                  ))}
-                </select>
-                <div style={{ display: 'flex', gap: '10px' }}>
-                  <div style={{ flex: 1 }}>
-                    <label style={{ fontSize: '12px', fontWeight: 'bold' }}>Pontos da Missão</label>
-                    <input 
-                      type="number" value={pontosTarefa} onChange={(e) => setPontosTarefa(e.target.value)}
-                      style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #cbd5e1' }}
-                    />
-                  </div>
-                  <div style={{ flex: 1 }}>
-                    <label style={{ fontSize: '12px', fontWeight: 'bold' }}>Data Limite / Prazo</label>
-                    <input 
-                      type="date" value={dataLimite} onChange={(e) => setDataLimite(e.target.value)}
-                      style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #cbd5e1' }}
-                    />
-                  </div>
-                </div>
-                <button
-                  type="submit"
-                  className="btn-primary"
-                  disabled={salvandoTarefa}
-                  style={{ marginTop: '10px' }}
-                >
-                  {salvandoTarefa ? "Publicando..." : "Publicar Tarefa na Esteira"}
+          <div className="task-management">
+            <section className="panel task-management-header">
+              <div>
+                <span className="eyebrow">Central de operacoes</span>
+                <h2>Gestao das tarefas da equipe</h2>
+                <p>
+                  Delegue, altere prioridades, registre apontamentos e escolha
+                  o que sera exibido na TV.
+                </p>
+              </div>
+              <div className="task-management-actions">
+                <button className="btn-secondary" onClick={() => setModoTv(true)}>
+                  Visualizar painel
                 </button>
-              </form>
-            </div>
-
-            <div className="panel">
-              <div className="panel-title-row">
-                <h2>Lista Completa das Atividades</h2>
-                <button className="btn-secondary compact" onClick={recarregarTarefas}>
-                  Atualizar
+                <button className="btn-primary" onClick={abrirPainelTvNovaAba}>
+                  Abrir na TV
                 </button>
               </div>
-              {listaTarefas.map((tarefa) => (
-                <div className="task-item" key={tarefa.id} style={{ padding: '12px', marginBottom: '8px' }}>
-                  <div>
-                    <h4>{tarefa.titulo}</h4>
-                    <span className={`status ${tarefa.status}`} style={{ fontSize: '10px', padding: '2px 8px' }}>{tarefa.status}</span>
+            </section>
+
+            <section className="task-editor-grid">
+              <div className="panel">
+                <h2>Delegar nova tarefa</h2>
+                <form className="stack-form task-form" onSubmit={handleCriarTarefa}>
+                  <label>
+                    Titulo
+                    <input
+                      type="text"
+                      placeholder="Ex.: Conferir contratos recebidos"
+                      value={titulo}
+                      onChange={(event) => setTitulo(event.target.value)}
+                      required
+                    />
+                  </label>
+                  <label>
+                    Descricao
+                    <textarea
+                      placeholder="Descreva a entrega e os procedimentos."
+                      value={descricao}
+                      onChange={(event) => setDescricao(event.target.value)}
+                      rows="4"
+                    />
+                  </label>
+                  <div className="task-form-row">
+                    <label>
+                      Responsavel
+                      <select
+                        value={funcId}
+                        onChange={(event) => setFuncId(event.target.value)}
+                        required
+                      >
+                        <option value="">Selecione...</option>
+                        {equipe.map((funcionario) => (
+                          <option key={funcionario.id} value={funcionario.id}>
+                            {funcionario.nome} ({funcionario.cargo})
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <label>
+                      Prioridade
+                      <select
+                        value={prioridade}
+                        onChange={(event) => setPrioridade(event.target.value)}
+                      >
+                        <option value="normal">Normal</option>
+                        <option value="alta">Alta</option>
+                        <option value="urgente">Urgente</option>
+                      </select>
+                    </label>
                   </div>
+                  <div className="task-form-row">
+                    <label>
+                      Pontos
+                      <input
+                        min="0"
+                        type="number"
+                        value={pontosTarefa}
+                        onChange={(event) => setPontosTarefa(event.target.value)}
+                      />
+                    </label>
+                    <label>
+                      Prazo
+                      <input
+                        type="date"
+                        value={dataLimite}
+                        onChange={(event) => setDataLimite(event.target.value)}
+                      />
+                    </label>
+                  </div>
+                  <label>
+                    Apontamento inicial
+                    <textarea
+                      placeholder="Ex.: Aguardando documento do cliente."
+                      value={apontamento}
+                      onChange={(event) => setApontamento(event.target.value)}
+                      rows="3"
+                    />
+                  </label>
+                  <label className="task-check-label">
+                    <input
+                      type="checkbox"
+                      checked={exibirTv}
+                      onChange={(event) => setExibirTv(event.target.checked)}
+                    />
+                    Exibir esta tarefa no painel da TV
+                  </label>
+                  <button
+                    type="submit"
+                    className="btn-primary"
+                    disabled={salvandoTarefa}
+                  >
+                    {salvandoTarefa ? "Publicando..." : "Delegar tarefa"}
+                  </button>
+                </form>
+              </div>
+
+              <div className="panel">
+                {tarefaEmEdicao ? (
+                  <>
+                    <div className="panel-title-row">
+                      <h2>Editar tarefa #{tarefaEmEdicao.id}</h2>
+                      <button
+                        className="btn-secondary compact"
+                        onClick={() => setTarefaEmEdicao(null)}
+                        type="button"
+                      >
+                        Cancelar
+                      </button>
+                    </div>
+                    <form
+                      className="stack-form task-form"
+                      onSubmit={salvarEdicaoTarefa}
+                    >
+                      <label>
+                        Titulo
+                        <input
+                          value={tarefaEmEdicao.titulo}
+                          onChange={(event) =>
+                            atualizarCampoEdicao("titulo", event.target.value)
+                          }
+                          required
+                        />
+                      </label>
+                      <label>
+                        Descricao
+                        <textarea
+                          value={tarefaEmEdicao.descricao || ""}
+                          onChange={(event) =>
+                            atualizarCampoEdicao("descricao", event.target.value)
+                          }
+                          rows="3"
+                        />
+                      </label>
+                      <div className="task-form-row">
+                        <label>
+                          Responsavel
+                          <select
+                            value={tarefaEmEdicao.funcionaria_id}
+                            onChange={(event) =>
+                              atualizarCampoEdicao(
+                                "funcionaria_id",
+                                event.target.value,
+                              )
+                            }
+                          >
+                            {equipe.map((funcionario) => (
+                              <option
+                                key={funcionario.id}
+                                value={funcionario.id}
+                              >
+                                {funcionario.nome}
+                              </option>
+                            ))}
+                          </select>
+                        </label>
+                        <label>
+                          Status
+                          <select
+                            value={tarefaEmEdicao.status}
+                            onChange={(event) =>
+                              atualizarCampoEdicao("status", event.target.value)
+                            }
+                          >
+                            <option value="pendente">Pendente</option>
+                            <option value="concluida">Concluida</option>
+                          </select>
+                        </label>
+                      </div>
+                      <div className="task-form-row">
+                        <label>
+                          Prioridade
+                          <select
+                            value={tarefaEmEdicao.prioridade}
+                            onChange={(event) =>
+                              atualizarCampoEdicao(
+                                "prioridade",
+                                event.target.value,
+                              )
+                            }
+                          >
+                            <option value="normal">Normal</option>
+                            <option value="alta">Alta</option>
+                            <option value="urgente">Urgente</option>
+                          </select>
+                        </label>
+                        <label>
+                          Prazo
+                          <input
+                            type="date"
+                            value={tarefaEmEdicao.data_limite}
+                            onChange={(event) =>
+                              atualizarCampoEdicao(
+                                "data_limite",
+                                event.target.value,
+                              )
+                            }
+                          />
+                        </label>
+                      </div>
+                      <label>
+                        Pontos
+                        <input
+                          min="0"
+                          type="number"
+                          value={tarefaEmEdicao.pontos_tarefa}
+                          onChange={(event) =>
+                            atualizarCampoEdicao(
+                              "pontos_tarefa",
+                              event.target.value,
+                            )
+                          }
+                        />
+                      </label>
+                      <label>
+                        Apontamento atualizado
+                        <textarea
+                          placeholder="Registre o andamento, bloqueio ou proxima acao."
+                          value={tarefaEmEdicao.apontamento}
+                          onChange={(event) =>
+                            atualizarCampoEdicao(
+                              "apontamento",
+                              event.target.value,
+                            )
+                          }
+                          rows="4"
+                        />
+                      </label>
+                      <label className="task-check-label">
+                        <input
+                          type="checkbox"
+                          checked={tarefaEmEdicao.exibir_tv}
+                          onChange={(event) =>
+                            atualizarCampoEdicao(
+                              "exibir_tv",
+                              event.target.checked,
+                            )
+                          }
+                        />
+                        Exibir esta tarefa no painel da TV
+                      </label>
+                      <button
+                        className="btn-primary"
+                        disabled={salvandoEdicao}
+                        type="submit"
+                      >
+                        {salvandoEdicao ? "Salvando..." : "Salvar alteracoes"}
+                      </button>
+                    </form>
+                  </>
+                ) : (
+                  <div className="task-editor-empty">
+                    <MetricIcon type="tarefas" />
+                    <h2>Selecione uma tarefa</h2>
+                    <p>
+                      Use o botao Editar na lista abaixo para atualizar status,
+                      prioridade, prazo, responsavel e apontamento.
+                    </p>
+                  </div>
+                )}
+              </div>
+            </section>
+
+            <section className="panel task-list-panel">
+              <div className="panel-title-row task-list-heading">
+                <div>
+                  <span className="eyebrow">Esteira operacional</span>
+                  <h2>Atividades da equipe</h2>
                 </div>
-              ))}
-            </div>
-          </section>
+                <div className="task-list-controls">
+                  <select
+                    value={filtroTarefas}
+                    onChange={(event) => setFiltroTarefas(event.target.value)}
+                    aria-label="Filtrar tarefas"
+                  >
+                    <option value="todas">Todas</option>
+                    <option value="pendente">Pendentes</option>
+                    <option value="urgente">Urgentes</option>
+                    <option value="concluida">Concluidas</option>
+                  </select>
+                  <button
+                    className="btn-secondary compact"
+                    onClick={recarregarTarefas}
+                  >
+                    Atualizar
+                  </button>
+                </div>
+              </div>
+
+              {tarefasFiltradas.length === 0 && (
+                <div className="monthly-empty">
+                  Nenhuma tarefa encontrada neste filtro.
+                </div>
+              )}
+
+              <div className="admin-task-list">
+                {tarefasFiltradas.map((tarefa) => {
+                  const responsavel = equipe.find(
+                    (funcionario) =>
+                      String(funcionario.id) ===
+                      String(tarefa.funcionaria_id),
+                  );
+
+                  return (
+                    <article
+                      className={`admin-task-card priority-${tarefa.prioridade || "normal"}`}
+                      key={tarefa.id}
+                    >
+                      <div className="admin-task-main">
+                        <div className="admin-task-badges">
+                          <span className={`status ${tarefa.status}`}>
+                            {rotuloStatusTarefa(tarefa.status)}
+                          </span>
+                          <span
+                            className={`priority-badge priority-${tarefa.prioridade || "normal"}`}
+                          >
+                            {rotuloPrioridade(tarefa.prioridade)}
+                          </span>
+                          <span className="tv-visibility-badge">
+                            {tarefa.exibir_tv === false
+                              ? "Oculta na TV"
+                              : "Visivel na TV"}
+                          </span>
+                        </div>
+                        <h3>{tarefa.titulo}</h3>
+                        {tarefa.descricao && <p>{tarefa.descricao}</p>}
+                        {tarefa.apontamento && (
+                          <div className="admin-task-note">
+                            <strong>Apontamento:</strong>{" "}
+                            {tarefa.apontamento}
+                          </div>
+                        )}
+                        <small>
+                          Responsavel: {responsavel?.nome || "Nao atribuida"} |
+                          Prazo: {formatarData(tarefa.data_limite)} | Pontos:{" "}
+                          {tarefa.pontos_tarefa ?? 0}
+                        </small>
+                      </div>
+                      <div className="admin-task-actions">
+                        <button
+                          className="btn-secondary compact"
+                          onClick={() => iniciarEdicaoTarefa(tarefa)}
+                        >
+                          Editar
+                        </button>
+                        <button
+                          className="btn-danger compact"
+                          onClick={() => excluirTarefa(tarefa)}
+                        >
+                          Excluir
+                        </button>
+                      </div>
+                    </article>
+                  );
+                })}
+              </div>
+            </section>
+          </div>
         )}
 
         {abaAtiva === "responsabilidades" && (
@@ -1109,14 +1590,24 @@ function EmployeeDashboard({ usuario, onLogout, state }) {
                   <div>
                     <h3>{tarefa.titulo}</h3>
                     <p>{tarefa.descricao}</p>
+                    {tarefa.apontamento && (
+                      <div className="employee-task-note">
+                        <strong>Apontamento:</strong> {tarefa.apontamento}
+                      </div>
+                    )}
                     <small>
                       Prazo final: {formatarData(tarefa.data_limite)} |
                       Recompensa: +{tarefa.pontos_tarefa || 10} Pontos
                     </small>
                   </div>
                   <div className="task-actions">
+                    <span
+                      className={`priority-badge priority-${tarefa.prioridade || "normal"}`}
+                    >
+                      {rotuloPrioridade(tarefa.prioridade)}
+                    </span>
                     <span className={`status ${tarefa.status}`}>
-                      {tarefa.status}
+                      {rotuloStatusTarefa(tarefa.status)}
                     </span>
                     <button
                       className="btn-success"
@@ -1362,6 +1853,43 @@ export default function App() {
   useEffect(() => {
     if (!usuarioLogado) return undefined;
 
+    const alteracaoTarefa = {
+      event: "*",
+      schema: "public",
+      table: "tarefas",
+    };
+
+    if (usuarioLogado.tipo === "funcionaria") {
+      alteracaoTarefa.filter = `funcionaria_id=eq.${usuarioLogado.id}`;
+    }
+
+    const canalTarefas = supabase
+      .channel(`tarefas-${usuarioLogado.tipo}-${usuarioLogado.id}`)
+      .on("postgres_changes", alteracaoTarefa, (evento) => {
+        recarregarTarefas()
+          .then(() => {
+            if (
+              usuarioLogado.tipo === "funcionaria" &&
+              evento.eventType === "INSERT" &&
+              evento.new?.status === "pendente"
+            ) {
+              showToast("Uma nova tarefa foi delegada para voce.");
+            }
+          })
+          .catch((error) => {
+            console.error("Erro ao atualizar tarefas em tempo real:", error);
+          });
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(canalTarefas);
+    };
+  }, [recarregarTarefas, showToast, usuarioLogado]);
+
+  useEffect(() => {
+    if (!usuarioLogado) return undefined;
+
     const alteracaoFeedback = {
       event: "INSERT",
       schema: "public",
@@ -1521,6 +2049,87 @@ export default function App() {
         .status { padding: 6px 10px; border-radius: 999px; font-size: 9px; font-weight: 800; letter-spacing: .7px; text-transform: uppercase; white-space: nowrap; }
         .status.pendente { color: #a66e16; background: rgba(255, 229, 170, .55); border: 1px solid rgba(216,164,54,.15); }
         .status.concluida { color: #268c77; background: rgba(190, 241, 228, .6); border: 1px solid rgba(66,191,165,.14); }
+        .priority-badge, .tv-visibility-badge { display: inline-flex; align-items: center; width: max-content; padding: 6px 10px; border-radius: 999px; font-size: 9px; font-weight: 800; letter-spacing: .6px; text-transform: uppercase; white-space: nowrap; }
+        .priority-badge.priority-normal { color: #65758c; background: #edf3f8; }
+        .priority-badge.priority-alta { color: #9b6414; background: #fff0c9; }
+        .priority-badge.priority-urgente { color: #b73350; background: #ffe2e9; box-shadow: 0 0 0 3px rgba(223,109,135,.08); }
+        .employee-task-note { margin: 10px 0; padding: 10px 12px; color: #516987; background: rgba(231,242,255,.74); border-left: 3px solid #5c9bf0; border-radius: 8px; font-size: 11px; line-height: 1.55; }
+
+        .task-management { display: flex; flex-direction: column; gap: 22px; }
+        .task-management-header { display: flex; align-items: center; justify-content: space-between; gap: 24px; }
+        .task-management-header h2 { margin: 5px 0 5px; font-size: 24px; }
+        .task-management-header p { font-size: 12px; }
+        .task-management-actions { display: flex; gap: 10px; flex: 0 0 auto; }
+        .task-editor-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 22px; align-items: start; }
+        .task-form { margin-top: 20px; }
+        .task-form label { display: flex; flex-direction: column; gap: 7px; }
+        .task-form-row { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+        .task-check-label { flex-direction: row !important; align-items: center; gap: 9px !important; padding: 11px 12px; background: rgba(238,247,255,.72); border: 1px solid rgba(104,148,201,.14); border-radius: 12px; cursor: pointer; }
+        .task-check-label input { width: 17px !important; height: 17px; flex: 0 0 auto; padding: 0 !important; accent-color: var(--accent-strong); box-shadow: none !important; }
+        .task-editor-empty { min-height: 420px; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; }
+        .task-editor-empty .metric-icon { margin-bottom: 18px; }
+        .task-editor-empty h2 { margin-bottom: 8px; }
+        .task-editor-empty p { max-width: 390px; font-size: 12px; }
+        .task-list-panel { overflow: hidden; }
+        .task-list-heading { align-items: flex-end; }
+        .task-list-heading h2 { margin-top: 4px; }
+        .task-list-controls { display: flex; align-items: center; gap: 9px; }
+        .task-list-controls select { min-width: 150px; padding: 9px 12px !important; }
+        .admin-task-list { display: grid; gap: 12px; }
+        .admin-task-card { position: relative; display: flex; align-items: center; justify-content: space-between; gap: 20px; overflow: hidden; padding: 18px 18px 18px 21px; background: rgba(247,251,255,.8); border: 1px solid rgba(111,157,210,.14); border-radius: 17px; }
+        .admin-task-card::before { content: ''; position: absolute; inset: 0 auto 0 0; width: 4px; background: #9aa9bc; }
+        .admin-task-card.priority-alta::before { background: #e4a23b; }
+        .admin-task-card.priority-urgente::before { background: #df5e7b; }
+        .admin-task-main { min-width: 0; }
+        .admin-task-main h3 { margin: 9px 0 5px; font-size: 15px; }
+        .admin-task-main p { font-size: 12px; }
+        .admin-task-main small { display: block; margin-top: 9px; }
+        .admin-task-badges { display: flex; flex-wrap: wrap; gap: 7px; }
+        .tv-visibility-badge { color: #35679f; background: #e5f1ff; }
+        .admin-task-note { margin-top: 9px; padding: 9px 11px; color: #526b8b; background: rgba(225,239,255,.72); border-radius: 9px; font-size: 11px; line-height: 1.5; }
+        .admin-task-actions { display: flex; gap: 7px; flex: 0 0 auto; }
+
+        .tv-page { min-height: 100vh; display: flex; flex-direction: column; padding: clamp(18px, 2vw, 32px); color: #e8f2ff; background: radial-gradient(circle at 12% 0%, rgba(65,133,222,.25), transparent 30%), radial-gradient(circle at 88% 5%, rgba(61,192,218,.18), transparent 28%), #07172f; }
+        .tv-topbar { display: grid; grid-template-columns: minmax(280px, 1.1fr) minmax(340px, 1fr) auto; align-items: center; gap: 28px; padding-bottom: 22px; border-bottom: 1px solid rgba(164,202,245,.13); }
+        .tv-brand { display: flex; align-items: center; gap: 15px; }
+        .tv-brand img { width: 55px; height: 55px; object-fit: cover; border-radius: 16px; box-shadow: 0 12px 30px rgba(0,0,0,.28); }
+        .tv-brand span { color: #68bdf5; font-size: 9px; font-weight: 800; letter-spacing: 1.8px; }
+        .tv-brand h1 { margin: 3px 0 0; color: #fff; font-size: clamp(18px, 1.8vw, 28px); }
+        .tv-summary { display: grid; grid-template-columns: repeat(3, 1fr); gap: 9px; }
+        .tv-summary div { padding: 10px 12px; text-align: center; background: rgba(255,255,255,.055); border: 1px solid rgba(165,205,248,.1); border-radius: 13px; }
+        .tv-summary strong, .tv-summary span { display: block; }
+        .tv-summary strong { color: #fff; font-size: 20px; }
+        .tv-summary span { margin-top: 2px; color: #8ea9ca; font-size: 8px; font-weight: 700; text-transform: uppercase; letter-spacing: .6px; }
+        .tv-clock { min-width: 170px; text-align: right; }
+        .tv-clock strong, .tv-clock span { display: block; }
+        .tv-clock strong { color: #fff; font-size: 29px; letter-spacing: -1px; }
+        .tv-clock span { color: #8faaca; font-size: 10px; text-transform: capitalize; }
+        .tv-controls { grid-column: 1 / -1; display: flex; justify-content: flex-end; gap: 8px; margin-top: -14px; }
+        .tv-controls button { padding: 7px 10px; color: #9eb8d7; background: rgba(255,255,255,.04); border: 1px solid rgba(168,207,250,.12); border-radius: 9px; cursor: pointer; font-size: 9px; font-weight: 700; }
+        .tv-board { flex: 1; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: clamp(14px, 1.5vw, 24px); padding: 24px 0 17px; min-height: 0; }
+        .tv-column { display: flex; flex-direction: column; min-height: 0; padding: clamp(15px, 1.5vw, 22px); background: rgba(15,39,76,.72); border: 1px solid rgba(150,194,241,.11); border-radius: 21px; box-shadow: 0 22px 55px rgba(0,0,0,.16); }
+        .tv-column > header { display: flex; align-items: center; justify-content: space-between; gap: 15px; margin-bottom: 17px; padding-bottom: 15px; border-bottom: 1px solid rgba(151,194,240,.1); }
+        .tv-column > header span { color: var(--tv-accent); font-size: 8px; font-weight: 800; letter-spacing: 1.2px; text-transform: uppercase; }
+        .tv-column > header h2 { margin-top: 3px; color: #fff; font-size: clamp(17px, 1.5vw, 23px); }
+        .tv-column > header > strong { width: 38px; height: 38px; display: grid; place-items: center; color: var(--tv-accent); background: var(--tv-soft); border-radius: 12px; font-size: 16px; }
+        .tv-column-urgent { --tv-accent: #ff7892; --tv-soft: rgba(255,101,133,.12); }
+        .tv-column-pending { --tv-accent: #f4bc57; --tv-soft: rgba(244,188,87,.12); }
+        .tv-column-done { --tv-accent: #5ed7b7; --tv-soft: rgba(94,215,183,.12); }
+        .tv-column-list { min-height: 0; overflow: auto; scrollbar-width: thin; scrollbar-color: rgba(151,194,240,.22) transparent; }
+        .tv-task-card { position: relative; margin-bottom: 11px; padding: 15px; overflow: hidden; background: rgba(255,255,255,.055); border: 1px solid rgba(172,210,250,.09); border-radius: 15px; }
+        .tv-task-card::before { content: ''; position: absolute; inset: 0 auto 0 0; width: 3px; background: var(--tv-accent); }
+        .tv-task-heading { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+        .tv-responsavel { color: var(--tv-accent); font-size: 9px; font-weight: 800; letter-spacing: .7px; text-transform: uppercase; }
+        .tv-overdue { padding: 4px 7px; color: #ff8aa0; background: rgba(255,104,133,.1); border-radius: 999px; font-size: 7px; font-weight: 800; text-transform: uppercase; }
+        .tv-task-card h3 { margin: 8px 0 5px; color: #f8fbff; font-size: clamp(12px, 1vw, 15px); line-height: 1.35; }
+        .tv-task-card > p { color: #9db1cc; font-size: clamp(9px, .75vw, 11px); line-height: 1.5; }
+        .tv-note { margin-top: 10px; padding: 9px 10px; color: #acc0da; background: rgba(4,18,43,.38); border-radius: 9px; font-size: 9px; line-height: 1.45; }
+        .tv-note strong, .tv-note span { display: block; }
+        .tv-note strong { margin-bottom: 2px; color: #6fbdf2; font-size: 7px; letter-spacing: .8px; text-transform: uppercase; }
+        .tv-task-card footer { display: flex; justify-content: space-between; gap: 8px; margin-top: 11px; padding-top: 9px; color: #7189a8; border-top: 1px solid rgba(167,205,245,.08); font-size: 8px; }
+        .tv-empty { padding: 45px 15px; color: #7189a8; border: 1px dashed rgba(157,198,240,.14); border-radius: 14px; font-size: 11px; text-align: center; }
+        .tv-footer { display: flex; align-items: center; justify-content: center; gap: 9px; color: #7189a8; font-size: 9px; font-weight: 700; letter-spacing: .7px; text-transform: uppercase; }
+        .tv-footer .online-dot.sync-error { background: #e9a63a; box-shadow: 0 0 0 4px rgba(233,166,58,.14), 0 0 12px rgba(233,166,58,.45); }
 
         input, select, textarea { width: 100%; padding: 12px 13px !important; color: var(--text); background: rgba(247,251,255,.84) !important; border: 1px solid rgba(104,148,201,.22) !important; border-radius: 12px !important; outline: none; transition: .2s ease; }
         input::placeholder, textarea::placeholder { color: #a0aec3; }
@@ -1667,6 +2276,12 @@ export default function App() {
           .content-grid { grid-template-columns: 1fr; }
           .monthly-admin-grid { grid-template-columns: 1fr; }
           .planner-grid { grid-template-columns: 1fr; }
+          .task-editor-grid { grid-template-columns: 1fr; }
+          .tv-topbar { grid-template-columns: 1fr auto; }
+          .tv-summary { grid-column: 1 / -1; grid-row: 2; }
+          .tv-clock { grid-column: 2; grid-row: 1; }
+          .tv-board { grid-template-columns: 1fr; overflow: visible; }
+          .tv-column { min-height: 360px; }
           .task-item { flex-direction: column; align-items: flex-start; }
           .document-grid { grid-template-columns: 1fr; }
           .pdf-preview { margin: 0 auto; max-width: 480px; position: static; width: 100%; }
@@ -1685,6 +2300,11 @@ export default function App() {
           .cards-grid { grid-template-columns: 1fr; }
           .card { min-height: 145px; }
           .task-actions, .member-actions { width: 100%; }
+          .task-management-header, .task-list-heading, .admin-task-card { align-items: flex-start; flex-direction: column; }
+          .task-management-actions, .task-list-controls, .admin-task-actions { width: 100%; }
+          .task-management-actions button, .admin-task-actions button { flex: 1; }
+          .task-list-controls select { flex: 1; min-width: 0; }
+          .task-form-row { grid-template-columns: 1fr; }
           .employee-monthly-list { grid-template-columns: 1fr; }
           .team-member { grid-template-columns: 43px 1fr; }
           .member-actions { grid-column: span 2; }
@@ -1697,6 +2317,12 @@ export default function App() {
           .planner-header { padding: 23px; }
           .planner-form { grid-template-columns: 1fr; }
           .planner-form button { width: 100%; }
+          .tv-page { padding: 14px; }
+          .tv-topbar { grid-template-columns: 1fr; gap: 14px; }
+          .tv-clock { grid-column: 1; grid-row: auto; text-align: left; }
+          .tv-summary { grid-column: 1; grid-row: auto; }
+          .tv-controls { justify-content: flex-start; margin-top: 0; }
+          .tv-brand h1 { font-size: 18px; }
           .login-page { padding: 18px; }
           .login-card { padding: 30px 23px; border-radius: 24px; }
           .showcase-stats { gap: 18px; }

@@ -27,6 +27,11 @@ Execute uma vez no SQL Editor do Supabase:
 
 `supabase/configurar_sistema.sql`
 
+Se o sistema ja estava configurado antes da criacao do painel da equipe,
+execute tambem:
+
+`supabase/painel_tv_tarefas.sql`
+
 Depois, no menu **Authentication > Users**, crie três usuários:
 
 - O supervisor com o e-mail `tafarel@platino.com`.
@@ -59,6 +64,17 @@ reordenar ou remover a lista mensal de cada colaboradora.
 
 O sistema também aceita PDFs com campos de formulário. Nesse caso, configure
 `campoFormulario` em vez das coordenadas.
+
+## Painel da equipe na TV
+
+No acesso do supervisor, abra **Painel da TV** no menu ou use o botão
+**Abrir na TV** dentro da gestão de tarefas. O painel exibe tarefas urgentes,
+pendentes e as conclusões mais recentes. As alterações chegam em tempo real e
+o painel também faz uma sincronização de segurança a cada 15 segundos, sem
+precisar recarregar a página.
+
+O supervisor pode editar prioridade, prazo, responsável, status, pontos,
+apontamento e a visibilidade de cada tarefa no painel.
 
 O modelo original da procuração está arquivado em:
 
