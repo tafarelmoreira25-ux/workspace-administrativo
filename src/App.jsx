@@ -45,6 +45,39 @@ function formatarData(data) {
   return new Intl.DateTimeFormat("pt-BR").format(new Date(`${data}T12:00:00`));
 }
 
+function formatarDataHora(data) {
+  if (!data) return "Data não registrada";
+  return new Intl.DateTimeFormat("pt-BR", {
+    dateStyle: "short",
+    timeStyle: "short",
+  }).format(new Date(data));
+}
+
+function obterMesAtual() {
+  const agora = new Date();
+  const ano = agora.getFullYear();
+  const mes = String(agora.getMonth() + 1).padStart(2, "0");
+  return `${ano}-${mes}`;
+}
+
+function formatarMes(mes) {
+  if (!mes) return "";
+
+  const data = new Date(`${mes.slice(0, 7)}-01T12:00:00`);
+  const rotulo = new Intl.DateTimeFormat("pt-BR", {
+    month: "long",
+    year: "numeric",
+  }).format(data);
+
+  return rotulo.charAt(0).toUpperCase() + rotulo.slice(1);
+}
+
+function rotuloTipoFeedback(tipo) {
+  return tipo === "construtivo"
+    ? "Ponto de melhoria"
+    : "Reconhecimento positivo";
+}
+
 // ==========================================
 // 2. COMPONENTES VISUAIS
 // ==========================================
@@ -103,6 +136,48 @@ function MetricIcon({ type }) {
   return (
     <div className={`metric-icon metric-${type}`}>
       <UiIcon name={type} size={24} />
+    </div>
+  );
+}
+
+function ListaFeedbacks({
+  feedbacks,
+  funcionarios = [],
+  mostrarDestinataria = false,
+  vazio = "Nenhum feedback registrado.",
+}) {
+  if (feedbacks.length === 0) return <p>{vazio}</p>;
+
+  return (
+    <div className="feedback-list">
+      {feedbacks.map((feedback) => {
+        const destinataria = funcionarios.find(
+          (item) =>
+            String(item.id) === String(feedback.funcionaria_id),
+        );
+
+        return (
+          <article
+            className={`feedback-card feedback-${feedback.tipo}`}
+            key={feedback.id}
+          >
+            <div className="feedback-card-heading">
+              <span>{rotuloTipoFeedback(feedback.tipo)}</span>
+              <time dateTime={feedback.created_at}>
+                {formatarDataHora(feedback.created_at)}
+              </time>
+            </div>
+            {mostrarDestinataria ? (
+              <strong>
+                Para: {destinataria?.nome || "Colaboradora não identificada"}
+              </strong>
+            ) : (
+              <strong>Enviado por Tafarel Moreira</strong>
+            )}
+            <p>{feedback.mensagem}</p>
+          </article>
+        );
+      })}
     </div>
   );
 }
@@ -219,7 +294,13 @@ function AdminDashboard({ usuario, onLogout, state }) {
     setListaTarefas,
     funcionarios,
     setFuncionarios,
+    feedbacks,
+    setFeedbacks,
+    responsabilidadesMensais,
+    setResponsabilidadesMensais,
     recarregarTarefas,
+    recarregarFeedbacks,
+    recarregarResponsabilidadesMensais,
     showToast,
   } = state;
   const [abaAtiva, setAbaAtiva] = useState("dashboard"); 
@@ -234,11 +315,54 @@ function AdminDashboard({ usuario, onLogout, state }) {
   const [feedbackFuncId, setFeedbackFuncId] = useState("");
   const [feedbackMsg, setFeedbackMsg] = useState("");
   const [feedbackTipo, setFeedbackTipo] = useState("positivo");
+  const [enviandoFeedback, setEnviandoFeedback] = useState(false);
+  const [responsabilidadeFuncId, setResponsabilidadeFuncId] = useState("");
+  const [responsabilidadeMes, setResponsabilidadeMes] = useState(obterMesAtual);
+  const [responsabilidadeTexto, setResponsabilidadeTexto] = useState("");
+  const [salvandoResponsabilidades, setSalvandoResponsabilidades] =
+    useState(false);
 
   const equipe = funcionarios.filter(
     (funcionario) => funcionario.email?.toLowerCase() !== ADMIN_EMAIL,
   );
   const tarefasPendentes = listaTarefas.filter((t) => t.status === "pendente");
+  const responsabilidadesSelecionadas = responsabilidadesMensais
+    .filter(
+      (item) =>
+        String(item.funcionaria_id) === String(responsabilidadeFuncId) &&
+        item.mes_referencia?.slice(0, 7) === responsabilidadeMes,
+    )
+    .sort((a, b) => (a.ordem || 0) - (b.ordem || 0));
+  const funcionariaResponsabilidades = equipe.find(
+    (funcionario) =>
+      String(funcionario.id) === String(responsabilidadeFuncId),
+  );
+
+  function obterTextoResponsabilidades(funcionariaId, mes) {
+    return responsabilidadesMensais
+      .filter(
+        (item) =>
+          String(item.funcionaria_id) === String(funcionariaId) &&
+          item.mes_referencia?.slice(0, 7) === mes,
+      )
+      .sort((a, b) => (a.ordem || 0) - (b.ordem || 0))
+      .map((item) => item.titulo)
+      .join("\n");
+  }
+
+  function selecionarFuncionariaResponsabilidades(funcionariaId) {
+    setResponsabilidadeFuncId(funcionariaId);
+    setResponsabilidadeTexto(
+      obterTextoResponsabilidades(funcionariaId, responsabilidadeMes),
+    );
+  }
+
+  function selecionarMesResponsabilidades(mes) {
+    setResponsabilidadeMes(mes);
+    setResponsabilidadeTexto(
+      obterTextoResponsabilidades(responsabilidadeFuncId, mes),
+    );
+  }
 
   async function handleCriarTarefa(e) {
     e.preventDefault();
@@ -299,26 +423,97 @@ function AdminDashboard({ usuario, onLogout, state }) {
 
   async function handleEnviarFeedback(e) {
     e.preventDefault();
-    if (!feedbackFuncId || !feedbackMsg) return alert("Selecione a funcionária e digite a mensagem.");
+    const mensagem = feedbackMsg.trim();
+    if (!feedbackFuncId || !mensagem) {
+      return alert("Selecione a funcionária e digite a mensagem.");
+    }
+    setEnviandoFeedback(true);
 
     const novoFeedback = {
-      funcionaria_id: parseInt(feedbackFuncId),
-      mensagem: feedbackMsg,
-      tipo: feedbackTipo
+      funcionaria_id: Number(feedbackFuncId),
+      mensagem,
+      tipo: feedbackTipo,
     };
 
-    const { data, error } = await supabase
-      .from("feedbacks")
-      .insert(novoFeedback)
-      .select("id")
-      .maybeSingle();
+    try {
+      const { data, error } = await supabase
+        .from("feedbacks")
+        .insert(novoFeedback)
+        .select("*")
+        .single();
 
-    if (error || !data) {
-      alert("Erro ao enviar feedback: " + (error?.message || "registro não confirmado"));
-    } else {
+      if (error || !data) {
+        throw error || new Error("O banco não confirmou o registro.");
+      }
+
+      setFeedbacks((anteriores) => [
+        data,
+        ...anteriores.filter((feedback) => feedback.id !== data.id),
+      ]);
       showToast("Feedback enviado com sucesso!");
       setFeedbackMsg("");
       setFeedbackFuncId("");
+    } catch (error) {
+      alert(
+        "Erro ao enviar feedback: " +
+          (error?.message || "registro não confirmado"),
+      );
+    } finally {
+      setEnviandoFeedback(false);
+    }
+  }
+
+  async function handleSalvarResponsabilidades(e) {
+    e.preventDefault();
+
+    if (!responsabilidadeFuncId || !responsabilidadeMes) {
+      return alert("Selecione a funcionária e o mês de referência.");
+    }
+
+    const tarefas = responsabilidadeTexto
+      .split(/\r?\n/)
+      .map((tarefa) => tarefa.trim())
+      .filter(Boolean);
+
+    setSalvandoResponsabilidades(true);
+
+    try {
+      const { data, error } = await supabase.rpc(
+        "salvar_responsabilidades_mensais",
+        {
+          p_funcionaria_id: Number(responsabilidadeFuncId),
+          p_mes_referencia: `${responsabilidadeMes}-01`,
+          p_tarefas: tarefas,
+        },
+      );
+
+      if (error) throw error;
+
+      setResponsabilidadesMensais((atuais) => [
+        ...atuais.filter(
+          (item) =>
+            !(
+              String(item.funcionaria_id) ===
+                String(responsabilidadeFuncId) &&
+              item.mes_referencia?.slice(0, 7) === responsabilidadeMes
+            ),
+        ),
+        ...(data || []),
+      ]);
+      await recarregarResponsabilidadesMensais();
+      showToast(
+        tarefas.length > 0
+          ? "Responsabilidades mensais salvas com sucesso!"
+          : "Responsabilidades do mês removidas.",
+      );
+    } catch (error) {
+      console.error("Erro ao salvar responsabilidades mensais:", error);
+      alert(
+        "Não foi possível salvar as responsabilidades: " +
+          (error?.message || "operação não confirmada"),
+      );
+    } finally {
+      setSalvandoResponsabilidades(false);
     }
   }
 
@@ -336,6 +531,7 @@ function AdminDashboard({ usuario, onLogout, state }) {
           <span className="nav-label">Navegação</span>
           <NavItem active={abaAtiva === "dashboard"} icon="dashboard" onClick={() => setAbaAtiva("dashboard")}>Dashboard</NavItem>
           <NavItem active={abaAtiva === "tarefas"} icon="tarefas" onClick={() => setAbaAtiva("tarefas")}>Tarefas</NavItem>
+          <NavItem active={abaAtiva === "responsabilidades"} icon="planner" onClick={() => setAbaAtiva("responsabilidades")}>Tarefas do Mês</NavItem>
           <NavItem active={abaAtiva === "equipe"} icon="equipe" onClick={() => setAbaAtiva("equipe")}>Equipe</NavItem>
           <NavItem active={abaAtiva === "documentos"} icon="documentos" onClick={() => setAbaAtiva("documentos")}>Documentos PDF</NavItem>
         </nav>
@@ -370,7 +566,7 @@ function AdminDashboard({ usuario, onLogout, state }) {
               <div className="card" onClick={() => setAbaAtiva("equipe")} style={{ cursor: 'pointer' }}>
                 <MetricIcon type="feedback" />
                 <span>Feedbacks</span>
-                <strong>Gerenciar</strong>
+                <strong>{feedbacks.length} registrados</strong>
               </div>
               <div className="card" onClick={() => setAbaAtiva("equipe")} style={{ cursor: 'pointer' }}>
                 <MetricIcon type="equipe" />
@@ -477,6 +673,109 @@ function AdminDashboard({ usuario, onLogout, state }) {
           </section>
         )}
 
+        {abaAtiva === "responsabilidades" && (
+          <section className="monthly-admin-grid">
+            <div className="panel monthly-editor">
+              <span className="eyebrow">Planejamento recorrente</span>
+              <h2>Tarefas fixas do mês</h2>
+              <p className="monthly-intro">
+                Escolha a colaboradora e escreva uma responsabilidade por
+                linha. A ordem digitada será a ordem apresentada no painel
+                dela.
+              </p>
+
+              <form className="stack-form" onSubmit={handleSalvarResponsabilidades}>
+                <label>
+                  Colaboradora
+                  <select
+                    value={responsabilidadeFuncId}
+                    onChange={(e) =>
+                      selecionarFuncionariaResponsabilidades(e.target.value)
+                    }
+                    required
+                  >
+                    <option value="">Selecione...</option>
+                    {equipe.map((funcionario) => (
+                      <option key={funcionario.id} value={funcionario.id}>
+                        {funcionario.nome}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+
+                <label>
+                  Mês de referência
+                  <input
+                    type="month"
+                    value={responsabilidadeMes}
+                    onChange={(e) =>
+                      selecionarMesResponsabilidades(e.target.value)
+                    }
+                    required
+                  />
+                </label>
+
+                <label>
+                  Responsabilidades
+                  <textarea
+                    className="monthly-textarea"
+                    value={responsabilidadeTexto}
+                    onChange={(e) => setResponsabilidadeTexto(e.target.value)}
+                    placeholder={"ANALISAR CONTRATO ASSINADO E ANEXAR NO CRM\nANEXAR DOCUMENTOS NO DRIVE E NO CRM\nNOTIFICAÇÃO EXTRAJUDICIAL"}
+                    rows="12"
+                  />
+                </label>
+
+                <small className="form-helper">
+                  Para remover todas as tarefas do mês selecionado, deixe a
+                  lista vazia e salve.
+                </small>
+
+                <button
+                  className="btn-primary"
+                  disabled={salvandoResponsabilidades}
+                  type="submit"
+                >
+                  {salvandoResponsabilidades
+                    ? "Salvando..."
+                    : "Salvar tarefas do mês"}
+                </button>
+              </form>
+            </div>
+
+            <div className="panel monthly-preview">
+              <div className="panel-title-row">
+                <div>
+                  <span className="eyebrow">Pré-visualização</span>
+                  <h2>
+                    {funcionariaResponsabilidades?.nome ||
+                      "Selecione uma colaboradora"}
+                  </h2>
+                </div>
+                <span className="month-badge">
+                  {formatarMes(responsabilidadeMes)}
+                </span>
+              </div>
+
+              {responsabilidadesSelecionadas.length === 0 ? (
+                <div className="monthly-empty">
+                  Nenhuma responsabilidade salva para esta colaboradora neste
+                  mês.
+                </div>
+              ) : (
+                <ol className="monthly-list">
+                  {responsabilidadesSelecionadas.map((item, indice) => (
+                    <li key={item.id}>
+                      <span>{indice + 1}</span>
+                      <strong>{item.titulo}</strong>
+                    </li>
+                  ))}
+                </ol>
+              )}
+            </div>
+          </section>
+        )}
+
         {abaAtiva === "equipe" && (
           <section className="content-grid" style={{ gridTemplateColumns: "1fr 1fr" }}>
             <div className="panel">
@@ -523,8 +822,34 @@ function AdminDashboard({ usuario, onLogout, state }) {
                   onChange={(e) => setFeedbackMsg(e.target.value)}
                   style={{ padding: '10px', borderRadius: '8px', border: '1px solid #cbd5e1', height: '120px' }} required
                 />
-                <button type="submit" className="btn-primary">Registrar Feedback no Painel</button>
+                <button
+                  type="submit"
+                  className="btn-primary"
+                  disabled={enviandoFeedback}
+                >
+                  {enviandoFeedback
+                    ? "Registrando feedback..."
+                    : "Registrar Feedback no Painel"}
+                </button>
               </form>
+            </div>
+
+            <div className="panel feedback-history-panel">
+              <div className="panel-title-row">
+                <h2>Histórico de Feedbacks Enviados</h2>
+                <button
+                  className="btn-secondary compact"
+                  onClick={recarregarFeedbacks}
+                >
+                  Atualizar
+                </button>
+              </div>
+              <ListaFeedbacks
+                feedbacks={feedbacks}
+                funcionarios={funcionarios}
+                mostrarDestinataria
+                vazio="Nenhum feedback profissional foi enviado ainda."
+              />
             </div>
           </section>
         )}
@@ -542,7 +867,16 @@ function AdminDashboard({ usuario, onLogout, state }) {
 // ==========================================
 
 function EmployeeDashboard({ usuario, onLogout, state }) {
-  const { listaTarefas, setListaTarefas, recarregarTarefas, showToast } = state;
+  const {
+    listaTarefas,
+    setListaTarefas,
+    feedbacks,
+    responsabilidadesMensais,
+    recarregarTarefas,
+    recarregarFeedbacks,
+    recarregarResponsabilidadesMensais,
+    showToast,
+  } = state;
   const [abaAtiva, setAbaAtiva] = useState("tarefas");
   const [tarefaConcluindoId, setTarefaConcluindoId] = useState(null);
 
@@ -551,6 +885,18 @@ function EmployeeDashboard({ usuario, onLogout, state }) {
   );
   const tarefasPendentes = minhasTarefas.filter((tarefa) => tarefa.status === "pendente");
   const tarefasConcluidas = minhasTarefas.filter((tarefa) => tarefa.status === "concluida");
+  const meusFeedbacks = feedbacks.filter(
+    (feedback) =>
+      String(feedback.funcionaria_id) === String(usuario.id),
+  );
+  const mesAtual = obterMesAtual();
+  const minhasResponsabilidadesDoMes = responsabilidadesMensais
+    .filter(
+      (item) =>
+        String(item.funcionaria_id) === String(usuario.id) &&
+        item.mes_referencia?.slice(0, 7) === mesAtual,
+    )
+    .sort((a, b) => (a.ordem || 0) - (b.ordem || 0));
 
   async function concluirTarefa(tarefa) {
     setTarefaConcluindoId(tarefa.id);
@@ -610,6 +956,9 @@ function EmployeeDashboard({ usuario, onLogout, state }) {
         <nav>
           <span className="nav-label">Meu espaço</span>
           <NavItem active={abaAtiva === "tarefas"} icon="tarefas" onClick={() => setAbaAtiva("tarefas")}>Minhas Tarefas</NavItem>
+          <NavItem active={abaAtiva === "feedbacks"} icon="feedback" onClick={() => setAbaAtiva("feedbacks")}>
+            Meus Feedbacks ({meusFeedbacks.length})
+          </NavItem>
           <NavItem active={abaAtiva === "historico"} icon="historico" onClick={() => setAbaAtiva("historico")}>Meu Histórico</NavItem>
           <NavItem active={abaAtiva === "planner"} icon="planner" onClick={() => setAbaAtiva("planner")}>Meu Planner</NavItem>
           <NavItem active={abaAtiva === "documentos"} icon="documentos" onClick={() => setAbaAtiva("documentos")}>Documentos PDF</NavItem>
@@ -630,8 +979,40 @@ function EmployeeDashboard({ usuario, onLogout, state }) {
         </header>
 
         {abaAtiva === "tarefas" && (
-          <section className="content-grid">
-            <div className="panel large">
+          <div className="employee-tasks-workspace">
+            <section className="panel monthly-employee-panel">
+              <div className="panel-title-row">
+                <div>
+                  <span className="eyebrow">Responsabilidades recorrentes</span>
+                  <h2>Tarefas de {formatarMes(mesAtual)}</h2>
+                </div>
+                <button
+                  className="btn-secondary compact"
+                  onClick={recarregarResponsabilidadesMensais}
+                >
+                  Atualizar
+                </button>
+              </div>
+
+              {minhasResponsabilidadesDoMes.length === 0 ? (
+                <div className="monthly-empty">
+                  O supervisor ainda não cadastrou suas responsabilidades para
+                  este mês.
+                </div>
+              ) : (
+                <ol className="monthly-list employee-monthly-list">
+                  {minhasResponsabilidadesDoMes.map((item, indice) => (
+                    <li key={item.id}>
+                      <span>{indice + 1}</span>
+                      <strong>{item.titulo}</strong>
+                    </li>
+                  ))}
+                </ol>
+              )}
+            </section>
+
+            <section className="content-grid">
+              <div className="panel large">
               <div className="panel-title-row">
                 <h2>Minhas tarefas pendentes</h2>
                 <button className="btn-secondary compact" onClick={recarregarTarefas}>
@@ -666,10 +1047,10 @@ function EmployeeDashboard({ usuario, onLogout, state }) {
                   </div>
                 </div>
               ))}
-            </div>
+              </div>
 
-            <div className="side-stack">
-              <div className="panel resource-panel">
+              <div className="side-stack">
+                <div className="panel resource-panel">
                 <div className="resource-heading">
                   <MetricIcon type="documentos" />
                   <div><h2>Central de Recursos</h2><p>Acesse documentos e planilhas da operação.</p></div>
@@ -690,13 +1071,39 @@ function EmployeeDashboard({ usuario, onLogout, state }) {
                 <a href="https://ledjqodwccotuxdrkjgk.supabase.co/storage/v1/object/sign/TRATATIVAS%20ADM/esteira-adm.pdf?token=eyJraWQiOiJzdG9yYWdlLXVybC1zaWduaW5nLWtleV83NmQyNjRmMy1mNjg4LTQ1YmItYjlkNS1mMjQ1MjM3YTJhODUiLCJhbGciOiJIUzI1NiJ9.eyJ1cmwiOiJUUkFUQVRJVkFTIEFETS9lc3RlaXJhLWFkbS5wZGYiLCJpYXQiOjE3ODAzODY0MTUsImV4cCI6MTgxMTkyMjQxNX0.foSBNz4TUEF_QuIVLXa8auQvUFeoqHMTiH-GFTaSJYQ" target="_blank" rel="noreferrer" style={{textDecoration: 'none'}}>
                   <button className="resource-link full"><UiIcon name="documentos" /> Esteira Administrativo</button>
                 </a>
+                </div>
               </div>
-            </div>
-          </section>
+            </section>
+          </div>
         )}
 
         {abaAtiva === "historico" && (
           <MeuHistorico tarefas={tarefasConcluidas} />
+        )}
+
+        {abaAtiva === "feedbacks" && (
+          <section className="panel large feedback-workspace">
+            <div className="panel-title-row">
+              <div>
+                <span className="eyebrow">Desenvolvimento profissional</span>
+                <h2>Meus Feedbacks</h2>
+              </div>
+              <button
+                className="btn-secondary compact"
+                onClick={recarregarFeedbacks}
+              >
+                Atualizar
+              </button>
+            </div>
+            <p className="feedback-intro">
+              Aqui ficam registrados os reconhecimentos e alinhamentos enviados
+              diretamente para você.
+            </p>
+            <ListaFeedbacks
+              feedbacks={meusFeedbacks}
+              vazio="Você ainda não recebeu nenhum feedback profissional."
+            />
+          </section>
         )}
 
         {abaAtiva === "planner" && (
@@ -720,6 +1127,8 @@ export default function App() {
   const [usuarioLogado, setUsuarioLogado] = useState(null);
   const [listaTarefas, setListaTarefas] = useState([]);
   const [funcionarios, setFuncionarios] = useState([]);
+  const [feedbacks, setFeedbacks] = useState([]);
+  const [responsabilidadesMensais, setResponsabilidadesMensais] = useState([]);
   const [toastMessage, setToastMessage] = useState("");
   const [inicializando, setInicializando] = useState(true);
 
@@ -750,9 +1159,50 @@ export default function App() {
     return data || [];
   }, []);
 
+  const recarregarFeedbacks = useCallback(async () => {
+    const { data, error } = await supabase
+      .from("feedbacks")
+      .select("*")
+      .order("created_at", { ascending: false });
+
+    if (error) throw error;
+    setFeedbacks(data || []);
+    return data || [];
+  }, []);
+
+  const recarregarResponsabilidadesMensais = useCallback(async () => {
+    const { data, error } = await supabase
+      .from("responsabilidades_mensais")
+      .select("*")
+      .order("mes_referencia", { ascending: false })
+      .order("ordem", { ascending: true })
+      .order("id", { ascending: true });
+
+    if (error) {
+      if (["42P01", "PGRST205"].includes(error.code)) {
+        setResponsabilidadesMensais([]);
+        return [];
+      }
+      throw error;
+    }
+
+    setResponsabilidadesMensais(data || []);
+    return data || [];
+  }, []);
+
   const sincronizarDados = useCallback(async () => {
-    await Promise.all([recarregarTarefas(), recarregarFuncionarios()]);
-  }, [recarregarFuncionarios, recarregarTarefas]);
+    await Promise.all([
+      recarregarTarefas(),
+      recarregarFuncionarios(),
+      recarregarFeedbacks(),
+      recarregarResponsabilidadesMensais(),
+    ]);
+  }, [
+    recarregarFeedbacks,
+    recarregarFuncionarios,
+    recarregarResponsabilidadesMensais,
+    recarregarTarefas,
+  ]);
 
   const handleLogin = useCallback(async (perfil) => {
     setUsuarioLogado(perfil);
@@ -770,6 +1220,8 @@ export default function App() {
     setUsuarioLogado(null);
     setListaTarefas([]);
     setFuncionarios([]);
+    setFeedbacks([]);
+    setResponsabilidadesMensais([]);
   }, []);
 
   useEffect(() => {
@@ -821,12 +1273,94 @@ export default function App() {
     };
   }, [sincronizarDados, usuarioLogado]);
 
+  useEffect(() => {
+    if (!usuarioLogado) return undefined;
+
+    const alteracaoFeedback = {
+      event: "INSERT",
+      schema: "public",
+      table: "feedbacks",
+    };
+
+    if (usuarioLogado.tipo === "funcionaria") {
+      alteracaoFeedback.filter = `funcionaria_id=eq.${usuarioLogado.id}`;
+    }
+
+    const canal = supabase
+      .channel(`feedbacks-${usuarioLogado.tipo}-${usuarioLogado.id}`)
+      .on("postgres_changes", alteracaoFeedback, () => {
+        recarregarFeedbacks()
+          .then(() => {
+            if (usuarioLogado.tipo === "funcionaria") {
+              showToast("Você recebeu um novo feedback profissional.");
+            }
+          })
+          .catch((error) => {
+            console.error("Erro ao atualizar feedbacks em tempo real:", error);
+          });
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(canal);
+    };
+  }, [recarregarFeedbacks, showToast, usuarioLogado]);
+
+  useEffect(() => {
+    if (!usuarioLogado) return undefined;
+
+    const alteracaoResponsabilidades = {
+      event: "*",
+      schema: "public",
+      table: "responsabilidades_mensais",
+    };
+
+    if (usuarioLogado.tipo === "funcionaria") {
+      alteracaoResponsabilidades.filter =
+        `funcionaria_id=eq.${usuarioLogado.id}`;
+    }
+
+    const canal = supabase
+      .channel(
+        `responsabilidades-${usuarioLogado.tipo}-${usuarioLogado.id}`,
+      )
+      .on("postgres_changes", alteracaoResponsabilidades, () => {
+        recarregarResponsabilidadesMensais()
+          .then(() => {
+            if (usuarioLogado.tipo === "funcionaria") {
+              showToast("Suas tarefas fixas do mês foram atualizadas.");
+            }
+          })
+          .catch((error) => {
+            console.error(
+              "Erro ao atualizar responsabilidades em tempo real:",
+              error,
+            );
+          });
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(canal);
+    };
+  }, [
+    recarregarResponsabilidadesMensais,
+    showToast,
+    usuarioLogado,
+  ]);
+
   const globais = {
     listaTarefas,
     setListaTarefas,
     funcionarios,
     setFuncionarios,
+    feedbacks,
+    setFeedbacks,
+    responsabilidadesMensais,
+    setResponsabilidadesMensais,
     recarregarTarefas,
+    recarregarFeedbacks,
+    recarregarResponsabilidadesMensais,
     showToast,
   };
 
@@ -963,6 +1497,39 @@ export default function App() {
         .team-member p { margin: 2px 0; font-size: 10px; }
         .points-badge { color: var(--green); font-size: 10px; font-weight: 800; }
         .member-actions { display: flex; gap: 6px; }
+        .feedback-history-panel { grid-column: 1 / -1; }
+        .feedback-list { display: grid; gap: 12px; }
+        .feedback-card { position: relative; overflow: hidden; padding: 17px 18px; background: rgba(247,251,255,.82); border: 1px solid rgba(104,148,201,.15); border-radius: 16px; }
+        .feedback-card::before { content: ''; position: absolute; inset: 0 auto 0 0; width: 4px; background: #5da7ef; }
+        .feedback-card.feedback-positivo::before { background: #43b99f; }
+        .feedback-card.feedback-construtivo::before { background: #e6a84e; }
+        .feedback-card-heading { display: flex; align-items: center; justify-content: space-between; gap: 14px; margin-bottom: 8px; }
+        .feedback-card-heading span { color: var(--accent-strong); font-size: 10px; font-weight: 800; letter-spacing: .7px; text-transform: uppercase; }
+        .feedback-card-heading time { color: var(--muted); font-size: 10px; white-space: nowrap; }
+        .feedback-card strong { display: block; margin-bottom: 7px; color: var(--dark); font-size: 12px; }
+        .feedback-card p { color: #4b607e; font-size: 13px; line-height: 1.65; white-space: pre-wrap; }
+        .feedback-workspace .panel-title-row { align-items: flex-end; }
+        .feedback-workspace .panel-title-row h2 { margin: 5px 0 0; }
+        .feedback-intro { margin: -8px 0 20px; font-size: 13px; }
+        .monthly-admin-grid { display: grid; grid-template-columns: minmax(320px, .8fr) minmax(0, 1.2fr); gap: 22px; align-items: start; }
+        .monthly-editor h2 { margin: 6px 0 8px; font-size: 24px; letter-spacing: -.7px; text-transform: none; }
+        .monthly-intro { margin-bottom: 22px; font-size: 13px; line-height: 1.65; }
+        .monthly-editor .stack-form label { display: flex; flex-direction: column; gap: 7px; }
+        .monthly-textarea { min-height: 265px; }
+        .form-helper { color: var(--muted); font-size: 10px; line-height: 1.5; }
+        .monthly-preview { min-height: 510px; overflow: hidden; position: relative; }
+        .monthly-preview::after, .monthly-employee-panel::after { content: ''; position: absolute; width: 260px; height: 260px; right: -110px; top: -130px; border-radius: 50%; background: radial-gradient(circle, rgba(87, 160, 248, .16), transparent 68%); pointer-events: none; }
+        .monthly-preview .panel-title-row, .monthly-employee-panel .panel-title-row { position: relative; z-index: 1; }
+        .monthly-preview .panel-title-row h2, .monthly-employee-panel .panel-title-row h2 { margin: 5px 0 0; font-size: 20px; letter-spacing: -.4px; text-transform: none; }
+        .month-badge { flex: 0 0 auto; padding: 8px 12px; color: var(--accent-strong); background: rgba(220,237,255,.78); border: 1px solid rgba(79,143,247,.15); border-radius: 999px; font-size: 10px; font-weight: 800; }
+        .monthly-list { display: grid; gap: 11px; margin: 0; padding: 0; list-style: none; }
+        .monthly-list li { display: flex; align-items: center; gap: 13px; padding: 15px 16px; color: var(--text); background: rgba(247,251,255,.84); border: 1px solid rgba(104,148,201,.14); border-radius: 15px; }
+        .monthly-list li > span { width: 29px; height: 29px; flex: 0 0 auto; display: grid; place-items: center; color: #fff; background: linear-gradient(145deg, #72acf1, #477fd2); border-radius: 10px; box-shadow: 0 7px 16px rgba(66,114,178,.18); font-size: 10px; font-weight: 800; }
+        .monthly-list strong { color: var(--dark); font-size: 12px; line-height: 1.45; }
+        .monthly-empty { padding: 34px 22px; color: var(--muted); background: rgba(241,248,255,.62); border: 1px dashed rgba(104,148,201,.25); border-radius: 16px; font-size: 12px; line-height: 1.6; text-align: center; }
+        .employee-tasks-workspace { display: flex; flex-direction: column; gap: 22px; }
+        .monthly-employee-panel { position: relative; overflow: hidden; }
+        .employee-monthly-list { grid-template-columns: repeat(2, minmax(0, 1fr)); position: relative; z-index: 1; }
         .resource-panel { overflow: hidden; position: relative; }
         .resource-panel::before { content: ''; position: absolute; inset: 0 0 auto; height: 3px; background: linear-gradient(90deg, #6cb4ff, #6dd5ed); }
         .resource-heading { display: flex; align-items: center; gap: 13px; margin-bottom: 18px; }
@@ -1049,12 +1616,13 @@ export default function App() {
         @media (max-width: 1024px) {
           .app-layout { grid-template-columns: 1fr; }
           .sidebar { height: auto; position: relative; padding: 20px; }
-          .sidebar nav { display: grid; grid-template-columns: repeat(4, minmax(0,1fr)); }
+          .sidebar nav { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); }
           .nav-label { display: none; }
           .nav-item { justify-content: center; }
           .sidebar-logout { position: absolute; right: 20px; top: 23px; width: auto; }
           .cards-grid { grid-template-columns: repeat(2, 1fr); }
           .content-grid { grid-template-columns: 1fr; }
+          .monthly-admin-grid { grid-template-columns: 1fr; }
           .planner-grid { grid-template-columns: 1fr; }
           .task-item { flex-direction: column; align-items: flex-start; }
           .document-grid { grid-template-columns: 1fr; }
@@ -1074,6 +1642,7 @@ export default function App() {
           .cards-grid { grid-template-columns: 1fr; }
           .card { min-height: 145px; }
           .task-actions, .member-actions { width: 100%; }
+          .employee-monthly-list { grid-template-columns: 1fr; }
           .team-member { grid-template-columns: 43px 1fr; }
           .member-actions { grid-column: span 2; }
           .document-heading { align-items: flex-start; flex-direction: column; }

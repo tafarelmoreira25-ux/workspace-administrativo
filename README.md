@@ -44,8 +44,11 @@ on conflict (email) do update
 set nome = excluded.nome, cargo = excluded.cargo;
 ```
 
-O script configura as permissões para o supervisor delegar tarefas e para cada
-colaboradora consultar e concluir somente as tarefas dela.
+O script configura as permissões para o supervisor delegar tarefas e enviar
+feedbacks profissionais. Cada colaboradora consulta somente as próprias
+tarefas, os feedbacks destinados ao seu cadastro e as responsabilidades fixas
+do mês. No acesso do supervisor, a área **Tarefas do Mês** permite substituir,
+reordenar ou remover a lista mensal de cada colaboradora.
 
 ## Documentos PDF padrão
 
