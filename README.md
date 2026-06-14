@@ -76,6 +76,15 @@ precisar recarregar a página.
 O supervisor pode editar prioridade, prazo, responsável, status, pontos,
 apontamento e a visibilidade de cada tarefa no painel.
 
+Também é possível selecionar **Manual da TV** para registrar atividades que
+não pertencem ao fluxo de uma colaboradora. Essas tarefas aceitam responsável
+ou setor em texto livre, aparecem somente para o supervisor e não geram
+pontuação.
+
+As tarefas podem ser organizadas nas categorias **GOV**, **PROCURAÇÕES**,
+**ENC. PROCESSUAL**, **AUDIÊNCIA** e **SEGUROS**. A categoria aparece no
+painel da TV e pode ser usada como filtro na gestão do supervisor.
+
 O modelo original da procuração está arquivado em:
 
 `modelos-originais/procuracao-dra-juliane.docx`

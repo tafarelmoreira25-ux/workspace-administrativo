@@ -16,13 +16,18 @@ function CartaoTV({ tarefa, funcionarios, tipo }) {
   const responsavel = funcionarios.find(
     (item) => String(item.id) === String(tarefa.funcionaria_id),
   );
+  const nomeResponsavel =
+    tarefa.responsavel_texto || responsavel?.nome || "Equipe";
 
   return (
     <article className={`tv-task-card tv-task-${tipo}`}>
       <div className="tv-task-heading">
-        <span className="tv-responsavel">
-          {responsavel?.nome || "Sem responsavel"}
-        </span>
+        <div className="tv-task-labels">
+          <span className="tv-responsavel">{nomeResponsavel}</span>
+          {tarefa.categoria && (
+            <span className="tv-category">{tarefa.categoria}</span>
+          )}
+        </div>
         {tarefaAtrasada(tarefa) && (
           <span className="tv-overdue">Prazo vencido</span>
         )}

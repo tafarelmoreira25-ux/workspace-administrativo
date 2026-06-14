@@ -12,6 +12,13 @@ const ADMIN_EMAIL = (
   import.meta.env.VITE_ADMIN_EMAIL || "tafarel@platino.com"
 ).toLowerCase();
 const RESPONSABILIDADE_MENSAL_PREFIXO = "__RESPONSABILIDADE_MENSAL__";
+const CATEGORIAS_TAREFA = [
+  "GOV",
+  "PROCURAÇÕES",
+  "ENC. PROCESSUAL",
+  "AUDIÊNCIA",
+  "SEGUROS",
+];
 
 async function buscarPerfilUsuario(usuarioAuth) {
   const email = usuarioAuth?.email?.trim().toLowerCase();
@@ -344,6 +351,7 @@ function AdminDashboard({ usuario, onLogout, state }) {
   const [tarefaEmEdicao, setTarefaEmEdicao] = useState(null);
   const [salvandoEdicao, setSalvandoEdicao] = useState(false);
   const [filtroTarefas, setFiltroTarefas] = useState("todas");
+  const [filtroCategoria, setFiltroCategoria] = useState("todas");
 
   const [titulo, setTitulo] = useState("");
   const [descricao, setDescricao] = useState("");
@@ -351,8 +359,11 @@ function AdminDashboard({ usuario, onLogout, state }) {
   const [pontosTarefa, setPontosTarefa] = useState(10);
   const [dataLimite, setDataLimite] = useState("");
   const [prioridade, setPrioridade] = useState("normal");
+  const [categoria, setCategoria] = useState(CATEGORIAS_TAREFA[0]);
   const [apontamento, setApontamento] = useState("");
   const [exibirTv, setExibirTv] = useState(true);
+  const [tarefaManual, setTarefaManual] = useState(false);
+  const [responsavelManual, setResponsavelManual] = useState("");
 
   const [feedbackFuncId, setFeedbackFuncId] = useState("");
   const [feedbackMsg, setFeedbackMsg] = useState("");
@@ -372,7 +383,11 @@ function AdminDashboard({ usuario, onLogout, state }) {
     (tarefa) => tarefa.prioridade === "urgente",
   );
   const tarefasFiltradas = listaTarefas.filter((tarefa) => {
+    const correspondeCategoria =
+      filtroCategoria === "todas" || tarefa.categoria === filtroCategoria;
+    if (!correspondeCategoria) return false;
     if (filtroTarefas === "todas") return true;
+    if (filtroTarefas === "manuais") return tarefa.tarefa_manual === true;
     if (filtroTarefas === "urgente") {
       return tarefa.status === "pendente" && tarefa.prioridade === "urgente";
     }
@@ -418,37 +433,71 @@ function AdminDashboard({ usuario, onLogout, state }) {
 
   async function handleCriarTarefa(e) {
     e.preventDefault();
-    if (!titulo || !funcId) return alert("Preencha o título e selecione a responsável.");
+    if (!titulo || (!tarefaManual && !funcId)) {
+      return alert(
+        tarefaManual
+          ? "Preencha o titulo da tarefa manual."
+          : "Preencha o titulo e selecione a responsavel.",
+      );
+    }
     setSalvandoTarefa(true);
 
-    const novaTarefa = {
-      titulo: titulo.trim(),
-      descricao: descricao.trim(),
-      funcionaria_id: Number(funcId),
-      pontos_tarefa: Math.max(0, Number(pontosTarefa) || 0),
-      data_limite: dataLimite || null,
-      status: "pendente",
-      prioridade,
-      apontamento: apontamento.trim() || null,
-      exibir_tv: exibirTv,
-    };
+    let data;
+    let error;
 
-    const { data, error } = await supabase
-      .from("tarefas")
-      .insert(novaTarefa)
-      .select()
-      .single();
+    if (tarefaManual) {
+      const resposta = await supabase.rpc("salvar_tarefa_manual_supervisor", {
+        p_tarefa_id: null,
+        p_titulo: titulo.trim(),
+        p_descricao: descricao.trim() || null,
+        p_responsavel_texto: responsavelManual.trim() || null,
+        p_data_limite: dataLimite || null,
+        p_status: "pendente",
+        p_prioridade: prioridade,
+        p_categoria: categoria,
+        p_apontamento: apontamento.trim() || null,
+        p_exibir_tv: exibirTv,
+      });
+      data = Array.isArray(resposta.data) ? resposta.data[0] : resposta.data;
+      error = resposta.error;
+    } else {
+      const resposta = await supabase
+        .from("tarefas")
+        .insert({
+          titulo: titulo.trim(),
+          descricao: descricao.trim(),
+          funcionaria_id: Number(funcId),
+          pontos_tarefa: Math.max(0, Number(pontosTarefa) || 0),
+          data_limite: dataLimite || null,
+          status: "pendente",
+          prioridade,
+          categoria,
+          apontamento: apontamento.trim() || null,
+          exibir_tv: exibirTv,
+          tarefa_manual: false,
+        })
+        .select()
+        .single();
+      data = resposta.data;
+      error = resposta.error;
+    }
 
     if (error) {
       alert("Erro ao salvar tarefa: " + error.message);
     } else {
       setListaTarefas((anteriores) => [data, ...anteriores]);
-      showToast("Tarefa delegada com sucesso!");
+      showToast(
+        tarefaManual
+          ? "Tarefa manual adicionada ao painel."
+          : "Tarefa delegada com sucesso!",
+      );
       setTitulo("");
       setDescricao("");
       setFuncId("");
+      setResponsavelManual("");
       setDataLimite("");
       setPrioridade("normal");
+      setCategoria(CATEGORIAS_TAREFA[0]);
       setApontamento("");
       setExibirTv(true);
     }
@@ -459,10 +508,14 @@ function AdminDashboard({ usuario, onLogout, state }) {
   function iniciarEdicaoTarefa(tarefa) {
     setTarefaEmEdicao({
       ...tarefa,
-      funcionaria_id: String(tarefa.funcionaria_id),
+      funcionaria_id: tarefa.funcionaria_id
+        ? String(tarefa.funcionaria_id)
+        : "",
+      responsavel_texto: tarefa.responsavel_texto || "",
       pontos_tarefa: tarefa.pontos_tarefa ?? 0,
       data_limite: tarefa.data_limite || "",
       prioridade: tarefa.prioridade || "normal",
+      categoria: tarefa.categoria || CATEGORIAS_TAREFA[0],
       apontamento: tarefa.apontamento || "",
       exibir_tv: tarefa.exibir_tv !== false,
     });
@@ -478,9 +531,21 @@ function AdminDashboard({ usuario, onLogout, state }) {
 
     setSalvandoEdicao(true);
     try {
-      const { data, error } = await supabase.rpc(
-        "atualizar_tarefa_supervisor",
-        {
+      const resposta = tarefaEmEdicao.tarefa_manual
+        ? await supabase.rpc("salvar_tarefa_manual_supervisor", {
+            p_tarefa_id: Number(tarefaEmEdicao.id),
+            p_titulo: tarefaEmEdicao.titulo.trim(),
+            p_descricao: tarefaEmEdicao.descricao?.trim() || null,
+            p_responsavel_texto:
+              tarefaEmEdicao.responsavel_texto?.trim() || null,
+            p_data_limite: tarefaEmEdicao.data_limite || null,
+            p_status: tarefaEmEdicao.status,
+            p_prioridade: tarefaEmEdicao.prioridade,
+            p_categoria: tarefaEmEdicao.categoria,
+            p_apontamento: tarefaEmEdicao.apontamento?.trim() || null,
+            p_exibir_tv: tarefaEmEdicao.exibir_tv,
+          })
+        : await supabase.rpc("atualizar_tarefa_supervisor", {
           p_tarefa_id: Number(tarefaEmEdicao.id),
           p_titulo: tarefaEmEdicao.titulo.trim(),
           p_descricao: tarefaEmEdicao.descricao?.trim() || null,
@@ -492,10 +557,12 @@ function AdminDashboard({ usuario, onLogout, state }) {
           p_data_limite: tarefaEmEdicao.data_limite || null,
           p_status: tarefaEmEdicao.status,
           p_prioridade: tarefaEmEdicao.prioridade,
+          p_categoria: tarefaEmEdicao.categoria,
           p_apontamento: tarefaEmEdicao.apontamento?.trim() || null,
           p_exibir_tv: tarefaEmEdicao.exibir_tv,
-        },
-      );
+        });
+
+      const { data, error } = resposta;
 
       if (error) throw error;
 
@@ -804,18 +871,28 @@ function AdminDashboard({ usuario, onLogout, state }) {
                   const func = funcionarios.find(
                     (item) => String(item.id) === String(tarefa.funcionaria_id),
                   );
+                  const nomeResponsavel =
+                    tarefa.responsavel_texto ||
+                    func?.nome ||
+                    (tarefa.tarefa_manual ? "Equipe" : "Nao atribuida");
                   return (
                     <div className="task-item" key={tarefa.id}>
                       <div>
                         <h3>{tarefa.titulo}</h3>
                         <p style={{ fontSize: '14px', color: '#64748b', marginBottom: '8px' }}>{tarefa.descricao}</p>
                         <small>
-                          Responsável: <strong>{func?.nome || 'Não atribuída'}</strong> | 
-                          Pontos: {tarefa.pontos_tarefa || 10} | 
+                          Responsavel: <strong>{nomeResponsavel}</strong> |
+                          {!tarefa.tarefa_manual &&
+                            ` Pontos: ${tarefa.pontos_tarefa ?? 0} |`}
                           Prazo: {formatarData(tarefa.data_limite)}
                         </small>
                       </div>
                       <div className="task-actions">
+                        {tarefa.categoria && (
+                          <span className="category-badge">
+                            {tarefa.categoria}
+                          </span>
+                        )}
                         <span
                           className={`priority-badge priority-${tarefa.prioridade || "normal"}`}
                         >
@@ -856,8 +933,28 @@ function AdminDashboard({ usuario, onLogout, state }) {
 
             <section className="task-editor-grid">
               <div className="panel">
-                <h2>Delegar nova tarefa</h2>
+                <h2>
+                  {tarefaManual
+                    ? "Adicionar tarefa manual na TV"
+                    : "Delegar nova tarefa"}
+                </h2>
                 <form className="stack-form task-form" onSubmit={handleCriarTarefa}>
+                  <div className="task-kind-switch">
+                    <button
+                      className={!tarefaManual ? "active" : ""}
+                      onClick={() => setTarefaManual(false)}
+                      type="button"
+                    >
+                      Tarefa delegada
+                    </button>
+                    <button
+                      className={tarefaManual ? "active" : ""}
+                      onClick={() => setTarefaManual(true)}
+                      type="button"
+                    >
+                      Manual da TV
+                    </button>
+                  </div>
                   <label>
                     Titulo
                     <input
@@ -877,22 +974,49 @@ function AdminDashboard({ usuario, onLogout, state }) {
                       rows="4"
                     />
                   </label>
+                  <label>
+                    Categoria
+                    <select
+                      value={categoria}
+                      onChange={(event) => setCategoria(event.target.value)}
+                      required
+                    >
+                      {CATEGORIAS_TAREFA.map((item) => (
+                        <option key={item} value={item}>
+                          {item}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
                   <div className="task-form-row">
-                    <label>
-                      Responsavel
-                      <select
-                        value={funcId}
-                        onChange={(event) => setFuncId(event.target.value)}
-                        required
-                      >
-                        <option value="">Selecione...</option>
-                        {equipe.map((funcionario) => (
-                          <option key={funcionario.id} value={funcionario.id}>
-                            {funcionario.nome} ({funcionario.cargo})
-                          </option>
-                        ))}
-                      </select>
-                    </label>
+                    {tarefaManual ? (
+                      <label>
+                        Responsavel ou setor
+                        <input
+                          placeholder="Ex.: Equipe, Tafarel ou Financeiro"
+                          value={responsavelManual}
+                          onChange={(event) =>
+                            setResponsavelManual(event.target.value)
+                          }
+                        />
+                      </label>
+                    ) : (
+                      <label>
+                        Responsavel
+                        <select
+                          value={funcId}
+                          onChange={(event) => setFuncId(event.target.value)}
+                          required
+                        >
+                          <option value="">Selecione...</option>
+                          {equipe.map((funcionario) => (
+                            <option key={funcionario.id} value={funcionario.id}>
+                              {funcionario.nome} ({funcionario.cargo})
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                    )}
                     <label>
                       Prioridade
                       <select
@@ -905,16 +1029,20 @@ function AdminDashboard({ usuario, onLogout, state }) {
                       </select>
                     </label>
                   </div>
-                  <div className="task-form-row">
-                    <label>
-                      Pontos
-                      <input
-                        min="0"
-                        type="number"
-                        value={pontosTarefa}
-                        onChange={(event) => setPontosTarefa(event.target.value)}
-                      />
-                    </label>
+                  <div className={tarefaManual ? "" : "task-form-row"}>
+                    {!tarefaManual && (
+                      <label>
+                        Pontos
+                        <input
+                          min="0"
+                          type="number"
+                          value={pontosTarefa}
+                          onChange={(event) =>
+                            setPontosTarefa(event.target.value)
+                          }
+                        />
+                      </label>
+                    )}
                     <label>
                       Prazo
                       <input
@@ -946,7 +1074,11 @@ function AdminDashboard({ usuario, onLogout, state }) {
                     className="btn-primary"
                     disabled={salvandoTarefa}
                   >
-                    {salvandoTarefa ? "Publicando..." : "Delegar tarefa"}
+                    {salvandoTarefa
+                      ? "Publicando..."
+                      : tarefaManual
+                        ? "Adicionar ao painel"
+                        : "Delegar tarefa"}
                   </button>
                 </form>
               </div>
@@ -988,28 +1120,62 @@ function AdminDashboard({ usuario, onLogout, state }) {
                           rows="3"
                         />
                       </label>
+                      <label>
+                        Categoria
+                        <select
+                          value={tarefaEmEdicao.categoria}
+                          onChange={(event) =>
+                            atualizarCampoEdicao(
+                              "categoria",
+                              event.target.value,
+                            )
+                          }
+                          required
+                        >
+                          {CATEGORIAS_TAREFA.map((item) => (
+                            <option key={item} value={item}>
+                              {item}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
                       <div className="task-form-row">
-                        <label>
-                          Responsavel
-                          <select
-                            value={tarefaEmEdicao.funcionaria_id}
-                            onChange={(event) =>
-                              atualizarCampoEdicao(
-                                "funcionaria_id",
-                                event.target.value,
-                              )
-                            }
-                          >
-                            {equipe.map((funcionario) => (
-                              <option
-                                key={funcionario.id}
-                                value={funcionario.id}
-                              >
-                                {funcionario.nome}
-                              </option>
-                            ))}
-                          </select>
-                        </label>
+                        {tarefaEmEdicao.tarefa_manual ? (
+                          <label>
+                            Responsavel ou setor
+                            <input
+                              value={tarefaEmEdicao.responsavel_texto}
+                              onChange={(event) =>
+                                atualizarCampoEdicao(
+                                  "responsavel_texto",
+                                  event.target.value,
+                                )
+                              }
+                            />
+                          </label>
+                        ) : (
+                          <label>
+                            Responsavel
+                            <select
+                              value={tarefaEmEdicao.funcionaria_id}
+                              onChange={(event) =>
+                                atualizarCampoEdicao(
+                                  "funcionaria_id",
+                                  event.target.value,
+                                )
+                              }
+                            >
+                              {equipe.map((funcionario) => (
+                                <option
+                                  key={funcionario.id}
+                                  value={funcionario.id}
+                                >
+                                  {funcionario.nome}
+                                </option>
+                              ))}
+                            </select>
+                          </label>
+                        )}
                         <label>
                           Status
                           <select
@@ -1054,20 +1220,22 @@ function AdminDashboard({ usuario, onLogout, state }) {
                           />
                         </label>
                       </div>
-                      <label>
-                        Pontos
-                        <input
-                          min="0"
-                          type="number"
-                          value={tarefaEmEdicao.pontos_tarefa}
-                          onChange={(event) =>
-                            atualizarCampoEdicao(
-                              "pontos_tarefa",
-                              event.target.value,
-                            )
-                          }
-                        />
-                      </label>
+                      {!tarefaEmEdicao.tarefa_manual && (
+                        <label>
+                          Pontos
+                          <input
+                            min="0"
+                            type="number"
+                            value={tarefaEmEdicao.pontos_tarefa}
+                            onChange={(event) =>
+                              atualizarCampoEdicao(
+                                "pontos_tarefa",
+                                event.target.value,
+                              )
+                            }
+                          />
+                        </label>
+                      )}
                       <label>
                         Apontamento atualizado
                         <textarea
@@ -1130,9 +1298,22 @@ function AdminDashboard({ usuario, onLogout, state }) {
                     aria-label="Filtrar tarefas"
                   >
                     <option value="todas">Todas</option>
+                    <option value="manuais">Manuais da TV</option>
                     <option value="pendente">Pendentes</option>
                     <option value="urgente">Urgentes</option>
                     <option value="concluida">Concluidas</option>
+                  </select>
+                  <select
+                    value={filtroCategoria}
+                    onChange={(event) => setFiltroCategoria(event.target.value)}
+                    aria-label="Filtrar por categoria"
+                  >
+                    <option value="todas">Todas as categorias</option>
+                    {CATEGORIAS_TAREFA.map((item) => (
+                      <option key={item} value={item}>
+                        {item}
+                      </option>
+                    ))}
                   </select>
                   <button
                     className="btn-secondary compact"
@@ -1156,6 +1337,10 @@ function AdminDashboard({ usuario, onLogout, state }) {
                       String(funcionario.id) ===
                       String(tarefa.funcionaria_id),
                   );
+                  const nomeResponsavel =
+                    tarefa.responsavel_texto ||
+                    responsavel?.nome ||
+                    (tarefa.tarefa_manual ? "Equipe" : "Nao atribuida");
 
                   return (
                     <article
@@ -1172,11 +1357,21 @@ function AdminDashboard({ usuario, onLogout, state }) {
                           >
                             {rotuloPrioridade(tarefa.prioridade)}
                           </span>
+                          {tarefa.categoria && (
+                            <span className="category-badge">
+                              {tarefa.categoria}
+                            </span>
+                          )}
                           <span className="tv-visibility-badge">
                             {tarefa.exibir_tv === false
                               ? "Oculta na TV"
                               : "Visivel na TV"}
                           </span>
+                          {tarefa.tarefa_manual && (
+                            <span className="manual-task-badge">
+                              Manual da TV
+                            </span>
+                          )}
                         </div>
                         <h3>{tarefa.titulo}</h3>
                         {tarefa.descricao && <p>{tarefa.descricao}</p>}
@@ -1187,9 +1382,10 @@ function AdminDashboard({ usuario, onLogout, state }) {
                           </div>
                         )}
                         <small>
-                          Responsavel: {responsavel?.nome || "Nao atribuida"} |
-                          Prazo: {formatarData(tarefa.data_limite)} | Pontos:{" "}
-                          {tarefa.pontos_tarefa ?? 0}
+                          Responsavel: {nomeResponsavel} | Prazo:{" "}
+                          {formatarData(tarefa.data_limite)}
+                          {!tarefa.tarefa_manual &&
+                            ` | Pontos: ${tarefa.pontos_tarefa ?? 0}`}
                         </small>
                       </div>
                       <div className="admin-task-actions">
@@ -1601,6 +1797,11 @@ function EmployeeDashboard({ usuario, onLogout, state }) {
                     </small>
                   </div>
                   <div className="task-actions">
+                    {tarefa.categoria && (
+                      <span className="category-badge">
+                        {tarefa.categoria}
+                      </span>
+                    )}
                     <span
                       className={`priority-badge priority-${tarefa.prioridade || "normal"}`}
                     >
@@ -2049,10 +2250,11 @@ export default function App() {
         .status { padding: 6px 10px; border-radius: 999px; font-size: 9px; font-weight: 800; letter-spacing: .7px; text-transform: uppercase; white-space: nowrap; }
         .status.pendente { color: #a66e16; background: rgba(255, 229, 170, .55); border: 1px solid rgba(216,164,54,.15); }
         .status.concluida { color: #268c77; background: rgba(190, 241, 228, .6); border: 1px solid rgba(66,191,165,.14); }
-        .priority-badge, .tv-visibility-badge { display: inline-flex; align-items: center; width: max-content; padding: 6px 10px; border-radius: 999px; font-size: 9px; font-weight: 800; letter-spacing: .6px; text-transform: uppercase; white-space: nowrap; }
+        .priority-badge, .category-badge, .tv-visibility-badge, .manual-task-badge { display: inline-flex; align-items: center; width: max-content; padding: 6px 10px; border-radius: 999px; font-size: 9px; font-weight: 800; letter-spacing: .6px; text-transform: uppercase; white-space: nowrap; }
         .priority-badge.priority-normal { color: #65758c; background: #edf3f8; }
         .priority-badge.priority-alta { color: #9b6414; background: #fff0c9; }
         .priority-badge.priority-urgente { color: #b73350; background: #ffe2e9; box-shadow: 0 0 0 3px rgba(223,109,135,.08); }
+        .category-badge { color: #315f91; background: #e2f0ff; border: 1px solid rgba(79,143,247,.12); }
         .employee-task-note { margin: 10px 0; padding: 10px 12px; color: #516987; background: rgba(231,242,255,.74); border-left: 3px solid #5c9bf0; border-radius: 8px; font-size: 11px; line-height: 1.55; }
 
         .task-management { display: flex; flex-direction: column; gap: 22px; }
@@ -2063,6 +2265,9 @@ export default function App() {
         .task-editor-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 22px; align-items: start; }
         .task-form { margin-top: 20px; }
         .task-form label { display: flex; flex-direction: column; gap: 7px; }
+        .task-kind-switch { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 7px; padding: 5px; background: rgba(232,242,254,.78); border: 1px solid rgba(104,148,201,.13); border-radius: 13px; }
+        .task-kind-switch button { padding: 10px 12px; color: #7182a0; background: transparent; border: 0; border-radius: 9px; cursor: pointer; font-size: 11px; font-weight: 800; }
+        .task-kind-switch button.active { color: #fff; background: linear-gradient(135deg, #4f8ff7, #3d78db); box-shadow: 0 8px 18px rgba(55,118,216,.2); }
         .task-form-row { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
         .task-check-label { flex-direction: row !important; align-items: center; gap: 9px !important; padding: 11px 12px; background: rgba(238,247,255,.72); border: 1px solid rgba(104,148,201,.14); border-radius: 12px; cursor: pointer; }
         .task-check-label input { width: 17px !important; height: 17px; flex: 0 0 auto; padding: 0 !important; accent-color: var(--accent-strong); box-shadow: none !important; }
@@ -2086,6 +2291,7 @@ export default function App() {
         .admin-task-main small { display: block; margin-top: 9px; }
         .admin-task-badges { display: flex; flex-wrap: wrap; gap: 7px; }
         .tv-visibility-badge { color: #35679f; background: #e5f1ff; }
+        .manual-task-badge { color: #6f54a8; background: #eee7ff; }
         .admin-task-note { margin-top: 9px; padding: 9px 11px; color: #526b8b; background: rgba(225,239,255,.72); border-radius: 9px; font-size: 11px; line-height: 1.5; }
         .admin-task-actions { display: flex; gap: 7px; flex: 0 0 auto; }
 
@@ -2119,7 +2325,9 @@ export default function App() {
         .tv-task-card { position: relative; margin-bottom: 11px; padding: 15px; overflow: hidden; background: rgba(255,255,255,.055); border: 1px solid rgba(172,210,250,.09); border-radius: 15px; }
         .tv-task-card::before { content: ''; position: absolute; inset: 0 auto 0 0; width: 3px; background: var(--tv-accent); }
         .tv-task-heading { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+        .tv-task-labels { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; }
         .tv-responsavel { color: var(--tv-accent); font-size: 9px; font-weight: 800; letter-spacing: .7px; text-transform: uppercase; }
+        .tv-category { padding: 4px 7px; color: #9ed2ff; background: rgba(83,158,231,.12); border-radius: 999px; font-size: 7px; font-weight: 800; letter-spacing: .5px; text-transform: uppercase; }
         .tv-overdue { padding: 4px 7px; color: #ff8aa0; background: rgba(255,104,133,.1); border-radius: 999px; font-size: 7px; font-weight: 800; text-transform: uppercase; }
         .tv-task-card h3 { margin: 8px 0 5px; color: #f8fbff; font-size: clamp(12px, 1vw, 15px); line-height: 1.35; }
         .tv-task-card > p { color: #9db1cc; font-size: clamp(9px, .75vw, 11px); line-height: 1.5; }

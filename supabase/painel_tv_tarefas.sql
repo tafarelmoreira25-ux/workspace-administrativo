@@ -7,7 +7,13 @@ alter table public.tarefas
   add column if not exists prioridade text not null default 'normal',
   add column if not exists apontamento text,
   add column if not exists exibir_tv boolean not null default true,
+  add column if not exists tarefa_manual boolean not null default false,
+  add column if not exists responsavel_texto text,
+  add column if not exists categoria text,
   add column if not exists updated_at timestamptz not null default now();
+
+alter table public.tarefas
+  alter column funcionaria_id drop not null;
 
 do $$
 declare
@@ -32,8 +38,34 @@ alter table public.tarefas
   add constraint tarefas_prioridade_check
   check (prioridade in ('normal', 'alta', 'urgente'));
 
+alter table public.tarefas
+  drop constraint if exists tarefas_categoria_check;
+
+alter table public.tarefas
+  add constraint tarefas_categoria_check
+  check (
+    categoria is null
+    or categoria in (
+      'GOV',
+      'PROCURAÇÕES',
+      'ENC. PROCESSUAL',
+      'AUDIÊNCIA',
+      'SEGUROS'
+    )
+  );
+
 create index if not exists tarefas_painel_tv_idx
-on public.tarefas (exibir_tv, status, prioridade, data_limite);
+on public.tarefas (
+  exibir_tv,
+  status,
+  categoria,
+  prioridade,
+  data_limite
+);
+
+drop function if exists public.atualizar_tarefa_supervisor(
+  bigint, text, text, bigint, integer, date, text, text, text, boolean
+);
 
 create or replace function public.atualizar_tarefa_supervisor(
   p_tarefa_id bigint,
@@ -44,6 +76,7 @@ create or replace function public.atualizar_tarefa_supervisor(
   p_data_limite date,
   p_status text,
   p_prioridade text,
+  p_categoria text,
   p_apontamento text,
   p_exibir_tv boolean
 )
@@ -72,6 +105,7 @@ begin
     data_limite = p_data_limite,
     status = p_status,
     prioridade = p_prioridade,
+    categoria = p_categoria,
     apontamento = nullif(trim(coalesce(p_apontamento, '')), ''),
     exibir_tv = coalesce(p_exibir_tv, true),
     updated_at = now()
@@ -87,10 +121,117 @@ end;
 $$;
 
 revoke all on function public.atualizar_tarefa_supervisor(
-  bigint, text, text, bigint, integer, date, text, text, text, boolean
+  bigint, text, text, bigint, integer, date, text, text, text, text, boolean
 ) from public;
 grant execute on function public.atualizar_tarefa_supervisor(
-  bigint, text, text, bigint, integer, date, text, text, text, boolean
+  bigint, text, text, bigint, integer, date, text, text, text, text, boolean
+) to authenticated;
+
+drop function if exists public.salvar_tarefa_manual_supervisor(
+  bigint, text, text, text, date, text, text, text, boolean
+);
+
+create or replace function public.salvar_tarefa_manual_supervisor(
+  p_tarefa_id bigint,
+  p_titulo text,
+  p_descricao text,
+  p_responsavel_texto text,
+  p_data_limite date,
+  p_status text,
+  p_prioridade text,
+  p_categoria text,
+  p_apontamento text,
+  p_exibir_tv boolean
+)
+returns public.tarefas
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  tarefa_salva public.tarefas;
+begin
+  if not public.usuario_e_admin() then
+    raise exception 'Somente o supervisor pode gerenciar tarefas manuais.';
+  end if;
+
+  if nullif(trim(p_titulo), '') is null then
+    raise exception 'O titulo da tarefa e obrigatorio.';
+  end if;
+
+  if p_status not in ('pendente', 'concluida') then
+    raise exception 'Status invalido para tarefa manual.';
+  end if;
+
+  if p_tarefa_id is null then
+    insert into public.tarefas (
+      titulo,
+      descricao,
+      funcionaria_id,
+      pontos_tarefa,
+      data_limite,
+      status,
+      concluida_em,
+      prioridade,
+      categoria,
+      apontamento,
+      exibir_tv,
+      tarefa_manual,
+      responsavel_texto,
+      updated_at
+    )
+    values (
+      trim(p_titulo),
+      nullif(trim(coalesce(p_descricao, '')), ''),
+      null,
+      0,
+      p_data_limite,
+      p_status,
+      case when p_status = 'concluida' then now() else null end,
+      p_prioridade,
+      p_categoria,
+      nullif(trim(coalesce(p_apontamento, '')), ''),
+      coalesce(p_exibir_tv, true),
+      true,
+      nullif(trim(coalesce(p_responsavel_texto, '')), ''),
+      now()
+    )
+    returning * into tarefa_salva;
+  else
+    update public.tarefas
+    set
+      titulo = trim(p_titulo),
+      descricao = nullif(trim(coalesce(p_descricao, '')), ''),
+      funcionaria_id = null,
+      pontos_tarefa = 0,
+      data_limite = p_data_limite,
+      status = p_status,
+      prioridade = p_prioridade,
+      categoria = p_categoria,
+      apontamento = nullif(trim(coalesce(p_apontamento, '')), ''),
+      exibir_tv = coalesce(p_exibir_tv, true),
+      tarefa_manual = true,
+      responsavel_texto =
+        nullif(trim(coalesce(p_responsavel_texto, '')), ''),
+      updated_at = now()
+    where id = p_tarefa_id
+      and tarefa_manual = true
+    returning * into tarefa_salva;
+  end if;
+
+  if tarefa_salva.id is null then
+    raise exception 'Tarefa manual nao encontrada.';
+  end if;
+
+  return tarefa_salva;
+end;
+$$;
+
+revoke all on function public.salvar_tarefa_manual_supervisor(
+  bigint, text, text, text, date, text, text, text, text, boolean
+) from public;
+grant execute on function public.salvar_tarefa_manual_supervisor(
+  bigint, text, text, text, date, text, text, text, text, boolean
 ) to authenticated;
 
 create or replace function public.registrar_conclusao_tarefa()
@@ -100,6 +241,19 @@ security definer
 set search_path = public
 as $$
 begin
+  if coalesce(new.tarefa_manual, false) then
+    if old.status <> 'concluida' and new.status = 'concluida' then
+      new.concluida_em := coalesce(new.concluida_em, now());
+    elsif old.status = 'concluida' and new.status <> 'concluida' then
+      new.concluida_em := null;
+    end if;
+
+    new.funcionaria_id := null;
+    new.pontos_tarefa := 0;
+    new.updated_at := now();
+    return new;
+  end if;
+
   if old.status = 'concluida'
      and new.status <> 'concluida'
      and not public.usuario_e_admin() then
