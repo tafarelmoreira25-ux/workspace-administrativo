@@ -10,6 +10,7 @@ import { supabase } from "./lib/supabase";
 const ADMIN_EMAIL = (
   import.meta.env.VITE_ADMIN_EMAIL || "tafarel@platino.com"
 ).toLowerCase();
+const RESPONSABILIDADE_MENSAL_PREFIXO = "__RESPONSABILIDADE_MENSAL__";
 
 async function buscarPerfilUsuario(usuarioAuth) {
   const email = usuarioAuth?.email?.trim().toLowerCase();
@@ -70,6 +71,26 @@ function formatarMes(mes) {
   }).format(data);
 
   return rotulo.charAt(0).toUpperCase() + rotulo.slice(1);
+}
+
+function tarefaEhResponsabilidadeMensal(tarefa) {
+  return tarefa?.descricao?.startsWith(
+    `${RESPONSABILIDADE_MENSAL_PREFIXO}:`,
+  );
+}
+
+function converterTarefaEmResponsabilidade(tarefa) {
+  const [, mesReferencia = "", ordem = "0"] =
+    tarefa.descricao?.split(":") || [];
+
+  return {
+    id: `tarefa-${tarefa.id}`,
+    funcionaria_id: tarefa.funcionaria_id,
+    mes_referencia: `${mesReferencia}-01`,
+    titulo: tarefa.titulo,
+    ordem: Number(ordem) || 0,
+    origem: "tarefas",
+  };
 }
 
 function rotuloTipoFeedback(tipo) {
@@ -478,16 +499,55 @@ function AdminDashboard({ usuario, onLogout, state }) {
     setSalvandoResponsabilidades(true);
 
     try {
-      const { data, error } = await supabase.rpc(
-        "salvar_responsabilidades_mensais",
-        {
-          p_funcionaria_id: Number(responsabilidadeFuncId),
-          p_mes_referencia: `${responsabilidadeMes}-01`,
-          p_tarefas: tarefas,
-        },
-      );
+      const marcador =
+        `${RESPONSABILIDADE_MENSAL_PREFIXO}:${responsabilidadeMes}:`;
+      const { data: registrosAnteriores, error: erroConsulta } = await supabase
+        .from("tarefas")
+        .select("id")
+        .eq("funcionaria_id", Number(responsabilidadeFuncId))
+        .eq("status", "responsabilidade_mensal")
+        .eq("data_limite", `${responsabilidadeMes}-01`);
 
-      if (error) throw error;
+      if (erroConsulta) throw erroConsulta;
+
+      let data = [];
+      let tarefasSalvas = [];
+      if (tarefas.length > 0) {
+        const registros = tarefas.map((tituloTarefa, indice) => ({
+          titulo: tituloTarefa,
+          descricao: `${marcador}${indice + 1}`,
+          funcionaria_id: Number(responsabilidadeFuncId),
+          pontos_tarefa: 0,
+          data_limite: `${responsabilidadeMes}-01`,
+          status: "responsabilidade_mensal",
+        }));
+        const { data: novosRegistros, error: erroInsercao } = await supabase
+          .from("tarefas")
+          .insert(registros)
+          .select("*");
+
+        if (erroInsercao) throw erroInsercao;
+        tarefasSalvas = novosRegistros || [];
+        data = (tarefasSalvas || []).map(converterTarefaEmResponsabilidade);
+      }
+
+      const idsAnteriores = (registrosAnteriores || []).map(
+        (registro) => registro.id,
+      );
+      if (idsAnteriores.length > 0) {
+        const { error: erroRemocao } = await supabase
+          .from("tarefas")
+          .delete()
+          .in("id", idsAnteriores);
+
+        if (erroRemocao) {
+          const idsNovos = tarefasSalvas.map((registro) => registro.id);
+          if (idsNovos.length > 0) {
+            await supabase.from("tarefas").delete().in("id", idsNovos);
+          }
+          throw erroRemocao;
+        }
+      }
 
       setResponsabilidadesMensais((atuais) => [
         ...atuais.filter(
@@ -1144,8 +1204,11 @@ export default function App() {
       .order("id", { ascending: false });
 
     if (error) throw error;
-    setListaTarefas(data || []);
-    return data || [];
+    const tarefasOperacionais = (data || []).filter(
+      (tarefa) => !tarefaEhResponsabilidadeMensal(tarefa),
+    );
+    setListaTarefas(tarefasOperacionais);
+    return tarefasOperacionais;
   }, []);
 
   const recarregarFuncionarios = useCallback(async () => {
@@ -1171,23 +1234,25 @@ export default function App() {
   }, []);
 
   const recarregarResponsabilidadesMensais = useCallback(async () => {
-    const { data, error } = await supabase
-      .from("responsabilidades_mensais")
-      .select("*")
-      .order("mes_referencia", { ascending: false })
-      .order("ordem", { ascending: true })
+    const { data: tarefasLegadas, error: erroLegado } = await supabase
+      .from("tarefas")
+      .select("id, titulo, descricao, funcionaria_id")
+      .eq("status", "responsabilidade_mensal")
       .order("id", { ascending: true });
 
-    if (error) {
-      if (["42P01", "PGRST205"].includes(error.code)) {
-        setResponsabilidadesMensais([]);
-        return [];
-      }
-      throw error;
-    }
+    if (erroLegado) throw erroLegado;
 
-    setResponsabilidadesMensais(data || []);
-    return data || [];
+    const responsabilidades = (tarefasLegadas || [])
+      .map(converterTarefaEmResponsabilidade)
+      .sort((a, b) => {
+        const comparacaoMes = b.mes_referencia.localeCompare(
+          a.mes_referencia,
+        );
+        return comparacaoMes || a.ordem - b.ordem;
+      });
+
+    setResponsabilidadesMensais(responsabilidades);
+    return responsabilidades;
   }, []);
 
   const sincronizarDados = useCallback(async () => {
@@ -1305,49 +1370,6 @@ export default function App() {
       supabase.removeChannel(canal);
     };
   }, [recarregarFeedbacks, showToast, usuarioLogado]);
-
-  useEffect(() => {
-    if (!usuarioLogado) return undefined;
-
-    const alteracaoResponsabilidades = {
-      event: "*",
-      schema: "public",
-      table: "responsabilidades_mensais",
-    };
-
-    if (usuarioLogado.tipo === "funcionaria") {
-      alteracaoResponsabilidades.filter =
-        `funcionaria_id=eq.${usuarioLogado.id}`;
-    }
-
-    const canal = supabase
-      .channel(
-        `responsabilidades-${usuarioLogado.tipo}-${usuarioLogado.id}`,
-      )
-      .on("postgres_changes", alteracaoResponsabilidades, () => {
-        recarregarResponsabilidadesMensais()
-          .then(() => {
-            if (usuarioLogado.tipo === "funcionaria") {
-              showToast("Suas tarefas fixas do mês foram atualizadas.");
-            }
-          })
-          .catch((error) => {
-            console.error(
-              "Erro ao atualizar responsabilidades em tempo real:",
-              error,
-            );
-          });
-      })
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(canal);
-    };
-  }, [
-    recarregarResponsabilidadesMensais,
-    showToast,
-    usuarioLogado,
-  ]);
 
   const globais = {
     listaTarefas,
