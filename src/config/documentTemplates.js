@@ -10,6 +10,21 @@ const campoGenero = {
   ],
 };
 
+const valoresPadrao = {
+  genero: "feminino",
+  nacionalidade: "brasileira",
+  orgaoExpedidor: "SSP/SP",
+  cidade: "São Paulo",
+  uf: "SP",
+  exercicios: "2023, 2024 e 2025",
+};
+
+export function valorInicialCampo(campo, hoje = "") {
+  if (campo.valorInicial === "hoje") return hoje;
+  if (campo.valorInicial === "responsavel") return "";
+  return campo.valorInicial ?? valoresPadrao[campo.nome] ?? "";
+}
+
 export const DOCUMENT_TEMPLATES = [
   {
     id: "procuracao-ad-judicia",
@@ -18,6 +33,7 @@ export const DOCUMENT_TEMPLATES = [
       "Procuração para Ação de Revisão de Contrato, baseada no modelo oficial enviado.",
     modo: "procuracao",
     titulo: "Procuração Ad Judicia",
+    identidadeVisual: true,
     campos: [
       { nome: "nomeCliente", rotulo: "Nome completo", obrigatorio: true, largura: "total" },
       campoGenero,
@@ -41,6 +57,7 @@ export const DOCUMENT_TEMPLATES = [
       "Declaração de isenção de IRPF baseada no modelo Word oficial enviado.",
     modo: "declaracao-isencao-irpf",
     titulo: "Declaração de Isenção do Imposto de Renda Pessoa Física (IRPF)",
+    identidadeVisual: true,
     campos: [
       { nome: "nomeCliente", rotulo: "Nome completo", obrigatorio: true, largura: "total" },
       campoGenero,
@@ -68,6 +85,7 @@ export const DOCUMENT_TEMPLATES = [
       "Declaração para solicitação dos benefícios da justiça gratuita, conforme o modelo Word oficial.",
     modo: "declaracao-hipossuficiencia",
     titulo: "Declaração de Hipossuficiência",
+    identidadeVisual: true,
     campos: [
       { nome: "nomeCliente", rotulo: "Nome completo", obrigatorio: true, largura: "total" },
       campoGenero,
@@ -85,6 +103,283 @@ export const DOCUMENT_TEMPLATES = [
       { nome: "endereco", rotulo: "Endereço completo", obrigatorio: true, largura: "total" },
       { nome: "cidade", rotulo: "Cidade de assinatura", obrigatorio: true },
       { nome: "uf", rotulo: "UF", obrigatorio: true },
+    ],
+  },
+  {
+    id: "notificacao-extrajudicial-platino",
+    nome: "Notificação extrajudicial",
+    descricao:
+      "Comunicação de representação para tratativas de revisão contratual, com a identidade visual completa da Platino.",
+    modo: "notificacao-extrajudicial",
+    titulo: "Notificação Extrajudicial",
+    identidadeVisual: true,
+    campos: [
+      { nome: "nomeCliente", rotulo: "Nome completo do cliente", obrigatorio: true, largura: "total" },
+      { nome: "cpfCnpj", rotulo: "CPF do cliente", obrigatorio: true },
+      { nome: "banco", rotulo: "Nome do banco", obrigatorio: true },
+      { nome: "cnpjBanco", rotulo: "CNPJ do banco", obrigatorio: true },
+      {
+        nome: "enderecoBanco",
+        rotulo: "Endereço completo do banco",
+        obrigatorio: true,
+        largura: "total",
+      },
+      {
+        nome: "valorFinanciamento",
+        rotulo: "Valor financiado (R$)",
+        obrigatorio: true,
+        placeholder: "Ex.: 50.000,00",
+      },
+      {
+        nome: "valorFinanciamentoExtenso",
+        rotulo: "Valor financiado por extenso",
+        obrigatorio: true,
+        largura: "total",
+      },
+      {
+        nome: "quantidadeParcelas",
+        rotulo: "Quantidade de parcelas",
+        tipo: "number",
+        obrigatorio: true,
+        min: "1",
+      },
+      {
+        nome: "valorParcela",
+        rotulo: "Valor da parcela (R$)",
+        obrigatorio: true,
+        placeholder: "Ex.: 1.250,00",
+      },
+      {
+        nome: "valorParcelaExtenso",
+        rotulo: "Valor da parcela por extenso",
+        obrigatorio: true,
+        largura: "total",
+      },
+      {
+        nome: "dataInicioRepresentacao",
+        rotulo: "Início da representação",
+        tipo: "date",
+        obrigatorio: true,
+        valorInicial: "hoje",
+      },
+      { nome: "cidade", rotulo: "Cidade de emissão", obrigatorio: true },
+      { nome: "uf", rotulo: "UF", obrigatorio: true },
+    ],
+  },
+  {
+    id: "citacao-judicial",
+    nome: "Citação da parte ré",
+    descricao:
+      "Petição para requerer nova citação da parte ré e julgamento antecipado do mérito, conforme o modelo oficial da Platino.",
+    modo: "citacao-judicial",
+    titulo: "Citação da Parte Ré",
+    identidadeVisual: true,
+    campos: [
+      {
+        nome: "numeroProcesso",
+        rotulo: "Número do processo",
+        obrigatorio: true,
+        largura: "total",
+      },
+      {
+        nome: "nomeCliente",
+        rotulo: "Nome completo do cliente",
+        obrigatorio: true,
+        largura: "total",
+      },
+      campoGenero,
+      {
+        nome: "banco",
+        rotulo: "Instituição financeira / banco",
+        obrigatorio: true,
+        largura: "total",
+      },
+      { nome: "cidade", rotulo: "Cidade de emissão", obrigatorio: true },
+    ],
+  },
+  {
+    id: "citacao-intimacao-extrajudicial",
+    nome: "Intimação extrajudicial",
+    descricao:
+      "Intimação para revisão das condições do contrato de financiamento, conforme o modelo oficial da Platino.",
+    modo: "intimacao-extrajudicial",
+    titulo: "Intimação Extrajudicial",
+    identidadeVisual: true,
+    localAssinatura: "São Paulo",
+    campos: [
+      {
+        nome: "nomeCliente",
+        rotulo: "Nome completo do cliente",
+        obrigatorio: true,
+        largura: "total",
+      },
+      {
+        nome: "banco",
+        rotulo: "Nome do banco",
+        obrigatorio: true,
+        largura: "total",
+      },
+      { nome: "cnpjBanco", rotulo: "CNPJ do banco", obrigatorio: true },
+      {
+        nome: "enderecoBanco",
+        rotulo: "Endereço completo do banco",
+        obrigatorio: true,
+        largura: "total",
+      },
+      {
+        nome: "dataContrato",
+        rotulo: "Data do contrato com o banco",
+        tipo: "date",
+        obrigatorio: true,
+      },
+      {
+        nome: "valorParcelaCorrigido",
+        rotulo: "Valor da parcela corrigido (R$)",
+        obrigatorio: true,
+        placeholder: "Ex.: 850,00",
+      },
+      {
+        nome: "reducaoParcela",
+        rotulo: "Redução da parcela (R$)",
+        obrigatorio: true,
+        placeholder: "Ex.: 250,00",
+      },
+      {
+        nome: "valorEstorno",
+        rotulo: "Valor do estorno (R$)",
+        obrigatorio: true,
+        placeholder: "Ex.: 3.500,00",
+      },
+      {
+        nome: "reducaoTotal",
+        rotulo: "Redução total (R$)",
+        obrigatorio: true,
+        placeholder: "Ex.: 12.000,00",
+      },
+    ],
+  },
+  {
+    id: "contestacao-chargeback",
+    nome: "Contestação de Chargeback",
+    descricao:
+      "Contestação formal de pedido de estorno, conforme o modelo oficial da Platino.",
+    modo: "chargeback",
+    titulo: "Contestação de Chargeback",
+    identidadeVisual: true,
+    campos: [
+      {
+        nome: "nomeCliente",
+        rotulo: "Nome completo do cliente",
+        obrigatorio: true,
+        largura: "total",
+      },
+      { nome: "cpfCnpj", rotulo: "CPF do cliente", obrigatorio: true },
+      {
+        nome: "dataPagamento",
+        rotulo: "Data do pagamento",
+        tipo: "date",
+        obrigatorio: true,
+      },
+      {
+        nome: "valorPagamento",
+        rotulo: "Valor do pagamento (R$)",
+        obrigatorio: true,
+        placeholder: "Ex.: 1.500,00",
+      },
+      {
+        nome: "responsavelDocumento",
+        rotulo: "Responsável pelo documento",
+        obrigatorio: true,
+        largura: "total",
+        valorInicial: "responsavel",
+      },
+      {
+        nome: "localEmissao",
+        rotulo: "Cidade/Estado de emissão",
+        obrigatorio: true,
+        valorInicial: "São Paulo",
+      },
+    ],
+  },
+  {
+    id: "termo-compromisso-pagamento",
+    nome: "Termo de Compromisso de Pagamento",
+    descricao:
+      "Termo para reconhecimento e compromisso de pagamento dos custos relacionados à revisão contratual.",
+    modo: "termo-compromisso-pagamento",
+    titulo: "Termo de Compromisso de Pagamento",
+    identidadeVisual: true,
+    campos: [
+      {
+        nome: "nomeCliente",
+        rotulo: "Nome completo do cliente",
+        obrigatorio: true,
+        largura: "total",
+      },
+      { nome: "cpfCnpj", rotulo: "CPF do cliente", obrigatorio: true },
+      {
+        nome: "valorTotal",
+        rotulo: "Valor total (R$)",
+        obrigatorio: true,
+        placeholder: "Ex.: 3.500,00",
+      },
+      {
+        nome: "valorTotalExtenso",
+        rotulo: "Valor total por extenso",
+        obrigatorio: true,
+        largura: "total",
+        placeholder: "Ex.: três mil e quinhentos reais",
+      },
+      {
+        nome: "servico",
+        rotulo: "Serviço / custos assumidos",
+        tipo: "textarea",
+        obrigatorio: true,
+        largura: "total",
+        placeholder: "Descreva o serviço relacionado à revisão contratual",
+      },
+      {
+        nome: "localEmissao",
+        rotulo: "Cidade/Estado de emissão",
+        obrigatorio: true,
+        valorInicial: "São Paulo/SP",
+      },
+    ],
+  },
+  {
+    id: "declaracao-ausencia-carteira-trabalho",
+    nome: "Declaração de Ausência de Carteira de Trabalho",
+    descricao:
+      "Declaração de que o cliente não possui Carteira de Trabalho e Previdência Social física ou digital.",
+    modo: "declaracao-ausencia-carteira-trabalho",
+    titulo: "Declaração de Ausência de Carteira de Trabalho",
+    identidadeVisual: true,
+    campos: [
+      {
+        nome: "nomeCliente",
+        rotulo: "Nome completo do cliente",
+        obrigatorio: true,
+        largura: "total",
+      },
+      campoGenero,
+      { nome: "nacionalidade", rotulo: "Nacionalidade", obrigatorio: true },
+      { nome: "estadoCivil", rotulo: "Estado civil", obrigatorio: true },
+      { nome: "profissao", rotulo: "Profissão", obrigatorio: true },
+      { nome: "rg", rotulo: "RG", obrigatorio: true },
+      { nome: "cpfCnpj", rotulo: "CPF", obrigatorio: true },
+      { nome: "email", rotulo: "E-mail", tipo: "email", obrigatorio: true },
+      {
+        nome: "endereco",
+        rotulo: "Endereço completo, número, bairro, cidade/UF e CEP",
+        obrigatorio: true,
+        largura: "total",
+      },
+      {
+        nome: "localEmissao",
+        rotulo: "Cidade/Estado de emissão",
+        obrigatorio: true,
+        valorInicial: "São Paulo/SP",
+      },
     ],
   },
 ];
