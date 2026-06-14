@@ -958,6 +958,27 @@ function EmployeeDashboard({ usuario, onLogout, state }) {
     )
     .sort((a, b) => (a.ordem || 0) - (b.ordem || 0));
 
+  async function atualizarMeusFeedbacks() {
+    try {
+      const registros = await recarregarFeedbacks();
+      const quantidade = registros.filter(
+        (feedback) =>
+          String(feedback.funcionaria_id) === String(usuario.id),
+      ).length;
+      showToast(
+        quantidade > 0
+          ? `${quantidade} feedback(s) carregado(s).`
+          : "Nenhum feedback destinado ao seu cadastro.",
+      );
+    } catch (error) {
+      console.error("Erro ao carregar feedbacks da funcionária:", error);
+      alert(
+        "Não foi possível consultar seus feedbacks: " +
+          (error?.message || "acesso não confirmado pelo Supabase"),
+      );
+    }
+  }
+
   async function concluirTarefa(tarefa) {
     setTarefaConcluindoId(tarefa.id);
 
@@ -1150,7 +1171,7 @@ function EmployeeDashboard({ usuario, onLogout, state }) {
               </div>
               <button
                 className="btn-secondary compact"
-                onClick={recarregarFeedbacks}
+                onClick={atualizarMeusFeedbacks}
               >
                 Atualizar
               </button>

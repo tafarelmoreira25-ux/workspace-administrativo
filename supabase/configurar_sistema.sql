@@ -113,14 +113,36 @@ set search_path = public
 as $$
   select id::bigint
   from public.funcionarios
-  where lower(email) = lower(auth.jwt() ->> 'email')
+  where lower(trim(email)) =
+    lower(trim(coalesce(auth.jwt() ->> 'email', '')))
   limit 1;
+$$;
+
+create or replace function public.feedback_pertence_ao_usuario(
+  p_funcionaria_id bigint
+)
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select exists (
+    select 1
+    from public.funcionarios funcionario
+    where funcionario.id = p_funcionaria_id
+      and lower(trim(funcionario.email)) =
+        lower(trim(coalesce(auth.jwt() ->> 'email', '')))
+  );
 $$;
 
 revoke all on function public.usuario_e_admin() from public;
 revoke all on function public.funcionario_id_autenticado() from public;
+revoke all on function public.feedback_pertence_ao_usuario(bigint) from public;
 grant execute on function public.usuario_e_admin() to authenticated;
 grant execute on function public.funcionario_id_autenticado() to authenticated;
+grant execute on function public.feedback_pertence_ao_usuario(bigint)
+  to authenticated;
 
 alter table public.funcionarios enable row level security;
 alter table public.tarefas enable row level security;
@@ -186,11 +208,13 @@ on public.tarefas for delete to authenticated
 using (public.usuario_e_admin());
 
 drop policy if exists "Equipe consulta feedbacks permitidos" on public.feedbacks;
-create policy "Equipe consulta feedbacks permitidos"
+drop policy if exists "Funcionaria consulta feedbacks recebidos"
+on public.feedbacks;
+create policy "Funcionaria consulta feedbacks recebidos"
 on public.feedbacks for select to authenticated
 using (
   public.usuario_e_admin()
-  or funcionaria_id = public.funcionario_id_autenticado()
+  or public.feedback_pertence_ao_usuario(funcionaria_id)
 );
 
 drop policy if exists "Supervisor registra feedbacks" on public.feedbacks;
