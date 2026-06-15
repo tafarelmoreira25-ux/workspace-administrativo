@@ -179,20 +179,27 @@ function desenharIdentidadeVisual(pagina, fontes) {
     color: PRETO,
   });
 
-  const titulo = "TERMO DE CIÊNCIA, AUTORIZAÇÃO E CONFIRMAÇÃO DE SEGURANÇA";
-  const tamanhoTitulo = 14;
-  const larguraTitulo = fontes.normal.widthOfTextAtSize(titulo, tamanhoTitulo);
-  pagina.drawText(titulo, {
-    x: (A4[0] - larguraTitulo) / 2,
-    y: 751,
-    size: tamanhoTitulo,
-    font: fontes.normal,
-    color: AZUL_TITULO,
+  const tamanhoTitulo = 13.5;
+  [
+    "TERMO DE CIÊNCIA, AUTORIZAÇÃO E CONFIRMAÇÃO DE",
+    "SEGURANÇA",
+  ].forEach((titulo, indice) => {
+    const larguraTitulo = fontes.normal.widthOfTextAtSize(
+      titulo,
+      tamanhoTitulo,
+    );
+    pagina.drawText(titulo, {
+      x: (A4[0] - larguraTitulo) / 2,
+      y: indice === 0 ? 761 : 745,
+      size: tamanhoTitulo,
+      font: fontes.normal,
+      color: AZUL_TITULO,
+    });
   });
 
   pagina.drawLine({
-    start: { x: MARGEM_ESQUERDA, y: 738 },
-    end: { x: A4[0] - MARGEM_DIREITA, y: 738 },
+    start: { x: MARGEM_ESQUERDA, y: 729 },
+    end: { x: A4[0] - MARGEM_DIREITA, y: 729 },
     thickness: 1.5,
     color: rgb(160 / 255, 160 / 255, 160 / 255),
   });
