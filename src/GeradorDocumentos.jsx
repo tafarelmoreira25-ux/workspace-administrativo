@@ -81,11 +81,21 @@ async function gerarDocumento(dados, modelo, numeroDocumento) {
   } else if (modelo.modo === "chargeback") {
     const { gerarChargebackPdf } = await import("./lib/chargebackPdf");
     bytes = await gerarChargebackPdf(dados);
+  } else if (modelo.modo === "contestacao-taxas-email") {
+    const { gerarContestacaoTaxasEmailPdf } = await import(
+      "./lib/contestacaoTaxasEmailPdf"
+    );
+    bytes = await gerarContestacaoTaxasEmailPdf(dados);
   } else if (modelo.modo === "termo-compromisso-pagamento") {
     const { gerarTermoCompromissoPagamentoPdf } = await import(
       "./lib/termoCompromissoPagamentoPdf"
     );
     bytes = await gerarTermoCompromissoPagamentoPdf(dados);
+  } else if (modelo.modo === "termo-ciencia-seguranca") {
+    const { gerarTermoCienciaSegurancaPdf } = await import(
+      "./lib/termoCienciaSegurancaPdf"
+    );
+    bytes = await gerarTermoCienciaSegurancaPdf(dados);
   } else if (modelo.modo === "declaracao-ausencia-carteira-trabalho") {
     const { gerarDeclaracaoAusenciaCarteiraTrabalhoPdf } = await import(
       "./lib/declaracaoAusenciaCarteiraTrabalhoPdf"
@@ -207,6 +217,21 @@ function ResumoDocumento({ modelo, dados }) {
     );
   }
 
+  if (modelo.modo === "contestacao-taxas-email") {
+    return (
+      <>
+        <span>Contestação de encargos</span>
+        <h3>{modelo.nome}</h3>
+        <p>
+          Cliente: <strong>{dados.nomeCliente || "Nome do cliente"}</strong>
+        </p>
+        <p>
+          Instituição: <strong>{dados.banco || "não informada"}</strong>.
+        </p>
+      </>
+    );
+  }
+
   if (modelo.modo === "termo-compromisso-pagamento") {
     return (
       <>
@@ -221,6 +246,22 @@ function ResumoDocumento({ modelo, dados }) {
             {dados.valorTotal ? `R$ ${dados.valorTotal}` : "não informado"}
           </strong>
           .
+        </p>
+      </>
+    );
+  }
+
+  if (modelo.modo === "termo-ciencia-seguranca") {
+    return (
+      <>
+        <span>Autorização GOV.BR</span>
+        <h3>{modelo.nome}</h3>
+        <p>
+          Cliente: <strong>{dados.nomeCliente || "Nome do cliente"}</strong>
+        </p>
+        <p>
+          Protocolo:{" "}
+          <strong>{dados.numeroProtocolo || "não informado"}</strong>.
         </p>
       </>
     );

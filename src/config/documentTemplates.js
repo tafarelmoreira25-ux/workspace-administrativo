@@ -302,6 +302,61 @@ export const DOCUMENT_TEMPLATES = [
     ],
   },
   {
+    id: "contestacao-taxas-email",
+    nome: "Contestação das taxas - E-mail",
+    descricao:
+      "Notificação extrajudicial para revisão contratual e contestação dos encargos cobrados pela instituição financeira.",
+    modo: "contestacao-taxas-email",
+    titulo: "Revisão Contratual e Contestação de Encargos",
+    identidadeVisual: true,
+    localAssinatura: "São Paulo",
+    campos: [
+      {
+        nome: "banco",
+        rotulo: "Nome do banco",
+        obrigatorio: true,
+        largura: "total",
+      },
+      {
+        nome: "nomeCliente",
+        rotulo: "Nome completo do cliente",
+        obrigatorio: true,
+        largura: "total",
+      },
+      { nome: "cpfCnpj", rotulo: "CPF do cliente", obrigatorio: true },
+      {
+        nome: "valorSeguro",
+        rotulo: "Seguro (R$)",
+        obrigatorio: true,
+        placeholder: "Ex.: 1.500,00",
+      },
+      {
+        nome: "valorRegistroContrato",
+        rotulo: "Registro de contrato (R$)",
+        obrigatorio: true,
+        placeholder: "Ex.: 350,00",
+      },
+      {
+        nome: "valorTarifaAvaliacao",
+        rotulo: "Tarifa de avaliação (R$)",
+        obrigatorio: true,
+        placeholder: "Ex.: 780,00",
+      },
+      {
+        nome: "valorIof",
+        rotulo: "IOF (R$)",
+        obrigatorio: true,
+        placeholder: "Ex.: 1.250,00",
+      },
+      {
+        nome: "valorIofAdicional",
+        rotulo: "IOF adicional (R$)",
+        obrigatorio: true,
+        placeholder: "Ex.: 420,00",
+      },
+    ],
+  },
+  {
     id: "termo-compromisso-pagamento",
     nome: "Termo de Compromisso de Pagamento",
     descricao:
@@ -343,6 +398,45 @@ export const DOCUMENT_TEMPLATES = [
         rotulo: "Cidade/Estado de emissão",
         obrigatorio: true,
         valorInicial: "São Paulo/SP",
+      },
+    ],
+  },
+  {
+    id: "termo-ciencia-autorizacao-seguranca",
+    nome: "Termo de Ciência, Autorização e Confirmação de Segurança",
+    descricao:
+      "Termo para autorização da abertura de reclamação administrativa pelo GOV.BR e confirmação dos procedimentos de segurança.",
+    modo: "termo-ciencia-seguranca",
+    titulo: "Termo de Ciência, Autorização e Confirmação de Segurança",
+    identidadeVisual: true,
+    localAssinatura: "São Paulo/SP",
+    campos: [
+      {
+        nome: "nomeCliente",
+        rotulo: "Nome completo do cliente",
+        obrigatorio: true,
+        largura: "total",
+      },
+      campoGenero,
+      { nome: "cpfCnpj", rotulo: "CPF do cliente", obrigatorio: true },
+      {
+        nome: "dataAberturaReclamacao",
+        rotulo: "Data da abertura da reclamação",
+        tipo: "date",
+        obrigatorio: true,
+        valorInicial: "hoje",
+      },
+      {
+        nome: "banco",
+        rotulo: "Instituição reclamada / banco",
+        obrigatorio: true,
+        largura: "total",
+      },
+      {
+        nome: "numeroProtocolo",
+        rotulo: "Número do protocolo",
+        obrigatorio: true,
+        largura: "total",
       },
     ],
   },
