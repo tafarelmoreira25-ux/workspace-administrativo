@@ -167,6 +167,61 @@ export const DOCUMENT_TEMPLATES = [
     ],
   },
   {
+    id: "contestacao-taxas-email",
+    nome: "Contestação das Taxas - E-mail",
+    descricao:
+      "Notificação extrajudicial para contestar taxas e encargos de financiamento, mantendo o modelo Word original.",
+    modo: "contestacao-taxas-email",
+    titulo: "Contestação das Taxas - E-mail",
+    identidadeVisual: true,
+    localAssinatura: "São Paulo",
+    campos: [
+      {
+        nome: "banco",
+        rotulo: "Nome do banco",
+        obrigatorio: true,
+        largura: "total",
+      },
+      {
+        nome: "nomeCliente",
+        rotulo: "Nome completo do cliente",
+        obrigatorio: true,
+        largura: "total",
+      },
+      { nome: "cpfCnpj", rotulo: "CPF do cliente", obrigatorio: true },
+      {
+        nome: "valorSeguro",
+        rotulo: "Seguro (R$)",
+        obrigatorio: true,
+        placeholder: "Ex.: 1.500,00",
+      },
+      {
+        nome: "valorRegistroContrato",
+        rotulo: "Registro de contrato (R$)",
+        obrigatorio: true,
+        placeholder: "Ex.: 850,00",
+      },
+      {
+        nome: "valorTarifaAvaliacao",
+        rotulo: "Tarifa de avaliação (R$)",
+        obrigatorio: true,
+        placeholder: "Ex.: 700,00",
+      },
+      {
+        nome: "valorIof",
+        rotulo: "IOF (R$)",
+        obrigatorio: true,
+        placeholder: "Ex.: 2.300,00",
+      },
+      {
+        nome: "valorIofAdicional",
+        rotulo: "IOF adicional (R$)",
+        obrigatorio: true,
+        placeholder: "Ex.: 450,00",
+      },
+    ],
+  },
+  {
     id: "citacao-judicial",
     nome: "Citação da parte ré",
     descricao:

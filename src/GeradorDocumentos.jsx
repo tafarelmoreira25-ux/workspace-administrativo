@@ -68,6 +68,11 @@ async function gerarDocumento(dados, modelo, numeroDocumento) {
       "./lib/notificacaoExtrajudicialPdf"
     );
     bytes = await gerarNotificacaoExtrajudicialPdf(dados);
+  } else if (modelo.modo === "contestacao-taxas-email") {
+    const { gerarContestacaoTaxasEmailPdf } = await import(
+      "./lib/contestacaoTaxasEmailPdf"
+    );
+    bytes = await gerarContestacaoTaxasEmailPdf(dados);
   } else if (modelo.modo === "citacao-judicial") {
     const { gerarCitacaoJudicialPdf } = await import(
       "./lib/citacaoJudicialPdf"
@@ -153,6 +158,21 @@ function ResumoDocumento({ modelo, dados }) {
         <p>
           Instituição notificada:{" "}
           <strong>{dados.banco || "não informada"}</strong>.
+        </p>
+      </>
+    );
+  }
+
+  if (modelo.modo === "contestacao-taxas-email") {
+    return (
+      <>
+        <span>Contestação de encargos</span>
+        <h3>{modelo.nome}</h3>
+        <p>
+          Cliente: <strong>{dados.nomeCliente || "Nome do cliente"}</strong>
+        </p>
+        <p>
+          Instituição: <strong>{dados.banco || "não informada"}</strong>.
         </p>
       </>
     );
