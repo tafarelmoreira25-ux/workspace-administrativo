@@ -402,6 +402,57 @@ export const DOCUMENT_TEMPLATES = [
     ],
   },
   {
+    id: "termo-ciencia-pagamento",
+    nome: "Termo de Ciencia de Pagamento",
+    descricao:
+      "Termo para ciencia do cliente sobre o pagamento parcelado dos custos do procedimento de revisao contratual.",
+    modo: "termo-ciencia-pagamento",
+    titulo: "Termo de Ciencia de Pagamento",
+    identidadeVisual: true,
+    campos: [
+      {
+        nome: "nomeCliente",
+        rotulo: "Nome completo do cliente",
+        obrigatorio: true,
+        largura: "total",
+      },
+      { nome: "cpfCnpj", rotulo: "CPF do cliente", obrigatorio: true },
+      {
+        nome: "valorTotal",
+        rotulo: "Valor total (R$)",
+        obrigatorio: true,
+        placeholder: "Ex.: 3.500,00",
+      },
+      {
+        nome: "valorTotalExtenso",
+        rotulo: "Valor total por extenso",
+        obrigatorio: true,
+        largura: "total",
+        placeholder: "Ex.: tres mil e quinhentos reais",
+      },
+      {
+        nome: "quantidadeParcelas",
+        rotulo: "Quantidade de parcelas",
+        tipo: "number",
+        obrigatorio: true,
+        min: "1",
+      },
+      {
+        nome: "produto",
+        rotulo: "Produto / custo",
+        obrigatorio: true,
+        largura: "total",
+        placeholder: "Ex.: assessoria para revisao contratual",
+      },
+      {
+        nome: "localEmissao",
+        rotulo: "Cidade/Estado de emissao",
+        obrigatorio: true,
+        valorInicial: "Sao Paulo/SP",
+      },
+    ],
+  },
+  {
     id: "declaracao-ausencia-carteira-trabalho",
     nome: "Declaração de Ausência de Carteira de Trabalho",
     descricao:

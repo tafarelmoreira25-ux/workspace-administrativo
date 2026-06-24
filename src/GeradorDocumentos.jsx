@@ -91,6 +91,11 @@ async function gerarDocumento(dados, modelo, numeroDocumento) {
       "./lib/termoCompromissoPagamentoPdf"
     );
     bytes = await gerarTermoCompromissoPagamentoPdf(dados);
+  } else if (modelo.modo === "termo-ciencia-pagamento") {
+    const { gerarTermoCienciaPagamentoPdf } = await import(
+      "./lib/termoCienciaPagamentoPdf"
+    );
+    bytes = await gerarTermoCienciaPagamentoPdf(dados);
   } else if (modelo.modo === "declaracao-ausencia-carteira-trabalho") {
     const { gerarDeclaracaoAusenciaCarteiraTrabalhoPdf } = await import(
       "./lib/declaracaoAusenciaCarteiraTrabalhoPdf"
@@ -241,6 +246,25 @@ function ResumoDocumento({ modelo, dados }) {
             {dados.valorTotal ? `R$ ${dados.valorTotal}` : "não informado"}
           </strong>
           .
+        </p>
+      </>
+    );
+  }
+
+  if (modelo.modo === "termo-ciencia-pagamento") {
+    return (
+      <>
+        <span>Ciencia de pagamento</span>
+        <h3>{modelo.nome}</h3>
+        <p>
+          Cliente: <strong>{dados.nomeCliente || "Nome do cliente"}</strong>
+        </p>
+        <p>
+          Pagamento de{" "}
+          <strong>
+            {dados.valorTotal ? `R$ ${dados.valorTotal}` : "nao informado"}
+          </strong>{" "}
+          em <strong>{dados.quantidadeParcelas || "0"} parcelas</strong>.
         </p>
       </>
     );
