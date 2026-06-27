@@ -197,7 +197,10 @@ function desenharParagrafo(
       !linha.quebraForcada &&
       quantidadeEspacos > 0;
     const espaco = justificar
-      ? (largura - larguraPalavras) / quantidadeEspacos
+      ? Math.max(
+          espacoPadrao,
+          (largura - larguraPalavras) / quantidadeEspacos,
+        )
       : espacoPadrao;
     const larguraLinha =
       larguraPalavras + espacoPadrao * quantidadeEspacos;
@@ -484,6 +487,7 @@ export async function gerarNotificacaoExtrajudicialPdf(dados) {
     { alinhamento: "justify" },
   );
 
+  contexto.y = Math.min(contexto.y, 170);
   desenharTexto(contexto, "Cordialmente,", { depois: 5 });
 
   garantirEspaco(contexto, 70);

@@ -166,7 +166,10 @@ export function desenharParagrafoPlatino({
       !ultimaLinha &&
       !linha.quebraForcada &&
       quantidadeEspacos
-        ? (largura - larguraPalavras) / quantidadeEspacos
+        ? Math.max(
+            espacoPadrao,
+            (largura - larguraPalavras) / quantidadeEspacos,
+          )
         : espacoPadrao;
     const larguraLinha =
       larguraPalavras + quantidadeEspacos * espacoPadrao;

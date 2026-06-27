@@ -165,11 +165,18 @@ function UiIcon({ name, size = 20 }) {
   );
 }
 
-function NavItem({ active, icon, children, onClick }) {
+function NavItem({ active, icon, children, onClick, options = [] }) {
   return (
     <button className={`nav-item ${active ? "active-tab" : ""}`} onClick={onClick}>
       <UiIcon name={icon} />
       <span>{children}</span>
+      {options.length > 0 && (
+        <span className="nav-menu-popover" aria-hidden="true">
+          {options.map((option) => (
+            <small key={option}>{option}</small>
+          ))}
+        </span>
+      )}
     </button>
   );
 }
@@ -268,59 +275,150 @@ function Login({ onLogin }) {
   }
 
   return (
-    <div className="login-page">
-      <div className="ambient ambient-one" />
-      <div className="ambient ambient-two" />
-      <div className="login-showcase">
-        <div className="showcase-badge">
-          <UiIcon name="spark" size={18} />
-          Workspace inteligente
-        </div>
-        <h2>Gestão fluida.<br />Resultados visíveis.</h2>
-        <p>Delegue tarefas, acompanhe sua equipe e gere documentos com precisão em um único ambiente.</p>
-        <div className="showcase-stats">
-          <div><strong>01</strong><span>Operação centralizada</span></div>
-          <div><strong>24h</strong><span>Visão contínua</span></div>
-          <div><strong>PDF</strong><span>Documentos automáticos</span></div>
-        </div>
+    <div className="login-page login-page-liquid">
+      <div className="liquid-bg" aria-hidden="true">
+        <span className="ambient ambient-one" />
+        <span className="ambient ambient-two" />
+        <span className="ambient ambient-three" />
+        <span className="orbital-line orbital-one" />
+        <span className="orbital-line orbital-two" />
+
+        <span className="blue-focus blue-focus-one" />
+        <span className="blue-focus blue-focus-two" />
+        <span className="glow-dot dot-a" />
+        <span className="glow-dot dot-b" />
+        <span className="glow-dot dot-c" />
+        <span className="energy-line line-a" />
+        <span className="energy-line line-b" />
       </div>
-      <div className="login-card">
-        <div className="login-brand">
-          <img src="/logo-interface.png" alt="Logo Platino" className="brand-badge" />
-          <div>
-            <span>PLATINO</span>
-            <strong>Workspace</strong>
+
+      <section className="hero-content login-showcase" aria-label="Apresentacao CeliOS">
+        <div className="floating-badge showcase-badge">
+          <UiIcon name="spark" size={18} />
+          WORKSPACE INTELIGENTE
+        </div>
+
+        <h2>
+          Gestão <span>inteligente.</span><br />
+          Fluidez <span>operacional.</span>
+        </h2>
+
+        <p>
+          Delegue tarefas, acompanhe sua equipe e gere documentos com precisão em um único ambiente.
+        </p>
+
+        <div className="brand-emblem-showcase" aria-hidden="true">
+          <span className="emblem-orbit orbit-a" />
+          <span className="emblem-orbit orbit-b" />
+          <span className="emblem-halo" />
+          <div className="emblem-glass-plate">
+            <img
+              src="/assets/celios-symbol.png"
+              alt=""
+              className="emblem-symbol"
+            />
           </div>
         </div>
-        <span className="eyebrow">Acesso seguro</span>
-        <h1>Bem-vindo de volta</h1>
+
+        <div className="showcase-stats">
+          <div className="showcase-stat-card">
+            <strong>01</strong>
+            <span>Operação centralizada</span>
+          </div>
+
+          <div className="showcase-stat-card">
+            <strong>24h</strong>
+            <span>Visão contínua</span>
+          </div>
+
+          <div className="showcase-stat-card">
+            <strong>PDF</strong>
+            <span>Documentos automáticos</span>
+          </div>
+        </div>
+      </section>
+
+      <section className="glass-card login-card" aria-label="Login CeliOS">
+        <div className="login-brand">
+          <div className="brand-badge-wrap">
+            <img
+              src="/assets/celios-symbol.png"
+              alt="CeliOS"
+              className="brand-badge"
+            />
+          </div>
+          <div>
+            <strong>CeliOS</strong>
+            <span>Enterprise Operating System</span>
+          </div>
+        </div>
+
+        <span className="eyebrow secure-badge">
+          <UiIcon name="spark" size={14} /> ACESSO SEGURO
+        </span>
+
+        <h1>Bem-vindo ao Workspace</h1>
         <p>Entre para acessar sua central administrativa.</p>
-        
+
         <form className="login-form" onSubmit={fazerLogin}>
-          <label>
-            E-mail corporativo
-            <input 
-              type="email" 
-              value={email} 
-              onChange={(e) => setEmail(e.target.value)} 
-              placeholder="exemplo@empresa.com"
-            />
-          </label>
-          
-          <label>
-            Senha
-            <input 
-              type="password" 
-              value={senha} 
-              onChange={(e) => setSenha(e.target.value)} 
-              placeholder="Sua senha de acesso"
-            />
+          <label className="glass-field">
+            <span>E-mail corporativo</span>
+            <div className="glass-input">
+              <UiIcon name="equipe" size={20} />
+              <input
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="exemplo@empresa.com"
+              />
+            </div>
           </label>
 
-          <button type="submit" className="btn-primary full login-submit" disabled={carregando}>
-            {carregando ? "Autenticando..." : "Entrar no Workspace"}
+          <label className="glass-field">
+            <span>Senha</span>
+            <div className="glass-input">
+              <UiIcon name="logout" size={20} />
+              <input
+                type="password"
+                value={senha}
+                onChange={(e) => setSenha(e.target.value)}
+                placeholder="Sua senha de acesso"
+              />
+            </div>
+          </label>
+
+          <a href="#" className="forgot-password">
+            Esqueci minha senha
+          </a>
+
+          <button
+            type="submit"
+            className="glass-button full login-submit"
+            disabled={carregando}
+          >
+            <span>{carregando ? "Autenticando..." : "Entrar no Workspace"}</span>
+          </button>
+
+          <div className="login-divider">
+            <span>ou continue com</span>
+          </div>
+
+          <button type="button" className="sso-button">
+            <UiIcon name="logout" size={14} />
+            <span>SSO</span>
           </button>
         </form>
+
+        <div className="login-card-softline" aria-hidden="true" />
+      </section>
+
+      <div className="login-footer login-footer-left">
+        © 2026 <strong>CeliOS.</strong> Todos os direitos reservados.
+      </div>
+
+      <div className="login-footer login-footer-right">
+        <span className="version-icon" />
+        Versão 2.0.0
       </div>
     </div>
   );
@@ -810,20 +908,20 @@ function AdminDashboard({ usuario, onLogout, state }) {
     <div className="app-layout">
       <aside className="sidebar">
         <div className="brand">
-          <img src="/logo-interface.png" alt="Logo Platino" className="brand-icon" />
+          <img src="/assets/celios-button-icon.png" alt="CeliOS" className="brand-icon" />
           <div>
-            <strong>WORKSPACE</strong>
-            <span>Administrativo</span>
+            <strong>CeliOS</strong>
+            <span>Operating Workspace</span>
           </div>
         </div>
         <nav>
           <span className="nav-label">Navegação</span>
-          <NavItem active={abaAtiva === "dashboard"} icon="dashboard" onClick={() => setAbaAtiva("dashboard")}>Dashboard</NavItem>
-          <NavItem active={abaAtiva === "tarefas"} icon="tarefas" onClick={() => setAbaAtiva("tarefas")}>Tarefas</NavItem>
-          <NavItem active={false} icon="tv" onClick={() => setModoTv(true)}>Painel da TV</NavItem>
-          <NavItem active={abaAtiva === "responsabilidades"} icon="planner" onClick={() => setAbaAtiva("responsabilidades")}>Tarefas do Mês</NavItem>
-          <NavItem active={abaAtiva === "equipe"} icon="equipe" onClick={() => setAbaAtiva("equipe")}>Equipe</NavItem>
-          <NavItem active={abaAtiva === "documentos"} icon="documentos" onClick={() => setAbaAtiva("documentos")}>Documentos PDF</NavItem>
+          <NavItem active={abaAtiva === "dashboard"} icon="dashboard" onClick={() => setAbaAtiva("dashboard")} options={["Indicadores", "Urgências", "Ranking"]}>Dashboard</NavItem>
+          <NavItem active={abaAtiva === "tarefas"} icon="tarefas" onClick={() => setAbaAtiva("tarefas")} options={["Criar tarefa", "Apontamentos", "Filtros rápidos"]}>Tarefas</NavItem>
+          <NavItem active={false} icon="tv" onClick={() => setModoTv(true)} options={["Modo painel", "Operação ao vivo"]}>Painel TV</NavItem>
+          <NavItem active={abaAtiva === "responsabilidades"} icon="planner" onClick={() => setAbaAtiva("responsabilidades")} options={["Rotina mensal", "Responsáveis", "Preview"]}>Tarefas do Mês</NavItem>
+          <NavItem active={abaAtiva === "equipe"} icon="equipe" onClick={() => setAbaAtiva("equipe")} options={["Equipe", "Feedbacks", "Pontuação"]}>Equipe</NavItem>
+          <NavItem active={abaAtiva === "documentos"} icon="documentos" onClick={() => setAbaAtiva("documentos")} options={["Gerador PDF", "Prévia viva", "Assistente IA"]}>Documentos</NavItem>
         </nav>
         <button className="sidebar-logout" onClick={onLogout}><UiIcon name="logout" /> Sair do Sistema</button>
       </aside>
@@ -1707,10 +1805,10 @@ function EmployeeDashboard({ usuario, onLogout, state }) {
     <div className="app-layout">
       <aside className="sidebar">
         <div className="brand">
-         <img src="/logo-interface.png" alt="Logo Platino" className="brand-icon" />
+         <img src="/assets/celios-button-icon.png" alt="CeliOS" className="brand-icon" />
           <div>
-            <strong>WORKSPACE</strong>
-            <span>Administrativo</span>
+            <strong>CeliOS</strong>
+            <span>Operating Workspace</span>
           </div>
         </div>
         <nav>
@@ -2174,46 +2272,89 @@ export default function App() {
         .ui-icon { display: block; flex: 0 0 auto; }
         .full { width: 100%; }
 
-        .login-page { min-height: 100vh; position: relative; overflow: hidden; display: grid; grid-template-columns: minmax(320px, 1.1fr) minmax(360px, 480px); align-items: center; gap: clamp(48px, 8vw, 140px); padding: clamp(28px, 6vw, 88px); background: linear-gradient(135deg, #e7f3ff 0%, #f8fbff 52%, #dbeaff 100%); }
-        .ambient { position: absolute; border-radius: 50%; filter: blur(2px); pointer-events: none; }
-        .ambient-one { width: 460px; height: 460px; left: -170px; top: -180px; background: radial-gradient(circle, rgba(72, 142, 244, .28), transparent 68%); }
-        .ambient-two { width: 520px; height: 520px; right: -180px; bottom: -220px; background: radial-gradient(circle, rgba(109, 213, 237, .3), transparent 68%); }
-        .login-showcase, .login-card { position: relative; z-index: 1; }
-        .login-showcase { max-width: 660px; padding-left: 4vw; }
-        .showcase-badge { width: max-content; display: flex; align-items: center; gap: 8px; margin-bottom: 28px; padding: 9px 14px; color: var(--accent-strong); background: rgba(255,255,255,.58); border: 1px solid rgba(255,255,255,.8); border-radius: 999px; box-shadow: 0 8px 30px rgba(70, 119, 180, .1); font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; backdrop-filter: blur(16px); }
-        .login-showcase h2 { max-width: 620px; font-size: clamp(42px, 6vw, 78px); line-height: .98; letter-spacing: -4px; color: #102e60; }
-        .login-showcase > p { max-width: 560px; margin-top: 25px; font-size: 17px; }
-        .showcase-stats { display: flex; gap: 35px; margin-top: 46px; }
-        .showcase-stats div { display: flex; flex-direction: column; }
-        .showcase-stats strong { color: var(--accent-strong); font-size: 22px; letter-spacing: -.6px; }
-        .showcase-stats span { color: var(--muted); font-size: 11px; margin-top: 3px; text-transform: uppercase; letter-spacing: .7px; }
-        .login-card { width: 100%; padding: 42px; background: rgba(255,255,255,.72); border: 1px solid rgba(255,255,255,.88); border-radius: 30px; box-shadow: 0 30px 90px rgba(50, 91, 148, .2); backdrop-filter: blur(28px); }
-        .login-brand { display: flex; align-items: center; gap: 13px; margin-bottom: 44px; }
+        .login-page-liquid { min-height: 100vh; position: relative; overflow: hidden; display: grid; grid-template-columns: minmax(420px, 1.12fr) minmax(390px, 520px); align-items: center; gap: clamp(34px, 5vw, 88px); padding: clamp(30px, 5vw, 78px) clamp(34px, 5vw, 86px); background: #f8fbff url('/assets/celios-login-background.png') center / cover no-repeat; color: #102a56; isolation: isolate; }
+        .login-page-liquid::before { content: ''; position: absolute; inset: 0; z-index: 0; background: linear-gradient(90deg, rgba(248,251,255,.7) 0%, rgba(248,251,255,.46) 46%, rgba(248,251,255,.28) 100%); pointer-events: none; }
+        .liquid-bg { display: none; }
+        .ambient { position: absolute; border-radius: 999px; pointer-events: none; filter: blur(18px); }
+        .ambient-one { width: 470px; height: 470px; left: -160px; top: -170px; background: radial-gradient(circle, rgba(141,187,255,.32), transparent 68%); }
+        .ambient-two { width: 560px; height: 560px; right: -190px; bottom: -220px; background: radial-gradient(circle, rgba(47,107,255,.2), transparent 70%); }
+        .ambient-three { width: 390px; height: 390px; left: 38%; bottom: -150px; background: radial-gradient(circle, rgba(255,255,255,.86), transparent 64%); }
+        .orbital-line { position: absolute; border: 1px solid rgba(37,99,235,.11); border-radius: 50%; transform: rotate(-18deg); }
+        .orbital-one { width: 760px; height: 240px; left: 22%; top: 18%; }
+        .orbital-two { width: 620px; height: 190px; left: 30%; top: 40%; transform: rotate(24deg); }
+        .hero-content, .glass-card { position: relative; z-index: 1; }
+        .hero-content { min-height: 610px; display: flex; flex-direction: column; justify-content: center; max-width: 760px; padding-left: clamp(0px, 2vw, 34px); isolation: isolate; }
+        .hero-content > * { position: relative; z-index: 2; }
+        .floating-badge { width: max-content; display: inline-flex; align-items: center; gap: 9px; margin-bottom: 28px; padding: 10px 18px; color: #2563eb; background: rgba(255,255,255,.64); border: 1px solid rgba(255,255,255,.78); border-radius: 999px; box-shadow: 0 16px 36px rgba(47,107,255,.1), inset 0 1px 0 rgba(255,255,255,.96); font-size: 12px; font-weight: 900; letter-spacing: 1.4px; backdrop-filter: blur(24px); }
+        .hero-content h2 { position: relative; max-width: 560px; margin: 0; color: #0f2a55; font-size: clamp(58px, 6.1vw, 86px); line-height: .93; font-weight: 900; letter-spacing: 0; text-shadow: 0 18px 44px rgba(15,42,85,.08); }
+        .hero-content h2::before, .hero-content h2::after { display: none; }
+        .hero-content > p { position: relative; max-width: 510px; min-height: 0; margin-top: 28px; color: #6b7c93; font-size: 17px; line-height: 1.55; font-weight: 500; }
+        .hero-content > p::before { display: none; }
+        .brand-emblem-showcase { position: absolute; width: clamp(154px, 13vw, 214px); aspect-ratio: 1; left: clamp(430px, 35vw, 560px); top: 47%; z-index: 1; opacity: .42; pointer-events: none; transform: translateY(-50%); perspective: 1100px; }
+        .emblem-halo { position: absolute; inset: 9%; border-radius: 999px; background: radial-gradient(circle, rgba(141,187,255,.36), transparent 68%); filter: blur(18px); }
+        .emblem-orbit { position: absolute; inset: 15%; border: 1px solid rgba(37,99,235,.13); border-radius: 50%; }
+        .orbit-a { transform: rotateX(62deg) rotateZ(-16deg); }
+        .orbit-b { inset: 25%; transform: rotateX(58deg) rotateZ(27deg); opacity: .65; }
+        .emblem-glass-plate { position: absolute; inset: 17%; display: grid; place-items: center; border-radius: 30px; background: linear-gradient(145deg, rgba(255,255,255,.62), rgba(232,243,255,.34)); border: 1px solid rgba(255,255,255,.72); box-shadow: 0 18px 38px rgba(31,74,132,.12), inset 0 1px 0 rgba(255,255,255,.94); backdrop-filter: blur(18px); overflow: hidden; animation: emblemFloat 7s ease-in-out infinite; }
+        .emblem-symbol { position: relative; width: 112%; height: 112%; object-fit: cover; border-radius: 28px; filter: drop-shadow(0 14px 18px rgba(15,42,85,.14)); }
+        .showcase-stats { display: grid; grid-template-columns: repeat(3, minmax(118px, 1fr)); gap: 18px; max-width: 500px; margin-top: 36px; }
+        .metric-card, .showcase-stats > div { min-height: 136px; display: flex; flex-direction: column; justify-content: flex-end; gap: 9px; padding: 18px; color: #0f2a55; background: linear-gradient(145deg, rgba(255,255,255,.58), rgba(238,246,255,.35)); border: 1px solid rgba(255,255,255,.72); border-radius: 18px; box-shadow: 0 20px 46px rgba(31,74,132,.11), inset 0 1px 0 rgba(255,255,255,.96); backdrop-filter: blur(24px); }
+        .showcase-stats svg { color: #2563eb; margin-bottom: auto; }
+        .showcase-stats strong { color: #102a56; font-size: 25px; font-weight: 900; letter-spacing: 0; }
+        .showcase-stats span { color: #0f2a55; font-size: 10px; line-height: 1.45; font-weight: 800; letter-spacing: .25px; text-transform: uppercase; }
+        .showcase-stats > div span { font-size: 0; }
+        .showcase-stats > div:nth-child(1) span::before { content: 'OPERACAO CENTRALIZADA'; font-size: 10px; line-height: 1.45; }
+        .showcase-stats > div:nth-child(2) span::before { content: 'VISAO CONTINUA EM TEMPO REAL'; font-size: 10px; line-height: 1.45; }
+        .showcase-stats > div:nth-child(3) strong { font-size: 0; }
+        .showcase-stats > div:nth-child(3) strong::before { content: '100%'; font-size: 25px; }
+        .showcase-stats > div:nth-child(3) span::before { content: 'DOCUMENTOS ORGANIZADOS'; font-size: 10px; line-height: 1.45; }
+        .glass-card { width: 100%; padding: clamp(36px, 4vw, 56px); background: linear-gradient(145deg, rgba(255,255,255,.62), rgba(239,247,255,.38)); border: 1px solid rgba(255,255,255,.65); border-radius: 40px; box-shadow: 0 34px 90px rgba(47,107,255,.15), 0 12px 40px rgba(15,42,85,.08), inset 0 1px 0 rgba(255,255,255,.92); backdrop-filter: blur(24px); }
+        .login-card::before { content: ''; position: absolute; inset: 1px; border-radius: inherit; background: linear-gradient(135deg, rgba(255,255,255,.82), transparent 35%, rgba(141,187,255,.14)); pointer-events: none; }
+        .login-card > * { position: relative; z-index: 1; }
+        .login-brand { display: flex; align-items: center; gap: 16px; margin-bottom: 42px; }
         .login-brand div span, .login-brand div strong { display: block; }
-        .login-brand div span { color: var(--accent); font-size: 10px; font-weight: 800; letter-spacing: 2px; }
-        .login-brand div strong { color: var(--dark); font-size: 18px; }
-        .brand-badge { width: 52px; height: 52px; border-radius: 16px; object-fit: cover; box-shadow: 0 10px 24px rgba(54, 106, 178, .2); }
-        .login-card h1 { margin: 7px 0 7px; font-size: 30px; }
-        .login-form { display: flex; flex-direction: column; gap: 17px; margin-top: 28px; }
-        .login-form label, .stack-form label { color: var(--text); font-size: 12px; font-weight: 700; }
-        .login-form input { margin-top: 7px; width: 100%; }
-        .login-submit { margin-top: 8px; padding: 15px !important; font-size: 14px; }
+        .login-brand div strong { color: #0f2a55; font-size: 31px; font-weight: 700; letter-spacing: 8px; line-height: .95; }
+        .login-brand div span { margin-top: 8px; color: #243b61; font-size: 9px; font-weight: 800; letter-spacing: 2.8px; text-transform: uppercase; }
+        .brand-badge { width: 76px; height: 76px; border-radius: 24px; object-fit: cover; object-position: center; box-shadow: 0 14px 30px rgba(37,99,235,.2), 0 0 28px rgba(141,187,255,.36); }
+        .secure-badge { display: inline-flex; align-items: center; gap: 8px; color: #2563eb; font-size: 12px; font-weight: 900; letter-spacing: 1.2px; }
+        .login-card h1 { margin: 26px 0 7px; color: #0f2a55; font-size: clamp(27px, 2.1vw, 34px); line-height: 1.08; letter-spacing: 0; }
+        .login-card > p { color: #6b7c93; font-size: 14px; }
+        .login-form { display: flex; flex-direction: column; gap: 22px; margin-top: 32px; }
+        .login-form label, .stack-form label { color: #0f2a55; font-size: 12px; font-weight: 800; }
+        .glass-field { display: flex; flex-direction: column; gap: 9px; }
+        .glass-input { min-height: 58px; display: flex; align-items: center; gap: 12px; padding: 0 18px; color: #46617f; background: rgba(246,250,255,.45); border: 1px solid rgba(255,255,255,.72); border-radius: 17px; box-shadow: inset 0 1px 0 rgba(255,255,255,.94), 0 12px 28px rgba(47,107,255,.08); backdrop-filter: blur(18px); transition: .22s ease; }
+        .glass-input:focus-within { border-color: rgba(47,107,255,.42); box-shadow: 0 0 0 4px rgba(47,107,255,.09), inset 0 1px 0 rgba(255,255,255,.96); transform: translateY(-1px); }
+        .login-form input { width: 100%; margin: 0; padding: 0; color: #102a56; background: transparent; border: 0; box-shadow: none; outline: 0; font-size: 14px; font-weight: 700; }
+        .login-form input::placeholder { color: #71839b; font-weight: 600; }
+        .glass-button { min-height: 58px; display: inline-flex; align-items: center; justify-content: center; gap: 12px; margin-top: 8px; padding: 16px 20px; color: #fff; background: linear-gradient(135deg, #6aa2ff 0%, #2f6bff 52%, #2563eb 100%); border: 1px solid rgba(255,255,255,.5); border-radius: 18px; box-shadow: 0 18px 34px rgba(37,99,235,.28), inset 0 1px 0 rgba(255,255,255,.58), inset 0 -12px 22px rgba(15,42,85,.16); cursor: pointer; font-size: 15px; font-weight: 900; transition: .24s ease; }
+        .glass-button:hover { transform: translateY(-2px); box-shadow: 0 23px 42px rgba(37,99,235,.34), 0 0 28px rgba(141,187,255,.42), inset 0 1px 0 rgba(255,255,255,.68); }
+        .login-card-softline { height: 1px; margin-top: 34px; background: linear-gradient(90deg, transparent, rgba(37,99,235,.22), transparent); }
+        .login-footer { position: absolute; z-index: 2; bottom: 31px; display: flex; align-items: center; gap: 9px; color: #788aa3; font-size: 12px; font-weight: 600; }
+        .login-footer strong { color: #2563eb; }
+        .login-footer-left { left: clamp(34px, 5vw, 86px); }
+        .login-footer-right { right: clamp(34px, 5vw, 86px); }
+        .version-icon { width: 28px; height: 28px; border: 1px solid rgba(37,99,235,.3); border-radius: 50%; background: radial-gradient(circle at center, #8dbbff 0 16%, transparent 18% 38%, rgba(37,99,235,.18) 40% 48%, transparent 51%); box-shadow: 0 0 18px rgba(37,99,235,.16); }
+        @keyframes float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-10px); } }
+        @keyframes emblemFloat { 0%, 100% { transform: rotateY(-12deg) rotateX(6deg) translateY(0); } 50% { transform: rotateY(-8deg) rotateX(8deg) translateY(-8px); } }
 
-        .app-layout { min-height: 100vh; display: grid; grid-template-columns: 276px minmax(0, 1fr); }
-        .sidebar { height: 100vh; position: sticky; top: 0; z-index: 10; display: flex; flex-direction: column; gap: 36px; overflow: hidden; padding: 30px 22px; color: #dbeafe; background: linear-gradient(180deg, rgba(13, 40, 86, .98), rgba(9, 30, 67, .98)); border-right: 1px solid rgba(173, 211, 255, .12); box-shadow: 18px 0 55px rgba(34, 69, 115, .12); }
-        .sidebar::after { content: ''; position: absolute; width: 260px; height: 260px; left: -100px; bottom: -100px; border-radius: 50%; background: radial-gradient(circle, rgba(88, 164, 255, .25), transparent 68%); pointer-events: none; }
-        .brand { display: flex; align-items: center; gap: 13px; position: relative; z-index: 1; }
-        .brand-icon { width: 46px; height: 46px; border-radius: 15px; object-fit: cover; box-shadow: 0 10px 25px rgba(0,0,0,.22); }
-        .brand strong { display: block; color: #fff; font-size: 15px; letter-spacing: 1.2px; }
-        .brand span { display: block; margin-top: 2px; color: #82b9f7; font-size: 10px; text-transform: uppercase; letter-spacing: 1px; }
-        .sidebar nav { display: flex; flex-direction: column; gap: 7px; flex: 1; position: relative; z-index: 1; }
-        .nav-label { padding: 0 13px 10px; color: #6889b5; font-size: 9px; font-weight: 800; letter-spacing: 1.6px; text-transform: uppercase; }
-        .nav-item { width: 100%; display: flex; align-items: center; gap: 12px; padding: 13px 14px; color: #9fb7d5; background: transparent; border: 1px solid transparent; border-radius: 14px; cursor: pointer; font-size: 13px; font-weight: 600; text-align: left; transition: .25s ease; }
-        .nav-item:hover { color: #fff; background: rgba(116, 180, 255, .09); transform: translateX(3px); }
-        .nav-item.active-tab { color: #fff; background: linear-gradient(135deg, rgba(91, 158, 247, .32), rgba(95, 198, 237, .17)); border-color: rgba(152, 204, 255, .2); box-shadow: inset 0 1px rgba(255,255,255,.08), 0 10px 24px rgba(0,0,0,.12); }
-        .nav-item.active-tab .ui-icon { color: #79c7ff; filter: drop-shadow(0 0 7px rgba(88,190,255,.4)); }
-        .sidebar-logout { position: relative; z-index: 1; display: flex; align-items: center; justify-content: center; gap: 9px; padding: 12px; color: #9fb7d5; background: rgba(255,255,255,.04); border: 1px solid rgba(255,255,255,.08); border-radius: 13px; cursor: pointer; font-size: 12px; transition: .2s; }
-        .sidebar-logout:hover { color: #fff; background: rgba(255,255,255,.08); }
+        .app-layout { min-height: 100vh; display: block; background: radial-gradient(circle at 12% 0%, rgba(141,187,255,.18), transparent 28%), linear-gradient(135deg, #f8fbff 0%, #eef4fa 100%); }
+        .sidebar { position: sticky; top: 14px; z-index: 40; display: flex; align-items: center; gap: 18px; margin: 14px clamp(16px, 3vw, 36px) 0; padding: 12px 14px; color: #102a56; background: rgba(255,255,255,.62); border: 1px solid rgba(255,255,255,.75); border-radius: 28px; box-shadow: 0 22px 70px rgba(44, 86, 145, .12), inset 0 1px 0 rgba(255,255,255,.92); backdrop-filter: blur(28px); }
+        .sidebar::after { content: ''; position: absolute; inset: 1px; border-radius: inherit; background: linear-gradient(135deg, rgba(255,255,255,.78), transparent 42%, rgba(141,187,255,.13)); pointer-events: none; }
+        .brand { display: flex; align-items: center; gap: 12px; position: relative; z-index: 1; min-width: 210px; }
+        .brand-icon { width: 48px; height: 48px; border-radius: 16px; object-fit: cover; box-shadow: 0 12px 30px rgba(37,99,235,.16), 0 0 22px rgba(141,187,255,.26); }
+        .brand strong { display: block; color: #0f2a55; font-size: 16px; letter-spacing: 1.8px; }
+        .brand span { display: block; margin-top: 2px; color: #6b7c93; font-size: 9px; text-transform: uppercase; letter-spacing: 1.2px; }
+        .sidebar nav { flex: 1; display: flex; align-items: center; justify-content: center; gap: 8px; position: relative; z-index: 2; }
+        .nav-label { display: none; }
+        .nav-item { position: relative; width: auto; min-height: 44px; display: inline-flex; align-items: center; justify-content: center; gap: 8px; padding: 10px 14px; color: #526780; background: rgba(248,251,255,.48); border: 1px solid rgba(255,255,255,.62); border-radius: 999px; cursor: pointer; font-size: 12px; font-weight: 800; text-align: center; transition: .24s ease; box-shadow: inset 0 1px 0 rgba(255,255,255,.88); }
+        .nav-item:hover { color: #2563eb; background: rgba(255,255,255,.82); transform: translateY(-2px); box-shadow: 0 14px 34px rgba(37,99,235,.12), inset 0 1px 0 rgba(255,255,255,.95); }
+        .nav-item.active-tab { color: #fff; background: linear-gradient(135deg, #6aa2ff, #2563eb); border-color: rgba(255,255,255,.76); box-shadow: 0 18px 34px rgba(37,99,235,.22), inset 0 1px 0 rgba(255,255,255,.55); }
+        .nav-item.active-tab .ui-icon { color: #fff; filter: drop-shadow(0 0 8px rgba(255,255,255,.38)); }
+        .nav-menu-popover { position: absolute; left: 50%; top: calc(100% + 10px); min-width: 190px; display: grid; gap: 7px; padding: 12px; color: #46617f; background: rgba(255,255,255,.78); border: 1px solid rgba(255,255,255,.74); border-radius: 18px; box-shadow: 0 22px 56px rgba(44,86,145,.16); backdrop-filter: blur(26px); opacity: 0; pointer-events: none; transform: translate(-50%, -6px) scale(.98); transition: .2s ease; }
+        .nav-menu-popover small { padding: 8px 10px; background: rgba(240,247,255,.68); border-radius: 12px; font-size: 10px; font-weight: 800; text-align: left; white-space: nowrap; }
+        .nav-item:hover .nav-menu-popover { opacity: 1; transform: translate(-50%, 0) scale(1); }
+        .sidebar-logout { position: relative; z-index: 1; display: flex; align-items: center; justify-content: center; gap: 8px; min-height: 44px; padding: 10px 14px; color: #526780; background: rgba(255,255,255,.58); border: 1px solid rgba(255,255,255,.72); border-radius: 999px; cursor: pointer; font-size: 12px; font-weight: 800; transition: .2s; }
+        .sidebar-logout:hover { color: #2563eb; transform: translateY(-2px); box-shadow: 0 14px 34px rgba(37,99,235,.12); }
 
         .main-content { min-width: 0; padding: 28px clamp(24px, 3.2vw, 48px) 48px; }
         .topbar { min-height: 94px; display: flex; align-items: center; justify-content: space-between; gap: 24px; margin-bottom: 28px; padding: 22px 26px; background: rgba(255,255,255,.55); border: 1px solid rgba(255,255,255,.8); border-radius: 24px; box-shadow: 0 15px 45px rgba(57, 100, 157, .08); backdrop-filter: blur(22px); }
@@ -2406,12 +2547,12 @@ export default function App() {
         @keyframes slideUp { from { transform: translateY(50px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
 
         .document-workspace { display: flex; flex-direction: column; gap: 24px; }
-        .document-heading { display: flex; align-items: flex-end; justify-content: space-between; gap: 24px; }
-        .document-heading h2 { color: var(--dark); font-size: 30px; letter-spacing: -1px; margin: 4px 0 6px; }
+        .document-heading { display: flex; align-items: flex-end; justify-content: space-between; gap: 24px; padding: 28px; background: linear-gradient(145deg, rgba(255,255,255,.68), rgba(239,247,255,.42)); border: 1px solid rgba(255,255,255,.78); border-radius: 28px; box-shadow: 0 24px 70px rgba(44,86,145,.1), inset 0 1px 0 rgba(255,255,255,.94); backdrop-filter: blur(26px); }
+        .document-heading h2 { color: var(--dark); font-size: 34px; letter-spacing: 0; margin: 4px 0 6px; }
         .eyebrow { color: var(--accent); font-size: 12px; font-weight: 800; letter-spacing: 1.2px; text-transform: uppercase; }
-        .document-number { color: var(--dark); background: rgba(255,255,255,.65); border: 1px solid rgba(255,255,255,.9); border-radius: 16px; padding: 12px 16px; box-shadow: 0 10px 30px rgba(61,104,163,.08); }
+        .document-number { color: var(--dark); background: rgba(255,255,255,.68); border: 1px solid rgba(255,255,255,.85); border-radius: 18px; padding: 13px 17px; box-shadow: 0 12px 34px rgba(61,104,163,.08), inset 0 1px 0 rgba(255,255,255,.92); backdrop-filter: blur(20px); }
         .document-number span { display: block; color: var(--muted); font-size: 11px; margin-bottom: 4px; text-transform: uppercase; }
-        .document-grid { display: grid; grid-template-columns: minmax(0, 1.55fr) minmax(320px, 0.75fr); gap: 24px; align-items: start; }
+        .document-grid { display: grid; grid-template-columns: minmax(0, 1.28fr) minmax(360px, .82fr); gap: 24px; align-items: start; }
         .document-form { display: flex; flex-direction: column; gap: 24px; }
         .document-form fieldset { border: 0; padding: 0; }
         .document-form legend { color: var(--dark); font-size: 15px; font-weight: 800; margin-bottom: 14px; text-transform: uppercase; }
@@ -2420,12 +2561,30 @@ export default function App() {
         .form-grid .span-2 { grid-column: span 2; }
         .form-grid textarea { line-height: 1.5; resize: vertical; }
         .template-summary { background: rgba(232,244,255,.75); border: 1px solid rgba(113,165,224,.18); border-radius: 12px; padding: 10px 12px; }
+        .smart-summary { position: relative; overflow: hidden; border-radius: 18px; background: linear-gradient(145deg, rgba(255,255,255,.72), rgba(232,244,255,.55)); box-shadow: inset 0 1px 0 rgba(255,255,255,.95); }
+        .doc-progress { height: 8px; overflow: hidden; margin: 12px 0 8px; background: rgba(174,199,230,.24); border-radius: 999px; }
+        .doc-progress span { display: block; height: 100%; background: linear-gradient(90deg, #8dbbff, #2563eb); border-radius: inherit; box-shadow: 0 0 18px rgba(37,99,235,.25); transition: width .25s ease; }
+        .smart-summary > strong { color: #2563eb; font-size: 11px; }
         .template-summary span { color: var(--dark); display: block; font-size: 11px; font-weight: 800; margin-bottom: 3px; text-transform: uppercase; }
         .template-summary p { font-size: 12px; }
         .form-error { background: #fef2f2; border: 1px solid #fecaca; border-radius: 10px; color: #b91c1c; font-size: 13px; padding: 10px 12px; }
         .document-actions { border-top: 1px solid var(--line); display: flex; justify-content: flex-end; gap: 10px; padding-top: 20px; }
-        .pdf-preview { position: sticky; top: 24px; }
-        .preview-page { aspect-ratio: 1 / 1.414; display: flex; flex-direction: column; padding: 28px; overflow: hidden; color: #334155; background: #fff; border: 1px solid rgba(255,255,255,.9); box-shadow: 0 28px 70px rgba(33,74,132,.18); border-radius: 4px; }
+        .pdf-preview { position: sticky; top: 112px; display: flex; flex-direction: column; gap: 16px; }
+        .ai-support-card { padding: 18px; background: linear-gradient(145deg, rgba(255,255,255,.7), rgba(238,247,255,.48)); border: 1px solid rgba(255,255,255,.78); border-radius: 24px; box-shadow: 0 18px 50px rgba(44,86,145,.1), inset 0 1px 0 rgba(255,255,255,.94); backdrop-filter: blur(24px); }
+        .ai-support-card h3 { margin: 3px 0 12px; color: #102a56; font-size: 18px; }
+        .ai-support-card p { margin-top: 8px; padding: 10px 12px; color: #526b8b; background: rgba(255,255,255,.58); border: 1px solid rgba(255,255,255,.7); border-radius: 14px; font-size: 12px; line-height: 1.45; }
+        .preview-page { aspect-ratio: 1 / 1.414; display: flex; flex-direction: column; padding: 28px; overflow: hidden; color: #334155; background: linear-gradient(145deg, rgba(255,255,255,.88), rgba(239,247,255,.68)); border: 1px solid rgba(255,255,255,.9); box-shadow: 0 28px 70px rgba(33,74,132,.15), inset 0 1px 0 rgba(255,255,255,.95); border-radius: 24px; backdrop-filter: blur(22px); }
+        .live-preview-page { min-height: 580px; }
+        .preview-brand-row { display: flex; align-items: center; gap: 12px; margin: 18px 0 24px; padding: 13px; background: rgba(255,255,255,.55); border: 1px solid rgba(255,255,255,.74); border-radius: 18px; }
+        .preview-brand-row img { width: 42px; height: 42px; border-radius: 14px; object-fit: cover; box-shadow: 0 8px 22px rgba(37,99,235,.14); }
+        .preview-brand-row strong, .preview-brand-row span { display: block; }
+        .preview-brand-row strong { color: #102a56; letter-spacing: 2px; }
+        .preview-brand-row span { color: #6b7c93; font-size: 8px; font-weight: 800; letter-spacing: 1.4px; text-transform: uppercase; }
+        .live-field-list { display: grid; gap: 8px; width: 100%; margin: 18px 0; }
+        .live-field-list div { padding: 10px 11px; background: rgba(248,251,255,.78); border: 1px solid rgba(196,216,242,.38); border-radius: 12px; text-align: left; }
+        .live-field-list span, .live-field-list strong { display: block; }
+        .live-field-list span { color: #7b8ca8; font-size: 8px; font-weight: 900; text-transform: uppercase; }
+        .live-field-list strong { margin-top: 3px; color: #102a56; font-size: 11px; line-height: 1.35; }
         .preview-header { align-items: center; background: linear-gradient(135deg, #16396e, #285da4); color: white; display: flex; gap: 10px; margin: -28px -28px 18px; padding: 18px 24px; }
         .preview-header img { background: white; border-radius: 50%; height: 34px; object-fit: cover; width: 34px; }
         .preview-header strong, .preview-header span { display: block; }
@@ -2476,12 +2635,12 @@ export default function App() {
         .loading-state { padding: 28px; color: var(--muted); text-align: center; }
 
         @media (max-width: 1024px) {
-          .app-layout { grid-template-columns: 1fr; }
-          .sidebar { height: auto; position: relative; padding: 20px; }
-          .sidebar nav { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); }
+          .app-layout { display: block; }
+          .sidebar { height: auto; position: sticky; top: 10px; flex-wrap: wrap; padding: 12px; }
+          .sidebar nav { display: flex; flex-wrap: wrap; justify-content: flex-start; }
           .nav-label { display: none; }
           .nav-item { justify-content: center; }
-          .sidebar-logout { position: absolute; right: 20px; top: 23px; width: auto; }
+          .sidebar-logout { position: relative; right: auto; top: auto; width: auto; margin-left: auto; }
           .cards-grid { grid-template-columns: repeat(2, 1fr); }
           .content-grid { grid-template-columns: 1fr; }
           .monthly-admin-grid { grid-template-columns: 1fr; }
@@ -2498,11 +2657,18 @@ export default function App() {
           .login-page { grid-template-columns: 1fr; }
           .login-showcase { display: none; }
           .login-card { max-width: 480px; margin: auto; }
+          .login-page-liquid { grid-template-columns: minmax(0, 1fr) minmax(350px, 430px); gap: 24px; padding: 28px; }
+          .login-page-liquid .login-showcase { display: flex; min-height: 560px; }
+          .hero-content h2 { font-size: clamp(44px, 5.8vw, 62px); }
+          .brand-emblem-showcase { left: 60%; top: 43%; width: min(18vw, 170px); opacity: .26; }
+          .showcase-stats { grid-template-columns: repeat(3, minmax(0, 1fr)); max-width: 420px; gap: 12px; }
+          .metric-card, .showcase-stats > div { min-height: 118px; padding: 14px; }
         }
 
         @media (max-width: 640px) {
           .main-content { padding: 16px; }
-          .sidebar nav { grid-template-columns: repeat(2, minmax(0,1fr)); }
+          .sidebar { align-items: stretch; }
+          .sidebar nav { width: 100%; display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); }
           .nav-item { justify-content: flex-start; }
           .sidebar-logout { position: static; }
           .topbar { align-items: flex-start; flex-direction: column; padding: 20px; }
@@ -2536,17 +2702,829 @@ export default function App() {
           .login-page { padding: 18px; }
           .login-card { padding: 30px 23px; border-radius: 24px; }
           .showcase-stats { gap: 18px; }
+          .login-page-liquid { min-height: 100svh; display: flex; flex-direction: column; justify-content: center; padding: 20px; }
+          .login-page-liquid::before { inset: 8px; border-radius: 22px; }
+          .login-page-liquid .login-showcase { display: flex; min-height: auto; width: 100%; padding: 16px 4px 0; }
+          .hero-content .floating-badge, .hero-content h2, .hero-content > p, .brand-emblem-showcase, .showcase-stats { display: none; }
+          .glass-card { max-width: 460px; padding: 30px 22px; border-radius: 28px; }
+          .login-brand { margin-bottom: 30px; }
+          .login-brand div strong { font-size: 25px; letter-spacing: 5px; }
+          .login-brand div span { font-size: 8px; letter-spacing: 1.8px; }
+          .brand-badge { width: 62px; height: 62px; border-radius: 20px; }
+          .login-footer { position: static; justify-content: center; width: 100%; font-size: 11px; }
+          .login-footer-right { margin-top: -8px; }
         }
+
+
+        /* =====================================================
+           LOGIN CELIOS — VERSÃO IGUAL AO MODELO DA REFERÊNCIA
+           Imagem esperada em: public/assets/celios-login-bg-3d.png
+        ===================================================== */
+        .login-page-liquid {
+          min-height: 100svh !important;
+          width: 100% !important;
+          position: relative !important;
+          overflow: hidden !important;
+          display: grid !important;
+          grid-template-columns: minmax(560px, 1fr) minmax(500px, 620px) !important;
+          align-items: stretch !important;
+          gap: clamp(36px, 5vw, 86px) !important;
+          padding: clamp(44px, 5.2vw, 78px) clamp(46px, 5.6vw, 96px) !important;
+          color: #102a56 !important;
+          isolation: isolate !important;
+          background:
+            linear-gradient(90deg, rgba(255,255,255,0.88) 0%, rgba(255,255,255,0.66) 22%, rgba(255,255,255,0.16) 46%, rgba(255,255,255,0.46) 69%, rgba(255,255,255,0.88) 100%),
+            radial-gradient(circle at 8% 16%, rgba(255,255,255,0.92), transparent 28%),
+            radial-gradient(circle at 86% 48%, rgba(240,248,255,0.82), transparent 35%),
+            url('/assets/celios-login-bg-3d.png') right center / auto 100% no-repeat !important;
+        }
+
+        .login-page-liquid::before {
+          content: "" !important;
+          position: absolute !important;
+          inset: 8px !important;
+          z-index: 0 !important;
+          pointer-events: none !important;
+          border-radius: 28px !important;
+          border: 1px solid rgba(185, 207, 235, 0.52) !important;
+          box-shadow:
+            inset 0 1px 0 rgba(255,255,255,0.90),
+            inset 0 -1px 0 rgba(37,99,235,0.05) !important;
+        }
+
+        .login-page-liquid::after {
+          content: "" !important;
+          position: absolute !important;
+          inset: 0 !important;
+          z-index: 0 !important;
+          pointer-events: none !important;
+          background:
+            linear-gradient(180deg, rgba(255,255,255,0.22), rgba(239,247,255,0.18)),
+            radial-gradient(circle at 48% 45%, rgba(47,107,255,0.08), transparent 26%),
+            radial-gradient(circle at 74% 50%, rgba(255,255,255,0.46), transparent 32%) !important;
+        }
+
+        .login-page-liquid .liquid-bg {
+          display: block !important;
+          position: absolute !important;
+          inset: 0 !important;
+          z-index: 0 !important;
+          pointer-events: none !important;
+        }
+
+        .login-page-liquid .ambient {
+          position: absolute !important;
+          border-radius: 999px !important;
+          filter: blur(24px) !important;
+          opacity: 0.62 !important;
+        }
+
+        .login-page-liquid .ambient-one {
+          width: 360px !important;
+          height: 360px !important;
+          left: -120px !important;
+          top: -130px !important;
+          background: radial-gradient(circle, rgba(141,187,255,0.18), transparent 68%) !important;
+        }
+
+        .login-page-liquid .ambient-two {
+          width: 460px !important;
+          height: 460px !important;
+          right: -160px !important;
+          bottom: -170px !important;
+          background: radial-gradient(circle, rgba(37,99,235,0.12), transparent 70%) !important;
+        }
+
+        .login-page-liquid .ambient-three,
+        .login-page-liquid .orbital-line {
+          display: none !important;
+        }
+
+        .login-page-liquid .login-showcase,
+        .login-page-liquid .login-card,
+        .login-page-liquid .login-footer {
+          position: relative !important;
+          z-index: 2 !important;
+        }
+
+        .login-page-liquid .login-showcase {
+          grid-column: 1 !important;
+          display: flex !important;
+          min-height: calc(100svh - clamp(88px, 10.4vw, 156px)) !important;
+          width: 100% !important;
+          flex-direction: column !important;
+          align-items: flex-start !important;
+          justify-content: center !important;
+          padding: clamp(20px, 2.8vw, 42px) 0 0 clamp(10px, 1vw, 18px) !important;
+        }
+
+        .login-page-liquid .brand-emblem-showcase {
+          display: none !important;
+        }
+
+        .login-page-liquid .showcase-badge {
+          display: inline-flex !important;
+          align-items: center !important;
+          gap: 10px !important;
+          width: fit-content !important;
+          margin-bottom: clamp(50px, 7vh, 78px) !important;
+          padding: 12px 23px !important;
+          color: #2563eb !important;
+          background: rgba(255,255,255,0.60) !important;
+          border: 1px solid rgba(255,255,255,0.76) !important;
+          border-radius: 999px !important;
+          box-shadow:
+            0 18px 38px rgba(37,99,235,0.10),
+            inset 0 1px 0 rgba(255,255,255,0.90) !important;
+          backdrop-filter: blur(18px) !important;
+          -webkit-backdrop-filter: blur(18px) !important;
+          font-size: 12px !important;
+          font-weight: 900 !important;
+          letter-spacing: 1.7px !important;
+        }
+
+        .login-page-liquid .hero-content h2 {
+          max-width: 455px !important;
+          margin: 0 !important;
+          color: #102a56 !important;
+          font-size: clamp(50px, 4.7vw, 74px) !important;
+          line-height: 0.96 !important;
+          font-weight: 950 !important;
+          letter-spacing: -2.4px !important;
+          text-shadow: 0 12px 34px rgba(15,42,85,0.08) !important;
+        }
+
+        .login-page-liquid .hero-content h2::before,
+        .login-page-liquid .hero-content h2::after,
+        .login-page-liquid .hero-content > p::before {
+          content: none !important;
+        }
+
+        .login-page-liquid .hero-content h2 span {
+          color: #2563eb !important;
+        }
+
+        .login-page-liquid .hero-content > p {
+          display: block !important;
+          max-width: 420px !important;
+          margin: 26px 0 0 !important;
+          color: rgba(60, 83, 116, 0.78) !important;
+          font-size: 17px !important;
+          line-height: 1.55 !important;
+          font-weight: 600 !important;
+        }
+
+        .login-page-liquid .showcase-stats {
+          display: grid !important;
+          grid-template-columns: repeat(3, minmax(118px, 152px)) !important;
+          gap: 24px !important;
+          margin-top: auto !important;
+          margin-bottom: 54px !important;
+        }
+
+        .login-page-liquid .showcase-stats > div {
+          min-height: 172px !important;
+          display: flex !important;
+          flex-direction: column !important;
+          justify-content: space-between !important;
+          padding: 24px 21px 22px !important;
+          border-radius: 20px !important;
+          background: rgba(255,255,255,0.48) !important;
+          border: 1px solid rgba(255,255,255,0.70) !important;
+          box-shadow:
+            0 22px 42px rgba(36, 72, 118, 0.09),
+            inset 0 1px 0 rgba(255,255,255,0.86) !important;
+          backdrop-filter: blur(20px) saturate(126%) !important;
+          -webkit-backdrop-filter: blur(20px) saturate(126%) !important;
+        }
+
+        .login-page-liquid .showcase-stats svg {
+          color: #2563eb !important;
+        }
+
+        .login-page-liquid .showcase-stats strong {
+          color: #102a56 !important;
+          font-size: 30px !important;
+          font-weight: 950 !important;
+          letter-spacing: -1px !important;
+        }
+
+        .login-page-liquid .showcase-stats span {
+          color: #102a56 !important;
+          font-size: 10px !important;
+          line-height: 1.35 !important;
+          font-weight: 950 !important;
+          text-transform: uppercase !important;
+          letter-spacing: 0.2px !important;
+        }
+
+        .login-page-liquid .showcase-stats > div::after {
+          content: "" !important;
+          width: 26px !important;
+          height: 3px !important;
+          margin-top: 12px !important;
+          border-radius: 999px !important;
+          background: #2563eb !important;
+          box-shadow: 0 0 14px rgba(37,99,235,0.28) !important;
+        }
+
+        .login-page-liquid .login-card {
+          grid-column: 2 !important;
+          justify-self: end !important;
+          align-self: center !important;
+          width: 100% !important;
+          max-width: 620px !important;
+          min-height: min(78svh, 790px) !important;
+          display: flex !important;
+          flex-direction: column !important;
+          justify-content: center !important;
+          position: relative !important;
+          z-index: 2 !important;
+          padding: clamp(48px, 4.5vw, 72px) clamp(48px, 4.3vw, 68px) !important;
+          border-radius: 38px !important;
+          background:
+            linear-gradient(145deg, rgba(255,255,255,0.58), rgba(235,246,255,0.36)) !important;
+          border: 1px solid rgba(255,255,255,0.68) !important;
+          box-shadow:
+            0 38px 88px rgba(42, 82, 132, 0.15),
+            0 14px 36px rgba(37, 99, 235, 0.08),
+            inset 0 1px 0 rgba(255,255,255,0.94),
+            inset 0 -1px 0 rgba(37,99,235,0.06) !important;
+          backdrop-filter: blur(30px) saturate(138%) !important;
+          -webkit-backdrop-filter: blur(30px) saturate(138%) !important;
+        }
+
+        .login-page-liquid .login-card::before {
+          content: "" !important;
+          position: absolute !important;
+          inset: 1px !important;
+          border-radius: inherit !important;
+          pointer-events: none !important;
+          background:
+            linear-gradient(135deg, rgba(255,255,255,0.72), rgba(255,255,255,0.07) 42%, rgba(141,187,255,0.14)),
+            radial-gradient(circle at 20% 0%, rgba(255,255,255,0.72), transparent 32%) !important;
+        }
+
+        .login-page-liquid .login-card > * {
+          position: relative !important;
+          z-index: 1 !important;
+        }
+
+        .login-page-liquid .login-brand {
+          justify-content: center !important;
+          gap: 18px !important;
+          margin-bottom: clamp(44px, 5vh, 66px) !important;
+        }
+
+        .login-page-liquid .brand-badge {
+          width: 74px !important;
+          height: 74px !important;
+          border-radius: 24px !important;
+          object-fit: cover !important;
+          background: rgba(255,255,255,0.62) !important;
+          box-shadow:
+            0 20px 36px rgba(37,99,235,0.14),
+            0 0 26px rgba(141,187,255,0.32),
+            inset 0 1px 0 rgba(255,255,255,0.88) !important;
+        }
+
+        .login-page-liquid .login-brand div strong {
+          color: #102a56 !important;
+          font-size: clamp(31px, 2.6vw, 43px) !important;
+          font-weight: 700 !important;
+          letter-spacing: 9px !important;
+          line-height: 1 !important;
+        }
+
+        .login-page-liquid .login-brand div span {
+          margin-top: 9px !important;
+          color: #405979 !important;
+          font-size: 8px !important;
+          letter-spacing: 2.8px !important;
+          font-weight: 900 !important;
+        }
+
+        .login-page-liquid .secure-badge {
+          display: inline-flex !important;
+          align-items: center !important;
+          gap: 10px !important;
+          width: fit-content !important;
+          color: #2563eb !important;
+          letter-spacing: 1.4px !important;
+          font-size: 12px !important;
+          font-weight: 950 !important;
+        }
+
+        .login-page-liquid .login-card h1 {
+          max-width: 440px !important;
+          margin: 24px 0 10px !important;
+          color: #102a56 !important;
+          font-size: clamp(32px, 2.6vw, 42px) !important;
+          line-height: 1.05 !important;
+          letter-spacing: -1.4px !important;
+          font-weight: 950 !important;
+        }
+
+        .login-page-liquid .login-card > p {
+          color: #667890 !important;
+          font-size: 15px !important;
+          font-weight: 600 !important;
+        }
+
+        .login-page-liquid .login-form {
+          margin-top: 36px !important;
+          gap: 22px !important;
+        }
+
+        .login-page-liquid .glass-field > span {
+          color: #102a56 !important;
+          font-size: 13px !important;
+          font-weight: 900 !important;
+        }
+
+        .login-page-liquid .glass-input {
+          min-height: 59px !important;
+          padding: 0 17px !important;
+          background: rgba(255,255,255,0.42) !important;
+          border: 1px solid rgba(255,255,255,0.76) !important;
+          border-radius: 17px !important;
+          box-shadow:
+            inset 0 1px 0 rgba(255,255,255,0.94),
+            0 12px 28px rgba(47,107,255,0.055) !important;
+        }
+
+        .login-page-liquid .glass-input svg {
+          color: #516986 !important;
+        }
+
+        .login-page-liquid .glass-input:focus-within {
+          border-color: rgba(47,107,255,0.42) !important;
+          box-shadow:
+            0 0 0 4px rgba(47,107,255,0.08),
+            inset 0 1px 0 rgba(255,255,255,0.96),
+            0 14px 30px rgba(47,107,255,0.08) !important;
+        }
+
+        .login-page-liquid .forgot-password {
+          appearance: none !important;
+          align-self: flex-start !important;
+          margin: -7px 0 0 !important;
+          padding: 0 !important;
+          color: #2563eb !important;
+          background: transparent !important;
+          border: 0 !important;
+          box-shadow: none !important;
+          cursor: pointer !important;
+          font-size: 13px !important;
+          font-weight: 850 !important;
+        }
+
+        .login-page-liquid .glass-button {
+          min-height: 61px !important;
+          margin-top: 10px !important;
+          color: #ffffff !important;
+          background:
+            linear-gradient(135deg, #7fb5ff 0%, #3f83ff 48%, #2563eb 100%) !important;
+          border: 1px solid rgba(255,255,255,0.66) !important;
+          border-radius: 18px !important;
+          box-shadow:
+            0 20px 42px rgba(37,99,235,0.26),
+            inset 0 1px 0 rgba(255,255,255,0.72),
+            inset 0 -14px 24px rgba(15,42,85,0.17) !important;
+          font-size: 16px !important;
+          font-weight: 950 !important;
+        }
+
+        .login-page-liquid .button-png-icon {
+          width: 23px !important;
+          height: 23px !important;
+          border-radius: 50% !important;
+          object-fit: cover !important;
+          box-shadow: 0 0 14px rgba(255,255,255,0.50) !important;
+        }
+
+        .login-page-liquid .glass-button:disabled {
+          opacity: 0.76 !important;
+          cursor: not-allowed !important;
+          filter: grayscale(0.08) !important;
+        }
+
+        .login-page-liquid .login-separator {
+          display: flex !important;
+          align-items: center !important;
+          gap: 16px !important;
+          margin: 29px 0 18px !important;
+          color: #5d718d !important;
+          font-size: 12px !important;
+          font-weight: 800 !important;
+        }
+
+        .login-page-liquid .login-separator::before,
+        .login-page-liquid .login-separator::after {
+          content: "" !important;
+          flex: 1 !important;
+          height: 1px !important;
+          background: linear-gradient(90deg, transparent, rgba(91,126,170,0.22), transparent) !important;
+        }
+
+        .login-page-liquid .sso-button {
+          min-height: 47px !important;
+          align-self: center !important;
+          display: inline-flex !important;
+          align-items: center !important;
+          justify-content: center !important;
+          gap: 10px !important;
+          padding: 0 24px !important;
+          color: #102a56 !important;
+          background: rgba(255,255,255,0.42) !important;
+          border: 1px solid rgba(255,255,255,0.76) !important;
+          border-radius: 14px !important;
+          box-shadow:
+            inset 0 1px 0 rgba(255,255,255,0.90),
+            0 12px 24px rgba(37,99,235,0.08) !important;
+          cursor: pointer !important;
+          font-weight: 850 !important;
+        }
+
+        .login-page-liquid .login-card-softline {
+          display: none !important;
+        }
+
+        .login-page-liquid .login-footer {
+          z-index: 2 !important;
+          color: rgba(73, 92, 120, 0.70) !important;
+          text-shadow: 0 1px 0 rgba(255,255,255,0.76) !important;
+        }
+
+        .login-page-liquid .login-footer strong {
+          color: #2563eb !important;
+        }
+
+        @media (max-width: 1200px) {
+          .login-page-liquid {
+            grid-template-columns: minmax(430px, 1fr) minmax(430px, 520px) !important;
+            gap: 34px !important;
+            padding: 34px !important;
+            background:
+              linear-gradient(90deg, rgba(255,255,255,0.88) 0%, rgba(255,255,255,0.50) 35%, rgba(255,255,255,0.72) 100%),
+              url('/assets/celios-login-bg-3d.png') right center / auto 100% no-repeat !important;
+          }
+
+          .login-page-liquid .login-showcase {
+            min-height: calc(100svh - 68px) !important;
+          }
+
+          .login-page-liquid .showcase-stats {
+            grid-template-columns: repeat(3, minmax(104px, 1fr)) !important;
+            gap: 15px !important;
+          }
+
+          .login-page-liquid .login-card {
+            max-width: 520px !important;
+            padding: 42px !important;
+          }
+        }
+
+        @media (max-width: 920px) {
+          .login-page-liquid {
+            display: flex !important;
+            min-height: 100svh !important;
+            align-items: center !important;
+            justify-content: center !important;
+            padding: 18px !important;
+            background:
+              linear-gradient(180deg, rgba(255,255,255,0.72), rgba(247,251,255,0.90)),
+              url('/assets/celios-login-bg-3d.png') 38% center / cover no-repeat !important;
+          }
+
+          .login-page-liquid .login-showcase {
+            display: none !important;
+          }
+
+          .login-page-liquid .login-card {
+            grid-column: auto !important;
+            justify-self: center !important;
+            width: min(100%, 470px) !important;
+            max-width: 470px !important;
+            min-height: auto !important;
+            padding: 32px 24px !important;
+            border-radius: 29px !important;
+            background: linear-gradient(145deg, rgba(255,255,255,0.82), rgba(241,248,255,0.70)) !important;
+          }
+
+          .login-page-liquid .login-footer {
+            display: none !important;
+          }
+
+          .login-page-liquid .login-brand {
+            margin-bottom: 30px !important;
+          }
+
+          .login-page-liquid .brand-badge {
+            width: 62px !important;
+            height: 62px !important;
+            border-radius: 20px !important;
+          }
+
+          .login-page-liquid .login-brand div strong {
+            font-size: 25px !important;
+            letter-spacing: 5px !important;
+          }
+        }
+
+
+        /* ===========================
+           AJUSTES FINAIS LOGIN CELIOS
+           Escrita limpa + botão corrigido + destaques azuis
+        =========================== */
+
+        .login-page-liquid {
+          position: relative !important;
+          overflow: hidden !important;
+          min-height: 100vh !important;
+          display: grid !important;
+          grid-template-columns: 1.1fr 0.9fr !important;
+          align-items: center !important;
+          gap: 40px !important;
+          padding: 42px 48px 70px !important;
+          border-radius: 28px !important;
+          background:
+            linear-gradient(135deg, rgba(255,255,255,0.72), rgba(245,249,255,0.80)),
+            url("/assets/celios-login-bg-3d.png") center center / cover no-repeat !important;
+          isolation: isolate !important;
+        }
+
+        .login-page-liquid::before {
+          content: "" !important;
+          position: absolute !important;
+          inset: 0 !important;
+          z-index: 0 !important;
+          background:
+            radial-gradient(circle at 28% 40%, rgba(45, 119, 255, 0.16), transparent 18%),
+            radial-gradient(circle at 53% 56%, rgba(87, 171, 255, 0.14), transparent 20%),
+            linear-gradient(90deg, rgba(255,255,255,0.28), rgba(255,255,255,0.18)) !important;
+          pointer-events: none !important;
+        }
+
+        .login-page-liquid::after {
+          content: "" !important;
+          position: absolute !important;
+          inset: 0 !important;
+          background:
+            radial-gradient(circle at 30% 42%, rgba(45, 119, 255, 0.12), transparent 18%),
+            radial-gradient(circle at 58% 50%, rgba(87, 171, 255, 0.10), transparent 20%),
+            radial-gradient(circle at 68% 24%, rgba(77, 140, 255, 0.08), transparent 14%) !important;
+          pointer-events: none !important;
+          z-index: 0 !important;
+        }
+
+        .liquid-bg,
+        .hero-content,
+        .login-card,
+        .login-footer {
+          position: relative !important;
+          z-index: 2 !important;
+        }
+
+        .liquid-bg { display: block !important; position: absolute !important; inset: 0 !important; pointer-events: none !important; }
+
+        .hero-content { max-width: 520px !important; min-height: auto !important; padding-left: 0 !important; display: flex !important; flex-direction: column !important; justify-content: center !important; }
+        .hero-content h2 { max-width: 540px !important; font-size: clamp(52px, 6vw, 76px) !important; line-height: 0.95 !important; font-weight: 900 !important; letter-spacing: -2px !important; color: #0d2b66 !important; margin: 0 0 22px !important; text-shadow: 0 18px 44px rgba(15,42,85,0.08) !important; }
+        .hero-content h2 span { color: #2f6bff !important; }
+        .hero-content h2::before,
+        .hero-content h2::after,
+        .hero-content > p::before,
+        .showcase-stats > div strong::before,
+        .showcase-stats > div span::before { content: none !important; display: none !important; }
+        .hero-content > p { max-width: 460px !important; min-height: 0 !important; font-size: 18px !important; line-height: 1.6 !important; color: #667a96 !important; margin: 0 0 34px !important; font-weight: 500 !important; }
+        .showcase-badge { display: inline-flex !important; align-items: center !important; gap: 10px !important; width: max-content !important; padding: 12px 18px !important; border-radius: 999px !important; background: rgba(255,255,255,0.58) !important; border: 1px solid rgba(255,255,255,0.8) !important; box-shadow: 0 12px 30px rgba(62, 95, 160, 0.08) !important; color: #2f6bff !important; font-size: 13px !important; font-weight: 700 !important; letter-spacing: 0.08em !important; margin-bottom: 28px !important; backdrop-filter: blur(10px) !important; }
+
+        .brand-emblem-showcase { position: absolute !important; left: 36% !important; top: 52% !important; transform: translate(-50%, -50%) !important; width: min(720px, 62vw) !important; aspect-ratio: 1 / 1 !important; pointer-events: none !important; z-index: 1 !important; opacity: 0.92 !important; }
+        .emblem-glass-plate { width: 100% !important; height: 100% !important; display: grid !important; place-items: center !important; background: transparent !important; border: 0 !important; box-shadow: none !important; overflow: visible !important; backdrop-filter: none !important; }
+        .emblem-symbol { width: 100% !important; height: 100% !important; object-fit: contain !important; border-radius: 0 !important; opacity: 0.92 !important; filter: drop-shadow(0 0 22px rgba(58, 132, 255, 0.22)) drop-shadow(0 18px 42px rgba(44, 96, 192, 0.18)) !important; animation: floatSymbol 6s ease-in-out infinite !important; }
+        .emblem-halo { position: absolute !important; inset: 18% !important; border-radius: 999px !important; background: radial-gradient(circle, rgba(74, 142, 255, 0.18), transparent 72%) !important; filter: blur(20px) !important; animation: pulseHalo 3.8s ease-in-out infinite !important; }
+        .emblem-orbit { position: absolute !important; left: 50% !important; top: 50% !important; border-radius: 999px !important; border: 1px solid rgba(102, 157, 255, 0.18) !important; transform: translate(-50%, -50%) !important; }
+        .orbit-a { width: 88% !important; height: 88% !important; inset: auto !important; }
+        .orbit-b { width: 74% !important; height: 74% !important; inset: auto !important; }
+
+        .showcase-stats { display: grid !important; grid-template-columns: repeat(3, minmax(90px, 1fr)) !important; gap: 34px !important; max-width: 480px !important; margin-top: 22px !important; position: relative !important; z-index: 3 !important; }
+        .showcase-stat-card,
+        .showcase-stats > div { min-height: auto !important; padding: 0 !important; border-radius: 0 !important; background: transparent !important; border: 0 !important; box-shadow: none !important; backdrop-filter: none !important; display: block !important; color: #102d67 !important; }
+        .showcase-stats svg,
+        .showcase-stat-card .ui-icon { display: none !important; }
+        .showcase-stat-card strong,
+        .showcase-stats > div strong { display: block !important; font-size: 22px !important; line-height: 1 !important; font-weight: 900 !important; color: #2f6bff !important; margin: 0 0 8px !important; letter-spacing: -0.2px !important; }
+        .showcase-stat-card span,
+        .showcase-stats > div span { display: block !important; color: #7f8da3 !important; font-size: 11px !important; line-height: 1.25 !important; font-weight: 700 !important; letter-spacing: 0 !important; text-transform: uppercase !important; }
+
+        .login-card { justify-self: end !important; width: 100% !important; max-width: 470px !important; padding: 38px 42px !important; border-radius: 34px !important; background: rgba(255,255,255,0.58) !important; border: 1px solid rgba(255,255,255,0.82) !important; box-shadow: 0 28px 70px rgba(44, 84, 158, 0.12), inset 0 1px 0 rgba(255,255,255,0.9) !important; backdrop-filter: blur(18px) !important; }
+        .login-brand { display: flex !important; align-items: center !important; gap: 16px !important; margin-bottom: 26px !important; }
+        .brand-badge-wrap { width: 68px !important; height: 68px !important; border-radius: 22px !important; display: grid !important; place-items: center !important; background: linear-gradient(180deg, rgba(255,255,255,0.9), rgba(241,247,255,0.72)) !important; border: 1px solid rgba(255,255,255,0.85) !important; box-shadow: 0 10px 26px rgba(43, 85, 167, 0.10), inset 0 1px 0 rgba(255,255,255,0.95) !important; flex: 0 0 auto !important; }
+        .brand-badge { width: 48px !important; height: 48px !important; border-radius: 0 !important; object-fit: contain !important; image-rendering: auto !important; filter: drop-shadow(0 0 10px rgba(68, 148, 255, 0.20)) contrast(1.05) saturate(1.06) !important; box-shadow: none !important; }
+        .login-brand strong,
+        .login-brand div strong { display: block !important; font-size: 22px !important; line-height: 1 !important; letter-spacing: 0.22em !important; color: #102d67 !important; font-weight: 800 !important; }
+        .login-brand span,
+        .login-brand div span { display: block !important; margin-top: 4px !important; font-size: 11px !important; letter-spacing: 0.18em !important; text-transform: uppercase !important; color: #5f7391 !important; font-weight: 800 !important; }
+        .secure-badge { display: inline-flex !important; align-items: center !important; gap: 8px !important; color: #2f6bff !important; font-size: 13px !important; font-weight: 800 !important; margin-bottom: 18px !important; }
+        .login-card h1 { font-size: 34px !important; line-height: 1.05 !important; font-weight: 900 !important; color: #0f2b66 !important; margin: 0 0 10px !important; }
+        .login-card p,
+        .login-page-liquid .login-card > p { color: #6a7d97 !important; font-size: 17px !important; font-weight: 500 !important; margin-bottom: 26px !important; }
+        .login-form,
+        .login-page-liquid .login-form { display: flex !important; flex-direction: column !important; gap: 18px !important; margin-top: 0 !important; }
+        .glass-field > span,
+        .login-page-liquid .glass-field > span { display: block !important; font-size: 14px !important; font-weight: 700 !important; color: #18386d !important; margin-bottom: 10px !important; }
+        .glass-input,
+        .login-page-liquid .glass-input { display: flex !important; align-items: center !important; gap: 12px !important; padding: 0 14px !important; height: 56px !important; min-height: 56px !important; border-radius: 18px !important; background: rgba(255,255,255,0.52) !important; border: 1px solid rgba(197, 214, 241, 0.95) !important; box-shadow: inset 0 1px 0 rgba(255,255,255,0.92) !important; }
+        .glass-input .ui-icon,
+        .login-page-liquid .glass-input svg { color: #6c7f9d !important; flex-shrink: 0 !important; }
+        .glass-input input { flex: 1 !important; height: 100% !important; border: none !important; outline: none !important; background: transparent !important; color: #17376f !important; font-size: 15px !important; }
+        .glass-input input::placeholder { color: #7a8ea8 !important; }
+        .forgot-password,
+        .login-page-liquid .forgot-password { display: inline-block !important; align-self: flex-start !important; margin-top: -6px !important; padding: 0 !important; font-size: 13px !important; font-weight: 700 !important; color: #2f6bff !important; text-decoration: none !important; background: transparent !important; border: 0 !important; box-shadow: none !important; cursor: pointer !important; }
+        .login-submit,
+        .login-page-liquid .glass-button.login-submit { margin-top: 4px !important; height: 58px !important; min-height: 58px !important; border: none !important; border-radius: 18px !important; background: linear-gradient(135deg, #7db1ff 0%, #3d7cff 48%, #205de9 100%) !important; color: #fff !important; font-size: 18px !important; font-weight: 800 !important; display: flex !important; align-items: center !important; justify-content: center !important; box-shadow: 0 14px 34px rgba(47, 107, 255, 0.28), inset 0 1px 0 rgba(255,255,255,0.55) !important; position: relative !important; overflow: hidden !important; cursor: pointer !important; gap: 0 !important; }
+        .login-submit::before { content: "" !important; position: absolute !important; top: 0 !important; left: -40% !important; width: 36% !important; height: 100% !important; background: linear-gradient(90deg, transparent, rgba(255,255,255,0.35), transparent) !important; transform: skewX(-20deg) !important; animation: buttonShine 3.8s linear infinite !important; }
+        .login-submit span { position: relative !important; z-index: 1 !important; }
+        .button-png-icon { display: none !important; }
+        .login-divider { display: flex !important; align-items: center !important; gap: 14px !important; margin-top: 2px !important; color: #7c8da5 !important; font-size: 13px !important; justify-content: center !important; }
+        .login-divider::before,
+        .login-divider::after { content: "" !important; height: 1px !important; flex: 1 !important; background: rgba(189, 204, 228, 0.88) !important; }
+        .login-separator { display: none !important; }
+        .sso-button,
+        .login-page-liquid .sso-button { align-self: center !important; display: inline-flex !important; align-items: center !important; justify-content: center !important; gap: 8px !important; padding: 12px 20px !important; border-radius: 16px !important; border: 1px solid rgba(197, 214, 241, 0.95) !important; background: rgba(255,255,255,0.56) !important; color: #24497f !important; font-weight: 700 !important; cursor: pointer !important; box-shadow: none !important; min-height: auto !important; }
+
+        .blue-focus { position: absolute !important; border-radius: 999px !important; filter: blur(30px) !important; opacity: 0.45 !important; pointer-events: none !important; animation: pulseGlow 4s ease-in-out infinite !important; }
+        .blue-focus-one { width: 180px !important; height: 180px !important; left: 26% !important; top: 36% !important; background: radial-gradient(circle, rgba(59, 131, 246, 0.28), transparent 70%) !important; }
+        .blue-focus-two { width: 140px !important; height: 140px !important; left: 46% !important; top: 62% !important; background: radial-gradient(circle, rgba(120, 196, 255, 0.24), transparent 70%) !important; }
+        .glow-dot { position: absolute !important; width: 10px !important; height: 10px !important; border-radius: 999px !important; background: #79b7ff !important; box-shadow: 0 0 12px rgba(84, 161, 255, 0.8), 0 0 24px rgba(84, 161, 255, 0.45) !important; animation: pulseDot 2.8s ease-in-out infinite !important; }
+        .dot-a { left: 5% !important; top: 62% !important; }
+        .dot-b { left: 58% !important; top: 30% !important; animation-delay: 0.8s !important; }
+        .dot-c { left: 72% !important; top: 80% !important; animation-delay: 1.5s !important; }
+        .energy-line { position: absolute !important; border-radius: 999px !important; pointer-events: none !important; opacity: 0.55 !important; filter: blur(0.2px) !important; }
+        .line-a { left: -4% !important; bottom: 16% !important; width: 42% !important; height: 4px !important; background: linear-gradient(90deg, transparent, rgba(107, 181, 255, 0.9), transparent) !important; transform: rotate(22deg) !important; animation: flowLine 6s linear infinite !important; }
+        .line-b { right: 18% !important; top: 18% !important; width: 24% !important; height: 3px !important; background: linear-gradient(90deg, transparent, rgba(151, 212, 255, 0.8), transparent) !important; transform: rotate(-18deg) !important; animation: flowLineAlt 5s linear infinite reverse !important; }
+        .login-footer { position: absolute !important; bottom: 22px !important; font-size: 13px !important; color: #7f91a9 !important; z-index: 3 !important; }
+        .login-footer-left { left: 42px !important; }
+        .login-footer-right { right: 42px !important; display: flex !important; align-items: center !important; gap: 8px !important; }
+        .version-icon { width: 18px !important; height: 18px !important; border-radius: 999px !important; border: 1px solid rgba(47, 107, 255, 0.45) !important; box-shadow: 0 0 0 3px rgba(47, 107, 255, 0.08) !important; }
+
+        @keyframes pulseDot { 0%, 100% { transform: scale(1); opacity: 0.75; } 50% { transform: scale(1.8); opacity: 1; } }
+        @keyframes pulseGlow { 0%, 100% { opacity: 0.28; transform: scale(1); } 50% { opacity: 0.48; transform: scale(1.08); } }
+        @keyframes flowLine { 0% { opacity: 0.18; transform: translateX(0) rotate(22deg); } 50% { opacity: 0.75; } 100% { opacity: 0.18; transform: translateX(24px) rotate(22deg); } }
+        @keyframes flowLineAlt { 0% { opacity: 0.18; transform: translateX(0) rotate(-18deg); } 50% { opacity: 0.75; } 100% { opacity: 0.18; transform: translateX(24px) rotate(-18deg); } }
+        @keyframes buttonShine { 0% { left: -40%; } 100% { left: 130%; } }
+        @keyframes floatSymbol { 0%, 100% { transform: translateY(0px); } 50% { transform: translateY(-8px); } }
+        @keyframes pulseHalo { 0%, 100% { opacity: 0.25; transform: scale(1); } 50% { opacity: 0.42; transform: scale(1.06); } }
+
+        @media (max-width: 1200px) {
+          .login-page-liquid { grid-template-columns: 1fr !important; padding: 28px 24px 70px !important; }
+          .login-card { justify-self: center !important; max-width: 520px !important; }
+          .hero-content { max-width: 100% !important; padding-top: 8px !important; }
+          .brand-emblem-showcase { left: 50% !important; top: 48% !important; width: min(620px, 90vw) !important; opacity: 0.3 !important; }
+          .showcase-stats { max-width: 100% !important; }
+        }
+
+        @media (max-width: 768px) {
+          .hero-content h2 { font-size: 44px !important; }
+          .showcase-stats { grid-template-columns: 1fr !important; }
+          .login-card { padding: 28px 22px !important; }
+          .login-footer { position: static !important; margin-top: 12px !important; }
+        }
+
+      
+
+        /* =====================================================
+           FUNDO MAIS NÍTIDO, AZUL E VALORIZADO — CeliOS Login
+           Ajuste final aplicado no arquivo completo
+        ===================================================== */
+
+        .login-page-liquid {
+          background:
+            radial-gradient(circle at 36% 45%, rgba(47, 107, 255, 0.16), transparent 22%),
+            radial-gradient(circle at 48% 58%, rgba(84, 176, 255, 0.14), transparent 24%),
+            linear-gradient(135deg, rgba(250, 253, 255, 0.34), rgba(238, 246, 255, 0.42)) !important;
+        }
+
+        .login-page-liquid::before {
+          content: "" !important;
+          position: absolute !important;
+          inset: 0 !important;
+          background: url("/assets/celios-login-bg-3d.png") center center / cover no-repeat !important;
+          filter: brightness(0.96) contrast(1.22) saturate(1.32) !important;
+          opacity: 1 !important;
+          z-index: 0 !important;
+          pointer-events: none !important;
+        }
+
+        .login-page-liquid::after {
+          content: "" !important;
+          position: absolute !important;
+          inset: 0 !important;
+          background:
+            radial-gradient(circle at 31% 45%, rgba(0, 102, 255, 0.12), transparent 20%),
+            radial-gradient(circle at 44% 60%, rgba(80, 180, 255, 0.10), transparent 22%),
+            radial-gradient(circle at 58% 32%, rgba(47, 107, 255, 0.08), transparent 18%),
+            linear-gradient(90deg, rgba(255,255,255,0.12), rgba(255,255,255,0.03) 48%, rgba(255,255,255,0.16)) !important;
+          z-index: 1 !important;
+          pointer-events: none !important;
+        }
+
+        .liquid-bg,
+        .hero-content,
+        .login-card,
+        .login-footer {
+          position: relative !important;
+          z-index: 3 !important;
+        }
+
+        .brand-emblem-showcase {
+          opacity: 1 !important;
+        }
+
+        .emblem-symbol {
+          filter:
+            drop-shadow(0 0 24px rgba(47, 107, 255, 0.34))
+            drop-shadow(0 20px 48px rgba(20, 74, 160, 0.24))
+            contrast(1.12)
+            saturate(1.18) !important;
+        }
+
+        .blue-focus-one {
+          opacity: 0.64 !important;
+          background: radial-gradient(circle, rgba(35, 112, 255, 0.46), transparent 68%) !important;
+        }
+
+        .blue-focus-two {
+          opacity: 0.60 !important;
+          background: radial-gradient(circle, rgba(72, 184, 255, 0.38), transparent 68%) !important;
+        }
+
+        .glow-dot {
+          width: 12px !important;
+          height: 12px !important;
+          background: #4fa8ff !important;
+          box-shadow:
+            0 0 14px rgba(47, 107, 255, 0.95),
+            0 0 34px rgba(84, 180, 255, 0.65) !important;
+        }
+
+        .energy-line {
+          opacity: 0.78 !important;
+          filter: blur(0.1px) !important;
+        }
+
+        .line-a {
+          background: linear-gradient(90deg, transparent, rgba(47, 137, 255, 0.95), rgba(153, 220, 255, 0.75), transparent) !important;
+        }
+
+        .line-b {
+          background: linear-gradient(90deg, transparent, rgba(98, 190, 255, 0.85), transparent) !important;
+        }
+
+        .login-card {
+          background: rgba(255, 255, 255, 0.48) !important;
+          backdrop-filter: blur(18px) saturate(1.2) !important;
+          box-shadow:
+            0 34px 84px rgba(38, 92, 178, 0.17),
+            inset 0 1px 0 rgba(255,255,255,0.92) !important;
+        }
+
+        .showcase-badge,
+        .showcase-stat-card {
+          background: rgba(255, 255, 255, 0.46) !important;
+          backdrop-filter: blur(13px) saturate(1.12) !important;
+        }
+
+        .hero-content h2 {
+          text-shadow: 0 14px 34px rgba(18, 54, 118, 0.08) !important;
+        }
+
+        .hero-content p {
+          color: #5f7493 !important;
+        }
+
       `}</style>
       
       <Toast message={toastMessage} onClose={() => setToastMessage("")} />
 
       {inicializando ? (
-        <div className="login-page">
-          <div className="login-card">
-            <img src="/logo-interface.png" alt="Logo Platino" className="brand-badge" />
+        <div className="login-page login-page-liquid">
+          <section className="glass-card login-card loading-card" aria-label="Carregando CeliOS">
+            <div className="login-brand">
+              <div className="brand-badge-wrap">
+                <img
+                  src="/assets/celios-symbol.png"
+                  alt="CeliOS"
+                  className="brand-badge"
+                />
+              </div>
+              <div>
+                <strong>CeliOS</strong>
+                <span>Enterprise Operating System</span>
+              </div>
+            </div>
             <p>Carregando o workspace...</p>
-          </div>
+          </section>
         </div>
       ) : !usuarioLogado ? (
         <Login onLogin={handleLogin} />
@@ -2558,3 +3536,4 @@ export default function App() {
     </>
   );
 }
+

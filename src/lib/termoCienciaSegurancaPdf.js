@@ -130,7 +130,10 @@ function desenharParagrafo({
       !linha.quebraForcada &&
       quantidadeEspacos > 0;
     const espaco = justificar
-      ? (largura - larguraPalavras) / quantidadeEspacos
+      ? Math.max(
+          espacoPadrao,
+          (largura - larguraPalavras) / quantidadeEspacos,
+        )
       : espacoPadrao;
     const larguraLinha =
       larguraPalavras + quantidadeEspacos * espacoPadrao;

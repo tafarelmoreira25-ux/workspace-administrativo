@@ -210,7 +210,10 @@ function desenharParagrafo(
       !linha.quebraForcada &&
       quantidadeEspacos > 0;
     const espaco = justificar
-      ? (largura - larguraPalavras) / quantidadeEspacos
+      ? Math.max(
+          espacoPadrao,
+          (largura - larguraPalavras) / quantidadeEspacos,
+        )
       : espacoPadrao;
     const larguraLinha =
       larguraPalavras + quantidadeEspacos * espacoPadrao;
@@ -323,8 +326,10 @@ export async function gerarContestacaoTaxasEmailPdfComAssets(
     ["Seguro", dados.valorSeguro],
     ["Registro de contrato", dados.valorRegistroContrato],
     ["Tarifa de avaliação", dados.valorTarifaAvaliacao],
+    ["Tarifa de cadastro", dados.valorTarifaCadastro],
     ["IOF", dados.valorIof],
     ["IOF adicional", dados.valorIofAdicional],
+    ["Demais Tarifas", dados.valorDemaisTarifas],
   ].forEach(([rotulo, valor], indice, itens) => {
     desenharParagrafo(contexto, {
       segmentos: [
@@ -369,6 +374,7 @@ export async function gerarContestacaoTaxasEmailPdfComAssets(
     },
   );
 
+  contexto.y = Math.min(contexto.y, 170);
   garantirEspaco(contexto, 115);
   const larguraAssinatura = 76;
   const xAssinatura = (A4[0] - larguraAssinatura) / 2;

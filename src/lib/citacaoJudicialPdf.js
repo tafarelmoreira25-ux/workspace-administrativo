@@ -91,7 +91,10 @@ function desenharParagrafo({
     const ultimaLinha = indiceLinha === linhas.length - 1;
     const espaco =
       alinhamento === "justify" && !ultimaLinha && quantidadeEspacos
-        ? (largura - larguraPalavras) / quantidadeEspacos
+        ? Math.max(
+            espacoPadrao,
+            (largura - larguraPalavras) / quantidadeEspacos,
+          )
         : espacoPadrao;
     const larguraLinha =
       larguraPalavras + quantidadeEspacos * espacoPadrao;
@@ -317,7 +320,7 @@ export async function gerarCitacaoJudicialPdf(dados) {
     segmentos: [{ texto: "Pede deferimento." }],
   });
 
-  y -= 40;
+  y = Math.min(y - 40, 210);
   y = desenharParagrafo({
     pagina,
     fontes,
@@ -330,7 +333,7 @@ export async function gerarCitacaoJudicialPdf(dados) {
     ],
   });
 
-  y -= 46;
+  y = Math.min(y - 46, 145);
   const larguraAssinatura = 250;
   const xAssinatura = (A4[0] - larguraAssinatura) / 2;
   pagina.drawLine({

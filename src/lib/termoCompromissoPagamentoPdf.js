@@ -29,7 +29,7 @@ export async function gerarTermoCompromissoPagamentoPdf(dados) {
             "Pelo presente instrumento particular, de um lado: PLATINO SOLUÇÕES FINANCEIRAS, pessoa jurídica de direito privado, inscrita no CNPJ sob o nº 52.807.405/0001-30, doravante denominada simplesmente ASSESSORIA. E, de outro lado:",
         },
         { texto: `${nomeCliente},`, negrito: true },
-        { texto: "inscrito no CPF sob o nº" },
+        { texto: " inscrito no CPF sob o nº " },
         { texto: `${texto(dados.cpfCnpj)},`, negrito: true },
         {
           texto:
@@ -49,7 +49,7 @@ export async function gerarTermoCompromissoPagamentoPdf(dados) {
             texto: `${valorMonetario(dados.valorTotal)} (${texto(dados.valorTotalExtenso)}),`,
             negrito: true,
           },
-          { texto: "referente aos custos de" },
+          { texto: " referente aos custos de " },
           { texto: `${texto(dados.servico)},`, negrito: true },
           {
             texto:

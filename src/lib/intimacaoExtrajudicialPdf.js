@@ -91,7 +91,10 @@ function desenharParagrafo({
     const ultimaLinha = indiceLinha === linhas.length - 1;
     const espaco =
       alinhamento === "justify" && !ultimaLinha && quantidadeEspacos
-        ? (largura - larguraPalavras) / quantidadeEspacos
+        ? Math.max(
+            espacoPadrao,
+            (largura - larguraPalavras) / quantidadeEspacos,
+          )
         : espacoPadrao;
     const larguraLinha = larguraPalavras + quantidadeEspacos * espacoPadrao;
 
@@ -326,7 +329,7 @@ export async function gerarIntimacaoExtrajudicialPdf(dados) {
     String(dados.reducaoTotal || "").trim(),
   );
 
-  y -= 66;
+  y = Math.min(y - 66, 210);
   y = desenharParagrafo({
     pagina,
     fontes,
@@ -339,7 +342,7 @@ export async function gerarIntimacaoExtrajudicialPdf(dados) {
     ],
   });
 
-  y -= 52;
+  y = Math.min(y - 52, 145);
   const larguraAssinatura = 250;
   const xAssinatura = (A4[0] - larguraAssinatura) / 2;
   pagina.drawLine({

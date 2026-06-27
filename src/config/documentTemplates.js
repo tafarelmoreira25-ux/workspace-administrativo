@@ -343,6 +343,12 @@ export const DOCUMENT_TEMPLATES = [
         placeholder: "Ex.: 780,00",
       },
       {
+        nome: "valorTarifaCadastro",
+        rotulo: "Tarifa de cadastro (R$)",
+        obrigatorio: true,
+        placeholder: "Ex.: 950,00",
+      },
+      {
         nome: "valorIof",
         rotulo: "IOF (R$)",
         obrigatorio: true,
@@ -353,6 +359,12 @@ export const DOCUMENT_TEMPLATES = [
         rotulo: "IOF adicional (R$)",
         obrigatorio: true,
         placeholder: "Ex.: 420,00",
+      },
+      {
+        nome: "valorDemaisTarifas",
+        rotulo: "Demais Tarifas (R$)",
+        obrigatorio: true,
+        placeholder: "Ex.: 300,00",
       },
     ],
   },

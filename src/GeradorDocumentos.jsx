@@ -307,6 +307,30 @@ export default function GeradorDocumentos({ responsavel, onSuccess }) {
     const data = dados.dataEmissao?.replaceAll("-", "") || "sem-data";
     return `${data}-${sufixoDocumento}`;
   }, [dados.dataEmissao, sufixoDocumento]);
+  const camposObrigatorios = modeloSelecionado.campos.filter(
+    (campo) => campo.obrigatorio,
+  );
+  const camposPreenchidos = camposObrigatorios.filter((campo) =>
+    String(dados[campo.nome] || "").trim(),
+  );
+  const progressoDocumento =
+    camposObrigatorios.length > 0
+      ? Math.round((camposPreenchidos.length / camposObrigatorios.length) * 100)
+      : 100;
+  const camposPendentes = camposObrigatorios.filter(
+    (campo) => !String(dados[campo.nome] || "").trim(),
+  );
+  const sugestoesIA = [
+    camposPendentes.length
+      ? `Complete ${camposPendentes[0].rotulo} para liberar uma prévia mais fiel.`
+      : "Todos os campos obrigatórios estão preenchidos.",
+    dados.nomeCliente
+      ? `Cliente identificado: ${dados.nomeCliente}.`
+      : "Informe o nome completo para personalizar o documento.",
+    modeloSelecionado.modo === "contestacao-taxas-email"
+      ? "Revise as tarifas preenchidas: seguro, registro, cadastro, IOF e demais tarifas devem bater com o contrato."
+      : "Confira CPF, datas e valores antes de gerar o PDF final.",
+  ];
 
   function atualizarCampo(evento) {
     const { name, value } = evento.target;
@@ -366,8 +390,8 @@ export default function GeradorDocumentos({ responsavel, onSuccess }) {
       <div className="document-heading">
         <div>
           <span className="eyebrow">Central de documentos</span>
-          <h2>Gerador de PDF</h2>
-          <p>Escolha o documento, preencha os dados do cliente e baixe o PDF.</p>
+          <h2>Gerador inteligente de PDF</h2>
+          <p>Preencha os dados e acompanhe a composição do documento em tempo real.</p>
         </div>
         <div className="document-number">
           <span>Número do documento</span>
@@ -400,13 +424,17 @@ export default function GeradorDocumentos({ responsavel, onSuccess }) {
                   required
                 />
               </label>
-              <div className="template-summary">
+              <div className="template-summary smart-summary">
                 <span>
                   {modeloSelecionado.identidadeVisual
-                    ? "Modelo oficial com identidade visual"
+                    ? "Modelo CeliOS com identidade visual"
                     : "Modelo oficial sem logotipo"}
                 </span>
                 <p>{modeloSelecionado.descricao}</p>
+                <div className="doc-progress" aria-label={`Progresso ${progressoDocumento}%`}>
+                  <span style={{ width: `${progressoDocumento}%` }} />
+                </div>
+                <strong>{progressoDocumento}% completo</strong>
               </div>
             </div>
           </fieldset>
@@ -479,17 +507,41 @@ export default function GeradorDocumentos({ responsavel, onSuccess }) {
         </form>
 
         <aside className="pdf-preview">
-          <div className="preview-page">
+          <div className="ai-support-card">
+            <div>
+              <span className="eyebrow">Assistente IA</span>
+              <h3>Suporte do gerador</h3>
+            </div>
+            {sugestoesIA.map((sugestao) => (
+              <p key={sugestao}>{sugestao}</p>
+            ))}
+          </div>
+          <div className="preview-page live-preview-page">
             <div className="preview-meta">
               <span>
                 {modeloSelecionado.identidadeVisual
-                  ? "Identidade visual Platino"
+                  ? "Identidade visual CeliOS"
                   : "Documento sem logotipo"}
               </span>
               <span>{formatarData(dados.dataEmissao)}</span>
             </div>
+            <div className="preview-brand-row">
+              <img src="/assets/celios-button-icon.png" alt="CeliOS" />
+              <div>
+                <strong>CeliOS</strong>
+                <span>Enterprise Operating System</span>
+              </div>
+            </div>
             <div className="template-preview-info">
               <ResumoDocumento modelo={modeloSelecionado} dados={dados} />
+              <div className="live-field-list">
+                {modeloSelecionado.campos.slice(0, 7).map((campo) => (
+                  <div key={campo.nome}>
+                    <span>{campo.rotulo}</span>
+                    <strong>{dados[campo.nome] || "Aguardando preenchimento"}</strong>
+                  </div>
+                ))}
+              </div>
               <p>
                 Assinatura em{" "}
                 {modeloSelecionado.localAssinatura ||
@@ -500,9 +552,9 @@ export default function GeradorDocumentos({ responsavel, onSuccess }) {
             </div>
           </div>
           <p className="preview-note">
-            Prévia simplificada. O documento final será formatado em A4
+            Prévia dinâmica. O documento final será formatado em A4
             {modeloSelecionado.identidadeVisual
-              ? " e seguirá a identidade visual do modelo."
+              ? " com identidade visual CeliOS."
               : " e sem logotipo."}
           </p>
         </aside>
