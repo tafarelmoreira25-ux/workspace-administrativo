@@ -3503,6 +3503,164 @@ export default function App() {
           color: #5f7493 !important;
         }
 
+        /* Login final: layout responsivo sem depender de mockup unico como fundo. */
+        .login-page-liquid {
+          min-height: 100svh !important;
+          height: 100svh !important;
+          overflow: hidden !important;
+          display: grid !important;
+          grid-template-columns: minmax(420px, 1fr) minmax(390px, 500px) !important;
+          align-items: center !important;
+          gap: clamp(36px, 6vw, 96px) !important;
+          padding: clamp(28px, 4vw, 58px) clamp(28px, 5vw, 76px) !important;
+          background:
+            radial-gradient(circle at 42% 48%, rgba(47,107,255,0.13), transparent 20%),
+            radial-gradient(circle at 18% 16%, rgba(141,187,255,0.28), transparent 30%),
+            radial-gradient(circle at 86% 18%, rgba(255,255,255,0.96), transparent 32%),
+            linear-gradient(135deg, #f8fbff 0%, #eef6ff 52%, #ffffff 100%) !important;
+        }
+
+        .login-page-liquid::before {
+          content: "" !important;
+          position: absolute !important;
+          inset: 10px !important;
+          border: 1px solid rgba(176,198,228,0.36) !important;
+          border-radius: 26px !important;
+          background:
+            linear-gradient(120deg, rgba(255,255,255,0.62), rgba(255,255,255,0.14) 42%, rgba(141,187,255,0.10)),
+            repeating-linear-gradient(115deg, transparent 0 92px, rgba(37,99,235,0.035) 93px 94px) !important;
+          pointer-events: none !important;
+          z-index: 0 !important;
+        }
+
+        .login-page-liquid .login-showcase {
+          width: 100% !important;
+          max-width: 620px !important;
+          min-height: 0 !important;
+          padding: 0 !important;
+          justify-self: start !important;
+          z-index: 2 !important;
+        }
+
+        .login-page-liquid .hero-content h2 {
+          max-width: 560px !important;
+          min-height: 0 !important;
+          margin: 0 0 24px !important;
+          font-size: 0 !important;
+          letter-spacing: 0 !important;
+          color: transparent !important;
+        }
+
+        .login-page-liquid .hero-content h2::before {
+          content: "Gest\\00E3o fluida.\\A Resultados vis\\00EDveis." !important;
+          white-space: pre !important;
+          display: block !important;
+          color: #0f2a55 !important;
+          font-size: clamp(52px, 6.2vw, 84px) !important;
+          line-height: 0.95 !important;
+          font-weight: 950 !important;
+          letter-spacing: 0 !important;
+          text-shadow: 0 18px 42px rgba(15,42,85,0.08) !important;
+        }
+
+        .login-page-liquid .hero-content h2::after {
+          display: none !important;
+          content: none !important;
+        }
+
+        .login-page-liquid .hero-content > p {
+          max-width: 560px !important;
+          margin: 0 0 42px !important;
+          color: #5f7493 !important;
+          font-size: 18px !important;
+          line-height: 1.55 !important;
+        }
+
+        .login-page-liquid .brand-emblem-showcase {
+          left: auto !important;
+          right: -6vw !important;
+          top: 50% !important;
+          width: clamp(220px, 28vw, 390px) !important;
+          opacity: 0.18 !important;
+          transform: translateY(-50%) !important;
+          z-index: 1 !important;
+        }
+
+        .login-page-liquid .emblem-symbol {
+          opacity: 1 !important;
+          filter: drop-shadow(0 18px 40px rgba(47,107,255,0.18)) !important;
+        }
+
+        .login-page-liquid .showcase-stats {
+          max-width: 500px !important;
+          gap: clamp(18px, 3vw, 42px) !important;
+          margin-top: 0 !important;
+          position: relative !important;
+          z-index: 3 !important;
+        }
+
+        .login-page-liquid .login-card {
+          justify-self: end !important;
+          max-width: 500px !important;
+          min-height: auto !important;
+          padding: clamp(34px, 4vw, 54px) !important;
+          background: rgba(255,255,255,0.56) !important;
+          border: 1px solid rgba(255,255,255,0.78) !important;
+          backdrop-filter: blur(24px) saturate(1.18) !important;
+          -webkit-backdrop-filter: blur(24px) saturate(1.18) !important;
+        }
+
+        .login-page-liquid .login-submit {
+          gap: 0 !important;
+        }
+
+        .login-page-liquid .button-png-icon,
+        .login-page-liquid .login-submit img {
+          display: none !important;
+        }
+
+        @media (max-width: 1180px) {
+          .login-page-liquid {
+            grid-template-columns: minmax(340px, 1fr) minmax(360px, 440px) !important;
+            gap: 28px !important;
+            padding: 26px !important;
+          }
+
+          .login-page-liquid .brand-emblem-showcase {
+            display: none !important;
+          }
+
+          .login-page-liquid .hero-content h2::before {
+            font-size: clamp(42px, 5.6vw, 62px) !important;
+          }
+        }
+
+        @media (max-width: 760px) {
+          .login-page-liquid {
+            height: auto !important;
+            min-height: 100svh !important;
+            overflow-y: auto !important;
+            display: flex !important;
+            justify-content: center !important;
+            padding: 20px !important;
+          }
+
+          .login-page-liquid .login-showcase {
+            display: none !important;
+          }
+
+          .login-page-liquid .login-card {
+            width: 100% !important;
+            max-width: 460px !important;
+            padding: 28px 22px !important;
+            border-radius: 28px !important;
+          }
+
+          .login-footer {
+            display: none !important;
+          }
+        }
+
       `}</style>
       
       <Toast message={toastMessage} onClose={() => setToastMessage("")} />
