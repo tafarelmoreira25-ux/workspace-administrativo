@@ -2,6 +2,8 @@ import MeuHistorico from './MeuHistorico';
 import MeuPlanner from './MeuPlanner';
 import GeradorDocumentos from './GeradorDocumentos';
 import PainelEquipeTV from './PainelEquipeTV';
+import ModelosAutomaticos from './ModelosAutomaticos';
+import ModuloProcessual from './ModuloProcessual';
 import { useCallback, useEffect, useState } from "react";
 import { supabase } from "./lib/supabase";
 
@@ -186,6 +188,8 @@ function UiIcon({ name, size = 20 }) {
     tarefas: <><path d="M9 6h11" /><path d="M9 12h11" /><path d="M9 18h11" /><path d="m3 6 1 1 2-2" /><path d="m3 12 1 1 2-2" /><path d="m3 18 1 1 2-2" /></>,
     equipe: <><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M22 21v-2a4 4 0 0 0-3-3.87" /><path d="M16 3.13a4 4 0 0 1 0 7.75" /></>,
     documentos: <><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z" /><path d="M14 2v6h6" /><path d="M8 13h8" /><path d="M8 17h6" /></>,
+    modelos: <><path d="M4 4h16v5H4z" /><path d="M4 13h7v7H4z" /><path d="M15 13h5v7h-5z" /></>,
+    processual: <><path d="M6 3h12v18H6z" /><path d="M9 7h6" /><path d="M9 11h6" /><path d="M9 15h4" /></>,
     historico: <><path d="M3 12a9 9 0 1 0 3-6.7L3 8" /><path d="M3 3v5h5" /><path d="M12 7v5l3 2" /></>,
     planner: <><rect x="3" y="5" width="18" height="16" rx="2" /><path d="M16 3v4" /><path d="M8 3v4" /><path d="M3 11h18" /><path d="m8 16 2 2 4-4" /></>,
     tv: <><rect x="2" y="5" width="20" height="14" rx="2" /><path d="m8 2 4 3 4-3" /><path d="M8 22h8" /></>,
@@ -1172,6 +1176,8 @@ function AdminDashboard({ usuario, onLogout, state }) {
           <NavItem active={false} icon="tv" onClick={() => setModoTv(true)} options={["Modo painel", "Operação ao vivo"]}>Painel TV</NavItem>
           <NavItem active={abaAtiva === "responsabilidades"} icon="planner" onClick={() => setAbaAtiva("responsabilidades")} options={["Rotina mensal", "Responsáveis", "Preview"]}>Tarefas do Mês</NavItem>
           <NavItem active={abaAtiva === "equipe"} icon="equipe" onClick={() => setAbaAtiva("equipe")} options={["Equipe", "Feedbacks", "Pontuação"]}>Equipe</NavItem>
+          <NavItem active={abaAtiva === "modelos"} icon="modelos" onClick={() => setAbaAtiva("modelos")} options={["Biblioteca", "Gerar tarefa"]}>Modelos</NavItem>
+          <NavItem active={abaAtiva === "processual"} icon="processual" onClick={() => setAbaAtiva("processual")} options={["Processos", "Prazos", "Andamentos"]}>Processual</NavItem>
           <NavItem active={abaAtiva === "documentos"} icon="documentos" onClick={() => setAbaAtiva("documentos")} options={["Gerador PDF", "Prévia viva", "Assistente IA"]}>Documentos</NavItem>
         </nav>
         <button className="sidebar-logout" onClick={onLogout}><UiIcon name="logout" /> Sair do Sistema</button>
@@ -2082,6 +2088,14 @@ function AdminDashboard({ usuario, onLogout, state }) {
         {abaAtiva === "documentos" && (
           <GeradorDocumentos responsavel={usuario.nome} onSuccess={showToast} />
         )}
+
+        {abaAtiva === "modelos" && (
+          <ModelosAutomaticos categorias={CATEGORIAS_TAREFA} funcionarios={equipe} onAplicado={recarregarTarefas} onSuccess={showToast} />
+        )}
+
+        {abaAtiva === "processual" && (
+          <ModuloProcessual funcionarios={equipe} onSuccess={showToast} />
+        )}
       </main>
     </div>
   );
@@ -2923,6 +2937,31 @@ export default function App() {
         .auth-notice, .offboarding-summary { display: flex; flex-direction: column; gap: 4px; padding: 14px; color: #526b8b; background: rgba(225,239,255,.72); border-left: 3px solid var(--accent); border-radius: 11px; font-size: 11px; line-height: 1.55; }
         .auth-notice strong, .offboarding-summary strong { color: var(--dark); }
         .offboarding-panel > h2 { margin: 6px 0 20px; font-size: 24px; text-transform: none; }
+        .automation-workspace, .process-workspace { display: flex; flex-direction: column; gap: 22px; }
+        .automation-heading, .process-heading { display: flex; align-items: center; justify-content: space-between; gap: 20px; }
+        .automation-heading h2, .process-heading h2 { margin: 5px 0; font-size: 26px; text-transform: none; }
+        .automation-heading > strong { padding: 12px 16px; color: var(--accent-strong); background: var(--accent-soft); border-radius: 14px; }
+        .automation-grid, .process-grid { display: grid; grid-template-columns: minmax(320px,.75fr) minmax(0,1.25fr); gap: 22px; align-items: start; }
+        .template-list, .process-list { display: grid; gap: 12px; }
+        .template-card, .process-card { display: flex; justify-content: space-between; gap: 18px; padding: 16px; background: rgba(247,251,255,.8); border: 1px solid rgba(111,157,210,.14); border-radius: 16px; }
+        .template-card.inactive { opacity: .55; }
+        .template-card h3, .process-card h3 { margin: 8px 0 4px; font-size: 15px; }
+        .template-card p, .process-card p { font-size: 11px; }
+        .template-card small, .process-card small { color: var(--muted); font-size: 9px; }
+        .template-actions, .process-card > div:last-child { min-width: 160px; display: flex; flex-direction: column; gap: 7px; }
+        .process-metrics { display: flex; gap: 10px; }
+        .process-metrics strong { min-width: 85px; padding: 12px; color: var(--dark); background: rgba(238,247,255,.9); border-radius: 14px; text-align: center; font-size: 20px; }
+        .process-metrics span { display: block; color: var(--muted); font-size: 8px; text-transform: uppercase; }
+        .process-search { max-width: 230px; }
+        .process-card { border-left: 4px solid #e9a63a; }
+        .process-card.risk-baixo { border-left-color: var(--green); }
+        .process-card.risk-alto, .process-card.risk-critico { border-left-color: var(--danger); }
+        .process-update-form { display: grid; grid-template-columns: 150px 150px 150px 1fr auto; gap: 9px; align-items: start; }
+        .timeline-list { display: grid; gap: 12px; margin-top: 20px; }
+        .timeline-list article { display: grid; grid-template-columns: 110px 1fr; gap: 16px; padding: 14px; border-left: 3px solid var(--accent); background: rgba(247,251,255,.8); border-radius: 12px; }
+        .timeline-list time { color: var(--muted); font-size: 10px; }
+        .timeline-list strong { color: var(--accent-strong); font-size: 10px; text-transform: uppercase; }
+        .timeline-list p { font-size: 12px; }
         .feedback-history-panel { grid-column: 1 / -1; }
         .feedback-list { display: grid; gap: 12px; }
         .feedback-card { position: relative; overflow: hidden; padding: 17px 18px; background: rgba(247,251,255,.82); border: 1px solid rgba(104,148,201,.15); border-radius: 16px; }
@@ -3112,6 +3151,9 @@ export default function App() {
           .team-management-header { align-items: stretch; flex-direction: column; }
           .team-tabs { flex-direction: column; }
           .employee-profile-grid { grid-template-columns: 1fr; }
+          .automation-heading, .process-heading, .template-card, .process-card { align-items: stretch; flex-direction: column; }
+          .automation-grid, .process-grid { grid-template-columns: 1fr; }
+          .process-update-form { grid-template-columns: 1fr; }
           .document-heading { align-items: flex-start; flex-direction: column; }
           .document-number { width: 100%; }
           .form-grid { grid-template-columns: 1fr; }
