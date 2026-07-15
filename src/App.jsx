@@ -2,7 +2,6 @@ import MeuHistorico from './MeuHistorico';
 import MeuPlanner from './MeuPlanner';
 import GeradorDocumentos from './GeradorDocumentos';
 import PainelEquipeTV from './PainelEquipeTV';
-import ModelosAutomaticos from './ModelosAutomaticos';
 import ProcessualGerador from './ProcessualGerador';
 import { useCallback, useEffect, useState } from "react";
 import { supabase } from "./lib/supabase";
@@ -13,6 +12,7 @@ import { supabase } from "./lib/supabase";
 const ADMIN_EMAIL = (
   import.meta.env.VITE_ADMIN_EMAIL || "tafarel@platino.com"
 ).toLowerCase();
+const ITENS_POR_PAGINA = 20;
 const RESPONSABILIDADE_MENSAL_PREFIXO = "__RESPONSABILIDADE_MENSAL__";
 const CATEGORIAS_TAREFA = [
   "GOV",
@@ -188,7 +188,6 @@ function UiIcon({ name, size = 20 }) {
     tarefas: <><path d="M9 6h11" /><path d="M9 12h11" /><path d="M9 18h11" /><path d="m3 6 1 1 2-2" /><path d="m3 12 1 1 2-2" /><path d="m3 18 1 1 2-2" /></>,
     equipe: <><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M22 21v-2a4 4 0 0 0-3-3.87" /><path d="M16 3.13a4 4 0 0 1 0 7.75" /></>,
     documentos: <><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z" /><path d="M14 2v6h6" /><path d="M8 13h8" /><path d="M8 17h6" /></>,
-    modelos: <><path d="M4 4h16v5H4z" /><path d="M4 13h7v7H4z" /><path d="M15 13h5v7h-5z" /></>,
     processual: <><path d="M6 3h12v18H6z" /><path d="M9 7h6" /><path d="M9 11h6" /><path d="M9 15h4" /></>,
     historico: <><path d="M3 12a9 9 0 1 0 3-6.7L3 8" /><path d="M3 3v5h5" /><path d="M12 7v5l3 2" /></>,
     planner: <><rect x="3" y="5" width="18" height="16" rx="2" /><path d="M16 3v4" /><path d="M8 3v4" /><path d="M3 11h18" /><path d="m8 16 2 2 4-4" /></>,
@@ -470,6 +469,8 @@ function AdminDashboard({ usuario, onLogout, state }) {
   const [salvandoResponsabilidades, setSalvandoResponsabilidades] =
     useState(false);
   const [mostrarTarefasMes, setMostrarTarefasMes] = useState(false);
+  const [paginaTarefas, setPaginaTarefas] = useState(1);
+  const [paginaHistorico, setPaginaHistorico] = useState(1);
 
   const equipeCompleta = funcionarios.filter(
     (funcionario) => funcionario.email?.toLowerCase() !== ADMIN_EMAIL,
@@ -496,6 +497,20 @@ function AdminDashboard({ usuario, onLogout, state }) {
     if (filtroTarefas === "abertas") return STATUS_ABERTOS.has(tarefa.status);
     return tarefa.status === filtroTarefas;
   });
+  const tarefasOperacionaisFiltradas = tarefasFiltradas.filter((tarefa) =>
+    STATUS_ABERTOS.has(tarefa.status),
+  );
+  const tarefasHistoricoFiltradas = listaTarefas.filter(
+    (tarefa) => !STATUS_ABERTOS.has(tarefa.status),
+  );
+  const tarefasOperacionaisVisiveis = tarefasOperacionaisFiltradas.slice(
+    (paginaTarefas - 1) * ITENS_POR_PAGINA,
+    paginaTarefas * ITENS_POR_PAGINA,
+  );
+  const tarefasHistoricoVisiveis = tarefasHistoricoFiltradas.slice(
+    (paginaHistorico - 1) * ITENS_POR_PAGINA,
+    paginaHistorico * ITENS_POR_PAGINA,
+  );
   const responsabilidadesSelecionadas = responsabilidadesMensais
     .filter(
       (item) =>
@@ -735,7 +750,7 @@ function AdminDashboard({ usuario, onLogout, state }) {
   }
 
   function alternarTodasTarefas() {
-    const idsVisiveis = tarefasFiltradas.map((tarefa) => String(tarefa.id));
+    const idsVisiveis = tarefasOperacionaisVisiveis.map((tarefa) => String(tarefa.id));
     const todasSelecionadas =
       idsVisiveis.length > 0 &&
       idsVisiveis.every((id) => tarefasSelecionadas.includes(id));
@@ -1107,9 +1122,9 @@ function AdminDashboard({ usuario, onLogout, state }) {
           <span className="nav-label">Navegação</span>
           <NavItem active={abaAtiva === "dashboard"} icon="dashboard" onClick={() => setAbaAtiva("dashboard")} options={["Indicadores", "Urgências", "Ranking"]}>Dashboard</NavItem>
           <NavItem active={abaAtiva === "tarefas"} icon="tarefas" onClick={() => setAbaAtiva("tarefas")} options={["Criar tarefa", "Apontamentos", "Filtros rápidos"]}>Tarefas</NavItem>
+          <NavItem active={abaAtiva === "historico"} icon="planner" onClick={() => setAbaAtiva("historico")}>Histórico de tarefas</NavItem>
           <NavItem active={false} icon="tv" onClick={() => setModoTv(true)} options={["Modo painel", "Operação ao vivo"]}>Painel TV</NavItem>
           <NavItem active={abaAtiva === "equipe"} icon="equipe" onClick={() => setAbaAtiva("equipe")} options={["Equipe", "Feedbacks", "Pontuação"]}>Equipe</NavItem>
-          <NavItem active={abaAtiva === "modelos"} icon="modelos" onClick={() => setAbaAtiva("modelos")} options={["Biblioteca", "Gerar tarefa"]}>Modelos de Tarefas</NavItem>
           <NavItem active={abaAtiva === "processual"} icon="processual" onClick={() => setAbaAtiva("processual")} options={["Organizar resumo", "Prévia", "Gerar PDF"]}>Processual</NavItem>
           <NavItem active={abaAtiva === "documentos"} icon="documentos" onClick={() => setAbaAtiva("documentos")} options={["Gerador PDF", "Prévia viva", "Assistente IA"]}>Documentos</NavItem>
         </nav>
@@ -1153,48 +1168,13 @@ function AdminDashboard({ usuario, onLogout, state }) {
               </div>
             </section>
 
-            <section className="content-grid" style={{ gridTemplateColumns: "1fr" }}>
-              <div className="panel large">
-                <h2 className="section-title">Acompanhamento da Esteira (Visão Geral)</h2>
-                {listaTarefas.length === 0 ? <p>Nenhuma tarefa listada no sistema.</p> : null}
-                {listaTarefas.map((tarefa) => {
-                  const func = funcionarios.find(
-                    (item) => String(item.id) === String(tarefa.funcionaria_id),
-                  );
-                  const nomeResponsavel =
-                    tarefa.responsavel_texto ||
-                    func?.nome ||
-                    (tarefa.tarefa_manual ? "Equipe" : "Nao atribuida");
-                  return (
-                    <div className="task-item" key={tarefa.id}>
-                      <div>
-                        <h3>{tarefa.titulo}</h3>
-                        <p style={{ fontSize: '14px', color: '#64748b', marginBottom: '8px' }}>{tarefa.descricao}</p>
-                        <small>
-                          Responsavel: <strong>{nomeResponsavel}</strong> |
-                          {!tarefa.tarefa_manual &&
-                            ` Pontos: ${tarefa.pontos_tarefa ?? 0} |`}
-                          Prazo: {formatarData(tarefa.data_limite)}
-                        </small>
-                      </div>
-                      <div className="task-actions">
-                        {tarefa.categoria && (
-                          <span className="category-badge">
-                            {tarefa.categoria}
-                          </span>
-                        )}
-                        <span
-                          className={`priority-badge priority-${tarefa.prioridade || "normal"}`}
-                        >
-                          {rotuloPrioridade(tarefa.prioridade)}
-                        </span>
-                        <span className={`status ${tarefa.status}`}>
-                          {rotuloStatusTarefa(tarefa.status)}
-                        </span>
-                      </div>
-                    </div>
-                  );
-                })}
+            <section className="panel large">
+              <div className="panel-title-row">
+                <div><h2>Central de operações</h2><p>A página inicial mostra apenas indicadores e atalhos.</p></div>
+                <div className="task-history-actions">
+                  <button className="btn-primary" onClick={() => setAbaAtiva("tarefas")}>Delegar tarefa</button>
+                  <button className="btn-secondary" onClick={() => setAbaAtiva("historico")}>Ver histórico</button>
+                </div>
               </div>
             </section>
           </>
@@ -1650,8 +1630,8 @@ function AdminDashboard({ usuario, onLogout, state }) {
                   <input
                     type="checkbox"
                     checked={
-                      tarefasFiltradas.length > 0 &&
-                      tarefasFiltradas.every((tarefa) =>
+                      tarefasOperacionaisVisiveis.length > 0 &&
+                      tarefasOperacionaisVisiveis.every((tarefa) =>
                         tarefasSelecionadas.includes(String(tarefa.id)),
                       )
                     }
@@ -1677,14 +1657,14 @@ function AdminDashboard({ usuario, onLogout, state }) {
                 </div>
               </div>
 
-              {tarefasFiltradas.length === 0 && (
+              {tarefasOperacionaisFiltradas.length === 0 && (
                 <div className="monthly-empty">
                   Nenhuma tarefa encontrada neste filtro.
                 </div>
               )}
 
               <div className="admin-task-list">
-                {tarefasFiltradas.map((tarefa) => {
+                {tarefasOperacionaisVisiveis.map((tarefa) => {
                   const responsavel = equipe.find(
                     (funcionario) =>
                       String(funcionario.id) ===
@@ -1766,8 +1746,37 @@ function AdminDashboard({ usuario, onLogout, state }) {
                   );
                 })}
               </div>
+              {tarefasOperacionaisFiltradas.length > ITENS_POR_PAGINA && (
+                <div className="task-history-actions">
+                  <button className="btn-secondary compact" disabled={paginaTarefas === 1} onClick={() => setPaginaTarefas((pagina) => pagina - 1)}>Anterior</button>
+                  <small>Página {paginaTarefas} de {Math.ceil(tarefasOperacionaisFiltradas.length / ITENS_POR_PAGINA)}</small>
+                  <button className="btn-secondary compact" disabled={paginaTarefas >= Math.ceil(tarefasOperacionaisFiltradas.length / ITENS_POR_PAGINA)} onClick={() => setPaginaTarefas((pagina) => pagina + 1)}>Próxima</button>
+                </div>
+              )}
             </section>
           </div>
+        )}
+
+        {abaAtiva === "historico" && (
+          <section className="panel large task-list-panel">
+            <div className="panel-title-row">
+              <div><span className="eyebrow">Consulta opcional</span><h2>Histórico de tarefas</h2><p>Concluídas, arquivadas e canceladas ficam somente nesta tela.</p></div>
+              <button className="btn-secondary" onClick={recarregarTarefas}>Atualizar</button>
+            </div>
+            {tarefasHistoricoVisiveis.length === 0 ? <div className="monthly-empty">Nenhuma tarefa no histórico.</div> : tarefasHistoricoVisiveis.map((tarefa) => {
+              const responsavel = equipeCompleta.find((item) => String(item.id) === String(tarefa.funcionaria_id));
+              return (
+                <article className="admin-task-card" key={tarefa.id}>
+                  <div className="admin-task-main">
+                    <div className="admin-task-badges"><span className={`status ${tarefa.status}`}>{rotuloStatusTarefa(tarefa.status)}</span>{tarefa.categoria && <span className="category-badge">{tarefa.categoria}</span>}</div>
+                    <h3>{tarefa.titulo}</h3>{tarefa.descricao && <p>{tarefa.descricao}</p>}
+                    <small>Responsável: {tarefa.responsavel_texto || responsavel?.nome || "Não atribuída"} | Prazo: {formatarData(tarefa.data_limite)}</small>
+                  </div>
+                </article>
+              );
+            })}
+            {tarefasHistoricoFiltradas.length > ITENS_POR_PAGINA && <div className="task-history-actions"><button className="btn-secondary compact" disabled={paginaHistorico === 1} onClick={() => setPaginaHistorico((pagina) => pagina - 1)}>Anterior</button><small>Página {paginaHistorico} de {Math.ceil(tarefasHistoricoFiltradas.length / ITENS_POR_PAGINA)}</small><button className="btn-secondary compact" disabled={paginaHistorico >= Math.ceil(tarefasHistoricoFiltradas.length / ITENS_POR_PAGINA)} onClick={() => setPaginaHistorico((pagina) => pagina + 1)}>Próxima</button></div>}
+          </section>
         )}
 
         {abaAtiva === "tarefas" && mostrarTarefasMes && (
@@ -2028,10 +2037,6 @@ function AdminDashboard({ usuario, onLogout, state }) {
           <GeradorDocumentos responsavel={usuario.nome} onSuccess={showToast} />
         )}
 
-        {abaAtiva === "modelos" && (
-          <ModelosAutomaticos categorias={CATEGORIAS_TAREFA} funcionarios={equipe} onAplicado={recarregarTarefas} onSuccess={showToast} />
-        )}
-
         {abaAtiva === "processual" && (
           <ProcessualGerador responsavel={usuario.nome} onSuccess={showToast} />
         )}
@@ -2057,13 +2062,17 @@ function EmployeeDashboard({ usuario, onLogout, state }) {
   } = state;
   const [abaAtiva, setAbaAtiva] = useState("tarefas");
   const [tarefaConcluindoId, setTarefaConcluindoId] = useState(null);
-  const [mostrarHistorico, setMostrarHistorico] = useState(false);
+  const [paginaPendentes, setPaginaPendentes] = useState(1);
 
   const minhasTarefas = listaTarefas.filter(
     (tarefa) => String(tarefa.funcionaria_id) === String(usuario.id),
   );
   const tarefasPendentes = minhasTarefas.filter((tarefa) => STATUS_ABERTOS.has(tarefa.status));
   const tarefasConcluidas = minhasTarefas.filter((tarefa) => tarefa.status === "concluida");
+  const tarefasPendentesVisiveis = tarefasPendentes.slice(
+    (paginaPendentes - 1) * ITENS_POR_PAGINA,
+    paginaPendentes * ITENS_POR_PAGINA,
+  );
   const meusFeedbacks = feedbacks.filter(
     (feedback) =>
       String(feedback.funcionaria_id) === String(usuario.id),
@@ -2156,6 +2165,7 @@ function EmployeeDashboard({ usuario, onLogout, state }) {
         <nav>
           <span className="nav-label">Meu espaço</span>
           <NavItem active={abaAtiva === "tarefas"} icon="tarefas" onClick={() => setAbaAtiva("tarefas")}>Minhas Tarefas</NavItem>
+          <NavItem active={abaAtiva === "historico"} icon="planner" onClick={() => setAbaAtiva("historico")}>Meu Histórico</NavItem>
           <NavItem active={abaAtiva === "feedbacks"} icon="feedback" onClick={() => setAbaAtiva("feedbacks")}>
             Meus Feedbacks ({meusFeedbacks.length})
           </NavItem>
@@ -2215,12 +2225,7 @@ function EmployeeDashboard({ usuario, onLogout, state }) {
               <div className="panel-title-row">
                 <h2>Minhas tarefas pendentes</h2>
                 <div className="task-history-actions">
-                  <button
-                    className="btn-secondary compact"
-                    onClick={() => setMostrarHistorico((atual) => !atual)}
-                  >
-                    {mostrarHistorico ? "Ocultar histórico" : "Ver histórico"}
-                  </button>
+                  <button className="btn-secondary compact" onClick={() => setAbaAtiva("historico")}>Ver histórico</button>
                   <button className="btn-secondary compact" onClick={recarregarTarefas}>
                     Atualizar
                   </button>
@@ -2230,7 +2235,7 @@ function EmployeeDashboard({ usuario, onLogout, state }) {
                 <p>Nenhuma tarefa pendente no momento.</p>
               ) : null}
               
-              {tarefasPendentes.map((tarefa) => (
+              {tarefasPendentesVisiveis.map((tarefa) => (
                 <div className="task-item" key={tarefa.id}>
                   <div>
                     <h3>{tarefa.titulo}</h3>
@@ -2269,6 +2274,7 @@ function EmployeeDashboard({ usuario, onLogout, state }) {
                   </div>
                 </div>
               ))}
+              {tarefasPendentes.length > ITENS_POR_PAGINA && <div className="task-history-actions"><button className="btn-secondary compact" disabled={paginaPendentes === 1} onClick={() => setPaginaPendentes((pagina) => pagina - 1)}>Anterior</button><small>Página {paginaPendentes} de {Math.ceil(tarefasPendentes.length / ITENS_POR_PAGINA)}</small><button className="btn-secondary compact" disabled={paginaPendentes >= Math.ceil(tarefasPendentes.length / ITENS_POR_PAGINA)} onClick={() => setPaginaPendentes((pagina) => pagina + 1)}>Próxima</button></div>}
               </div>
 
               <div className="side-stack">
@@ -2296,9 +2302,10 @@ function EmployeeDashboard({ usuario, onLogout, state }) {
                 </div>
               </div>
             </section>
-            {mostrarHistorico && <MeuHistorico tarefas={tarefasConcluidas} />}
           </div>
         )}
+
+        {abaAtiva === "historico" && <MeuHistorico tarefas={tarefasConcluidas} />}
 
         {abaAtiva === "feedbacks" && (
           <section className="panel large feedback-workspace">

@@ -1,3 +1,5 @@
+import { useState } from "react";
+
 function formatarData(data) {
   if (!data) return "Data não registrada";
   const texto = String(data);
@@ -46,4 +48,3 @@ export default function MeuHistorico({ tarefas = [] }) {
     </div>
   );
 }
-import { useState } from "react";
