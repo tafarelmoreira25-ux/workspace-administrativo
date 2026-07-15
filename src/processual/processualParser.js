@@ -1,7 +1,7 @@
 export const CAMPOS_PROCESSUAIS = [
   "tribunal", "forum_comarca", "vara", "cidade_estado", "cliente_autor",
   "instituicao_reu", "numero_processo", "data_distribuicao", "juiz_responsavel",
-  "status_atual", "ultima_movimentacao", "proximos_passos", "data_consulta",
+  "advogado", "status_atual", "ultima_movimentacao", "proximos_passos", "data_consulta",
 ];
 
 const TITULOS = [
@@ -11,6 +11,7 @@ const TITULOS = [
   ["numero_processo", ["número do processo", "numero do processo"]],
   ["data_distribuicao", ["data de distribuição", "data de distribuicao"]],
   ["juiz_responsavel", ["juiz responsável", "juiz responsavel"]],
+  ["advogado", ["advogado", "advogado responsável", "advogado responsavel"]],
   ["status_atual", ["status atual"]],
   ["ultima_movimentacao", ["última movimentação", "ultima movimentacao"]],
   ["proximos_passos", ["próximos passos", "proximos passos"]],

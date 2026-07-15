@@ -41,6 +41,11 @@ export const DOCUMENT_TEMPLATES = [
       { nome: "estadoCivil", rotulo: "Estado civil", obrigatorio: true },
       { nome: "profissao", rotulo: "Profissão", obrigatorio: true },
       { nome: "rg", rotulo: "RG", obrigatorio: true },
+      {
+        nome: "orgaoExpedidor",
+        rotulo: "Órgão expedidor do RG",
+        obrigatorio: true,
+      },
       { nome: "cpfCnpj", rotulo: "CPF", obrigatorio: true },
       { nome: "email", rotulo: "E-mail", tipo: "email", obrigatorio: true },
       { nome: "endereco", rotulo: "Endereço completo", obrigatorio: true, largura: "total" },
@@ -48,6 +53,7 @@ export const DOCUMENT_TEMPLATES = [
       { nome: "banco", rotulo: "Banco", obrigatorio: true },
       { nome: "numeroContrato", rotulo: "Número do contrato", obrigatorio: true },
       { nome: "cidade", rotulo: "Cidade de assinatura", obrigatorio: true },
+      { nome: "uf", rotulo: "UF", obrigatorio: true },
     ],
   },
   {

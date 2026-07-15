@@ -62,7 +62,23 @@ async function gerarDocumento(dados, modelo, numeroDocumento) {
 
   if (modelo.modo === "procuracao") {
     const { gerarProcuracaoPdf } = await import("./lib/procuracaoPdf");
-    bytes = await gerarProcuracaoPdf(dados);
+    const { gerarDeclaracaoHipossuficienciaPdf } = await import(
+      "./lib/declaracoesPdf"
+    );
+    const cliente = nomeArquivoSeguro(dados.nomeCliente) || "cliente";
+    const [procuracao, hipossuficiencia] = await Promise.all([
+      gerarProcuracaoPdf(dados),
+      gerarDeclaracaoHipossuficienciaPdf(dados),
+    ]);
+    baixarArquivo(
+      procuracao,
+      `procuracao-${cliente}-${numeroDocumento}.pdf`,
+    );
+    baixarArquivo(
+      hipossuficiencia,
+      `declaracao-de-hipossuficiencia-${cliente}-${numeroDocumento}.pdf`,
+    );
+    return;
   } else if (modelo.modo === "notificacao-extrajudicial") {
     const { gerarNotificacaoExtrajudicialPdf } = await import(
       "./lib/notificacaoExtrajudicialPdf"
@@ -372,7 +388,11 @@ export default function GeradorDocumentos({ responsavel, onSuccess }) {
 
     try {
       await gerarDocumento(dados, modeloSelecionado, numeroDocumento);
-      onSuccess?.("Documento PDF gerado com sucesso!");
+      onSuccess?.(
+        modeloSelecionado.modo === "procuracao"
+          ? "Procuração e declaração de hipossuficiência geradas em PDFs separados!"
+          : "Documento PDF gerado com sucesso!",
+      );
     } catch (error) {
       console.error(error);
       setErro(

@@ -1,5 +1,5 @@
 const GRUPOS = [
-  ["Dados do processo", [["tribunal","Tribunal"],["forum_comarca","Fórum ou comarca"],["vara","Vara"],["cidade_estado","Cidade/estado"],["cliente_autor","Cliente/autor"],["instituicao_reu","Instituição financeira/réu"],["numero_processo","Número do processo"],["data_distribuicao","Data da distribuição"],["juiz_responsavel","Juiz responsável"],["data_consulta","Data da consulta"],["responsavel","Responsável pela atualização"]]],
+  ["Dados do processo", [["tribunal","Tribunal"],["forum_comarca","Fórum ou comarca"],["vara","Vara"],["cidade_estado","Cidade/estado"],["cliente_autor","Cliente/autor"],["instituicao_reu","Instituição financeira/réu"],["numero_processo","Número do processo"],["data_distribuicao","Data da distribuição"],["juiz_responsavel","Juiz responsável"],["advogado","Advogado"],["data_consulta","Data da consulta"],["responsavel","Responsável pela atualização"]]],
   ["Andamento processual", [["status_atual","Status atual"],["ultima_movimentacao","Última movimentação"],["proximos_passos","Próximos passos"],["observacao_cliente","Observação complementar para o cliente"],["observacao_interna","Observação interna (não aparece no PDF)"]]],
 ];
 

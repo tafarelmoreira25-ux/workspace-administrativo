@@ -345,19 +345,19 @@ function Login({ onLogin }) {
       </div>
 
       <section className="glass-card login-card" aria-label="Login CeliOS">
+        <div className="login-card-accent" aria-hidden="true" />
         <div className="login-brand">
           <div>
             <strong>CeliOS</strong>
-            <span>Enterprise Operating System</span>
+            <span>Operating Workspace</span>
           </div>
         </div>
 
-        <span className="eyebrow secure-badge">
-          <UiIcon name="spark" size={14} /> ACESSO SEGURO
-        </span>
-
-        <h1>Bem-vindo ao Workspace</h1>
-        <p>Entre para acessar sua central administrativa.</p>
+        <div className="login-heading">
+          <span>Acesso ao sistema</span>
+          <h1>Bem-vindo</h1>
+          <p>Informe suas credenciais para continuar.</p>
+        </div>
 
         <form className="login-form" onSubmit={fazerLogin}>
           <label className="glass-field">
@@ -395,29 +395,15 @@ function Login({ onLogin }) {
             className="glass-button full login-submit"
             disabled={carregando}
           >
-            <span>{carregando ? "Autenticando..." : "Entrar no Workspace"}</span>
+            <span>{carregando ? "Autenticando..." : "Entrar"}</span>
           </button>
 
-          <div className="login-divider">
-            <span>ou continue com</span>
-          </div>
-
-          <button type="button" className="sso-button">
-            <UiIcon name="logout" size={14} />
-            <span>SSO</span>
-          </button>
         </form>
-
-        <div className="login-card-softline" aria-hidden="true" />
       </section>
 
-      <div className="login-footer login-footer-left">
-        © 2026 <strong>CeliOS.</strong> Todos os direitos reservados.
-      </div>
-
-      <div className="login-footer login-footer-right">
-        <span className="version-icon" />
-        Versão 2.0.0
+      <div className="login-footer login-footer-minimal">
+        <span>© 2026 <strong>CeliOS</strong></span>
+        <span>Versão 2.0.0</span>
       </div>
     </div>
   );
@@ -483,6 +469,7 @@ function AdminDashboard({ usuario, onLogout, state }) {
   const [responsabilidadeTexto, setResponsabilidadeTexto] = useState("");
   const [salvandoResponsabilidades, setSalvandoResponsabilidades] =
     useState(false);
+  const [mostrarTarefasMes, setMostrarTarefasMes] = useState(false);
 
   const equipeCompleta = funcionarios.filter(
     (funcionario) => funcionario.email?.toLowerCase() !== ADMIN_EMAIL,
@@ -1121,9 +1108,8 @@ function AdminDashboard({ usuario, onLogout, state }) {
           <NavItem active={abaAtiva === "dashboard"} icon="dashboard" onClick={() => setAbaAtiva("dashboard")} options={["Indicadores", "Urgências", "Ranking"]}>Dashboard</NavItem>
           <NavItem active={abaAtiva === "tarefas"} icon="tarefas" onClick={() => setAbaAtiva("tarefas")} options={["Criar tarefa", "Apontamentos", "Filtros rápidos"]}>Tarefas</NavItem>
           <NavItem active={false} icon="tv" onClick={() => setModoTv(true)} options={["Modo painel", "Operação ao vivo"]}>Painel TV</NavItem>
-          <NavItem active={abaAtiva === "responsabilidades"} icon="planner" onClick={() => setAbaAtiva("responsabilidades")} options={["Rotina mensal", "Responsáveis", "Preview"]}>Tarefas do Mês</NavItem>
           <NavItem active={abaAtiva === "equipe"} icon="equipe" onClick={() => setAbaAtiva("equipe")} options={["Equipe", "Feedbacks", "Pontuação"]}>Equipe</NavItem>
-          <NavItem active={abaAtiva === "modelos"} icon="modelos" onClick={() => setAbaAtiva("modelos")} options={["Biblioteca", "Gerar tarefa"]}>Modelos</NavItem>
+          <NavItem active={abaAtiva === "modelos"} icon="modelos" onClick={() => setAbaAtiva("modelos")} options={["Biblioteca", "Gerar tarefa"]}>Modelos de Tarefas</NavItem>
           <NavItem active={abaAtiva === "processual"} icon="processual" onClick={() => setAbaAtiva("processual")} options={["Organizar resumo", "Prévia", "Gerar PDF"]}>Processual</NavItem>
           <NavItem active={abaAtiva === "documentos"} icon="documentos" onClick={() => setAbaAtiva("documentos")} options={["Gerador PDF", "Prévia viva", "Assistente IA"]}>Documentos</NavItem>
         </nav>
@@ -1226,6 +1212,12 @@ function AdminDashboard({ usuario, onLogout, state }) {
                 </p>
               </div>
               <div className="task-management-actions">
+                <button
+                  className="btn-secondary"
+                  onClick={() => setMostrarTarefasMes((atual) => !atual)}
+                >
+                  {mostrarTarefasMes ? "Ocultar tarefas do mês" : "Tarefas do mês"}
+                </button>
                 <button className="btn-secondary" onClick={() => setModoTv(true)}>
                   Visualizar painel
                 </button>
@@ -1778,7 +1770,7 @@ function AdminDashboard({ usuario, onLogout, state }) {
           </div>
         )}
 
-        {abaAtiva === "responsabilidades" && (
+        {abaAtiva === "tarefas" && mostrarTarefasMes && (
           <section className="monthly-admin-grid">
             <div className="panel monthly-editor">
               <span className="eyebrow">Planejamento recorrente</span>
@@ -2065,6 +2057,7 @@ function EmployeeDashboard({ usuario, onLogout, state }) {
   } = state;
   const [abaAtiva, setAbaAtiva] = useState("tarefas");
   const [tarefaConcluindoId, setTarefaConcluindoId] = useState(null);
+  const [mostrarHistorico, setMostrarHistorico] = useState(false);
 
   const minhasTarefas = listaTarefas.filter(
     (tarefa) => String(tarefa.funcionaria_id) === String(usuario.id),
@@ -2166,7 +2159,6 @@ function EmployeeDashboard({ usuario, onLogout, state }) {
           <NavItem active={abaAtiva === "feedbacks"} icon="feedback" onClick={() => setAbaAtiva("feedbacks")}>
             Meus Feedbacks ({meusFeedbacks.length})
           </NavItem>
-          <NavItem active={abaAtiva === "historico"} icon="historico" onClick={() => setAbaAtiva("historico")}>Meu Histórico</NavItem>
           <NavItem active={abaAtiva === "planner"} icon="planner" onClick={() => setAbaAtiva("planner")}>Meu Planner</NavItem>
           <NavItem active={abaAtiva === "documentos"} icon="documentos" onClick={() => setAbaAtiva("documentos")}>Documentos PDF</NavItem>
         </nav>
@@ -2222,9 +2214,17 @@ function EmployeeDashboard({ usuario, onLogout, state }) {
               <div className="panel large">
               <div className="panel-title-row">
                 <h2>Minhas tarefas pendentes</h2>
-                <button className="btn-secondary compact" onClick={recarregarTarefas}>
-                  Atualizar
-                </button>
+                <div className="task-history-actions">
+                  <button
+                    className="btn-secondary compact"
+                    onClick={() => setMostrarHistorico((atual) => !atual)}
+                  >
+                    {mostrarHistorico ? "Ocultar histórico" : "Ver histórico"}
+                  </button>
+                  <button className="btn-secondary compact" onClick={recarregarTarefas}>
+                    Atualizar
+                  </button>
+                </div>
               </div>
               {tarefasPendentes.length === 0 ? (
                 <p>Nenhuma tarefa pendente no momento.</p>
@@ -2296,11 +2296,8 @@ function EmployeeDashboard({ usuario, onLogout, state }) {
                 </div>
               </div>
             </section>
+            {mostrarHistorico && <MeuHistorico tarefas={tarefasConcluidas} />}
           </div>
-        )}
-
-        {abaAtiva === "historico" && (
-          <MeuHistorico tarefas={tarefasConcluidas} />
         )}
 
         {abaAtiva === "feedbacks" && (
@@ -2888,6 +2885,7 @@ export default function App() {
         .automation-heading, .process-heading { display: flex; align-items: center; justify-content: space-between; gap: 20px; }
         .automation-heading h2, .process-heading h2 { margin: 5px 0; font-size: 26px; text-transform: none; }
         .automation-heading > strong { padding: 12px 16px; color: var(--accent-strong); background: var(--accent-soft); border-radius: 14px; }
+        .automation-help { max-width: 760px; margin-top: 12px; padding: 11px 13px; color: #526b8b; background: rgba(232,242,254,.68); border: 1px solid rgba(104,148,201,.14); border-radius: 12px; font-size: 11px; line-height: 1.55; }
         .automation-grid, .process-grid { display: grid; grid-template-columns: minmax(320px,.75fr) minmax(0,1.25fr); gap: 22px; align-items: start; }
         .template-list, .process-list { display: grid; gap: 12px; }
         .template-card, .process-card { display: flex; justify-content: space-between; gap: 18px; padding: 16px; background: rgba(247,251,255,.8); border: 1px solid rgba(111,157,210,.14); border-radius: 16px; }
@@ -2917,19 +2915,22 @@ export default function App() {
         .processual-input-grid { display: grid; grid-template-columns: minmax(340px,.85fr) minmax(400px,1.15fr); gap: 22px; align-items: start; }
         .processual-source { display: flex; flex-direction: column; gap: 10px; color: var(--dark); font-size: 13px; font-weight: 800; }
         .processual-source textarea { min-height: 430px; }
-        .processual-preview-page { min-height: 740px; padding: 44px; color: #253a5c; background: #fff; border: 1px solid #dfe7f1; border-radius: 8px; box-shadow: 0 20px 55px rgba(25,65,120,.12); }
+        .processual-preview-page { min-height: 640px; padding: 32px; color: #253a5c; background: #fff; border: 1px solid #dfe7f1; border-radius: 8px; box-shadow: 0 20px 55px rgba(25,65,120,.12); }
         .processual-preview-page header { padding-bottom: 20px; border-bottom: 2px solid #153c75; }
         .processual-preview-page header > span { color: var(--accent-strong); font-size: 10px; font-weight: 900; letter-spacing: 1.5px; }
-        .processual-preview-page header h2 { margin: 12px 0; font-size: 21px; text-transform: uppercase; }
+        .processual-preview-page header h2 { margin: 9px 0; font-size: 17px; text-transform: uppercase; }
         .processual-preview-page header div { display: flex; justify-content: space-between; gap: 10px; font-size: 9px; }
-        .processual-preview-page section { margin-top: 24px; }
-        .processual-preview-page section h3 { margin-bottom: 14px; font-size: 13px; text-transform: uppercase; }
-        .processual-preview-page section > p { font-size: 10px; }
+        .processual-preview-page section { margin-top: 16px; }
+        .processual-preview-page section h3 { margin-bottom: 10px; font-size: 11px; text-transform: uppercase; }
+        .processual-preview-page section > p { font-size: 9px; }
+        .processual-summary-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px 18px; }
+        .processual-summary-grid p { margin: 0; font-size: 9px; line-height: 1.4; }
+        .task-history-actions { display: flex; align-items: center; gap: 8px; }
         .preview-process-block { margin-bottom: 16px; }
         .preview-process-block strong { color: #153c75; font-size: 10px; text-transform: uppercase; }
         .preview-process-block p { margin-top: 5px; color: #415674; font-size: 10px; line-height: 1.6; white-space: pre-wrap; }
-        .processual-preview-page footer { margin-top: 30px; padding-top: 18px; border-top: 1px solid #dfe7f1; }
-        .processual-preview-page footer p { margin-bottom: 9px; font-size: 8px; line-height: 1.5; }
+        .processual-preview-page footer { margin-top: 18px; padding-top: 12px; border-top: 1px solid #dfe7f1; }
+        .processual-preview-page footer p { margin-bottom: 6px; font-size: 7px; line-height: 1.4; }
         .processual-form-sections { display: grid; gap: 24px; }
         .processual-form-sections fieldset { padding: 18px; border: 1px solid rgba(104,148,201,.18); border-radius: 16px; }
         .processual-form-sections legend { padding: 0 8px; color: var(--dark); font-size: 12px; font-weight: 900; text-transform: uppercase; }
@@ -4170,6 +4171,115 @@ export default function App() {
           .login-page-liquid { padding: 18px !important; }
           .login-page-liquid .login-card { padding: 32px 24px !important; border-radius: 18px !important; }
           .login-page-liquid .login-footer { display: none !important; }
+        }
+
+        /* Composição final do login */
+        .login-page-liquid {
+          position: relative !important;
+          display: grid !important;
+          place-items: center !important;
+          min-height: 100svh !important;
+          padding: 48px 24px 82px !important;
+          background:
+            radial-gradient(circle at 50% 14%, rgba(84, 139, 231, .09), transparent 30%),
+            linear-gradient(180deg, #f8fafc 0%, #eef3f8 100%) !important;
+        }
+
+        .login-page-liquid::before {
+          display: block !important;
+          content: "" !important;
+          position: absolute !important;
+          inset: 0 !important;
+          background:
+            linear-gradient(rgba(21, 60, 117, .025) 1px, transparent 1px),
+            linear-gradient(90deg, rgba(21, 60, 117, .025) 1px, transparent 1px) !important;
+          background-size: 48px 48px !important;
+          pointer-events: none !important;
+        }
+
+        .login-page-liquid .login-card {
+          position: relative !important;
+          z-index: 2 !important;
+          justify-self: center !important;
+          align-self: center !important;
+          width: min(100%, 440px) !important;
+          max-width: 440px !important;
+          padding: 42px 40px 40px !important;
+          overflow: hidden !important;
+          border: 1px solid rgba(184, 199, 219, .72) !important;
+          border-radius: 20px !important;
+          background: rgba(255, 255, 255, .96) !important;
+          box-shadow: 0 24px 70px rgba(21, 60, 117, .12), 0 2px 8px rgba(21, 60, 117, .04) !important;
+        }
+
+        .login-card-accent {
+          position: absolute !important;
+          z-index: 3 !important;
+          inset: 0 0 auto !important;
+          height: 4px !important;
+          background: linear-gradient(90deg, #173f83, #3b82f6 54%, #78b7ff) !important;
+        }
+
+        .login-page-liquid .login-brand {
+          justify-content: flex-start !important;
+          margin: 0 0 40px !important;
+        }
+
+        .login-page-liquid .login-brand div strong {
+          color: #102d5c !important;
+          font-size: 25px !important;
+          font-weight: 800 !important;
+          letter-spacing: .16em !important;
+        }
+
+        .login-page-liquid .login-brand div span {
+          margin-top: 7px !important;
+          color: #8492a6 !important;
+          font-size: 9px !important;
+          font-weight: 800 !important;
+          letter-spacing: .14em !important;
+        }
+
+        .login-heading { margin-bottom: 30px !important; }
+        .login-heading > span { color: #316ed7 !important; font-size: 10px !important; font-weight: 900 !important; letter-spacing: .12em !important; text-transform: uppercase !important; }
+        .login-page-liquid .login-heading h1 { margin: 10px 0 7px !important; color: #102d5c !important; font-size: 30px !important; font-weight: 800 !important; letter-spacing: -.04em !important; }
+        .login-page-liquid .login-heading p { margin: 0 !important; color: #718096 !important; font-size: 14px !important; }
+
+        .login-page-liquid .login-form { gap: 19px !important; margin: 0 !important; }
+        .login-page-liquid .glass-field { gap: 8px !important; }
+        .login-page-liquid .glass-field > span { margin: 0 !important; color: #284568 !important; font-size: 12px !important; font-weight: 800 !important; }
+        .login-page-liquid .glass-input { height: 52px !important; min-height: 52px !important; padding: 0 15px !important; border: 1px solid #d7e0eb !important; border-radius: 12px !important; background: #f8fafc !important; box-shadow: none !important; }
+        .login-page-liquid .glass-input:focus-within { border-color: #4d83dc !important; background: #fff !important; box-shadow: 0 0 0 3px rgba(59, 130, 246, .1) !important; transform: none !important; }
+        .login-page-liquid .glass-input svg { color: #7186a2 !important; }
+        .login-page-liquid .glass-input input { height: auto !important; padding: 0 !important; border: 0 !important; border-radius: 0 !important; background: transparent !important; box-shadow: none !important; color: #162f52 !important; font-size: 14px !important; font-weight: 600 !important; }
+        .login-page-liquid .forgot-password { align-self: flex-end !important; margin: -7px 0 0 !important; color: #356fd3 !important; font-size: 11px !important; font-weight: 700 !important; }
+        .login-page-liquid .login-submit { height: 52px !important; min-height: 52px !important; margin-top: 4px !important; border-radius: 12px !important; background: linear-gradient(135deg, #2f73df, #1e5fc9) !important; box-shadow: 0 10px 24px rgba(37, 99, 201, .22) !important; font-size: 14px !important; font-weight: 800 !important; }
+        .login-page-liquid .login-submit::before { display: none !important; }
+
+        .login-page-liquid .login-footer-minimal {
+          position: absolute !important;
+          z-index: 3 !important;
+          right: auto !important;
+          bottom: 27px !important;
+          left: 50% !important;
+          display: flex !important;
+          align-items: center !important;
+          gap: 18px !important;
+          width: max-content !important;
+          margin: 0 !important;
+          color: #8795a8 !important;
+          font-size: 10px !important;
+          transform: translateX(-50%) !important;
+        }
+
+        .login-page-liquid .login-footer-minimal span + span { padding-left: 18px !important; border-left: 1px solid #cbd5e1 !important; }
+        .login-page-liquid .login-footer-minimal strong { color: #356fd3 !important; }
+
+        @media (max-width: 520px) {
+          .login-page-liquid { padding: 22px 16px 70px !important; }
+          .login-page-liquid .login-card { padding: 36px 25px 30px !important; border-radius: 17px !important; }
+          .login-page-liquid .login-brand { margin-bottom: 32px !important; }
+          .login-page-liquid .login-footer-minimal { display: flex !important; bottom: 20px !important; }
         }
 
       `}</style>
