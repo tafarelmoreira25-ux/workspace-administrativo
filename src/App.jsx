@@ -21,6 +21,50 @@ const CATEGORIAS_TAREFA = [
   "LAUDO",
   "NOTIFICAÇÃO EXTRAJUDICIAL",
 ];
+const STATUS_TAREFA = [
+  { valor: "nova", rotulo: "Nova" },
+  { valor: "em_andamento", rotulo: "Em andamento" },
+  { valor: "aguardando_cliente", rotulo: "Aguardando cliente" },
+  { valor: "aguardando_banco", rotulo: "Aguardando banco" },
+  { valor: "aguardando_judiciario", rotulo: "Aguardando Judiciário" },
+  { valor: "impedida", rotulo: "Impedida" },
+  { valor: "concluida", rotulo: "Concluída" },
+  { valor: "cancelada", rotulo: "Cancelada" },
+  { valor: "arquivada", rotulo: "Arquivada" },
+];
+const STATUS_ABERTOS = new Set([
+  "pendente",
+  "nova",
+  "em_andamento",
+  "aguardando_cliente",
+  "aguardando_banco",
+  "aguardando_judiciario",
+  "impedida",
+]);
+
+function criarPerfilIntegranteVazio() {
+  return {
+    id: null,
+    nome: "",
+    email: "",
+    cargo: "",
+    setor: "",
+    data_admissao: "",
+    foto_url: "",
+    observacao_interna: "",
+    permissoes: { tarefas: true, planner: true, documentos: true },
+  };
+}
+
+function criarDesligamentoVazio(funcionarioId = "") {
+  return {
+    funcionario_id: funcionarioId ? String(funcionarioId) : "",
+    destino: "transferir",
+    nova_funcionaria_id: "",
+    data_desligamento: new Date().toISOString().slice(0, 10),
+    observacao: "",
+  };
+}
 
 async function buscarPerfilUsuario(usuarioAuth) {
   const email = usuarioAuth?.email?.trim().toLowerCase();
@@ -47,6 +91,9 @@ async function buscarPerfilUsuario(usuarioAuth) {
 
   if (error) throw error;
   if (!data) throw new Error("Usuário não encontrado no cadastro da equipe.");
+  if (data.ativo === false) {
+    throw new Error("Este perfil está inativo. Procure o supervisor responsável.");
+  }
 
   return { ...data, tipo: "funcionaria" };
 }
@@ -110,7 +157,8 @@ function rotuloTipoFeedback(tipo) {
 }
 
 function rotuloStatusTarefa(status) {
-  return status === "concluida" ? "Concluida" : "Pendente";
+  if (status === "pendente") return "Nova";
+  return STATUS_TAREFA.find((item) => item.valor === status)?.rotulo || status;
 }
 
 function rotuloPrioridade(prioridade) {
@@ -439,6 +487,7 @@ function AdminDashboard({ usuario, onLogout, state }) {
     responsabilidadesMensais,
     setResponsabilidadesMensais,
     recarregarTarefas,
+    recarregarFuncionarios,
     recarregarFeedbacks,
     recarregarResponsabilidadesMensais,
     showToast,
@@ -452,6 +501,15 @@ function AdminDashboard({ usuario, onLogout, state }) {
   const [salvandoEdicao, setSalvandoEdicao] = useState(false);
   const [filtroTarefas, setFiltroTarefas] = useState("todas");
   const [filtroCategoria, setFiltroCategoria] = useState("todas");
+  const [filtroResponsavel, setFiltroResponsavel] = useState("todas");
+  const [filtroPrazo, setFiltroPrazo] = useState("");
+  const [tarefasSelecionadas, setTarefasSelecionadas] = useState([]);
+  const [processandoEmMassa, setProcessandoEmMassa] = useState(false);
+  const [modoEquipe, setModoEquipe] = useState("membros");
+  const [perfilIntegrante, setPerfilIntegrante] = useState(criarPerfilIntegranteVazio);
+  const [salvandoIntegrante, setSalvandoIntegrante] = useState(false);
+  const [desligamento, setDesligamento] = useState(criarDesligamentoVazio);
+  const [processandoDesligamento, setProcessandoDesligamento] = useState(false);
 
   const [titulo, setTitulo] = useState("");
   const [descricao, setDescricao] = useState("");
@@ -475,10 +533,11 @@ function AdminDashboard({ usuario, onLogout, state }) {
   const [salvandoResponsabilidades, setSalvandoResponsabilidades] =
     useState(false);
 
-  const equipe = funcionarios.filter(
+  const equipeCompleta = funcionarios.filter(
     (funcionario) => funcionario.email?.toLowerCase() !== ADMIN_EMAIL,
   );
-  const tarefasPendentes = listaTarefas.filter((t) => t.status === "pendente");
+  const equipe = equipeCompleta.filter((funcionario) => funcionario.ativo !== false);
+  const tarefasPendentes = listaTarefas.filter((t) => STATUS_ABERTOS.has(t.status));
   const tarefasUrgentes = tarefasPendentes.filter(
     (tarefa) => tarefa.prioridade === "urgente",
   );
@@ -486,11 +545,17 @@ function AdminDashboard({ usuario, onLogout, state }) {
     const correspondeCategoria =
       filtroCategoria === "todas" || tarefa.categoria === filtroCategoria;
     if (!correspondeCategoria) return false;
+    if (
+      filtroResponsavel !== "todas" &&
+      String(tarefa.funcionaria_id) !== filtroResponsavel
+    ) return false;
+    if (filtroPrazo && tarefa.data_limite !== filtroPrazo) return false;
     if (filtroTarefas === "todas") return true;
     if (filtroTarefas === "manuais") return tarefa.tarefa_manual === true;
     if (filtroTarefas === "urgente") {
-      return tarefa.status === "pendente" && tarefa.prioridade === "urgente";
+      return STATUS_ABERTOS.has(tarefa.status) && tarefa.prioridade === "urgente";
     }
+    if (filtroTarefas === "abertas") return STATUS_ABERTOS.has(tarefa.status);
     return tarefa.status === filtroTarefas;
   });
   const responsabilidadesSelecionadas = responsabilidadesMensais
@@ -552,7 +617,7 @@ function AdminDashboard({ usuario, onLogout, state }) {
         p_descricao: descricao.trim() || null,
         p_responsavel_texto: responsavelManual.trim() || null,
         p_data_limite: dataLimite || null,
-        p_status: "pendente",
+        p_status: "nova",
         p_prioridade: prioridade,
         p_categoria: categoria,
         p_apontamento: apontamento.trim() || null,
@@ -569,7 +634,7 @@ function AdminDashboard({ usuario, onLogout, state }) {
           funcionaria_id: Number(funcId),
           pontos_tarefa: Math.max(0, Number(pontosTarefa) || 0),
           data_limite: dataLimite || null,
-          status: "pendente",
+          status: "nova",
           prioridade,
           categoria,
           apontamento: apontamento.trim() || null,
@@ -722,6 +787,78 @@ function AdminDashboard({ usuario, onLogout, state }) {
     showToast("Tarefa excluida.");
   }
 
+  function alternarSelecaoTarefa(id) {
+    const chave = String(id);
+    setTarefasSelecionadas((atuais) =>
+      atuais.includes(chave)
+        ? atuais.filter((item) => item !== chave)
+        : [...atuais, chave],
+    );
+  }
+
+  function alternarTodasTarefas() {
+    const idsVisiveis = tarefasFiltradas.map((tarefa) => String(tarefa.id));
+    const todasSelecionadas =
+      idsVisiveis.length > 0 &&
+      idsVisiveis.every((id) => tarefasSelecionadas.includes(id));
+
+    setTarefasSelecionadas((atuais) =>
+      todasSelecionadas
+        ? atuais.filter((id) => !idsVisiveis.includes(id))
+        : [...new Set([...atuais, ...idsVisiveis])],
+    );
+  }
+
+  async function alterarStatusEmMassa(status) {
+    if (tarefasSelecionadas.length === 0) return;
+    const confirmou = window.confirm(
+      `Alterar ${tarefasSelecionadas.length} tarefa(s) para "${rotuloStatusTarefa(status)}"?`,
+    );
+    if (!confirmou) return;
+
+    setProcessandoEmMassa(true);
+    try {
+      const ids = tarefasSelecionadas.map(Number);
+      const alteracoes = status === "arquivada"
+        ? { status, exibir_tv: false }
+        : { status };
+      const { error } = await supabase
+        .from("tarefas")
+        .update(alteracoes)
+        .in("id", ids);
+      if (error) throw error;
+      setTarefasSelecionadas([]);
+      await recarregarTarefas();
+      showToast(`${ids.length} tarefa(s) atualizada(s).`);
+    } catch (error) {
+      alert(`Não foi possível atualizar as tarefas: ${error.message}`);
+    } finally {
+      setProcessandoEmMassa(false);
+    }
+  }
+
+  async function excluirSelecionadas() {
+    if (tarefasSelecionadas.length === 0) return;
+    const confirmou = window.confirm(
+      `Excluir definitivamente ${tarefasSelecionadas.length} tarefa(s)? Esta ação não pode ser desfeita.`,
+    );
+    if (!confirmou) return;
+
+    setProcessandoEmMassa(true);
+    try {
+      const ids = tarefasSelecionadas.map(Number);
+      const { error } = await supabase.from("tarefas").delete().in("id", ids);
+      if (error) throw error;
+      setTarefasSelecionadas([]);
+      await recarregarTarefas();
+      showToast(`${ids.length} tarefa(s) excluída(s).`);
+    } catch (error) {
+      alert(`Não foi possível excluir as tarefas: ${error.message}`);
+    } finally {
+      setProcessandoEmMassa(false);
+    }
+  }
+
   function abrirPainelTvNovaAba() {
     const url = new URL(window.location.href);
     url.searchParams.set("modo", "tv");
@@ -756,6 +893,120 @@ function AdminDashboard({ usuario, onLogout, state }) {
       );
       showToast(`Pontos atualizados com sucesso!`);
     }
+  }
+
+  function iniciarCadastroIntegrante(funcionario = null) {
+    setPerfilIntegrante(
+      funcionario
+        ? {
+            ...criarPerfilIntegranteVazio(),
+            ...funcionario,
+            data_admissao: funcionario.data_admissao || "",
+            foto_url: funcionario.foto_url || "",
+            observacao_interna: funcionario.observacao_interna || "",
+            permissoes: {
+              ...criarPerfilIntegranteVazio().permissoes,
+              ...(funcionario.permissoes || {}),
+            },
+          }
+        : criarPerfilIntegranteVazio(),
+    );
+    setModoEquipe("cadastro");
+  }
+
+  function atualizarPerfilIntegrante(campo, valor) {
+    setPerfilIntegrante((atual) => ({ ...atual, [campo]: valor }));
+  }
+
+  async function salvarPerfilIntegrante(event) {
+    event.preventDefault();
+    setSalvandoIntegrante(true);
+    try {
+      const { data, error } = await supabase.rpc("salvar_funcionario_supervisor", {
+        p_funcionario_id: perfilIntegrante.id ? Number(perfilIntegrante.id) : null,
+        p_nome: perfilIntegrante.nome.trim(),
+        p_email: perfilIntegrante.email.trim().toLowerCase(),
+        p_cargo: perfilIntegrante.cargo.trim() || null,
+        p_setor: perfilIntegrante.setor.trim() || null,
+        p_data_admissao: perfilIntegrante.data_admissao || null,
+        p_foto_url: perfilIntegrante.foto_url.trim() || null,
+        p_permissoes: perfilIntegrante.permissoes,
+        p_observacao_interna: perfilIntegrante.observacao_interna.trim() || null,
+      });
+      if (error) throw error;
+      const salvo = Array.isArray(data) ? data[0] : data;
+      if (!salvo) throw new Error("O banco não confirmou o cadastro.");
+      await recarregarFuncionarios();
+      setModoEquipe("membros");
+      showToast(perfilIntegrante.id ? "Cadastro atualizado." : "Integrante cadastrada. Configure o acesso em Authentication.");
+    } catch (error) {
+      alert(`Não foi possível salvar a integrante: ${error.message}`);
+    } finally {
+      setSalvandoIntegrante(false);
+    }
+  }
+
+  function iniciarDesligamento(funcionario) {
+    setDesligamento(criarDesligamentoVazio(funcionario.id));
+    setModoEquipe("desligamento");
+  }
+
+  async function reativarIntegrante(funcionario) {
+    if (!window.confirm(`Reativar o acesso interno de ${funcionario.nome}?`)) return;
+    const { error } = await supabase
+      .from("funcionarios")
+      .update({ ativo: true, data_desligamento: null })
+      .eq("id", funcionario.id);
+    if (error) return alert(`Não foi possível reativar: ${error.message}`);
+    await recarregarFuncionarios();
+    showToast("Integrante reativada.");
+  }
+
+  async function executarDesligamento(event) {
+    event.preventDefault();
+    if (desligamento.destino === "transferir" && !desligamento.nova_funcionaria_id) {
+      return alert("Selecione quem receberá as tarefas abertas.");
+    }
+    const origem = equipeCompleta.find((item) => String(item.id) === desligamento.funcionario_id);
+    if (!origem || !window.confirm(`Confirmar o desligamento de ${origem.nome}?`)) return;
+    setProcessandoDesligamento(true);
+    try {
+      const { data, error } = await supabase.rpc("desligar_funcionario_supervisor", {
+        p_funcionario_id: Number(desligamento.funcionario_id),
+        p_destino: desligamento.destino,
+        p_nova_funcionaria_id: desligamento.nova_funcionaria_id ? Number(desligamento.nova_funcionaria_id) : null,
+        p_data_desligamento: desligamento.data_desligamento,
+        p_observacao: desligamento.observacao.trim() || null,
+      });
+      if (error) throw error;
+      await Promise.all([recarregarFuncionarios(), recarregarTarefas()]);
+      setModoEquipe("membros");
+      setDesligamento(criarDesligamentoVazio());
+      showToast(`Desligamento concluído. ${data?.tarefas_processadas || 0} tarefa(s) tratada(s).`);
+    } catch (error) {
+      alert(`Não foi possível concluir o desligamento: ${error.message}`);
+    } finally {
+      setProcessandoDesligamento(false);
+    }
+  }
+
+  async function transferirTarefasFuncionario(origem) {
+    const destinos = equipe.filter((item) => String(item.id) !== String(origem.id));
+    if (destinos.length === 0) return alert("Não há outra integrante ativa para receber as tarefas.");
+    const opcoes = destinos.map((item) => `${item.id} - ${item.nome}`).join("\n");
+    const destinoId = window.prompt(`Informe o ID da nova responsável:\n${opcoes}`);
+    const destino = destinos.find((item) => String(item.id) === String(destinoId));
+    if (!destino) return;
+    if (!window.confirm(`Transferir todas as tarefas abertas de ${origem.nome} para ${destino.nome}?`)) return;
+
+    const ids = listaTarefas
+      .filter((tarefa) => String(tarefa.funcionaria_id) === String(origem.id) && STATUS_ABERTOS.has(tarefa.status))
+      .map((tarefa) => tarefa.id);
+    if (ids.length === 0) return showToast("Não existem tarefas abertas para transferir.");
+    const { error } = await supabase.from("tarefas").update({ funcionaria_id: destino.id }).in("id", ids);
+    if (error) return alert(`Não foi possível transferir: ${error.message}`);
+    await recarregarTarefas();
+    showToast(`${ids.length} tarefa(s) transferida(s) para ${destino.nome}.`);
   }
 
   async function handleEnviarFeedback(e) {
@@ -941,7 +1192,7 @@ function AdminDashboard({ usuario, onLogout, state }) {
         {abaAtiva === "dashboard" && (
           <>
             <section className="cards-grid">
-              <div className="card" onClick={() => { setFiltroTarefas("pendente"); setAbaAtiva("tarefas"); }} style={{ cursor: 'pointer' }}>
+              <div className="card" onClick={() => { setFiltroTarefas("abertas"); setAbaAtiva("tarefas"); }} style={{ cursor: 'pointer' }}>
                 <MetricIcon type="tarefas" />
                 <span>Tarefas Pendentes</span>
                 <strong>{tarefasPendentes.length}</strong>
@@ -1284,8 +1535,11 @@ function AdminDashboard({ usuario, onLogout, state }) {
                               atualizarCampoEdicao("status", event.target.value)
                             }
                           >
-                            <option value="pendente">Pendente</option>
-                            <option value="concluida">Concluida</option>
+                            {STATUS_TAREFA.map((item) => (
+                              <option key={item.valor} value={item.valor}>
+                                {item.rotulo}
+                              </option>
+                            ))}
                           </select>
                         </label>
                       </div>
@@ -1399,10 +1653,32 @@ function AdminDashboard({ usuario, onLogout, state }) {
                   >
                     <option value="todas">Todas</option>
                     <option value="manuais">Manuais da TV</option>
-                    <option value="pendente">Pendentes</option>
+                    <option value="abertas">Abertas</option>
                     <option value="urgente">Urgentes</option>
-                    <option value="concluida">Concluidas</option>
+                    {STATUS_TAREFA.map((item) => (
+                      <option key={item.valor} value={item.valor}>
+                        {item.rotulo}
+                      </option>
+                    ))}
                   </select>
+                  <select
+                    value={filtroResponsavel}
+                    onChange={(event) => setFiltroResponsavel(event.target.value)}
+                    aria-label="Filtrar por colaboradora"
+                  >
+                    <option value="todas">Todas as colaboradoras</option>
+                    {equipeCompleta.map((funcionario) => (
+                      <option key={funcionario.id} value={funcionario.id}>
+                        {funcionario.nome}
+                      </option>
+                    ))}
+                  </select>
+                  <input
+                    type="date"
+                    value={filtroPrazo}
+                    onChange={(event) => setFiltroPrazo(event.target.value)}
+                    aria-label="Filtrar por prazo"
+                  />
                   <select
                     value={filtroCategoria}
                     onChange={(event) => setFiltroCategoria(event.target.value)}
@@ -1420,6 +1696,38 @@ function AdminDashboard({ usuario, onLogout, state }) {
                     onClick={recarregarTarefas}
                   >
                     Atualizar
+                  </button>
+                </div>
+              </div>
+
+              <div className="task-bulk-toolbar">
+                <label>
+                  <input
+                    type="checkbox"
+                    checked={
+                      tarefasFiltradas.length > 0 &&
+                      tarefasFiltradas.every((tarefa) =>
+                        tarefasSelecionadas.includes(String(tarefa.id)),
+                      )
+                    }
+                    onChange={alternarTodasTarefas}
+                  />
+                  Selecionar todas ({tarefasSelecionadas.length})
+                </label>
+                <div>
+                  <button
+                    className="btn-secondary compact"
+                    disabled={processandoEmMassa || tarefasSelecionadas.length === 0}
+                    onClick={() => alterarStatusEmMassa("arquivada")}
+                  >
+                    Arquivar selecionadas
+                  </button>
+                  <button
+                    className="btn-danger compact"
+                    disabled={processandoEmMassa || tarefasSelecionadas.length === 0}
+                    onClick={excluirSelecionadas}
+                  >
+                    Excluir definitivamente
                   </button>
                 </div>
               </div>
@@ -1447,6 +1755,13 @@ function AdminDashboard({ usuario, onLogout, state }) {
                       className={`admin-task-card priority-${tarefa.prioridade || "normal"}`}
                       key={tarefa.id}
                     >
+                      <input
+                        className="task-select-checkbox"
+                        type="checkbox"
+                        checked={tarefasSelecionadas.includes(String(tarefa.id))}
+                        onChange={() => alternarSelecaoTarefa(tarefa.id)}
+                        aria-label={`Selecionar tarefa ${tarefa.titulo}`}
+                      />
                       <div className="admin-task-main">
                         <div className="admin-task-badges">
                           <span className={`status ${tarefa.status}`}>
@@ -1614,21 +1929,43 @@ function AdminDashboard({ usuario, onLogout, state }) {
         )}
 
         {abaAtiva === "equipe" && (
-          <section className="content-grid" style={{ gridTemplateColumns: "1fr 1fr" }}>
+          <section className="team-management-workspace">
+            <div className="panel team-management-header">
+              <div>
+                <span className="eyebrow">Administração da equipe</span>
+                <h2>Integrantes e acessos</h2>
+                <p>Cadastre perfis, mantenha dados profissionais e conduza desligamentos preservando o histórico.</p>
+              </div>
+              <div className="team-tabs">
+                <button className={modoEquipe === "membros" ? "active" : ""} onClick={() => setModoEquipe("membros")}>Membros</button>
+                <button className={modoEquipe === "cadastro" ? "active" : ""} onClick={() => iniciarCadastroIntegrante()}>Adicionar integrante</button>
+                <button className={modoEquipe === "desligamento" ? "active" : ""} onClick={() => { setDesligamento(criarDesligamentoVazio()); setModoEquipe("desligamento"); }}>Desligamento</button>
+              </div>
+            </div>
+
+            {modoEquipe === "membros" && <div className="content-grid" style={{ gridTemplateColumns: "1fr 1fr" }}>
             <div className="panel">
-              <h2>Membros da Equipe e Placar de Pontos</h2>
+              <h2>Gestão de membros da equipe</h2>
               <div className="team-list">
-                {equipe.map((f) => (
-                  <div className="team-member" key={f.id}>
+                {equipeCompleta.map((f) => (
+                  <div className={`team-member ${f.ativo === false ? "member-inactive" : ""}`} key={f.id}>
                     <div className="member-avatar">{f.nome?.charAt(0)}</div>
                     <div>
                       <strong>{f.nome}</strong>
-                      <p>Esteira: {f.cargo}</p>
+                      <p>{f.cargo || "Cargo não informado"} · {f.setor || "Setor não informado"}</p>
+                      <span className={`member-status ${f.ativo === false ? "inactive" : "active"}`}>
+                        {f.ativo === false ? "Inativa" : "Ativa"}
+                      </span>
                       <span className="points-badge">{f.pontos || 0} pontos acumulados</span>
                     </div>
                     <div className="member-actions">
+                      <button className="btn-secondary compact" onClick={() => iniciarCadastroIntegrante(f)}>Editar</button>
                       <button className="btn-success compact" onClick={() => alterarPontosFuncionario(f.id, 10)}>+10</button>
                       <button className="btn-danger compact" onClick={() => alterarPontosFuncionario(f.id, -10)}>-10</button>
+                      <button className="btn-secondary compact" onClick={() => transferirTarefasFuncionario(f)}>Transferir</button>
+                      <button className="btn-danger compact" onClick={() => f.ativo === false ? reativarIntegrante(f) : iniciarDesligamento(f)}>
+                        {f.ativo === false ? "Reativar" : "Inativar"}
+                      </button>
                     </div>
                   </div>
                 ))}
@@ -1688,6 +2025,57 @@ function AdminDashboard({ usuario, onLogout, state }) {
                 vazio="Nenhum feedback profissional foi enviado ainda."
               />
             </div>
+            </div>}
+
+            {modoEquipe === "cadastro" && (
+              <div className="panel employee-profile-panel">
+                <div className="panel-title-row">
+                  <div>
+                    <span className="eyebrow">{perfilIntegrante.id ? "Editar cadastro" : "Nova integrante"}</span>
+                    <h2>{perfilIntegrante.id ? perfilIntegrante.nome : "Dados profissionais"}</h2>
+                  </div>
+                  <button className="btn-secondary compact" onClick={() => setModoEquipe("membros")}>Cancelar</button>
+                </div>
+                <form className="stack-form" onSubmit={salvarPerfilIntegrante}>
+                  <div className="employee-profile-grid">
+                    <label>Nome completo<input required value={perfilIntegrante.nome} onChange={(e) => atualizarPerfilIntegrante("nome", e.target.value)} /></label>
+                    <label>E-mail corporativo<input required type="email" value={perfilIntegrante.email} onChange={(e) => atualizarPerfilIntegrante("email", e.target.value)} /></label>
+                    <label>Cargo<input value={perfilIntegrante.cargo} onChange={(e) => atualizarPerfilIntegrante("cargo", e.target.value)} /></label>
+                    <label>Setor<input value={perfilIntegrante.setor} onChange={(e) => atualizarPerfilIntegrante("setor", e.target.value)} /></label>
+                    <label>Data de admissão<input type="date" value={perfilIntegrante.data_admissao} onChange={(e) => atualizarPerfilIntegrante("data_admissao", e.target.value)} /></label>
+                    <label>URL da foto<input type="url" placeholder="https://..." value={perfilIntegrante.foto_url} onChange={(e) => atualizarPerfilIntegrante("foto_url", e.target.value)} /></label>
+                  </div>
+                  <fieldset className="permission-fieldset">
+                    <legend>Permissões do workspace</legend>
+                    <div className="permission-grid">
+                      {[["tarefas", "Tarefas"], ["planner", "Planner"], ["documentos", "Documentos PDF"]].map(([chave, rotulo]) => (
+                        <label key={chave}><input type="checkbox" checked={perfilIntegrante.permissoes[chave] !== false} onChange={(e) => atualizarPerfilIntegrante("permissoes", { ...perfilIntegrante.permissoes, [chave]: e.target.checked })} />{rotulo}</label>
+                      ))}
+                    </div>
+                  </fieldset>
+                  <label>Observação interna<textarea rows="4" value={perfilIntegrante.observacao_interna} onChange={(e) => atualizarPerfilIntegrante("observacao_interna", e.target.value)} /></label>
+                  <div className="auth-notice"><strong>Acesso ao sistema</strong><span>Este cadastro cria o perfil interno. Para um novo login, crie ou convide o usuário em Authentication → Users no Supabase com o mesmo e-mail.</span></div>
+                  <button className="btn-primary" disabled={salvandoIntegrante}>{salvandoIntegrante ? "Salvando..." : "Salvar integrante"}</button>
+                </form>
+              </div>
+            )}
+
+            {modoEquipe === "desligamento" && (
+              <div className="panel offboarding-panel">
+                <span className="eyebrow">Fluxo guiado</span>
+                <h2>Desligamento de integrante</h2>
+                <form className="stack-form" onSubmit={executarDesligamento}>
+                  <label>Integrante<select required value={desligamento.funcionario_id} onChange={(e) => setDesligamento((atual) => ({ ...atual, funcionario_id: e.target.value, nova_funcionaria_id: "" }))}><option value="">Selecione...</option>{equipe.map((f) => <option key={f.id} value={f.id}>{f.nome}</option>)}</select></label>
+                  <div className="offboarding-summary">Tarefas abertas identificadas: <strong>{listaTarefas.filter((t) => String(t.funcionaria_id) === desligamento.funcionario_id && STATUS_ABERTOS.has(t.status)).length}</strong>. O histórico concluído e os feedbacks serão preservados.</div>
+                  <label>Tratamento das tarefas abertas<select value={desligamento.destino} onChange={(e) => setDesligamento((atual) => ({ ...atual, destino: e.target.value }))}><option value="transferir">Transferir para outra integrante</option><option value="arquivar">Arquivar</option><option value="cancelar">Cancelar</option></select></label>
+                  {desligamento.destino === "transferir" && <label>Nova responsável<select required value={desligamento.nova_funcionaria_id} onChange={(e) => setDesligamento((atual) => ({ ...atual, nova_funcionaria_id: e.target.value }))}><option value="">Selecione...</option>{equipe.filter((f) => String(f.id) !== desligamento.funcionario_id).map((f) => <option key={f.id} value={f.id}>{f.nome}</option>)}</select></label>}
+                  <label>Data do desligamento<input required type="date" value={desligamento.data_desligamento} onChange={(e) => setDesligamento((atual) => ({ ...atual, data_desligamento: e.target.value }))} /></label>
+                  <label>Motivo / observação interna<textarea required rows="4" value={desligamento.observacao} onChange={(e) => setDesligamento((atual) => ({ ...atual, observacao: e.target.value }))} /></label>
+                  <div className="auth-notice"><strong>Etapa externa necessária</strong><span>Após concluir, desative ou remova a sessão da integrante em Authentication → Users. A chave service_role não deve ser usada no React.</span></div>
+                  <button className="btn-danger" disabled={processandoDesligamento}>{processandoDesligamento ? "Processando..." : "Confirmar desligamento"}</button>
+                </form>
+              </div>
+            )}
           </section>
         )}
 
@@ -1720,7 +2108,7 @@ function EmployeeDashboard({ usuario, onLogout, state }) {
   const minhasTarefas = listaTarefas.filter(
     (tarefa) => String(tarefa.funcionaria_id) === String(usuario.id),
   );
-  const tarefasPendentes = minhasTarefas.filter((tarefa) => tarefa.status === "pendente");
+  const tarefasPendentes = minhasTarefas.filter((tarefa) => STATUS_ABERTOS.has(tarefa.status));
   const tarefasConcluidas = minhasTarefas.filter((tarefa) => tarefa.status === "concluida");
   const meusFeedbacks = feedbacks.filter(
     (feedback) =>
@@ -2172,7 +2560,7 @@ export default function App() {
             if (
               usuarioLogado.tipo === "funcionaria" &&
               evento.eventType === "INSERT" &&
-              evento.new?.status === "pendente"
+              STATUS_ABERTOS.has(evento.new?.status)
             ) {
               showToast("Uma nova tarefa foi delegada para voce.");
             }
@@ -2231,6 +2619,7 @@ export default function App() {
     responsabilidadesMensais,
     setResponsabilidadesMensais,
     recarregarTarefas,
+    recarregarFuncionarios,
     recarregarFeedbacks,
     recarregarResponsabilidadesMensais,
     showToast,
@@ -2393,6 +2782,11 @@ export default function App() {
         .status { padding: 6px 10px; border-radius: 999px; font-size: 9px; font-weight: 800; letter-spacing: .7px; text-transform: uppercase; white-space: nowrap; }
         .status.pendente { color: #a66e16; background: rgba(255, 229, 170, .55); border: 1px solid rgba(216,164,54,.15); }
         .status.concluida { color: #268c77; background: rgba(190, 241, 228, .6); border: 1px solid rgba(66,191,165,.14); }
+        .status.nova { color: #315f91; background: #e2f0ff; }
+        .status.em_andamento { color: #225fb8; background: #dceaff; }
+        .status.aguardando_cliente, .status.aguardando_banco, .status.aguardando_judiciario { color: #986713; background: #fff0c9; }
+        .status.impedida { color: #b73350; background: #ffe2e9; }
+        .status.cancelada, .status.arquivada { color: #667085; background: #edf1f5; }
         .priority-badge, .category-badge, .tv-visibility-badge, .manual-task-badge { display: inline-flex; align-items: center; width: max-content; padding: 6px 10px; border-radius: 999px; font-size: 9px; font-weight: 800; letter-spacing: .6px; text-transform: uppercase; white-space: nowrap; }
         .priority-badge.priority-normal { color: #65758c; background: #edf3f8; }
         .priority-badge.priority-alta { color: #9b6414; background: #fff0c9; }
@@ -2422,7 +2816,13 @@ export default function App() {
         .task-list-heading { align-items: flex-end; }
         .task-list-heading h2 { margin-top: 4px; }
         .task-list-controls { display: flex; align-items: center; gap: 9px; }
+        .task-list-controls { flex-wrap: wrap; justify-content: flex-end; }
         .task-list-controls select { min-width: 150px; padding: 9px 12px !important; }
+        .task-list-controls input[type="date"] { width: 155px; padding: 9px 12px !important; }
+        .task-bulk-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 14px; margin-bottom: 16px; padding: 12px 14px; background: rgba(232,242,254,.62); border: 1px solid rgba(104,148,201,.13); border-radius: 14px; }
+        .task-bulk-toolbar label, .task-bulk-toolbar > div { display: flex; align-items: center; gap: 9px; color: var(--dark); font-size: 11px; font-weight: 800; }
+        .task-bulk-toolbar input, .task-select-checkbox { width: 17px !important; height: 17px !important; padding: 0 !important; flex: 0 0 auto; accent-color: var(--accent-strong); }
+        .task-select-checkbox { margin-left: 2px; }
         .admin-task-list { display: grid; gap: 12px; }
         .admin-task-card { position: relative; display: flex; align-items: center; justify-content: space-between; gap: 20px; overflow: hidden; padding: 18px 18px 18px 21px; background: rgba(247,251,255,.8); border: 1px solid rgba(111,157,210,.14); border-radius: 17px; }
         .admin-task-card::before { content: ''; position: absolute; inset: 0 auto 0 0; width: 4px; background: #9aa9bc; }
@@ -2499,7 +2899,30 @@ export default function App() {
         .team-member strong { display: block; color: var(--dark); font-size: 13px; }
         .team-member p { margin: 2px 0; font-size: 10px; }
         .points-badge { color: var(--green); font-size: 10px; font-weight: 800; }
+        .member-status { display: inline-flex; margin: 3px 8px 3px 0; padding: 4px 7px; border-radius: 999px; font-size: 8px; font-weight: 900; text-transform: uppercase; }
+        .member-status.active { color: #268c77; background: rgba(190,241,228,.6); }
+        .member-status.inactive { color: #667085; background: #edf1f5; }
+        .team-member.member-inactive { opacity: .68; }
         .member-actions { display: flex; gap: 6px; }
+        .member-actions { flex-wrap: wrap; justify-content: flex-end; }
+        .team-management-workspace { display: flex; flex-direction: column; gap: 22px; }
+        .team-management-header { display: flex; align-items: center; justify-content: space-between; gap: 24px; }
+        .team-management-header h2 { margin: 5px 0; font-size: 24px; text-transform: none; }
+        .team-management-header p { font-size: 12px; }
+        .team-tabs { display: flex; gap: 7px; padding: 5px; background: rgba(232,242,254,.78); border-radius: 14px; }
+        .team-tabs button { padding: 10px 14px; color: var(--muted); background: transparent; border: 0; border-radius: 10px; cursor: pointer; font-size: 11px; font-weight: 800; }
+        .team-tabs button.active { color: #fff; background: linear-gradient(135deg, #4f8ff7, #3d78db); }
+        .employee-profile-panel, .offboarding-panel { width: min(100%, 900px); }
+        .employee-profile-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+        .employee-profile-grid label, .employee-profile-panel > form > label, .offboarding-panel label { display: flex; flex-direction: column; gap: 7px; }
+        .permission-fieldset { padding: 16px; border: 1px solid rgba(104,148,201,.18); border-radius: 14px; }
+        .permission-fieldset legend { padding: 0 7px; color: var(--dark); font-size: 11px; font-weight: 800; }
+        .permission-grid { display: flex; flex-wrap: wrap; gap: 12px; }
+        .permission-grid label { display: flex; align-items: center; gap: 8px; padding: 9px 12px; background: rgba(238,247,255,.72); border-radius: 10px; font-size: 11px; }
+        .permission-grid input { width: 17px !important; height: 17px; padding: 0 !important; }
+        .auth-notice, .offboarding-summary { display: flex; flex-direction: column; gap: 4px; padding: 14px; color: #526b8b; background: rgba(225,239,255,.72); border-left: 3px solid var(--accent); border-radius: 11px; font-size: 11px; line-height: 1.55; }
+        .auth-notice strong, .offboarding-summary strong { color: var(--dark); }
+        .offboarding-panel > h2 { margin: 6px 0 20px; font-size: 24px; text-transform: none; }
         .feedback-history-panel { grid-column: 1 / -1; }
         .feedback-list { display: grid; gap: 12px; }
         .feedback-card { position: relative; overflow: hidden; padding: 17px 18px; background: rgba(247,251,255,.82); border: 1px solid rgba(104,148,201,.15); border-radius: 16px; }
@@ -2678,12 +3101,17 @@ export default function App() {
           .task-actions, .member-actions { width: 100%; }
           .task-management-header, .task-list-heading, .admin-task-card { align-items: flex-start; flex-direction: column; }
           .task-management-actions, .task-list-controls, .admin-task-actions { width: 100%; }
+          .task-bulk-toolbar { align-items: stretch; flex-direction: column; }
+          .task-bulk-toolbar > div { flex-wrap: wrap; }
           .task-management-actions button, .admin-task-actions button { flex: 1; }
           .task-list-controls select { flex: 1; min-width: 0; }
           .task-form-row { grid-template-columns: 1fr; }
           .employee-monthly-list { grid-template-columns: 1fr; }
           .team-member { grid-template-columns: 43px 1fr; }
           .member-actions { grid-column: span 2; }
+          .team-management-header { align-items: stretch; flex-direction: column; }
+          .team-tabs { flex-direction: column; }
+          .employee-profile-grid { grid-template-columns: 1fr; }
           .document-heading { align-items: flex-start; flex-direction: column; }
           .document-number { width: 100%; }
           .form-grid { grid-template-columns: 1fr; }
