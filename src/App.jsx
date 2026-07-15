@@ -3,7 +3,7 @@ import MeuPlanner from './MeuPlanner';
 import GeradorDocumentos from './GeradorDocumentos';
 import PainelEquipeTV from './PainelEquipeTV';
 import ModelosAutomaticos from './ModelosAutomaticos';
-import ModuloProcessual from './ModuloProcessual';
+import ProcessualGerador from './ProcessualGerador';
 import { useCallback, useEffect, useState } from "react";
 import { supabase } from "./lib/supabase";
 
@@ -1124,7 +1124,7 @@ function AdminDashboard({ usuario, onLogout, state }) {
           <NavItem active={abaAtiva === "responsabilidades"} icon="planner" onClick={() => setAbaAtiva("responsabilidades")} options={["Rotina mensal", "Responsáveis", "Preview"]}>Tarefas do Mês</NavItem>
           <NavItem active={abaAtiva === "equipe"} icon="equipe" onClick={() => setAbaAtiva("equipe")} options={["Equipe", "Feedbacks", "Pontuação"]}>Equipe</NavItem>
           <NavItem active={abaAtiva === "modelos"} icon="modelos" onClick={() => setAbaAtiva("modelos")} options={["Biblioteca", "Gerar tarefa"]}>Modelos</NavItem>
-          <NavItem active={abaAtiva === "processual"} icon="processual" onClick={() => setAbaAtiva("processual")} options={["Processos", "Prazos", "Andamentos"]}>Processual</NavItem>
+          <NavItem active={abaAtiva === "processual"} icon="processual" onClick={() => setAbaAtiva("processual")} options={["Organizar resumo", "Prévia", "Gerar PDF"]}>Processual</NavItem>
           <NavItem active={abaAtiva === "documentos"} icon="documentos" onClick={() => setAbaAtiva("documentos")} options={["Gerador PDF", "Prévia viva", "Assistente IA"]}>Documentos</NavItem>
         </nav>
         <button className="sidebar-logout" onClick={onLogout}><UiIcon name="logout" /> Sair do Sistema</button>
@@ -2041,7 +2041,7 @@ function AdminDashboard({ usuario, onLogout, state }) {
         )}
 
         {abaAtiva === "processual" && (
-          <ModuloProcessual funcionarios={equipe} onSuccess={showToast} />
+          <ProcessualGerador responsavel={usuario.nome} onSuccess={showToast} />
         )}
       </main>
     </div>
@@ -2909,6 +2909,52 @@ export default function App() {
         .timeline-list time { color: var(--muted); font-size: 10px; }
         .timeline-list strong { color: var(--accent-strong); font-size: 10px; text-transform: uppercase; }
         .timeline-list p { font-size: 12px; }
+        .processual-generator { display: flex; flex-direction: column; gap: 22px; }
+        .processual-generator-heading { display: flex; align-items: center; justify-content: space-between; gap: 24px; }
+        .processual-generator-heading h2 { margin: 5px 0; font-size: 28px; text-transform: none; }
+        .processual-generator-heading p { font-size: 12px; }
+        .processual-code { padding: 11px 14px; color: var(--accent-strong); background: var(--accent-soft); border-radius: 12px; font-size: 11px; font-weight: 800; white-space: nowrap; }
+        .processual-input-grid { display: grid; grid-template-columns: minmax(340px,.85fr) minmax(400px,1.15fr); gap: 22px; align-items: start; }
+        .processual-source { display: flex; flex-direction: column; gap: 10px; color: var(--dark); font-size: 13px; font-weight: 800; }
+        .processual-source textarea { min-height: 430px; }
+        .processual-preview-page { min-height: 740px; padding: 44px; color: #253a5c; background: #fff; border: 1px solid #dfe7f1; border-radius: 8px; box-shadow: 0 20px 55px rgba(25,65,120,.12); }
+        .processual-preview-page header { padding-bottom: 20px; border-bottom: 2px solid #153c75; }
+        .processual-preview-page header > span { color: var(--accent-strong); font-size: 10px; font-weight: 900; letter-spacing: 1.5px; }
+        .processual-preview-page header h2 { margin: 12px 0; font-size: 21px; text-transform: uppercase; }
+        .processual-preview-page header div { display: flex; justify-content: space-between; gap: 10px; font-size: 9px; }
+        .processual-preview-page section { margin-top: 24px; }
+        .processual-preview-page section h3 { margin-bottom: 14px; font-size: 13px; text-transform: uppercase; }
+        .processual-preview-page section > p { font-size: 10px; }
+        .preview-process-block { margin-bottom: 16px; }
+        .preview-process-block strong { color: #153c75; font-size: 10px; text-transform: uppercase; }
+        .preview-process-block p { margin-top: 5px; color: #415674; font-size: 10px; line-height: 1.6; white-space: pre-wrap; }
+        .processual-preview-page footer { margin-top: 30px; padding-top: 18px; border-top: 1px solid #dfe7f1; }
+        .processual-preview-page footer p { margin-bottom: 9px; font-size: 8px; line-height: 1.5; }
+        .processual-form-sections { display: grid; gap: 24px; }
+        .processual-form-sections fieldset { padding: 18px; border: 1px solid rgba(104,148,201,.18); border-radius: 16px; }
+        .processual-form-sections legend { padding: 0 8px; color: var(--dark); font-size: 12px; font-weight: 900; text-transform: uppercase; }
+        .processual-form-sections label { display: flex; flex-direction: column; gap: 7px; color: var(--dark); font-size: 11px; font-weight: 800; }
+        .processual-form-sections .span-2 { grid-column: 1 / -1; }
+        .field-review { padding: 10px; background: #fff9e8; border: 1px solid #f2d691; border-radius: 12px; }
+        .field-review small { color: #9a6815; font-size: 9px; }
+        .attachment-picker { cursor: pointer; }
+        .attachment-picker input { display: none; }
+        .processual-attachments > small { color: var(--muted); }
+        .attachment-list { display: grid; gap: 10px; margin-top: 16px; }
+        .attachment-list article { display: grid; grid-template-columns: auto minmax(220px,1fr) 190px auto auto; gap: 10px; align-items: center; padding: 12px; background: rgba(247,251,255,.8); border-radius: 14px; }
+        .attachment-list article > div:nth-child(2) { display: grid; gap: 7px; }
+        .attachment-order { display: grid; justify-items: center; gap: 3px; }
+        .attachment-order button { width: 25px; height: 22px; border: 0; border-radius: 6px; cursor: pointer; }
+        .attachment-list article > label { display: flex; align-items: center; gap: 6px; font-size: 10px; }
+        .attachment-list article > label input { width: 16px !important; height: 16px; padding: 0 !important; }
+        .attachment-buttons { display: flex; gap: 6px; }
+        .processual-final-actions { display: flex; justify-content: flex-end; gap: 10px; }
+        .whatsapp-panel textarea { margin-bottom: 12px; }
+        .report-list { display: grid; gap: 9px; }
+        .report-list article { display: grid; grid-template-columns: 180px 1fr auto; gap: 12px; padding: 12px 14px; background: rgba(247,251,255,.8); border-radius: 12px; }
+        .report-list article strong { color: var(--accent-strong); font-size: 11px; }
+        .report-list article span { color: var(--dark); font-size: 11px; font-weight: 700; }
+        .report-list article small { color: var(--muted); font-size: 9px; }
         .feedback-history-panel { grid-column: 1 / -1; }
         .feedback-list { display: grid; gap: 12px; }
         .feedback-card { position: relative; overflow: hidden; padding: 17px 18px; background: rgba(247,251,255,.82); border: 1px solid rgba(104,148,201,.15); border-radius: 16px; }
@@ -3101,6 +3147,11 @@ export default function App() {
           .automation-heading, .process-heading, .template-card, .process-card { align-items: stretch; flex-direction: column; }
           .automation-grid, .process-grid { grid-template-columns: 1fr; }
           .process-update-form { grid-template-columns: 1fr; }
+          .processual-generator-heading { align-items: stretch; flex-direction: column; }
+          .processual-input-grid { grid-template-columns: 1fr; }
+          .attachment-list article { grid-template-columns: 1fr; }
+          .attachment-order { display: flex; justify-content: flex-start; align-items: center; }
+          .report-list article { grid-template-columns: 1fr; }
           .document-heading { align-items: flex-start; flex-direction: column; }
           .document-number { width: 100%; }
           .form-grid { grid-template-columns: 1fr; }
