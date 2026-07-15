@@ -344,61 +344,8 @@ function Login({ onLogin }) {
         <span className="energy-line line-b" />
       </div>
 
-      <section className="hero-content login-showcase" aria-label="Apresentacao CeliOS">
-        <div className="floating-badge showcase-badge">
-          <UiIcon name="spark" size={18} />
-          WORKSPACE INTELIGENTE
-        </div>
-
-        <h2>
-          Gestão <span>inteligente.</span><br />
-          Fluidez <span>operacional.</span>
-        </h2>
-
-        <p>
-          Delegue tarefas, acompanhe sua equipe e gere documentos com precisão em um único ambiente.
-        </p>
-
-        <div className="brand-emblem-showcase" aria-hidden="true">
-          <span className="emblem-orbit orbit-a" />
-          <span className="emblem-orbit orbit-b" />
-          <span className="emblem-halo" />
-          <div className="emblem-glass-plate">
-            <img
-              src="/assets/celios-symbol.png"
-              alt=""
-              className="emblem-symbol"
-            />
-          </div>
-        </div>
-
-        <div className="showcase-stats">
-          <div className="showcase-stat-card">
-            <strong>01</strong>
-            <span>Operação centralizada</span>
-          </div>
-
-          <div className="showcase-stat-card">
-            <strong>24h</strong>
-            <span>Visão contínua</span>
-          </div>
-
-          <div className="showcase-stat-card">
-            <strong>PDF</strong>
-            <span>Documentos automáticos</span>
-          </div>
-        </div>
-      </section>
-
       <section className="glass-card login-card" aria-label="Login CeliOS">
         <div className="login-brand">
-          <div className="brand-badge-wrap">
-            <img
-              src="/assets/celios-symbol.png"
-              alt="CeliOS"
-              className="brand-badge"
-            />
-          </div>
           <div>
             <strong>CeliOS</strong>
             <span>Enterprise Operating System</span>
@@ -1163,7 +1110,7 @@ function AdminDashboard({ usuario, onLogout, state }) {
     <div className="app-layout">
       <aside className="sidebar">
         <div className="brand">
-          <img src="/assets/celios-button-icon.png" alt="CeliOS" className="brand-icon" />
+          <img src="/assets/platino-icon.png" alt="CeliOS" className="brand-icon" />
           <div>
             <strong>CeliOS</strong>
             <span>Operating Workspace</span>
@@ -2207,7 +2154,7 @@ function EmployeeDashboard({ usuario, onLogout, state }) {
     <div className="app-layout">
       <aside className="sidebar">
         <div className="brand">
-         <img src="/assets/celios-button-icon.png" alt="CeliOS" className="brand-icon" />
+         <img src="/assets/platino-icon.png" alt="CeliOS" className="brand-icon" />
           <div>
             <strong>CeliOS</strong>
             <span>Operating Workspace</span>
@@ -2744,7 +2691,7 @@ export default function App() {
         .sidebar { position: sticky; top: 14px; z-index: 40; display: flex; align-items: center; gap: 18px; margin: 14px clamp(16px, 3vw, 36px) 0; padding: 12px 14px; color: #102a56; background: rgba(255,255,255,.62); border: 1px solid rgba(255,255,255,.75); border-radius: 28px; box-shadow: 0 22px 70px rgba(44, 86, 145, .12), inset 0 1px 0 rgba(255,255,255,.92); backdrop-filter: blur(28px); }
         .sidebar::after { content: ''; position: absolute; inset: 1px; border-radius: inherit; background: linear-gradient(135deg, rgba(255,255,255,.78), transparent 42%, rgba(141,187,255,.13)); pointer-events: none; }
         .brand { display: flex; align-items: center; gap: 12px; position: relative; z-index: 1; min-width: 210px; }
-        .brand-icon { width: 48px; height: 48px; border-radius: 16px; object-fit: cover; box-shadow: 0 12px 30px rgba(37,99,235,.16), 0 0 22px rgba(141,187,255,.26); }
+        .brand-icon { width: 48px; height: 48px; border-radius: 50%; object-fit: contain; background: transparent; box-shadow: 0 10px 24px rgba(19,55,145,.2), 0 0 16px rgba(37,99,235,.18); image-rendering: auto; }
         .brand strong { display: block; color: #0f2a55; font-size: 16px; letter-spacing: 1.8px; }
         .brand span { display: block; margin-top: 2px; color: #6b7c93; font-size: 9px; text-transform: uppercase; letter-spacing: 1.2px; }
         .sidebar nav { flex: 1; display: flex; align-items: center; justify-content: center; gap: 8px; position: relative; z-index: 2; }
@@ -4021,18 +3968,6 @@ export default function App() {
           color: transparent !important;
         }
 
-        .login-page-liquid .hero-content h2::before {
-          content: "Gest\\00E3o fluida.\\A Resultados vis\\00EDveis." !important;
-          white-space: pre !important;
-          display: block !important;
-          color: #0f2a55 !important;
-          font-size: clamp(52px, 6.2vw, 84px) !important;
-          line-height: 0.95 !important;
-          font-weight: 950 !important;
-          letter-spacing: 0 !important;
-          text-shadow: 0 18px 42px rgba(15,42,85,0.08) !important;
-        }
-
         .login-page-liquid .hero-content h2::after {
           display: none !important;
           content: none !important;
@@ -4131,6 +4066,61 @@ export default function App() {
           }
         }
 
+        /* Login minimalista */
+        .login-page-liquid {
+          display: flex !important;
+          align-items: center !important;
+          justify-content: center !important;
+          min-height: 100svh !important;
+          height: auto !important;
+          padding: 32px 20px 76px !important;
+          background: #f4f7fb !important;
+          border-radius: 0 !important;
+        }
+
+        .login-page-liquid::before {
+          inset: 0 !important;
+          border: 0 !important;
+          border-radius: 0 !important;
+          background: linear-gradient(180deg, #f8fafc 0%, #eef3f9 100%) !important;
+          filter: none !important;
+        }
+
+        .login-page-liquid::after,
+        .login-page-liquid .liquid-bg,
+        .login-page-liquid .login-showcase,
+        .login-page-liquid .brand-badge-wrap {
+          display: none !important;
+        }
+
+        .login-page-liquid .login-card {
+          width: min(100%, 430px) !important;
+          max-width: 430px !important;
+          min-height: auto !important;
+          margin: 0 !important;
+          padding: 42px 38px !important;
+          border: 1px solid #e2e8f0 !important;
+          border-radius: 22px !important;
+          background: #ffffff !important;
+          box-shadow: 0 18px 50px rgba(15, 42, 85, 0.08) !important;
+          backdrop-filter: none !important;
+          -webkit-backdrop-filter: none !important;
+        }
+
+        .login-page-liquid .login-card::before { display: none !important; }
+        .login-page-liquid .login-brand { justify-content: flex-start !important; margin-bottom: 34px !important; }
+        .login-page-liquid .login-brand div strong { font-size: 27px !important; letter-spacing: 6px !important; }
+        .login-page-liquid .login-brand div span { margin-top: 7px !important; font-size: 8px !important; }
+        .login-page-liquid .login-card h1 { font-size: 30px !important; }
+        .login-page-liquid .glass-input { background: #f8fafc !important; border-color: #dbe3ee !important; box-shadow: none !important; }
+        .login-page-liquid .login-footer { color: #8a98aa !important; }
+
+        @media (max-width: 520px) {
+          .login-page-liquid { padding: 18px !important; }
+          .login-page-liquid .login-card { padding: 32px 24px !important; border-radius: 18px !important; }
+          .login-page-liquid .login-footer { display: none !important; }
+        }
+
       `}</style>
       
       <Toast message={toastMessage} onClose={() => setToastMessage("")} />
@@ -4139,13 +4129,6 @@ export default function App() {
         <div className="login-page login-page-liquid">
           <section className="glass-card login-card loading-card" aria-label="Carregando CeliOS">
             <div className="login-brand">
-              <div className="brand-badge-wrap">
-                <img
-                  src="/assets/celios-symbol.png"
-                  alt="CeliOS"
-                  className="brand-badge"
-                />
-              </div>
               <div>
                 <strong>CeliOS</strong>
                 <span>Enterprise Operating System</span>
