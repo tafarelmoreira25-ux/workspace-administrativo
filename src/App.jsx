@@ -667,12 +667,12 @@ function Login({ onLogin }) {
         <span className="energy-line line-b" />
       </div>
 
-      <section className="glass-card login-card" aria-label="Login CeliOS">
+      <section className="glass-card login-card" aria-label="Login Platino equipes">
         <div className="login-card-accent" aria-hidden="true" />
         <div className="login-brand">
           <div>
-            <strong>CeliOS</strong>
-            <span>Operating Workspace</span>
+            <strong>Platino equipes</strong>
+            <span>Workspace Administrativo</span>
           </div>
         </div>
 
