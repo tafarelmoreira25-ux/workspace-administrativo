@@ -4690,9 +4690,7 @@ export default function App() {
           place-items: center !important;
           min-height: 100svh !important;
           padding: 48px 24px 82px !important;
-          background:
-            radial-gradient(circle at 50% 14%, rgba(84, 139, 231, .09), transparent 30%),
-            linear-gradient(180deg, #f8fafc 0%, #eef3f8 100%) !important;
+          background: #f8fafc url('/assets/platino-login-background.png') center / cover no-repeat !important;
         }
 
         .login-page-liquid::before {
@@ -4700,10 +4698,7 @@ export default function App() {
           content: "" !important;
           position: absolute !important;
           inset: 0 !important;
-          background:
-            linear-gradient(rgba(21, 60, 117, .025) 1px, transparent 1px),
-            linear-gradient(90deg, rgba(21, 60, 117, .025) 1px, transparent 1px) !important;
-          background-size: 48px 48px !important;
+          background: linear-gradient(90deg, rgba(255,255,255,.12), rgba(255,255,255,.06) 52%, rgba(255,255,255,.3)) !important;
           pointer-events: none !important;
         }
 
