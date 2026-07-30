@@ -324,7 +324,15 @@ function UiIcon({ name, size = 20 }) {
 function NavItem({ active, icon, children, onClick, options = [] }) {
   return (
     <button className={`nav-item ${active ? "active-tab" : ""}`} onClick={onClick}>
-      <UiIcon name={icon} />
+      {icon === "documentos" ? (
+        <img
+          src="/assets/pdf-document-icon.png"
+          alt=""
+          className="nav-image-icon"
+        />
+      ) : (
+        <UiIcon name={icon} />
+      )}
       <span>{children}</span>
       {options.length > 0 && (
         <span className="nav-menu-popover" aria-hidden="true">
@@ -3185,6 +3193,7 @@ export default function App() {
         .sidebar nav { flex: 1; display: flex; align-items: center; justify-content: center; gap: 8px; position: relative; z-index: 2; }
         .nav-label { display: none; }
         .nav-item { position: relative; width: auto; min-height: 44px; display: inline-flex; align-items: center; justify-content: center; gap: 8px; padding: 10px 14px; color: #526780; background: rgba(248,251,255,.48); border: 1px solid rgba(255,255,255,.62); border-radius: 999px; cursor: pointer; font-size: 12px; font-weight: 800; text-align: center; transition: .24s ease; box-shadow: inset 0 1px 0 rgba(255,255,255,.88); }
+        .nav-image-icon { width: 22px; height: 22px; flex: 0 0 22px; object-fit: contain; border-radius: 6px; filter: drop-shadow(0 3px 5px rgba(196,49,34,.18)); }
         .nav-item:hover { color: #2563eb; background: rgba(255,255,255,.82); transform: translateY(-2px); box-shadow: 0 14px 34px rgba(37,99,235,.12), inset 0 1px 0 rgba(255,255,255,.95); }
         .nav-item.active-tab { color: #fff; background: linear-gradient(135deg, #6aa2ff, #2563eb); border-color: rgba(255,255,255,.76); box-shadow: 0 18px 34px rgba(37,99,235,.22), inset 0 1px 0 rgba(255,255,255,.55); }
         .nav-item.active-tab .ui-icon { color: #fff; filter: drop-shadow(0 0 8px rgba(255,255,255,.38)); }
@@ -3495,6 +3504,7 @@ export default function App() {
 
         .document-workspace { display: flex; flex-direction: column; gap: 24px; }
         .document-heading { display: flex; align-items: flex-end; justify-content: space-between; gap: 24px; padding: 28px; background: linear-gradient(145deg, rgba(255,255,255,.68), rgba(239,247,255,.42)); border: 1px solid rgba(255,255,255,.78); border-radius: 28px; box-shadow: 0 24px 70px rgba(44,86,145,.1), inset 0 1px 0 rgba(255,255,255,.94); backdrop-filter: blur(26px); }
+        .document-heading-icon { width: 76px; height: 76px; flex: 0 0 76px; object-fit: contain; border-radius: 18px; filter: drop-shadow(0 12px 14px rgba(196,49,34,.2)); }
         .document-heading h2 { color: var(--dark); font-size: 34px; letter-spacing: 0; margin: 4px 0 6px; }
         .eyebrow { color: var(--accent); font-size: 12px; font-weight: 800; letter-spacing: 1.2px; text-transform: uppercase; }
         .document-number { color: var(--dark); background: rgba(255,255,255,.68); border: 1px solid rgba(255,255,255,.85); border-radius: 18px; padding: 13px 17px; box-shadow: 0 12px 34px rgba(61,104,163,.08), inset 0 1px 0 rgba(255,255,255,.92); backdrop-filter: blur(20px); }

@@ -426,6 +426,11 @@ export default function GeradorDocumentos({ responsavel, onSuccess }) {
   return (
     <section className="document-workspace">
       <div className="document-heading">
+        <img
+          src="/assets/pdf-document-icon.png"
+          alt=""
+          className="document-heading-icon"
+        />
         <div>
           <span className="eyebrow">Central de documentos</span>
           <h2>Gerador inteligente de PDF</h2>
