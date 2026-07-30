@@ -667,11 +667,11 @@ function Login({ onLogin }) {
         <span className="energy-line line-b" />
       </div>
 
-      <section className="glass-card login-card" aria-label="Login Platino equipes">
+      <section className="glass-card login-card" aria-label="Login Platino equipe">
         <div className="login-card-accent" aria-hidden="true" />
         <div className="login-brand">
           <div>
-            <strong>Platino equipes</strong>
+            <strong>Platino equipe</strong>
             <span>Workspace Administrativo</span>
           </div>
         </div>
@@ -725,7 +725,7 @@ function Login({ onLogin }) {
       </section>
 
       <div className="login-footer login-footer-minimal">
-        <span>© 2026 <strong>Platino equipes</strong></span>
+        <span>© 2026 <strong>Platino equipe</strong></span>
         <span>Versão 2.0.0</span>
       </div>
     </div>
@@ -4732,9 +4732,10 @@ export default function App() {
 
         .login-page-liquid .login-brand div strong {
           color: #102d5c !important;
-          font-size: 25px !important;
+          font-family: "Segoe UI", Arial, sans-serif !important;
+          font-size: 24px !important;
           font-weight: 800 !important;
-          letter-spacing: .16em !important;
+          letter-spacing: .08em !important;
         }
 
         .login-page-liquid .login-brand div span {
