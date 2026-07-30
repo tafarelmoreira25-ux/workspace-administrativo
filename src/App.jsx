@@ -3715,7 +3715,7 @@ export default function App() {
             linear-gradient(90deg, rgba(255,255,255,0.88) 0%, rgba(255,255,255,0.66) 22%, rgba(255,255,255,0.16) 46%, rgba(255,255,255,0.46) 69%, rgba(255,255,255,0.88) 100%),
             radial-gradient(circle at 8% 16%, rgba(255,255,255,0.92), transparent 28%),
             radial-gradient(circle at 86% 48%, rgba(240,248,255,0.82), transparent 35%),
-            url('/assets/celios-login-bg-3d.png') right center / auto 100% no-repeat !important;
+            url('/assets/platino-login-background.png') right center / auto 100% no-repeat !important;
         }
 
         .login-page-liquid::before {
@@ -4146,7 +4146,7 @@ export default function App() {
             padding: 34px !important;
             background:
               linear-gradient(90deg, rgba(255,255,255,0.88) 0%, rgba(255,255,255,0.50) 35%, rgba(255,255,255,0.72) 100%),
-              url('/assets/celios-login-bg-3d.png') right center / auto 100% no-repeat !important;
+              url('/assets/platino-login-background.png') right center / auto 100% no-repeat !important;
           }
 
           .login-page-liquid .login-showcase {
@@ -4173,7 +4173,7 @@ export default function App() {
             padding: 18px !important;
             background:
               linear-gradient(180deg, rgba(255,255,255,0.72), rgba(247,251,255,0.90)),
-              url('/assets/celios-login-bg-3d.png') 38% center / cover no-repeat !important;
+              url('/assets/platino-login-background.png') 38% center / cover no-repeat !important;
           }
 
           .login-page-liquid .login-showcase {
@@ -4229,7 +4229,7 @@ export default function App() {
           border-radius: 28px !important;
           background:
             linear-gradient(135deg, rgba(255,255,255,0.72), rgba(245,249,255,0.80)),
-            url("/assets/celios-login-bg-3d.png") center center / cover no-repeat !important;
+            url("/assets/platino-login-background.png") center center / cover no-repeat !important;
           isolation: isolate !important;
         }
 
@@ -4388,7 +4388,7 @@ export default function App() {
           content: "" !important;
           position: absolute !important;
           inset: 0 !important;
-          background: url("/assets/celios-login-bg-3d.png") center center / cover no-repeat !important;
+          background: url("/assets/platino-login-background.png") center center / cover no-repeat !important;
           filter: brightness(0.96) contrast(1.22) saturate(1.32) !important;
           opacity: 1 !important;
           z-index: 0 !important;
