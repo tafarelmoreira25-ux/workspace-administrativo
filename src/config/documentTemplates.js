@@ -496,7 +496,7 @@ export const DOCUMENT_TEMPLATES = [
   },
   {
     id: "certidao-diligencia-contato-profissional",
-    nome: "CertidÃ£o de DiligÃªncia e Contato Profissional",
+    nome: "Certidão de Diligência e Contato Profissional",
     descricao: "Modelo preenchÃ­vel para registrar diligÃªncia, contato com a patrona e providÃªncias processuais.",
     modo: "certidao-diligencia",
     titulo: "CertidÃ£o de DiligÃªncia e Contato Profissional",
@@ -516,7 +516,7 @@ export const DOCUMENT_TEMPLATES = [
   },
   {
     id: "recibo-prestacao-servicos",
-    nome: "Recibo de PrestaÃ§Ã£o de ServiÃ§os",
+    nome: "Recibo de Prestação de Serviços",
     descricao: "Gera recibo com valores, modalidade da transaÃ§Ã£o e dados de autorizaÃ§Ã£o do pagamento.",
     modo: "recibo-prestacao-servicos",
     titulo: "Recibo de PrestaÃ§Ã£o de ServiÃ§os",
@@ -536,7 +536,7 @@ export const DOCUMENT_TEMPLATES = [
   },
   {
     id: "relatorio-negociacao-acordo-homologacao",
-    nome: "RelatÃ³rio de NegociaÃ§Ã£o e Acordo / HomologaÃ§Ã£o",
+    nome: "Relatório de Negociação e Acordo / Homologação",
     descricao: "Registra contatos, valores, proposta de quitaÃ§Ã£o e manifestaÃ§Ã£o do cliente.",
     modo: "relatorio-negociacao-homologacao",
     titulo: "RelatÃ³rio de NegociaÃ§Ã£o e Acordo / HomologaÃ§Ã£o",
@@ -576,14 +576,5 @@ export const DOCUMENT_TEMPLATES = [
       { nome: "modalidade", rotulo: "Modalidade de pagamento", obrigatorio: true },
       { nome: "cidade", rotulo: "Cidade", obrigatorio: true, valorInicial: "SÃ£o Paulo" },
     ],
-  },
-  {
-    id: "laudo-pericial-contabil-layout",
-    nome: "Laudo Pericial ContÃ¡bil (modelo original)",
-    descricao: "Baixa uma cÃ³pia fiel do layout original do laudo pericial contÃ¡bil.",
-    modo: "modelo-laudo-original",
-    titulo: "Laudo Pericial ContÃ¡bil",
-    identidadeVisual: false,
-    campos: [],
   },
 ];

@@ -172,6 +172,41 @@ export default function PainelEquipeTV({
     [tarefasVisiveis],
   );
 
+  const atrasadas = useMemo(
+    () => {
+      agora.getTime();
+      return tarefasVisiveis
+        .filter(
+          (tarefa) =>
+            tarefa.status !== "concluida" &&
+            tarefa.status !== "cancelada" &&
+            tarefa.status !== "arquivada" &&
+            tarefa.data_limite &&
+            tarefa.data_limite < new Date().toISOString().slice(0, 10),
+        )
+        .sort((a, b) => String(a.data_limite).localeCompare(String(b.data_limite))),
+    },
+    [tarefasVisiveis, agora],
+  );
+
+  const proximas = useMemo(
+    () => {
+      agora.getTime();
+      const hoje = new Date();
+      hoje.setHours(0, 0, 0, 0);
+      const limite = new Date(hoje);
+      limite.setDate(limite.getDate() + 2);
+      return tarefasVisiveis
+        .filter((tarefa) => {
+          if (tarefa.status === "concluida" || !tarefa.data_limite) return false;
+          const prazo = new Date(`${tarefa.data_limite}T00:00:00`);
+          return prazo >= hoje && prazo <= limite;
+        })
+        .sort((a, b) => String(a.data_limite).localeCompare(String(b.data_limite)));
+    },
+    [tarefasVisiveis, agora],
+  );
+
   const pendentes = useMemo(
     () =>
       tarefasVisiveis
@@ -248,6 +283,14 @@ export default function PainelEquipeTV({
             <span>Pendentes</span>
           </div>
           <div>
+            <strong>{atrasadas.length}</strong>
+            <span>Atrasadas</span>
+          </div>
+          <div>
+            <strong>{proximas.length}</strong>
+            <span>PrÃ³ximas</span>
+          </div>
+          <div>
             <strong>{concluidas.length}</strong>
             <span>Concluidas recentes</span>
           </div>
@@ -287,6 +330,24 @@ export default function PainelEquipeTV({
           tipo="urgent"
           titulo="Urgentes"
           vazio="Nenhuma tarefa urgente."
+        />
+        <ColunaTV
+          classe="tv-column-overdue"
+          etiqueta="Ação imediata"
+          funcionarios={funcionarios}
+          tarefas={atrasadas}
+          tipo="overdue"
+          titulo="Atrasadas"
+          vazio="Nenhuma tarefa vencida."
+        />
+        <ColunaTV
+          classe="tv-column-soon"
+          etiqueta="Prazo próximo"
+          funcionarios={funcionarios}
+          tarefas={proximas}
+          tipo="soon"
+          titulo="Vencem em até 2 dias"
+          vazio="Nenhuma tarefa próxima do vencimento."
         />
         <ColunaTV
           classe="tv-column-pending"

@@ -3313,7 +3313,7 @@ export default function App() {
         .tv-clock span { color: #8faaca; font-size: 10px; text-transform: capitalize; }
         .tv-controls { grid-column: 1 / -1; display: flex; justify-content: flex-end; gap: 8px; margin-top: -14px; }
         .tv-controls button { padding: 7px 10px; color: #9eb8d7; background: rgba(255,255,255,.04); border: 1px solid rgba(168,207,250,.12); border-radius: 9px; cursor: pointer; font-size: 9px; font-weight: 700; }
-        .tv-board { flex: 1; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: clamp(14px, 1.5vw, 24px); padding: 24px 0 17px; min-height: 0; }
+        .tv-board { flex: 1; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: clamp(14px, 1.5vw, 24px); padding: 24px 0 17px; min-height: 0; }
         .tv-column { display: flex; flex-direction: column; min-height: 0; padding: clamp(15px, 1.5vw, 22px); background: rgba(15,39,76,.72); border: 1px solid rgba(150,194,241,.11); border-radius: 21px; box-shadow: 0 22px 55px rgba(0,0,0,.16); }
         .tv-column > header { display: flex; align-items: center; justify-content: space-between; gap: 15px; margin-bottom: 17px; padding-bottom: 15px; border-bottom: 1px solid rgba(151,194,240,.1); }
         .tv-column > header span { color: var(--tv-accent); font-size: 8px; font-weight: 800; letter-spacing: 1.2px; text-transform: uppercase; }
@@ -3322,6 +3322,8 @@ export default function App() {
         .tv-column-urgent { --tv-accent: #ff7892; --tv-soft: rgba(255,101,133,.12); }
         .tv-column-pending { --tv-accent: #f4bc57; --tv-soft: rgba(244,188,87,.12); }
         .tv-column-done { --tv-accent: #5ed7b7; --tv-soft: rgba(94,215,183,.12); }
+        .tv-column-overdue { --tv-accent: #ff8e68; --tv-soft: rgba(255,142,104,.14); }
+        .tv-column-soon { --tv-accent: #7fc6ff; --tv-soft: rgba(127,198,255,.14); }
         .tv-column-list { min-height: 0; overflow: auto; scrollbar-width: thin; scrollbar-color: rgba(151,194,240,.22) transparent; }
         .tv-task-card { position: relative; margin-bottom: 11px; padding: 15px; overflow: hidden; background: rgba(255,255,255,.055); border: 1px solid rgba(172,210,250,.09); border-radius: 15px; }
         .tv-task-card::before { content: ''; position: absolute; inset: 0 auto 0 0; width: 3px; background: var(--tv-accent); }
@@ -3409,6 +3411,11 @@ export default function App() {
         .timeline-list p { font-size: 12px; }
         .processual-generator { display: flex; flex-direction: column; gap: 22px; }
         .processual-generator-heading { display: flex; align-items: center; justify-content: space-between; gap: 24px; }
+        .processual-original-card { display: flex; align-items: center; gap: 22px; max-width: 820px; }
+        .processual-original-card h3 { margin: 5px 0 8px; color: var(--dark); font-size: 20px; }
+        .processual-original-card p { max-width: 620px; color: var(--muted); line-height: 1.6; }
+        .processual-original-icon { display: grid; place-items: center; width: 88px; height: 104px; flex: 0 0 88px; color: #b42318; background: linear-gradient(145deg, #fff, #ffe7e3); border: 1px solid rgba(180,35,24,.18); border-radius: 18px; box-shadow: 0 14px 30px rgba(180,35,24,.12); font-size: 13px; font-weight: 900; }
+        .processual-download { display: inline-flex; margin-top: 12px; text-decoration: none; }
         .processual-generator-heading h2 { margin: 5px 0; font-size: 28px; text-transform: none; }
         .processual-generator-heading p { font-size: 12px; }
         .processual-code { padding: 11px 14px; color: var(--accent-strong); background: var(--accent-soft); border-radius: 12px; font-size: 11px; font-weight: 800; white-space: nowrap; }
@@ -3650,6 +3657,7 @@ export default function App() {
           .automation-grid, .process-grid { grid-template-columns: 1fr; }
           .process-update-form { grid-template-columns: 1fr; }
           .processual-generator-heading { align-items: stretch; flex-direction: column; }
+          .processual-original-card { align-items: flex-start; flex-direction: column; }
           .processual-input-grid { grid-template-columns: 1fr; }
           .attachment-list article { grid-template-columns: 1fr; }
           .attachment-order { display: flex; justify-content: flex-start; align-items: center; }
