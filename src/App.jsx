@@ -3416,6 +3416,7 @@ export default function App() {
         .processual-original-card p { max-width: 620px; color: var(--muted); line-height: 1.6; }
         .processual-original-icon { display: grid; place-items: center; width: 88px; height: 104px; flex: 0 0 88px; color: #b42318; background: linear-gradient(145deg, #fff, #ffe7e3); border: 1px solid rgba(180,35,24,.18); border-radius: 18px; box-shadow: 0 14px 30px rgba(180,35,24,.12); font-size: 13px; font-weight: 900; }
         .processual-download { display: inline-flex; margin-top: 12px; text-decoration: none; }
+        .processual-link-field { display: flex; flex-direction: column; gap: 7px; margin-top: 20px; color: var(--dark); font-size: 11px; font-weight: 800; }
         .processual-generator-heading h2 { margin: 5px 0; font-size: 28px; text-transform: none; }
         .processual-generator-heading p { font-size: 12px; }
         .processual-code { padding: 11px 14px; color: var(--accent-strong); background: var(--accent-soft); border-radius: 12px; font-size: 11px; font-weight: 800; white-space: nowrap; }

@@ -83,6 +83,11 @@ export async function gerarRelatorioProcessualPDF({ dados, codigo, anexos }) {
     y -= 38;
   }
 
+  if (dados.link_processo) {
+    campoResumo("Link oficial do processo", dados.link_processo, M, A4[0] - M * 2, y);
+    y -= 38;
+  }
+
   y -= 2;
   texto("ANDAMENTO PROCESSUAL", { font: bold, size: 10.5, gap: 9 });
   for (const [rotulo, valor] of [
