@@ -3118,7 +3118,7 @@ export default function App() {
         .ui-icon { display: block; flex: 0 0 auto; }
         .full { width: 100%; }
 
-        .login-page-liquid { min-height: 100vh; position: relative; overflow: hidden; display: grid; grid-template-columns: minmax(420px, 1.12fr) minmax(390px, 520px); align-items: center; gap: clamp(34px, 5vw, 88px); padding: clamp(30px, 5vw, 78px) clamp(34px, 5vw, 86px); background: #f8fbff url('/assets/celios-login-background.png') center / cover no-repeat; color: #102a56; isolation: isolate; }
+        .login-page-liquid { min-height: 100vh; position: relative; overflow: hidden; display: grid; grid-template-columns: minmax(420px, 1.12fr) minmax(390px, 520px); align-items: center; gap: clamp(34px, 5vw, 88px); padding: clamp(30px, 5vw, 78px) clamp(34px, 5vw, 86px); background: #f8fbff url('/assets/platino-login-background.png') center / cover no-repeat; color: #102a56; isolation: isolate; }
         .login-page-liquid::before { content: ''; position: absolute; inset: 0; z-index: 0; background: linear-gradient(90deg, rgba(248,251,255,.7) 0%, rgba(248,251,255,.46) 46%, rgba(248,251,255,.28) 100%); pointer-events: none; }
         .liquid-bg { display: none; }
         .ambient { position: absolute; border-radius: 999px; pointer-events: none; filter: blur(18px); }
