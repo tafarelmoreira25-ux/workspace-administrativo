@@ -26,6 +26,7 @@ const CATEGORIAS_TAREFA = [
 const STATUS_TAREFA = [
   { valor: "nova", rotulo: "Nova" },
   { valor: "em_andamento", rotulo: "Em andamento" },
+  { valor: "devolvida", rotulo: "Devolvida para correção" },
   { valor: "aguardando_cliente", rotulo: "Aguardando cliente" },
   { valor: "aguardando_banco", rotulo: "Aguardando banco" },
   { valor: "aguardando_judiciario", rotulo: "Aguardando Judiciário" },
@@ -38,11 +39,27 @@ const STATUS_ABERTOS = new Set([
   "pendente",
   "nova",
   "em_andamento",
+  "devolvida",
   "aguardando_cliente",
   "aguardando_banco",
   "aguardando_judiciario",
   "impedida",
 ]);
+const MOTIVOS_DEVOLUCAO = [
+  "Dados incorretos",
+  "Documento faltante",
+  "Documento ilegível",
+  "Informação divergente",
+  "Assinatura ausente",
+  "Outro",
+];
+const DOCUMENTOS_INICIAIS = [
+  { chave: "contrato_assinado", rotulo: "Contrato assinado" },
+  { chave: "documento_identificacao", rotulo: "RG ou CNH" },
+  { chave: "cpf", rotulo: "CPF" },
+  { chave: "comprovante_residencia", rotulo: "Comprovante de residência" },
+  { chave: "comprovante_renda", rotulo: "Comprovante de renda" },
+];
 
 function criarPerfilIntegranteVazio() {
   return {
@@ -169,6 +186,94 @@ function rotuloPrioridade(prioridade) {
   return "Normal";
 }
 
+function normalizarTexto(texto = "") {
+  return texto
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase();
+}
+
+function tarefaExigeChecklistDocumentos(tarefa) {
+  const codigoEtapa = String(tarefa?.codigo_etapa || "").toUpperCase();
+  const texto = normalizarTexto(`${tarefa?.titulo || ""} ${tarefa?.descricao || ""}`);
+
+  return (
+    codigoEtapa === "ADM-007" ||
+    texto.includes("5 documentos iniciais") ||
+    texto.includes("cinco documentos iniciais") ||
+    texto.includes("conferir documentos iniciais")
+  );
+}
+
+function checklistDocumentosCompleto(tarefa) {
+  if (tarefa?.checklist_documentos_completo === true) return true;
+  const documentos = tarefa?.checklist_documentos || {};
+  return DOCUMENTOS_INICIAIS.every(
+    ({ chave }) => documentos[chave] === true,
+  );
+}
+
+function inicioDaSemana(data = new Date()) {
+  const inicio = new Date(data);
+  inicio.setHours(0, 0, 0, 0);
+  const dia = inicio.getDay();
+  inicio.setDate(inicio.getDate() - (dia === 0 ? 6 : dia - 1));
+  return inicio;
+}
+
+function fimDaSemana(data = new Date()) {
+  const fim = inicioDaSemana(data);
+  fim.setDate(fim.getDate() + 6);
+  fim.setHours(23, 59, 59, 999);
+  return fim;
+}
+
+function dataLimiteLocal(data) {
+  if (!data) return null;
+  const limite = new Date(`${String(data).slice(0, 10)}T23:59:59`);
+  return Number.isNaN(limite.getTime()) ? null : limite;
+}
+
+function calcularPerformanceSemanal(funcionariaId, tarefas) {
+  const agora = new Date();
+  const inicio = inicioDaSemana(agora);
+  const fim = fimDaSemana(agora);
+  const avaliadas = tarefas.filter((tarefa) => {
+    if (String(tarefa.funcionaria_id) !== String(funcionariaId)) return false;
+    if (!tarefa.data_limite || tarefa.status === "cancelada" || tarefa.status === "arquivada") {
+      return false;
+    }
+
+    const limite = dataLimiteLocal(tarefa.data_limite);
+    const conclusao = tarefa.concluida_em ? new Date(tarefa.concluida_em) : null;
+    const concluidaNaSemana =
+      conclusao && conclusao >= inicio && conclusao <= fim;
+    const prazoVenceuNaSemana =
+      limite && limite >= inicio && limite <= fim && limite < agora;
+
+    return Boolean(concluidaNaSemana || prazoVenceuNaSemana);
+  });
+
+  const perdas = avaliadas.filter((tarefa) => {
+    if (tarefa.prazo_perdido === true) return true;
+    const limite = dataLimiteLocal(tarefa.data_limite);
+    if (!limite) return false;
+    if (tarefa.status === "concluida" && tarefa.concluida_em) {
+      return new Date(tarefa.concluida_em) > limite;
+    }
+    return STATUS_ABERTOS.has(tarefa.status) && limite < agora;
+  }).length;
+
+  return {
+    avaliadas: avaliadas.length,
+    perdas,
+    percentualPerda: avaliadas.length
+      ? Math.round((perdas / avaliadas.length) * 100)
+      : null,
+    altaPerformance: avaliadas.length > 0 && perdas === 0,
+  };
+}
+
 // ==========================================
 // 2. COMPONENTES VISUAIS
 // ==========================================
@@ -237,6 +342,217 @@ function MetricIcon({ type }) {
     <div className={`metric-icon metric-${type}`}>
       <UiIcon name={type} size={24} />
     </div>
+  );
+}
+
+function PerformanceBadge({ performance, mostrarRotulo = false }) {
+  if (!performance?.altaPerformance) return null;
+
+  const descricao = `Alta Performance: 0% de perda em ${performance.avaliadas} prazo(s) avaliado(s) nesta semana.`;
+  return (
+    <span className={`performance-badge ${mostrarRotulo ? "with-label" : ""}`} title={descricao}>
+      <span aria-hidden="true">★</span>
+      {mostrarRotulo && <strong>Alta Performance</strong>}
+      <span className="sr-only">{descricao}</span>
+    </span>
+  );
+}
+
+function AvatarMembro({ funcionario, performance, compacto = false }) {
+  return (
+    <div className={`member-avatar-wrap ${compacto ? "compact" : ""}`}>
+      <div className="member-avatar">
+        {funcionario?.foto_url ? (
+          <img src={funcionario.foto_url} alt={`Foto de ${funcionario.nome}`} />
+        ) : (
+          funcionario?.nome?.charAt(0) || "?"
+        )}
+      </div>
+      <PerformanceBadge performance={performance} />
+    </div>
+  );
+}
+
+function ModalDevolucao({ tarefa, onClose, onConfirmar }) {
+  const [motivo, setMotivo] = useState("");
+  const [comentario, setComentario] = useState("");
+  const [enviando, setEnviando] = useState(false);
+  const comentarioValido = comentario.trim().length >= 10;
+
+  async function confirmar(event) {
+    event.preventDefault();
+    if (!motivo || !comentarioValido) return;
+    setEnviando(true);
+    try {
+      await onConfirmar({
+        motivo,
+        comentario: comentario.trim(),
+      });
+    } finally {
+      setEnviando(false);
+    }
+  }
+
+  return (
+    <div className="modal-backdrop" role="presentation">
+      <section
+        aria-labelledby="devolucao-titulo"
+        aria-modal="true"
+        className="return-modal"
+        role="dialog"
+      >
+        <div className="return-modal-heading">
+          <div>
+            <span className="eyebrow">Devolução obrigatoriamente justificada</span>
+            <h2 id="devolucao-titulo">Devolver tarefa #{tarefa.id}</h2>
+            <p>{tarefa.titulo}</p>
+          </div>
+          <button
+            aria-label="Fechar devolução"
+            className="modal-close"
+            disabled={enviando}
+            onClick={onClose}
+            type="button"
+          >
+            ×
+          </button>
+        </div>
+
+        <form className="stack-form return-form" onSubmit={confirmar}>
+          <label>
+            Motivo da devolução
+            <select
+              autoFocus
+              onChange={(event) => setMotivo(event.target.value)}
+              required
+              value={motivo}
+            >
+              <option value="">Selecione um motivo...</option>
+              {MOTIVOS_DEVOLUCAO.map((item) => (
+                <option key={item} value={item}>{item}</option>
+              ))}
+            </select>
+          </label>
+          <label>
+            Comentário explicativo
+            <textarea
+              minLength="10"
+              onChange={(event) => setComentario(event.target.value)}
+              placeholder="Explique exatamente o que precisa ser corrigido antes do reenvio."
+              required
+              rows="5"
+              value={comentario}
+            />
+            <small className={comentarioValido ? "field-ok" : "field-help"}>
+              Mínimo de 10 caracteres. A devolução ficará registrada no histórico.
+            </small>
+          </label>
+          <div className="return-modal-actions">
+            <button
+              className="btn-secondary"
+              disabled={enviando}
+              onClick={onClose}
+              type="button"
+            >
+              Cancelar
+            </button>
+            <button
+              className="btn-return"
+              disabled={enviando || !motivo || !comentarioValido}
+              type="submit"
+            >
+              {enviando ? "Registrando..." : "Confirmar devolução"}
+            </button>
+          </div>
+        </form>
+      </section>
+    </div>
+  );
+}
+
+function ChecklistDocumentos({ tarefa, onAtualizada }) {
+  const [documentos, setDocumentos] = useState(
+    tarefa.checklist_documentos || {},
+  );
+  const [salvando, setSalvando] = useState(false);
+
+  const totalMarcados = DOCUMENTOS_INICIAIS.filter(
+    ({ chave }) => documentos[chave] === true,
+  ).length;
+  const completo = totalMarcados === DOCUMENTOS_INICIAIS.length;
+  const confirmado = checklistDocumentosCompleto(tarefa);
+  const bloqueado = tarefa.status === "devolvida" || tarefa.status === "concluida";
+
+  async function salvarChecklist() {
+    if (!completo || bloqueado) return;
+    setSalvando(true);
+    try {
+      const { data, error } = await supabase.rpc(
+        "salvar_checklist_documentos",
+        {
+          p_tarefa_id: Number(tarefa.id),
+          p_documentos: documentos,
+        },
+      );
+      if (error) throw error;
+      const atualizada = Array.isArray(data) ? data[0] : data;
+      if (!atualizada) throw new Error("O banco não confirmou o checklist.");
+      onAtualizada(atualizada);
+    } catch (error) {
+      console.error("Erro ao salvar checklist:", error);
+      alert(`Não foi possível confirmar os documentos: ${error.message}`);
+    } finally {
+      setSalvando(false);
+    }
+  }
+
+  return (
+    <section className={`document-checklist ${confirmado ? "complete" : ""}`}>
+      <div className="document-checklist-heading">
+        <div>
+          <span className="eyebrow">Etapa 2 · check-in obrigatório</span>
+          <h4>5 documentos iniciais</h4>
+        </div>
+        <span className="checklist-progress">
+          {confirmado ? "5/5 confirmado" : `${totalMarcados}/5`}
+        </span>
+      </div>
+      <div className="document-checklist-grid">
+        {DOCUMENTOS_INICIAIS.map(({ chave, rotulo }) => (
+          <label className={documentos[chave] ? "checked" : ""} key={chave}>
+            <input
+              checked={documentos[chave] === true}
+              disabled={bloqueado || confirmado}
+              onChange={(event) =>
+                setDocumentos((atuais) => ({
+                  ...atuais,
+                  [chave]: event.target.checked,
+                }))
+              }
+              type="checkbox"
+            />
+            <span>{rotulo}</span>
+          </label>
+        ))}
+      </div>
+      {confirmado ? (
+        <div className="checklist-confirmed">
+          ✓ Documentação conferida. A etapa está liberada para conclusão.
+        </div>
+      ) : (
+        <>
+          <p>O avanço para o Jurídico só será liberado após os cinco itens.</p>
+          <button
+            className="btn-primary compact"
+            disabled={!completo || salvando || bloqueado}
+            onClick={salvarChecklist}
+            type="button"
+          >
+            {salvando ? "Confirmando..." : "Confirmar 5 documentos"}
+          </button>
+        </>
+      )}
+    </section>
   );
 }
 
@@ -476,6 +792,12 @@ function AdminDashboard({ usuario, onLogout, state }) {
     (funcionario) => funcionario.email?.toLowerCase() !== ADMIN_EMAIL,
   );
   const equipe = equipeCompleta.filter((funcionario) => funcionario.ativo !== false);
+  const performanceEquipe = new Map(
+    equipeCompleta.map((funcionario) => [
+      String(funcionario.id),
+      calcularPerformanceSemanal(funcionario.id, listaTarefas),
+    ]),
+  );
   const tarefasPendentes = listaTarefas.filter((t) => STATUS_ABERTOS.has(t.status));
   const tarefasUrgentes = tarefasPendentes.filter(
     (tarefa) => tarefa.prioridade === "urgente",
@@ -1112,9 +1434,9 @@ function AdminDashboard({ usuario, onLogout, state }) {
     <div className="app-layout">
       <aside className="sidebar">
         <div className="brand">
-          <img src="/assets/platino-icon.png" alt="CeliOS" className="brand-icon" />
+          <img src="/assets/platino-infohub-icon.png" alt="Platino" className="brand-icon" />
           <div>
-            <strong>CeliOS</strong>
+            <strong>PLATINO</strong>
             <span>Operating Workspace</span>
           </div>
         </div>
@@ -1461,7 +1783,11 @@ function AdminDashboard({ usuario, onLogout, state }) {
                             }
                           >
                             {STATUS_TAREFA.map((item) => (
-                              <option key={item.valor} value={item.valor}>
+                              <option
+                                disabled={item.valor === "devolvida"}
+                                key={item.valor}
+                                value={item.valor}
+                              >
                                 {item.rotulo}
                               </option>
                             ))}
@@ -1721,6 +2047,15 @@ function AdminDashboard({ usuario, onLogout, state }) {
                             {tarefa.apontamento}
                           </div>
                         )}
+                        {tarefa.status === "devolvida" && (
+                          <div className="return-alert">
+                            <div>
+                              <strong>Devolvida · {tarefa.motivo_devolucao || "Correção necessária"}</strong>
+                              <small>{formatarDataHora(tarefa.devolvida_em)}</small>
+                            </div>
+                            <p>{tarefa.comentario_devolucao || "A colaboradora solicitou correção antes de continuar."}</p>
+                          </div>
+                        )}
                         <small>
                           Responsavel: {nomeResponsavel} | Prazo:{" "}
                           {formatarData(tarefa.data_limite)}
@@ -1901,28 +2236,46 @@ function AdminDashboard({ usuario, onLogout, state }) {
             <div className="panel">
               <h2>Gestão de membros da equipe</h2>
               <div className="team-list">
-                {equipeCompleta.map((f) => (
-                  <div className={`team-member ${f.ativo === false ? "member-inactive" : ""}`} key={f.id}>
-                    <div className="member-avatar">{f.nome?.charAt(0)}</div>
-                    <div>
-                      <strong>{f.nome}</strong>
-                      <p>{f.cargo || "Cargo não informado"} · {f.setor || "Setor não informado"}</p>
-                      <span className={`member-status ${f.ativo === false ? "inactive" : "active"}`}>
-                        {f.ativo === false ? "Inativa" : "Ativa"}
-                      </span>
-                      <span className="points-badge">{f.pontos || 0} pontos acumulados</span>
+                {equipeCompleta.map((f) => {
+                  const performance = performanceEquipe.get(String(f.id));
+                  return (
+                    <div className={`team-member ${f.ativo === false ? "member-inactive" : ""} ${performance?.altaPerformance ? "member-high-performance" : ""}`} key={f.id}>
+                      <AvatarMembro funcionario={f} performance={performance} />
+                      <div className="member-details">
+                        <div className="member-name-row">
+                          <strong>{f.nome}</strong>
+                          <PerformanceBadge performance={performance} mostrarRotulo />
+                        </div>
+                        <p>{f.cargo || "Cargo não informado"} · {f.setor || "Setor não informado"}</p>
+                        <span className={`member-status ${f.ativo === false ? "inactive" : "active"}`}>
+                          {f.ativo === false ? "Inativa" : "Ativa"}
+                        </span>
+                        <span className="points-badge">{f.pontos || 0} pontos acumulados</span>
+                        <div className={`weekly-performance ${performance?.perdas ? "has-loss" : ""}`}>
+                          <strong>
+                            {performance?.percentualPerda === null
+                              ? "Semana ainda sem prazos avaliados"
+                              : `${performance.percentualPerda}% de perda de prazos`}
+                          </strong>
+                          {performance?.avaliadas > 0 && (
+                            <small>
+                              {performance.avaliadas} prazo(s) avaliado(s) · {performance.perdas} atraso(s)
+                            </small>
+                          )}
+                        </div>
+                      </div>
+                      <div className="member-actions">
+                        <button className="btn-secondary compact" onClick={() => iniciarCadastroIntegrante(f)}>Editar</button>
+                        <button className="btn-success compact" onClick={() => alterarPontosFuncionario(f.id, 10)}>+10</button>
+                        <button className="btn-danger compact" onClick={() => alterarPontosFuncionario(f.id, -10)}>-10</button>
+                        <button className="btn-secondary compact" onClick={() => transferirTarefasFuncionario(f)}>Transferir</button>
+                        <button className="btn-danger compact" onClick={() => f.ativo === false ? reativarIntegrante(f) : iniciarDesligamento(f)}>
+                          {f.ativo === false ? "Reativar" : "Inativar"}
+                        </button>
+                      </div>
                     </div>
-                    <div className="member-actions">
-                      <button className="btn-secondary compact" onClick={() => iniciarCadastroIntegrante(f)}>Editar</button>
-                      <button className="btn-success compact" onClick={() => alterarPontosFuncionario(f.id, 10)}>+10</button>
-                      <button className="btn-danger compact" onClick={() => alterarPontosFuncionario(f.id, -10)}>-10</button>
-                      <button className="btn-secondary compact" onClick={() => transferirTarefasFuncionario(f)}>Transferir</button>
-                      <button className="btn-danger compact" onClick={() => f.ativo === false ? reativarIntegrante(f) : iniciarDesligamento(f)}>
-                        {f.ativo === false ? "Reativar" : "Inativar"}
-                      </button>
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
 
@@ -2062,6 +2415,7 @@ function EmployeeDashboard({ usuario, onLogout, state }) {
   } = state;
   const [abaAtiva, setAbaAtiva] = useState("tarefas");
   const [tarefaConcluindoId, setTarefaConcluindoId] = useState(null);
+  const [tarefaEmDevolucao, setTarefaEmDevolucao] = useState(null);
   const [paginaPendentes, setPaginaPendentes] = useState(1);
 
   const minhasTarefas = listaTarefas.filter(
@@ -2069,6 +2423,7 @@ function EmployeeDashboard({ usuario, onLogout, state }) {
   );
   const tarefasPendentes = minhasTarefas.filter((tarefa) => STATUS_ABERTOS.has(tarefa.status));
   const tarefasConcluidas = minhasTarefas.filter((tarefa) => tarefa.status === "concluida");
+  const minhaPerformance = calcularPerformanceSemanal(usuario.id, minhasTarefas);
   const tarefasPendentesVisiveis = tarefasPendentes.slice(
     (paginaPendentes - 1) * ITENS_POR_PAGINA,
     paginaPendentes * ITENS_POR_PAGINA,
@@ -2107,16 +2462,86 @@ function EmployeeDashboard({ usuario, onLogout, state }) {
     }
   }
 
+  function atualizarTarefaLocal(tarefaAtualizada) {
+    setListaTarefas((atuais) =>
+      atuais.map((item) =>
+        String(item.id) === String(tarefaAtualizada.id)
+          ? tarefaAtualizada
+          : item,
+      ),
+    );
+  }
+
+  async function devolverTarefa({ motivo, comentario }) {
+    try {
+      const { data, error } = await supabase.rpc("devolver_tarefa", {
+        p_tarefa_id: Number(tarefaEmDevolucao.id),
+        p_motivo: motivo,
+        p_comentario: comentario,
+      });
+      if (error) throw error;
+      const tarefaAtualizada = Array.isArray(data) ? data[0] : data;
+      if (!tarefaAtualizada) {
+        throw new Error("O banco não confirmou a devolução.");
+      }
+
+      atualizarTarefaLocal(tarefaAtualizada);
+      setTarefaEmDevolucao(null);
+      await recarregarTarefas();
+      showToast("Tarefa devolvida com motivo e comentário registrados.");
+    } catch (error) {
+      console.error("Erro ao devolver tarefa:", error);
+      alert(`Não foi possível devolver a tarefa: ${error.message}`);
+    }
+  }
+
+  function checklistAtualizado(tarefaAtualizada) {
+    atualizarTarefaLocal(tarefaAtualizada);
+    showToast("Check-in confirmado: 5 documentos validados.");
+  }
+
   async function concluirTarefa(tarefa) {
+    if (
+      tarefaExigeChecklistDocumentos(tarefa) &&
+      !checklistDocumentosCompleto(tarefa)
+    ) {
+      alert(
+        "A Etapa 2 está bloqueada. Confirme obrigatoriamente os 5 documentos iniciais antes de avançar para o Jurídico.",
+      );
+      return;
+    }
+
     setTarefaConcluindoId(tarefa.id);
 
-    const { data: tarefaAtualizada, error } = await supabase
-      .from("tarefas")
-      .update({ status: "concluida" })
-      .eq("id", tarefa.id)
-      .eq("funcionaria_id", usuario.id)
-      .select("id, status")
-      .maybeSingle();
+    let tarefaAtualizada;
+    let error;
+
+    if (tarefa.origem === "esteira") {
+      const resposta = await supabase.rpc(
+        "concluir_tarefa_e_liberar_proxima",
+        {
+          p_tarefa_id: Number(tarefa.id),
+          p_evidencia_url: tarefaExigeChecklistDocumentos(tarefa)
+            ? "checklist://5-documentos-iniciais-confirmados"
+            : tarefa.evidencia_url || null,
+          p_resultado: tarefaExigeChecklistDocumentos(tarefa)
+            ? "regular"
+            : "nao_se_aplica",
+        },
+      );
+      error = resposta.error;
+      tarefaAtualizada = resposta.data?.tarefa_concluida || null;
+    } else {
+      const resposta = await supabase
+        .from("tarefas")
+        .update({ status: "concluida" })
+        .eq("id", tarefa.id)
+        .eq("funcionaria_id", usuario.id)
+        .select("*")
+        .maybeSingle();
+      error = resposta.error;
+      tarefaAtualizada = resposta.data;
+    }
 
     if (error) {
       console.error("Erro ao concluir tarefa:", error);
@@ -2133,13 +2558,7 @@ function EmployeeDashboard({ usuario, onLogout, state }) {
       return;
     }
 
-    setListaTarefas((atuais) =>
-      atuais.map((item) =>
-        String(item.id) === String(tarefa.id)
-          ? { ...item, status: "concluida" }
-          : item,
-      ),
-    );
+    atualizarTarefaLocal(tarefaAtualizada);
 
     try {
       await recarregarTarefas();
@@ -2156,9 +2575,9 @@ function EmployeeDashboard({ usuario, onLogout, state }) {
     <div className="app-layout">
       <aside className="sidebar">
         <div className="brand">
-         <img src="/assets/platino-icon.png" alt="CeliOS" className="brand-icon" />
+          <img src="/assets/platino-infohub-icon.png" alt="Platino" className="brand-icon" />
           <div>
-            <strong>CeliOS</strong>
+            <strong>PLATINO</strong>
             <span>Operating Workspace</span>
           </div>
         </div>
@@ -2181,9 +2600,21 @@ function EmployeeDashboard({ usuario, onLogout, state }) {
             <h1>Olá, {usuario.nome}</h1>
             <p>Acompanhe sua pauta diária na esteira operacional.</p>
           </div>
-          <div className="profile-pill">
+          <div className={`profile-pill ${minhaPerformance.altaPerformance ? "profile-high-performance" : ""}`}>
+            <AvatarMembro
+              compacto
+              funcionario={usuario}
+              performance={minhaPerformance}
+            />
             <span className="online-dot" />
-            <div><small>Colaboradora online</small><span>{usuario.cargo}</span></div>
+            <div>
+              <small>Colaboradora online</small>
+              <span>{usuario.cargo}</span>
+              <PerformanceBadge
+                mostrarRotulo
+                performance={minhaPerformance}
+              />
+            </div>
           </div>
         </header>
 
@@ -2245,10 +2676,31 @@ function EmployeeDashboard({ usuario, onLogout, state }) {
                         <strong>Apontamento:</strong> {tarefa.apontamento}
                       </div>
                     )}
+                    {tarefa.status === "devolvida" && (
+                      <div className="return-alert employee-return-alert">
+                        <div>
+                          <strong>Devolvida para correção</strong>
+                          <small>{formatarDataHora(tarefa.devolvida_em)}</small>
+                        </div>
+                        <p>
+                          {tarefa.motivo_devolucao}
+                          {tarefa.comentario_devolucao
+                            ? ` · ${tarefa.comentario_devolucao}`
+                            : ""}
+                        </p>
+                      </div>
+                    )}
                     <small>
                       Prazo final: {formatarData(tarefa.data_limite)} |
                       Recompensa: +{tarefa.pontos_tarefa || 10} Pontos
                     </small>
+                    {tarefaExigeChecklistDocumentos(tarefa) && (
+                      <ChecklistDocumentos
+                        key={`${tarefa.id}-${tarefa.updated_at || ""}`}
+                        onAtualizada={checklistAtualizado}
+                        tarefa={tarefa}
+                      />
+                    )}
                   </div>
                   <div className="task-actions">
                     {tarefa.categoria && (
@@ -2264,13 +2716,38 @@ function EmployeeDashboard({ usuario, onLogout, state }) {
                     <span className={`status ${tarefa.status}`}>
                       {rotuloStatusTarefa(tarefa.status)}
                     </span>
-                    <button
-                      className="btn-success"
-                      disabled={tarefaConcluindoId === tarefa.id}
-                      onClick={() => concluirTarefa(tarefa)}
-                    >
-                      {tarefaConcluindoId === tarefa.id ? "Confirmando..." : "Concluir"}
-                    </button>
+                    {tarefa.status === "devolvida" ? (
+                      <small className="return-waiting">
+                        Aguardando correção da solicitante
+                      </small>
+                    ) : (
+                      <>
+                        <button
+                          className="btn-return"
+                          disabled={tarefaConcluindoId === tarefa.id}
+                          onClick={() => setTarefaEmDevolucao(tarefa)}
+                        >
+                          Devolver tarefa
+                        </button>
+                        <button
+                          className="btn-success"
+                          disabled={
+                            tarefaConcluindoId === tarefa.id ||
+                            (tarefaExigeChecklistDocumentos(tarefa) &&
+                              !checklistDocumentosCompleto(tarefa))
+                          }
+                          onClick={() => concluirTarefa(tarefa)}
+                          title={
+                            tarefaExigeChecklistDocumentos(tarefa) &&
+                            !checklistDocumentosCompleto(tarefa)
+                              ? "Confirme os 5 documentos antes de concluir"
+                              : undefined
+                          }
+                        >
+                          {tarefaConcluindoId === tarefa.id ? "Confirmando..." : "Concluir"}
+                        </button>
+                      </>
+                    )}
                   </div>
                 </div>
               ))}
@@ -2341,6 +2818,13 @@ function EmployeeDashboard({ usuario, onLogout, state }) {
         )}
 
       </main>
+      {tarefaEmDevolucao && (
+        <ModalDevolucao
+          onClose={() => setTarefaEmDevolucao(null)}
+          onConfirmar={devolverTarefa}
+          tarefa={tarefaEmDevolucao}
+        />
+      )}
     </div>
   );
 }
@@ -2695,7 +3179,7 @@ export default function App() {
         .sidebar { position: sticky; top: 14px; z-index: 40; display: flex; align-items: center; gap: 18px; margin: 14px clamp(16px, 3vw, 36px) 0; padding: 12px 14px; color: #102a56; background: rgba(255,255,255,.62); border: 1px solid rgba(255,255,255,.75); border-radius: 28px; box-shadow: 0 22px 70px rgba(44, 86, 145, .12), inset 0 1px 0 rgba(255,255,255,.92); backdrop-filter: blur(28px); }
         .sidebar::after { content: ''; position: absolute; inset: 1px; border-radius: inherit; background: linear-gradient(135deg, rgba(255,255,255,.78), transparent 42%, rgba(141,187,255,.13)); pointer-events: none; }
         .brand { display: flex; align-items: center; gap: 12px; position: relative; z-index: 1; min-width: 210px; }
-        .brand-icon { width: 48px; height: 48px; border-radius: 50%; object-fit: contain; background: transparent; box-shadow: 0 10px 24px rgba(19,55,145,.2), 0 0 16px rgba(37,99,235,.18); image-rendering: auto; }
+        .brand-icon { display: block; width: 48px; height: 48px; border-radius: 50%; clip-path: circle(50% at 50% 50%); object-fit: cover; background: transparent; box-shadow: 0 10px 24px rgba(19,55,145,.2), 0 0 16px rgba(37,99,235,.18); image-rendering: auto; }
         .brand strong { display: block; color: #0f2a55; font-size: 16px; letter-spacing: 1.8px; }
         .brand span { display: block; margin-top: 2px; color: #6b7c93; font-size: 9px; text-transform: uppercase; letter-spacing: 1.2px; }
         .sidebar nav { flex: 1; display: flex; align-items: center; justify-content: center; gap: 8px; position: relative; z-index: 2; }
@@ -4282,11 +4766,73 @@ export default function App() {
         .login-page-liquid .login-footer-minimal span + span { padding-left: 18px !important; border-left: 1px solid #cbd5e1 !important; }
         .login-page-liquid .login-footer-minimal strong { color: #356fd3 !important; }
 
+        /* Gamificação semanal, devolução obrigatória e check-in documental */
+        .sr-only { position: absolute !important; width: 1px !important; height: 1px !important; padding: 0 !important; margin: -1px !important; overflow: hidden !important; clip: rect(0, 0, 0, 0) !important; white-space: nowrap !important; border: 0 !important; }
+        .performance-badge { display: inline-flex; align-items: center; justify-content: center; min-width: 22px; height: 22px; padding: 0 5px; color: #79520a; background: linear-gradient(145deg, #fff7bd, #f6c84a); border: 1px solid rgba(207,148,25,.45); border-radius: 999px; box-shadow: 0 5px 14px rgba(190,132,17,.24), inset 0 1px 0 rgba(255,255,255,.9); font-size: 13px; line-height: 1; }
+        .performance-badge.with-label { gap: 5px; height: 24px; padding: 0 8px; }
+        .performance-badge.with-label strong { color: #79520a; font-size: 8px; font-weight: 900; letter-spacing: .55px; text-transform: uppercase; }
+        .member-avatar-wrap { position: relative; width: 43px; height: 43px; flex: 0 0 auto; }
+        .member-avatar-wrap .member-avatar { overflow: hidden; }
+        .member-avatar-wrap .member-avatar img { width: 100%; height: 100%; object-fit: cover; }
+        .member-avatar-wrap > .performance-badge { position: absolute; right: -8px; bottom: -7px; z-index: 2; }
+        .member-avatar-wrap.compact { width: 38px; height: 38px; }
+        .member-avatar-wrap.compact .member-avatar { width: 38px; height: 38px; border-radius: 12px; }
+        .member-avatar-wrap.compact > .performance-badge { right: -7px; bottom: -8px; }
+        .member-name-row { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
+        .member-name-row > strong { display: inline-block; }
+        .member-details { min-width: 0; }
+        .team-member.member-high-performance { border-color: rgba(225,174,55,.44); background: linear-gradient(135deg, rgba(255,252,230,.92), rgba(246,251,255,.82)); box-shadow: 0 12px 34px rgba(190,132,17,.1); }
+        .weekly-performance { display: flex; flex-direction: column; gap: 1px; margin-top: 8px; padding: 7px 9px; color: #2d7b69; background: rgba(216,247,236,.7); border-radius: 9px; }
+        .weekly-performance strong { color: inherit; font-size: 9px; }
+        .weekly-performance small { color: #648078; font-size: 8px; }
+        .weekly-performance.has-loss { color: #b34c58; background: rgba(255,226,229,.72); }
+        .profile-pill.profile-high-performance { border-color: rgba(225,174,55,.42); background: linear-gradient(135deg, rgba(255,251,222,.94), rgba(238,247,255,.92)); box-shadow: 0 10px 30px rgba(190,132,17,.1); }
+        .profile-pill .performance-badge { display: inline-flex; width: max-content; margin-top: 5px; }
+        .profile-pill .performance-badge > span { display: inline; margin: 0; color: #79520a; font-size: 12px; }
+        .profile-pill .performance-badge strong { display: inline; }
+        .status.devolvida { color: #a64250; background: rgba(255,222,226,.74); border: 1px solid rgba(198,69,86,.2); }
+        .btn-return { display: inline-flex; align-items: center; justify-content: center; gap: 8px; padding: 11px 16px; color: #fff; background: linear-gradient(135deg, #de6a77, #bd4657); border: 0; border-radius: 12px; box-shadow: 0 8px 20px rgba(189,70,87,.2); cursor: pointer; font-size: 11px; font-weight: 800; transition: .2s ease; }
+        .btn-return:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 11px 24px rgba(189,70,87,.28); }
+        .btn-return:disabled { opacity: .48; cursor: not-allowed; box-shadow: none; }
+        .modal-backdrop { position: fixed; z-index: 9999; inset: 0; display: grid; place-items: center; padding: 20px; background: rgba(12,32,64,.5); backdrop-filter: blur(8px); }
+        .return-modal { width: min(560px, 100%); padding: 26px; color: var(--text); background: rgba(255,255,255,.98); border: 1px solid rgba(255,255,255,.92); border-radius: 22px; box-shadow: 0 32px 90px rgba(13,37,76,.3); }
+        .return-modal-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 18px; margin-bottom: 22px; }
+        .return-modal-heading h2 { margin: 5px 0 3px; color: var(--dark); font-size: 21px; }
+        .return-modal-heading p { margin: 0; font-size: 12px; }
+        .modal-close { width: 34px; height: 34px; color: #5d7089; background: #edf4fb; border: 0; border-radius: 10px; cursor: pointer; font-size: 23px; line-height: 1; }
+        .return-form label { gap: 7px; }
+        .field-help, .field-ok { margin-top: -2px; font-size: 9px; }
+        .field-help { color: #8b6870; }
+        .field-ok { color: #278a72; }
+        .return-modal-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 4px; }
+        .return-alert { margin: 10px 0; padding: 12px 14px; color: #803642; background: linear-gradient(135deg, rgba(255,234,237,.92), rgba(255,246,241,.88)); border: 1px solid rgba(196,70,87,.18); border-left: 4px solid #cf5363; border-radius: 11px; }
+        .return-alert > div { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+        .return-alert strong { color: #943c49; font-size: 11px; }
+        .return-alert small { color: #9c6f76; font-size: 8px; }
+        .return-alert p { margin: 5px 0 0; color: #76545a; font-size: 10px; line-height: 1.5; }
+        .return-waiting { max-width: 145px; color: #a15560; font-size: 9px; font-weight: 800; line-height: 1.35; text-align: right; }
+        .document-checklist { width: min(680px, 100%); margin-top: 16px; padding: 16px; background: linear-gradient(145deg, rgba(244,249,255,.95), rgba(255,255,255,.94)); border: 1px solid rgba(85,137,205,.2); border-radius: 15px; box-shadow: inset 0 1px 0 rgba(255,255,255,.9); }
+        .document-checklist.complete { border-color: rgba(54,170,143,.3); background: linear-gradient(145deg, rgba(235,252,246,.95), rgba(255,255,255,.96)); }
+        .document-checklist-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
+        .document-checklist-heading h4 { margin: 3px 0 0; color: #183b69; font-size: 14px; }
+        .checklist-progress { flex: 0 0 auto; padding: 5px 8px; color: #326dbd; background: #e4f0ff; border-radius: 999px; font-size: 9px; font-weight: 900; }
+        .document-checklist.complete .checklist-progress { color: #247b67; background: #daf5ec; }
+        .document-checklist-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+        .document-checklist-grid label { display: flex; align-items: center; gap: 9px; min-height: 38px; padding: 8px 10px; color: #536a86; background: rgba(255,255,255,.8); border: 1px solid rgba(104,148,201,.15); border-radius: 10px; cursor: pointer; font-size: 10px; font-weight: 750; }
+        .document-checklist-grid label.checked { color: #247b67; background: rgba(222,249,240,.78); border-color: rgba(54,170,143,.28); }
+        .document-checklist-grid input { width: 16px; height: 16px; accent-color: #35aa91; }
+        .document-checklist > p { margin: 11px 0 9px; color: #718199; font-size: 9px; }
+        .checklist-confirmed { margin-top: 11px; padding: 9px 11px; color: #247b67; background: rgba(214,246,236,.82); border-radius: 9px; font-size: 10px; font-weight: 800; }
+
         @media (max-width: 520px) {
           .login-page-liquid { padding: 22px 16px 70px !important; }
           .login-page-liquid .login-card { padding: 36px 25px 30px !important; border-radius: 17px !important; }
           .login-page-liquid .login-brand { margin-bottom: 32px !important; }
           .login-page-liquid .login-footer-minimal { display: flex !important; bottom: 20px !important; }
+          .document-checklist-grid { grid-template-columns: 1fr; }
+          .return-modal { padding: 21px 17px; border-radius: 18px; }
+          .return-modal-actions { flex-direction: column-reverse; }
+          .return-modal-actions button { width: 100%; }
         }
 
       `}</style>
