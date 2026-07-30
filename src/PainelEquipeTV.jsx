@@ -184,7 +184,7 @@ export default function PainelEquipeTV({
             tarefa.data_limite &&
             tarefa.data_limite < new Date().toISOString().slice(0, 10),
         )
-        .sort((a, b) => String(a.data_limite).localeCompare(String(b.data_limite))),
+        .sort((a, b) => String(a.data_limite).localeCompare(String(b.data_limite)));
     },
     [tarefasVisiveis, agora],
   );
