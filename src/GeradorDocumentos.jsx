@@ -117,6 +117,24 @@ async function gerarDocumento(dados, modelo, numeroDocumento) {
       "./lib/declaracaoAusenciaCarteiraTrabalhoPdf"
     );
     bytes = await gerarDeclaracaoAusenciaCarteiraTrabalhoPdf(dados);
+  } else if (modelo.modo === "modelo-laudo-original") {
+    const resposta = await fetch("/modelos/laudo-pericial-contabil-layout.pdf");
+    if (!resposta.ok) {
+      throw new Error("NÃ£o foi possÃ­vel carregar o modelo original do laudo.");
+    }
+    bytes = await resposta.arrayBuffer();
+  } else if (
+    [
+      "certidao-diligencia",
+      "recibo-prestacao-servicos",
+      "relatorio-negociacao-homologacao",
+      "termo-recompra",
+    ].includes(modelo.modo)
+  ) {
+    const { gerarModeloComplementarPdf } = await import(
+      "./lib/modelosComplementaresPdf"
+    );
+    bytes = await gerarModeloComplementarPdf(dados, modelo);
   } else {
     const {
       gerarDeclaracaoHipossuficienciaPdf,
