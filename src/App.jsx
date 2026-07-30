@@ -725,7 +725,7 @@ function Login({ onLogin }) {
       </section>
 
       <div className="login-footer login-footer-minimal">
-        <span>© 2026 <strong>CeliOS</strong></span>
+        <span>© 2026 <strong>Platino equipes</strong></span>
         <span>Versão 2.0.0</span>
       </div>
     </div>
