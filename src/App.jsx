@@ -423,12 +423,37 @@ function PerformanceBadge({ performance, mostrarRotulo = false }) {
   );
 }
 
+function mensagemErroOperacional(error) {
+  const mensagem = error?.message || "Erro desconhecido.";
+  if (error?.code === "PGRST202" || mensagem.includes("schema cache") || mensagem.includes("delegar_tarefa_operacional")) {
+    return "O motor operacional ainda não foi instalado no Supabase. Execute o arquivo supabase/motor_operacional_tarefas_2026.sql no SQL Editor e tente novamente.";
+  }
+  return mensagem;
+}
+
+const AVATARES_EQUIPE = {
+  "tabata@platino.com": "0% 0%",
+  "nicolas@platino.com": "50% 0%",
+  "giullian@platino.com": "100% 0%",
+  "yasmin@adm.com": "0% 100%",
+  "tafa@adm.com": "50% 100%",
+};
+
 function AvatarMembro({ funcionario, performance, compacto = false }) {
+  const email = funcionario?.email?.trim().toLowerCase();
+  const posicaoSprite = AVATARES_EQUIPE[email];
   return (
     <div className={`member-avatar-wrap ${compacto ? "compact" : ""}`}>
       <div className="member-avatar">
         {funcionario?.foto_url ? (
           <img src={funcionario.foto_url} alt={`Foto de ${funcionario.nome}`} />
+        ) : posicaoSprite ? (
+          <span
+            aria-label={`Foto de ${funcionario.nome}`}
+            className="employee-avatar-sprite"
+            role="img"
+            style={{ backgroundPosition: posicaoSprite }}
+          />
         ) : (
           funcionario?.nome?.charAt(0) || "?"
         )}
@@ -1015,7 +1040,7 @@ function AdminDashboard({ usuario, onLogout, state }) {
     }
 
     if (error) {
-      alert("Erro ao salvar tarefa: " + error.message);
+      alert("Erro ao salvar tarefa: " + mensagemErroOperacional(error));
     } else {
       setListaTarefas((anteriores) => [data, ...anteriores]);
       showToast(
@@ -2515,10 +2540,63 @@ function AdminDashboard({ usuario, onLogout, state }) {
 // 5. PAINEL DA FUNCIONÁRIA (ATUALIZADO COM PLANNER E HISTÓRICO)
 // ==========================================
 
+function FormularioDelegacaoUsuario({ usuario, funcionarios, onCriada, showToast }) {
+  const [form, setForm] = useState({ cliente: "", tipo: CATEGORIAS_TAREFA[0], outraAcao: "", titulo: "", solicitacao: "", resultado: "", setorExecutor: "Administrativo", responsavelId: "", prazo: "", prioridade: "normal" });
+  const [salvando, setSalvando] = useState(false);
+  const [destinatarios, setDestinatarios] = useState(funcionarios || []);
+  useEffect(() => {
+    supabase.rpc("listar_destinatarios_tarefa").then(({ data, error }) => {
+      if (!error && data) setDestinatarios(data);
+    });
+  }, []);
+  const equipeDisponivel = destinatarios.filter((item) => item.ativo !== false && String(item.id) !== String(usuario.id));
+  const alterar = (campo, valor) => setForm((atual) => ({ ...atual, [campo]: valor }));
+
+  async function delegar(event) {
+    event.preventDefault();
+    if (form.tipo === "OUTROS" && !form.outraAcao.trim()) return alert("Descreva a ação solicitada.");
+    setSalvando(true);
+    try {
+      const { data, error } = await supabase.rpc("delegar_tarefa_operacional", {
+        p_cliente_id: null, p_tratativa_id: null, p_nome_cliente: form.cliente.trim(),
+        p_tipo_codigo: CODIGOS_TIPO_TAREFA[form.tipo], p_titulo: form.titulo.trim(),
+        p_solicitacao: `${form.tipo === "OUTROS" ? `Ação: ${form.outraAcao.trim()}\n` : ""}${form.solicitacao.trim()}`,
+        p_resultado_esperado: form.resultado.trim(),
+        p_setor_solicitante: usuario.setor || usuario.cargo || "Equipe",
+        p_setor_executor: form.setorExecutor, p_funcionaria_id: Number(form.responsavelId),
+        p_prazo_limite: new Date(form.prazo).toISOString(), p_prioridade: form.prioridade,
+        p_criterios: null,
+      });
+      if (error) throw error;
+      const criada = Array.isArray(data) ? data[0] : data;
+      onCriada(criada);
+      showToast(`Tarefa ${criada.id_externo || criada.id} delegada com sucesso.`);
+      setForm({ cliente: "", tipo: CATEGORIAS_TAREFA[0], outraAcao: "", titulo: "", solicitacao: "", resultado: "", setorExecutor: "Administrativo", responsavelId: "", prazo: "", prioridade: "normal" });
+    } catch (error) {
+      alert(`Não foi possível delegar a tarefa: ${mensagemErroOperacional(error)}`);
+    } finally { setSalvando(false); }
+  }
+
+  return <section className="panel large">
+    <div className="panel-title-row"><div><span className="eyebrow">Delegação entre setores</span><h2>Delegar nova tarefa</h2><p>Você será registrado automaticamente como solicitante.</p></div></div>
+    <form className="stack-form task-form" onSubmit={delegar}>
+      <div className="task-form-row"><label>Cliente<input required value={form.cliente} onChange={(e) => alterar("cliente", e.target.value)} /></label><label>Ação<select required value={form.tipo} onChange={(e) => alterar("tipo", e.target.value)}>{CATEGORIAS_TAREFA.map((tipo) => <option key={tipo}>{tipo}</option>)}</select></label></div>
+      {form.tipo === "OUTROS" && <label>Descreva a ação<input required value={form.outraAcao} onChange={(e) => alterar("outraAcao", e.target.value)} /></label>}
+      <label>Título<input required value={form.titulo} onChange={(e) => alterar("titulo", e.target.value)} placeholder="Resumo objetivo da tarefa" /></label>
+      <label>Solicitação<textarea required rows="4" value={form.solicitacao} onChange={(e) => alterar("solicitacao", e.target.value)} placeholder="O que precisa ser feito?" /></label>
+      <label>Resultado esperado<textarea required rows="3" value={form.resultado} onChange={(e) => alterar("resultado", e.target.value)} placeholder="O que deve ser entregue e como será comprovado?" /></label>
+      <div className="task-form-row"><label>Setor executor<select value={form.setorExecutor} onChange={(e) => alterar("setorExecutor", e.target.value)}><option>Administrativo</option><option>Jurídico</option><option>Comercial</option><option>Processual</option></select></label><label>Responsável<select required value={form.responsavelId} onChange={(e) => alterar("responsavelId", e.target.value)}><option value="">Selecione outro usuário...</option>{equipeDisponivel.map((pessoa) => <option key={pessoa.id} value={pessoa.id}>{pessoa.nome} — {pessoa.setor || pessoa.cargo}</option>)}</select></label></div>
+      <div className="task-form-row"><label>Prazo com horário<input required type="datetime-local" value={form.prazo} onChange={(e) => alterar("prazo", e.target.value)} /></label><label>Prioridade<select value={form.prioridade} onChange={(e) => alterar("prioridade", e.target.value)}><option value="baixa">Baixa</option><option value="normal">Normal</option><option value="alta">Alta</option><option value="critica">Crítica</option></select></label></div>
+      <button className="btn-primary" disabled={salvando} type="submit">{salvando ? "Delegando..." : "Delegar tarefa"}</button>
+    </form>
+  </section>;
+}
+
 function EmployeeDashboard({ usuario, onLogout, state }) {
   const {
     listaTarefas,
     setListaTarefas,
+    funcionarios,
     feedbacks,
     responsabilidadesMensais,
     recarregarTarefas,
@@ -2738,6 +2816,7 @@ function EmployeeDashboard({ usuario, onLogout, state }) {
         <nav>
           <span className="nav-label">Meu espaço</span>
           <NavItem active={abaAtiva === "tarefas"} icon="tarefas" onClick={() => setAbaAtiva("tarefas")}>Minhas Tarefas</NavItem>
+          <NavItem active={abaAtiva === "delegar"} icon="tarefas" onClick={() => setAbaAtiva("delegar")}>Delegar tarefa</NavItem>
           <NavItem active={abaAtiva === "historico"} icon="planner" onClick={() => setAbaAtiva("historico")}>Meu Histórico</NavItem>
           <NavItem active={abaAtiva === "feedbacks"} icon="feedback" onClick={() => setAbaAtiva("feedbacks")}>
             Meus Feedbacks ({meusFeedbacks.length})
@@ -2951,6 +3030,8 @@ function EmployeeDashboard({ usuario, onLogout, state }) {
             </section>
           </div>
         )}
+
+        {abaAtiva === "delegar" && <FormularioDelegacaoUsuario usuario={usuario} funcionarios={funcionarios} showToast={showToast} onCriada={(tarefa) => setListaTarefas((atuais) => [tarefa, ...atuais])} />}
 
         {abaAtiva === "historico" && <MeuHistorico tarefas={tarefasConcluidas} />}
 
@@ -3517,7 +3598,7 @@ export default function App() {
         .btn-danger { color: #bb536b; background: rgba(255,232,238,.8); border: 1px solid rgba(221,109,135,.13); }
         button:disabled { cursor: wait; opacity: .58; transform: none !important; }
         .team-member { display: grid; grid-template-columns: 43px 1fr auto; align-items: center; gap: 13px; padding: 15px; background: rgba(247,251,255,.75); border: 1px solid rgba(104,148,201,.14); border-radius: 16px; }
-        .member-avatar { width: 43px; height: 43px; display: grid; place-items: center; color: #fff; background: linear-gradient(145deg, #83b6f5, #4f82cf); border-radius: 14px; box-shadow: 0 8px 18px rgba(66,114,178,.2); font-weight: 800; }
+        .member-avatar { width: 43px; height: 43px; display: grid; place-items: center; color: #fff; background: linear-gradient(145deg, #83b6f5, #4f82cf); border: 2px solid rgba(255,255,255,.95); border-radius: 50%; box-shadow: 0 8px 18px rgba(66,114,178,.24); font-weight: 800; }
         .team-member strong { display: block; color: var(--dark); font-size: 13px; }
         .team-member p { margin: 2px 0; font-size: 10px; }
         .points-badge { color: var(--green); font-size: 10px; font-weight: 800; }
@@ -4951,9 +5032,10 @@ export default function App() {
         .member-avatar-wrap { position: relative; width: 43px; height: 43px; flex: 0 0 auto; }
         .member-avatar-wrap .member-avatar { overflow: hidden; }
         .member-avatar-wrap .member-avatar img { width: 100%; height: 100%; object-fit: cover; }
+        .employee-avatar-sprite { width: 100%; height: 100%; display: block; background-image: url('/assets/equipe/avatares-equipe-2026.png'); background-repeat: no-repeat; background-size: 300% 200%; }
         .member-avatar-wrap > .performance-badge { position: absolute; right: -8px; bottom: -7px; z-index: 2; }
-        .member-avatar-wrap.compact { width: 38px; height: 38px; }
-        .member-avatar-wrap.compact .member-avatar { width: 38px; height: 38px; border-radius: 12px; }
+        .member-avatar-wrap.compact { width: 46px; height: 46px; }
+        .member-avatar-wrap.compact .member-avatar { width: 46px; height: 46px; border-radius: 50%; }
         .member-avatar-wrap.compact > .performance-badge { right: -7px; bottom: -8px; }
         .member-name-row { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
         .member-name-row > strong { display: inline-block; }

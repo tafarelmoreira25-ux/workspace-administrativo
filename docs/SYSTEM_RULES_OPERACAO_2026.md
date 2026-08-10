@@ -11,6 +11,7 @@ Uma tarefa nunca representa o cliente. Uma tratativa reúne tarefas de um mesmo 
 ## Papéis
 
 - Supervisores: Tafarel e Nicolas. Podem delegar, transferir, conferir, solicitar correção, cancelar e consultar toda a auditoria.
+- Usuário da equipe: pode delegar uma tarefa para outro usuário; o sistema registra automaticamente sua identidade como solicitante.
 - Executor: usuário designado. Pode aceitar, iniciar, aguardar informação, responder/devolver e devolver para conferência.
 - Solicitante: autor da delegação. Recebe a devolutiva e as notificações de conferência.
 - IA: auxilia preenchimento, classificação, resumo e detecção de inconsistências; nunca aceita evidência nem aprova conclusão.

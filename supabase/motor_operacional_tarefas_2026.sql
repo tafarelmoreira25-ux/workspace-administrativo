@@ -158,6 +158,17 @@ end $$;
 revoke all on function public.registrar_evento_tarefa(bigint,text,text,text,text,jsonb) from public;
 revoke all on function public.notificar_tarefa(bigint,bigint,text,text,text,text) from public;
 
+create or replace function public.listar_destinatarios_tarefa()
+returns table(id bigint,nome text,cargo text,setor text)
+language sql stable security definer set search_path=public as $$
+  select f.id,f.nome,f.cargo,f.setor from public.funcionarios f
+  where f.ativo is not false
+    and (public.usuario_e_admin() or public.funcionario_id_autenticado() is not null)
+  order by f.nome;
+$$;
+revoke all on function public.listar_destinatarios_tarefa() from public;
+grant execute on function public.listar_destinatarios_tarefa() to authenticated;
+
 create or replace function public.delegar_tarefa_operacional(
   p_cliente_id bigint,p_tratativa_id bigint,p_nome_cliente text,p_tipo_codigo text,
   p_titulo text,p_solicitacao text,p_resultado_esperado text,p_setor_solicitante text,
@@ -166,7 +177,9 @@ create or replace function public.delegar_tarefa_operacional(
 ) returns public.tarefas language plpgsql security definer set search_path=public as $$
 declare t public.tarefas; sla public.tipos_tarefa_sla; email_resp text; cliente_final_id bigint; codigo_cliente text;
 begin
-  if not public.usuario_e_admin() then raise exception 'Somente a supervisao pode delegar tarefas.'; end if;
+  if not public.usuario_e_admin() and public.funcionario_id_autenticado() is null then
+    raise exception 'Somente usuarios autenticados da equipe podem delegar tarefas.';
+  end if;
   if nullif(trim(p_nome_cliente),'') is null then raise exception 'Cliente obrigatorio.'; end if;
   if p_funcionaria_id is null then raise exception 'Responsavel obrigatorio.'; end if;
   if p_prazo_limite is null or p_prazo_limite <= now() then raise exception 'Prazo futuro obrigatorio.'; end if;
@@ -285,5 +298,8 @@ revoke all on function public.delegar_tarefa_operacional(bigint,bigint,text,text
 grant execute on function public.delegar_tarefa_operacional(bigint,bigint,text,text,text,text,text,text,text,bigint,timestamptz,text,jsonb) to authenticated;
 revoke all on function public.movimentar_tarefa_operacional(bigint,text,text,jsonb,text,text,text,boolean,boolean) from public;
 grant execute on function public.movimentar_tarefa_operacional(bigint,text,text,jsonb,text,text,text,boolean,boolean) to authenticated;
+
+-- Forca o PostgREST/Supabase a reconhecer imediatamente as novas RPCs.
+notify pgrst, 'reload schema';
 
 commit;

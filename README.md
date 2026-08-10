@@ -52,7 +52,8 @@ das atualizações no CRM e na Planilha Geral.
 
 O POP reconhece **Tafarel** e **Nicolas** como supervisores. Os demais membros
 continuam visualizando somente as tarefas atribuídas ao próprio cadastro e
-podem responder ou devolver uma demanda com justificativa registrada.
+podem delegar tarefas para outro usuário, responder ou devolver uma demanda
+com justificativa registrada. O solicitante é identificado automaticamente.
 
 O motor operacional adiciona a relação **Cliente → Tratativa → Tarefas**, SLAs
 por tipo, aceite formal, execução, espera justificada, devolução para
