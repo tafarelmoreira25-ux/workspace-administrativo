@@ -10,8 +10,9 @@ function formatarData(data) {
 }
 
 export default function MeuHistorico({ tarefas = [] }) {
-  const [limite, setLimite] = useState(15);
-  const tarefasVisiveis = tarefas.slice(0, limite);
+  const [pagina, setPagina] = useState(1);
+  const totalPaginas = Math.max(1, Math.ceil(tarefas.length / 15));
+  const tarefasVisiveis = tarefas.slice((pagina - 1) * 15, pagina * 15);
 
   return (
     <div className="panel large">
@@ -36,15 +37,11 @@ export default function MeuHistorico({ tarefas = [] }) {
           </div>
         ))
       )}
-      {limite < tarefas.length && (
-        <button
-          className="btn-secondary compact"
-          onClick={() => setLimite((atual) => atual + 15)}
-          type="button"
-        >
-          Mostrar mais 15
-        </button>
-      )}
+      {tarefas.length > 15 && <div className="task-history-actions">
+        <button className="btn-secondary compact" disabled={pagina === 1} onClick={() => setPagina((atual) => atual - 1)} type="button">Anterior</button>
+        <small>PÃ¡gina {pagina} de {totalPaginas}</small>
+        <button className="btn-secondary compact" disabled={pagina >= totalPaginas} onClick={() => setPagina((atual) => atual + 1)} type="button">PrÃ³xima</button>
+      </div>}
     </div>
   );
 }

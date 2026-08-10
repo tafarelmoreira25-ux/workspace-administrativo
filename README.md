@@ -37,6 +37,35 @@ obrigatória e o checklist bloqueante dos cinco documentos iniciais, execute:
 
 `supabase/gamificacao_devolucao_checklist.sql`
 
+Para ativar as regras do **POP da Esteira de Tratativas v1.0 (2026)**, execute
+depois dos scripts acima:
+
+`supabase/evolucao_esteiras_administrativas.sql`
+
+`supabase/pop_esteira_tratativas_2026.sql`
+
+`supabase/motor_operacional_tarefas_2026.sql`
+
+Essa migração gera IDs no formato `TSK-AAAAMMDD-001` e impede a conclusão
+sem devolutiva, nome de arquivo padronizado, link do Google Drive e confirmação
+das atualizações no CRM e na Planilha Geral.
+
+O POP reconhece **Tafarel** e **Nicolas** como supervisores. Os demais membros
+continuam visualizando somente as tarefas atribuídas ao próprio cadastro e
+podem responder ou devolver uma demanda com justificativa registrada.
+
+O motor operacional adiciona a relação **Cliente → Tratativa → Tarefas**, SLAs
+por tipo, aceite formal, execução, espera justificada, devolução para
+conferência, aprovação/correção humana, notificações e auditoria imutável.
+Documentos cumpridos não são enviados como PDF ao Workspace: o arquivo fica no
+Drive e o executor informa o link no campo de evidência. Tarefas operacionais
+não utilizam pontos.
+
+As regras determinísticas e o prompt auxiliar da IA ficam separados em:
+
+- `docs/SYSTEM_RULES_OPERACAO_2026.md`
+- `docs/AI_SYSTEM_PROMPT_OPERACAO_2026.md`
+
 Depois, no menu **Authentication > Users**, crie três usuários:
 
 - O supervisor com o e-mail `tafarel@platino.com`.

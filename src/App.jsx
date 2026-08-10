@@ -12,17 +12,40 @@ import { supabase } from "./lib/supabase";
 const ADMIN_EMAIL = (
   import.meta.env.VITE_ADMIN_EMAIL || "tafarel@platino.com"
 ).toLowerCase();
-const ITENS_POR_PAGINA = 20;
+const NOMES_SUPERVISORES = ["tafarel", "nicolas"];
+const ITENS_POR_PAGINA = 15;
 const RESPONSABILIDADE_MENSAL_PREFIXO = "__RESPONSABILIDADE_MENSAL__";
 const CATEGORIAS_TAREFA = [
-  "GOV",
-  "PROCURAÇÕES",
-  "ENC. PROCESSUAL",
-  "AUDIÊNCIA",
-  "SEGUROS",
-  "LAUDO",
+  "CONTRATO",
   "NOTIFICAÇÃO EXTRAJUDICIAL",
+  "GOV",
+  "NOTIFICAÇÃO DE REQUERIMENTO (E-MAIL)",
+  "CANCELAMENTO DE SEGURO",
+  "DOCUMENTOS",
+  "AUXILIAR CLIENTE",
+  "PROCURAÇÕES",
+  "ENCAMINHAR PROCESSUAL",
+  "ATUALIZAÇÃO PROCESSUAL",
+  "CITAÇÃO",
+  "LAUDO",
+  "TERMOS",
+  "AGENDAR AUDIÊNCIA",
+  "DISTRATO",
+  "CERTIDÃO",
+  "HOMOLOGAÇÃO",
+  "CLIENTE SOLICITA RETORNO",
+  "OUTROS",
 ];
+const CODIGOS_TIPO_TAREFA = {
+  "CONTRATO": "CONTRATO", "NOTIFICAÇÃO EXTRAJUDICIAL": "NOTIFICACAO_EXTRAJUDICIAL",
+  "GOV": "GOV", "NOTIFICAÇÃO DE REQUERIMENTO (E-MAIL)": "NOTIFICACAO_EMAIL",
+  "CANCELAMENTO DE SEGURO": "CANCELAMENTO_SEGURO", "DOCUMENTOS": "DOCUMENTOS",
+  "AUXILIAR CLIENTE": "AUXILIAR_CLIENTE", "PROCURAÇÕES": "PROCURACOES",
+  "ENCAMINHAR PROCESSUAL": "ENCAMINHAR_PROCESSUAL", "ATUALIZAÇÃO PROCESSUAL": "ATUALIZACAO_PROCESSUAL",
+  "CITAÇÃO": "CITACAO", "LAUDO": "LAUDO", "TERMOS": "TERMOS",
+  "AGENDAR AUDIÊNCIA": "AGENDAR_AUDIENCIA", "DISTRATO": "DISTRATO", "CERTIDÃO": "CERTIDAO",
+  "HOMOLOGAÇÃO": "HOMOLOGACAO", "CLIENTE SOLICITA RETORNO": "CLIENTE_RETORNO", "OUTROS": "OUTROS",
+};
 const STATUS_TAREFA = [
   { valor: "nova", rotulo: "Nova" },
   { valor: "em_andamento", rotulo: "Em andamento" },
@@ -44,6 +67,13 @@ const STATUS_ABERTOS = new Set([
   "aguardando_banco",
   "aguardando_judiciario",
   "impedida",
+  "delegada",
+  "recebida",
+  "em_execucao",
+  "aguardando_informacao",
+  "devolvida_conferencia",
+  "devolvida_correcao",
+  "bloqueada",
 ]);
 const MOTIVOS_DEVOLUCAO = [
   "Dados incorretos",
@@ -60,6 +90,25 @@ const DOCUMENTOS_INICIAIS = [
   { chave: "comprovante_residencia", rotulo: "Comprovante de residência" },
   { chave: "comprovante_renda", rotulo: "Comprovante de renda" },
 ];
+const PADRAO_NOME_ARQUIVO = /^\d{4}-\d{2}-\d{2}(?:_[A-Z0-9]+(?:-[A-Z0-9]+)*){4}\.[A-Z0-9]{2,5}$/i;
+
+function tarefaAtrasada(tarefa) {
+  if (!STATUS_ABERTOS.has(tarefa?.status) || !tarefa?.data_limite) return false;
+  return tarefa.data_limite < new Date().toISOString().slice(0, 10);
+}
+
+function validarEntregaPop(entrega) {
+  if (!entrega.observacoes?.trim()) return "Informe a devolutiva do que foi executado.";
+  if (!PADRAO_NOME_ARQUIVO.test(entrega.nomeArquivo?.trim() || "")) {
+    return "Nomenclatura inválida. Use DATA_CLIENTE_TIPO-DE-DOCUMENTO_STATUS_RESPONSAVEL.extensão.";
+  }
+  if (!/^https:\/\/(drive|docs)\.google\.com\//i.test(entrega.driveUrl?.trim() || "")) {
+    return "Cole um link válido do Google Drive para comprovar o arquivamento.";
+  }
+  if (!entrega.crmAtualizado) return "Confirme a atualização do CRM.";
+  if (!entrega.planilhaAtualizada) return "Confirme a atualização da Planilha Geral.";
+  return null;
+}
 
 function criarPerfilIntegranteVazio() {
   return {
@@ -114,7 +163,11 @@ async function buscarPerfilUsuario(usuarioAuth) {
     throw new Error("Este perfil está inativo. Procure o supervisor responsável.");
   }
 
-  return { ...data, tipo: "funcionaria" };
+  const nomeNormalizado = normalizarTexto(data.nome || "");
+  const supervisor =
+    /supervisor/i.test(data.cargo || "") ||
+    NOMES_SUPERVISORES.some((nome) => nomeNormalizado.includes(nome));
+  return { ...data, tipo: supervisor ? "admin" : "funcionaria" };
 }
 
 function formatarData(data) {
@@ -177,12 +230,16 @@ function rotuloTipoFeedback(tipo) {
 
 function rotuloStatusTarefa(status) {
   if (status === "pendente") return "Nova";
+  const rotulos = { delegada: "Delegada", recebida: "Recebida", em_execucao: "Em execução", aguardando_informacao: "Aguardando informação", devolvida_conferencia: "Aguardando conferência", devolvida_correcao: "Devolvida para correção", bloqueada: "Bloqueada" };
+  if (rotulos[status]) return rotulos[status];
   return STATUS_TAREFA.find((item) => item.valor === status)?.rotulo || status;
 }
 
 function rotuloPrioridade(prioridade) {
+  if (prioridade === "critica") return "Crítica";
   if (prioridade === "urgente") return "Urgente";
   if (prioridade === "alta") return "Alta";
+  if (prioridade === "baixa") return "Baixa";
   return "Normal";
 }
 
@@ -411,8 +468,8 @@ function ModalDevolucao({ tarefa, onClose, onConfirmar }) {
       >
         <div className="return-modal-heading">
           <div>
-            <span className="eyebrow">Devolução obrigatoriamente justificada</span>
-            <h2 id="devolucao-titulo">Devolver tarefa #{tarefa.id}</h2>
+            <span className="eyebrow">Resposta registrada ao solicitante</span>
+            <h2 id="devolucao-titulo">Responder / devolver tarefa #{tarefa.id_externo || tarefa.id}</h2>
             <p>{tarefa.titulo}</p>
           </div>
           <button
@@ -428,7 +485,7 @@ function ModalDevolucao({ tarefa, onClose, onConfirmar }) {
 
         <form className="stack-form return-form" onSubmit={confirmar}>
           <label>
-            Motivo da devolução
+            Motivo da resposta ou devolução
             <select
               autoFocus
               onChange={(event) => setMotivo(event.target.value)}
@@ -446,7 +503,7 @@ function ModalDevolucao({ tarefa, onClose, onConfirmar }) {
             <textarea
               minLength="10"
               onChange={(event) => setComentario(event.target.value)}
-              placeholder="Explique exatamente o que precisa ser corrigido antes do reenvio."
+              placeholder="Informe a pendência, o erro, a informação necessária ou por que não será possível executar."
               required
               rows="5"
               value={comentario}
@@ -469,13 +526,45 @@ function ModalDevolucao({ tarefa, onClose, onConfirmar }) {
               disabled={enviando || !motivo || !comentarioValido}
               type="submit"
             >
-              {enviando ? "Registrando..." : "Confirmar devolução"}
+              {enviando ? "Registrando..." : "Registrar e devolver"}
             </button>
           </div>
         </form>
       </section>
     </div>
   );
+}
+
+function EntregaPop({ tarefa, valor, onChange }) {
+  const atualizar = (campo, novoValor) => onChange({ ...valor, [campo]: novoValor });
+  const criterios = Array.isArray(tarefa.criterios_conclusao) ? tarefa.criterios_conclusao : [];
+  return (
+    <section className="document-checklist pop-delivery-checklist">
+      <div className="document-checklist-heading">
+        <div><span className="eyebrow">POP 1.0 · prestação de contas</span><h4>Checklist de conclusão</h4></div>
+      </div>
+      <label>Observações / devolutiva<textarea rows="3" value={valor.observacoes || ""} onChange={(e) => atualizar("observacoes", e.target.value)} placeholder="Descreva objetivamente o que foi executado e eventuais pendências." /></label>
+      <label>Nome do arquivo<input value={valor.nomeArquivo || ""} onChange={(e) => atualizar("nomeArquivo", e.target.value)} placeholder="2026-08-10_JOAO-SILVA_PROTOCOLO-GOV_FINAL_ADMINISTRATIVO.pdf" /></label>
+      <label>Link do documento no Drive (não anexar PDF)<input type="url" value={valor.driveUrl || ""} onChange={(e) => atualizar("driveUrl", e.target.value)} placeholder="Cole aqui o link https://drive.google.com/..." /></label>
+      <div className="document-checklist-grid">
+        {criterios.map((criterio) => <label className={valor.checklist?.[criterio] ? "checked" : ""} key={criterio}><input type="checkbox" checked={valor.checklist?.[criterio] || false} onChange={(e) => atualizar("checklist", { ...(valor.checklist || {}), [criterio]: e.target.checked })} /><span>{criterio}</span></label>)}
+        <label className={valor.crmAtualizado ? "checked" : ""}><input type="checkbox" checked={valor.crmAtualizado || false} onChange={(e) => atualizar("crmAtualizado", e.target.checked)} /><span>CRM atualizado</span></label>
+        <label className={valor.planilhaAtualizada ? "checked" : ""}><input type="checkbox" checked={valor.planilhaAtualizada || false} onChange={(e) => atualizar("planilhaAtualizada", e.target.checked)} /><span>Planilha Geral atualizada</span></label>
+      </div>
+      {/(distrato|desist.ncia|fim de servi.o|encerramento)/i.test(normalizarTexto(`${tarefa.titulo} ${tarefa.descricao}`)) && <div className="return-alert"><strong>Arquivo morto:</strong> confirme o distrato assinado e as provas sociais; depois mova a pasta para 02_ARQUIVO_MORTO.</div>}
+    </section>
+  );
+}
+
+function LinhaTempoTarefa({ tarefa }) {
+  const etapas = [
+    ["delegada", "Delegada"], ["recebida", "Aceita"], ["em_execucao", "Executada"],
+    ["devolvida_conferencia", "Em conferência"], ["concluida", "Concluída"],
+  ];
+  const indiceAtual = etapas.findIndex(([status]) => status === tarefa.status);
+  return <div className="task-timeline" aria-label="Linha do tempo da tarefa">
+    {etapas.map(([status, rotulo], indice) => <div className={`task-timeline-step ${indice <= indiceAtual ? "done" : ""}`} key={status}><span>●</span><small>{rotulo}</small></div>)}
+  </div>;
 }
 
 function ChecklistDocumentos({ tarefa, onAtualizada }) {
@@ -774,7 +863,6 @@ function AdminDashboard({ usuario, onLogout, state }) {
   const [titulo, setTitulo] = useState("");
   const [descricao, setDescricao] = useState("");
   const [funcId, setFuncId] = useState("");
-  const [pontosTarefa, setPontosTarefa] = useState(10);
   const [dataLimite, setDataLimite] = useState("");
   const [prioridade, setPrioridade] = useState("normal");
   const [categoria, setCategoria] = useState(CATEGORIAS_TAREFA[0]);
@@ -782,6 +870,11 @@ function AdminDashboard({ usuario, onLogout, state }) {
   const [exibirTv, setExibirTv] = useState(true);
   const [tarefaManual, setTarefaManual] = useState(false);
   const [responsavelManual, setResponsavelManual] = useState("");
+  const [nomeClienteTarefa, setNomeClienteTarefa] = useState("");
+  const [setorSolicitante, setSetorSolicitante] = useState("Supervisão");
+  const [acaoOutra, setAcaoOutra] = useState("");
+  const [setorExecutor, setSetorExecutor] = useState("Administrativo");
+  const [resultadoEsperado, setResultadoEsperado] = useState("");
 
   const [feedbackFuncId, setFeedbackFuncId] = useState("");
   const [feedbackMsg, setFeedbackMsg] = useState("");
@@ -881,11 +974,11 @@ function AdminDashboard({ usuario, onLogout, state }) {
 
   async function handleCriarTarefa(e) {
     e.preventDefault();
-    if (!titulo || (!tarefaManual && !funcId)) {
+    if (!titulo || (!tarefaManual && (!funcId || !dataLimite || !nomeClienteTarefa || !setorSolicitante || !setorExecutor || !descricao.trim() || !resultadoEsperado.trim() || (categoria === "OUTROS" && !acaoOutra.trim())))) {
       return alert(
         tarefaManual
           ? "Preencha o titulo da tarefa manual."
-          : "Preencha o titulo e selecione a responsavel.",
+          : "Preencha cliente, ação, título, setor solicitante, responsável e prazo.",
       );
     }
     setSalvandoTarefa(true);
@@ -909,23 +1002,14 @@ function AdminDashboard({ usuario, onLogout, state }) {
       data = Array.isArray(resposta.data) ? resposta.data[0] : resposta.data;
       error = resposta.error;
     } else {
-      const resposta = await supabase
-        .from("tarefas")
-        .insert({
-          titulo: titulo.trim(),
-          descricao: descricao.trim(),
-          funcionaria_id: Number(funcId),
-          pontos_tarefa: Math.max(0, Number(pontosTarefa) || 0),
-          data_limite: dataLimite || null,
-          status: "nova",
-          prioridade,
-          categoria,
-          apontamento: apontamento.trim() || null,
-          exibir_tv: exibirTv,
-          tarefa_manual: false,
-        })
-        .select()
-        .single();
+      const resposta = await supabase.rpc("delegar_tarefa_operacional", {
+        p_cliente_id: null, p_tratativa_id: null, p_nome_cliente: nomeClienteTarefa.trim(),
+        p_tipo_codigo: CODIGOS_TIPO_TAREFA[categoria], p_titulo: titulo.trim(),
+        p_solicitacao: descricao.trim(), p_resultado_esperado: resultadoEsperado.trim(),
+        p_setor_solicitante: setorSolicitante, p_setor_executor: setorExecutor,
+        p_funcionaria_id: Number(funcId), p_prazo_limite: new Date(dataLimite).toISOString(),
+        p_prioridade: prioridade, p_criterios: null,
+      });
       data = resposta.data;
       error = resposta.error;
     }
@@ -943,6 +1027,9 @@ function AdminDashboard({ usuario, onLogout, state }) {
       setDescricao("");
       setFuncId("");
       setResponsavelManual("");
+      setNomeClienteTarefa("");
+      setAcaoOutra("");
+      setResultadoEsperado("");
       setDataLimite("");
       setPrioridade("normal");
       setCategoria(CATEGORIAS_TAREFA[0]);
@@ -951,6 +1038,22 @@ function AdminDashboard({ usuario, onLogout, state }) {
     }
 
     setSalvandoTarefa(false);
+  }
+
+  async function conferirTarefaOperacional(tarefa, acao) {
+    const motivo = acao === "corrigir"
+      ? window.prompt("Descreva objetivamente a correção necessária (mínimo de 10 caracteres):")
+      : null;
+    if (acao === "corrigir" && (!motivo || motivo.trim().length < 10)) return;
+    const { data, error } = await supabase.rpc("movimentar_tarefa_operacional", {
+      p_tarefa_id: Number(tarefa.id), p_acao: acao, p_motivo: motivo?.trim() || null,
+      p_checklist: null, p_observacoes: null, p_nome_arquivo: null, p_drive_url: null,
+      p_crm_atualizado: false, p_planilha_atualizada: false,
+    });
+    if (error) return alert(`Não foi possível conferir a tarefa: ${error.message}`);
+    const atualizada = Array.isArray(data) ? data[0] : data;
+    setListaTarefas((atuais) => atuais.map((item) => String(item.id) === String(atualizada.id) ? atualizada : item));
+    showToast(acao === "aprovar" ? "Tarefa conferida e concluída." : "Correção enviada ao responsável.");
   }
 
   function iniciarEdicaoTarefa(tarefa) {
@@ -1571,17 +1674,23 @@ function AdminDashboard({ usuario, onLogout, state }) {
                       required
                     />
                   </label>
+                  {!tarefaManual && <div className="task-form-row">
+                    <label>Nome do cliente<input required value={nomeClienteTarefa} onChange={(event) => setNomeClienteTarefa(event.target.value)} placeholder="Nome completo do cliente" /></label>
+                    <label>Setor solicitante<select required value={setorSolicitante} onChange={(event) => setSetorSolicitante(event.target.value)}><option>Supervisão</option><option>Administrativo</option><option>Jurídico</option><option>Comercial</option><option>Processual</option></select></label>
+                  </div>}
                   <label>
-                    Descricao
+                    Solicitação
                     <textarea
-                      placeholder="Descreva a entrega e os procedimentos."
+                      placeholder="Descreva exatamente o que precisa ser executado."
                       value={descricao}
                       onChange={(event) => setDescricao(event.target.value)}
                       rows="4"
+                      required={!tarefaManual}
                     />
                   </label>
+                  {!tarefaManual && <label>Resultado esperado<textarea required rows="3" value={resultadoEsperado} onChange={(event) => setResultadoEsperado(event.target.value)} placeholder="Defina o que deve ser entregue e como será comprovado." /></label>}
                   <label>
-                    Categoria
+                    Ação a ser executada
                     <select
                       value={categoria}
                       onChange={(event) => setCategoria(event.target.value)}
@@ -1594,7 +1703,9 @@ function AdminDashboard({ usuario, onLogout, state }) {
                       ))}
                     </select>
                   </label>
+                  {categoria === "OUTROS" && !tarefaManual && <label>Descreva a outra ação<input required value={acaoOutra} onChange={(event) => setAcaoOutra(event.target.value)} placeholder="Informe exatamente o que deverá ser executado" /></label>}
                   <div className="task-form-row">
+                    {!tarefaManual && <label>Setor executor<select required value={setorExecutor} onChange={(event) => setSetorExecutor(event.target.value)}><option>Administrativo</option><option>Jurídico</option><option>Comercial</option><option>Processual</option></select></label>}
                     {tarefaManual ? (
                       <label>
                         Responsavel ou setor
@@ -1630,31 +1741,21 @@ function AdminDashboard({ usuario, onLogout, state }) {
                         onChange={(event) => setPrioridade(event.target.value)}
                       >
                         <option value="normal">Normal</option>
+                        <option value="baixa">Baixa</option>
                         <option value="alta">Alta</option>
                         <option value="urgente">Urgente</option>
+                        <option value="critica">Crítica</option>
                       </select>
                     </label>
                   </div>
-                  <div className={tarefaManual ? "" : "task-form-row"}>
-                    {!tarefaManual && (
-                      <label>
-                        Pontos
-                        <input
-                          min="0"
-                          type="number"
-                          value={pontosTarefa}
-                          onChange={(event) =>
-                            setPontosTarefa(event.target.value)
-                          }
-                        />
-                      </label>
-                    )}
+                  <div>
                     <label>
-                      Prazo
+                      Prazo obrigatório
                       <input
-                        type="date"
+                        type={tarefaManual ? "date" : "datetime-local"}
                         value={dataLimite}
                         onChange={(event) => setDataLimite(event.target.value)}
+                        required={!tarefaManual}
                       />
                     </label>
                   </div>
@@ -2067,11 +2168,15 @@ function AdminDashboard({ usuario, onLogout, state }) {
                         <small>
                           Responsavel: {nomeResponsavel} | Prazo:{" "}
                           {formatarData(tarefa.data_limite)}
-                          {!tarefa.tarefa_manual &&
+                          {!tarefa.tarefa_manual && tarefa.origem !== "operacional" &&
                             ` | Pontos: ${tarefa.pontos_tarefa ?? 0}`}
                         </small>
                       </div>
                       <div className="admin-task-actions">
+                        {tarefa.status === "devolvida_conferencia" && <>
+                          <button className="btn-success compact" onClick={() => conferirTarefaOperacional(tarefa, "aprovar")}>Aprovar</button>
+                          <button className="btn-return compact" onClick={() => conferirTarefaOperacional(tarefa, "corrigir")}>Solicitar correção</button>
+                        </>}
                         <button
                           className="btn-secondary compact"
                           onClick={() => iniciarEdicaoTarefa(tarefa)}
@@ -2425,11 +2530,21 @@ function EmployeeDashboard({ usuario, onLogout, state }) {
   const [tarefaConcluindoId, setTarefaConcluindoId] = useState(null);
   const [tarefaEmDevolucao, setTarefaEmDevolucao] = useState(null);
   const [paginaPendentes, setPaginaPendentes] = useState(1);
+  const [filtroOperacional, setFiltroOperacional] = useState("pendentes");
+  const [buscaTarefa, setBuscaTarefa] = useState("");
+  const [entregasPop, setEntregasPop] = useState({});
 
   const minhasTarefas = listaTarefas.filter(
     (tarefa) => String(tarefa.funcionaria_id) === String(usuario.id),
   );
-  const tarefasPendentes = minhasTarefas.filter((tarefa) => STATUS_ABERTOS.has(tarefa.status));
+  const termoBusca = normalizarTexto(buscaTarefa.trim());
+  const tarefasPendentes = minhasTarefas.filter((tarefa) => {
+    const encontrada = !termoBusca || normalizarTexto(`${tarefa.id_externo || tarefa.id} ${tarefa.nome_cliente || ""} ${tarefa.titulo || ""} ${usuario.nome}`).includes(termoBusca);
+    if (!encontrada) return false;
+    if (filtroOperacional === "atrasadas") return tarefaAtrasada(tarefa);
+    if (filtroOperacional === "arquivadas") return ["arquivada", "cancelada"].includes(tarefa.status);
+    return STATUS_ABERTOS.has(tarefa.status) && !tarefaAtrasada(tarefa);
+  });
   const tarefasConcluidas = minhasTarefas.filter((tarefa) => tarefa.status === "concluida");
   const minhaPerformance = calcularPerformanceSemanal(usuario.id, minhasTarefas);
   const tarefasPendentesVisiveis = tarefasPendentes.slice(
@@ -2482,11 +2597,16 @@ function EmployeeDashboard({ usuario, onLogout, state }) {
 
   async function devolverTarefa({ motivo, comentario }) {
     try {
-      const { data, error } = await supabase.rpc("devolver_tarefa", {
-        p_tarefa_id: Number(tarefaEmDevolucao.id),
-        p_motivo: motivo,
-        p_comentario: comentario,
-      });
+      const operacional = tarefaEmDevolucao.origem === "operacional";
+      const { data, error } = operacional
+        ? await supabase.rpc("movimentar_tarefa_operacional", {
+            p_tarefa_id: Number(tarefaEmDevolucao.id), p_acao: "devolver_solicitante",
+            p_motivo: `${motivo}: ${comentario}`, p_checklist: null, p_observacoes: comentario,
+            p_nome_arquivo: null, p_drive_url: null, p_crm_atualizado: false, p_planilha_atualizada: false,
+          })
+        : await supabase.rpc("devolver_tarefa", {
+            p_tarefa_id: Number(tarefaEmDevolucao.id), p_motivo: motivo, p_comentario: comentario,
+          });
       if (error) throw error;
       const tarefaAtualizada = Array.isArray(data) ? data[0] : data;
       if (!tarefaAtualizada) {
@@ -2508,6 +2628,23 @@ function EmployeeDashboard({ usuario, onLogout, state }) {
     showToast("Check-in confirmado: 5 documentos validados.");
   }
 
+  async function movimentarTarefa(tarefa, acao, motivo = null) {
+    const { data, error } = await supabase.rpc("movimentar_tarefa_operacional", {
+      p_tarefa_id: Number(tarefa.id), p_acao: acao, p_motivo: motivo,
+      p_checklist: null, p_observacoes: null, p_nome_arquivo: null,
+      p_drive_url: null, p_crm_atualizado: false, p_planilha_atualizada: false,
+    });
+    if (error) return alert(`Não foi possível movimentar a tarefa: ${error.message}`);
+    atualizarTarefaLocal(Array.isArray(data) ? data[0] : data);
+    await recarregarTarefas();
+    showToast(acao === "aceitar" ? "Tarefa aceita e registrada." : "Status da tarefa atualizado.");
+  }
+
+  function informarEspera(tarefa) {
+    const motivo = window.prompt("Informe o que está pendente e de quem depende (mínimo de 10 caracteres):");
+    if (motivo?.trim().length >= 10) movimentarTarefa(tarefa, "aguardar", motivo.trim());
+  }
+
   async function concluirTarefa(tarefa) {
     if (
       tarefaExigeChecklistDocumentos(tarefa) &&
@@ -2519,36 +2656,45 @@ function EmployeeDashboard({ usuario, onLogout, state }) {
       return;
     }
 
+    const entrega = entregasPop[tarefa.id] || {};
+    const falhaPop = validarEntregaPop(entrega);
+    if (falhaPop) {
+      alert(`Tarefa não pode ser concluída. ${falhaPop}`);
+      return;
+    }
+
     setTarefaConcluindoId(tarefa.id);
 
     let tarefaAtualizada;
     let error;
 
-    if (tarefa.origem === "esteira") {
-      const resposta = await supabase.rpc(
-        "concluir_tarefa_e_liberar_proxima",
-        {
-          p_tarefa_id: Number(tarefa.id),
-          p_evidencia_url: tarefaExigeChecklistDocumentos(tarefa)
-            ? "checklist://5-documentos-iniciais-confirmados"
-            : tarefa.evidencia_url || null,
-          p_resultado: tarefaExigeChecklistDocumentos(tarefa)
-            ? "regular"
-            : "nao_se_aplica",
-        },
-      );
+    if (tarefa.origem === "operacional") {
+      const resposta = await supabase.rpc("movimentar_tarefa_operacional", {
+        p_tarefa_id: Number(tarefa.id), p_acao: "devolver_conferencia", p_motivo: null,
+        p_checklist: entrega.checklist || {}, p_observacoes: entrega.observacoes.trim(),
+        p_nome_arquivo: entrega.nomeArquivo.trim(), p_drive_url: entrega.driveUrl.trim(),
+        p_crm_atualizado: entrega.crmAtualizado, p_planilha_atualizada: entrega.planilhaAtualizada,
+      });
       error = resposta.error;
-      tarefaAtualizada = resposta.data?.tarefa_concluida || null;
+      tarefaAtualizada = Array.isArray(resposta.data) ? resposta.data[0] : resposta.data;
+    } else if (tarefa.origem === "esteira") {
+      const resposta = await supabase.rpc("concluir_tarefa_pop", {
+        p_tarefa_id: Number(tarefa.id), p_observacoes: entrega.observacoes.trim(),
+        p_nome_arquivo: entrega.nomeArquivo.trim(), p_drive_url: entrega.driveUrl.trim(),
+        p_crm_atualizado: entrega.crmAtualizado, p_planilha_atualizada: entrega.planilhaAtualizada,
+        p_resultado: tarefaExigeChecklistDocumentos(tarefa) ? "regular" : "nao_se_aplica",
+      });
+      error = resposta.error;
+      tarefaAtualizada = resposta.data?.tarefa_concluida || resposta.data || null;
     } else {
-      const resposta = await supabase
-        .from("tarefas")
-        .update({ status: "concluida" })
-        .eq("id", tarefa.id)
-        .eq("funcionaria_id", usuario.id)
-        .select("*")
-        .maybeSingle();
+      const resposta = await supabase.rpc("concluir_tarefa_pop", {
+        p_tarefa_id: Number(tarefa.id), p_observacoes: entrega.observacoes.trim(),
+        p_nome_arquivo: entrega.nomeArquivo.trim(), p_drive_url: entrega.driveUrl.trim(),
+        p_crm_atualizado: entrega.crmAtualizado, p_planilha_atualizada: entrega.planilhaAtualizada,
+        p_resultado: "nao_se_aplica",
+      });
       error = resposta.error;
-      tarefaAtualizada = resposta.data;
+      tarefaAtualizada = resposta.data?.tarefa_concluida || resposta.data;
     }
 
     if (error) {
@@ -2570,7 +2716,7 @@ function EmployeeDashboard({ usuario, onLogout, state }) {
 
     try {
       await recarregarTarefas();
-      showToast("Parabéns! Tarefa concluída com sucesso.");
+      showToast(tarefa.origem === "operacional" ? "Tarefa devolvida para conferência." : "Parabéns! Tarefa concluída com sucesso.");
     } catch (erroRecarregamento) {
       console.error("Erro ao recarregar tarefas:", erroRecarregamento);
       showToast("Tarefa concluída no banco.");
@@ -2670,6 +2816,13 @@ function EmployeeDashboard({ usuario, onLogout, state }) {
                   </button>
                 </div>
               </div>
+              <div className="task-filters">
+                <input aria-label="Buscar tarefa" placeholder="Buscar por ID, cliente ou responsável" value={buscaTarefa} onChange={(e) => { setBuscaTarefa(e.target.value); setPaginaPendentes(1); }} />
+                <div className="task-kind-switch">
+                  {[['pendentes','Pendentes'],['atrasadas','Atrasadas'],['arquivadas','Perdidas / Arquivadas']].map(([valor, rotulo]) => <button type="button" key={valor} className={filtroOperacional === valor ? 'active' : ''} onClick={() => { setFiltroOperacional(valor); setPaginaPendentes(1); }}>{rotulo}</button>)}
+                  <button type="button" onClick={() => setAbaAtiva("historico")}>Concluídas</button>
+                </div>
+              </div>
               {tarefasPendentes.length === 0 ? (
                 <p>Nenhuma tarefa pendente no momento.</p>
               ) : null}
@@ -2678,6 +2831,7 @@ function EmployeeDashboard({ usuario, onLogout, state }) {
                 <div className="task-item" key={tarefa.id}>
                   <div>
                     <h3>{tarefa.titulo}</h3>
+                    {tarefa.origem === "operacional" && <LinhaTempoTarefa tarefa={tarefa} />}
                     <p>{tarefa.descricao}</p>
                     {tarefa.apontamento && (
                       <div className="employee-task-note">
@@ -2699,8 +2853,8 @@ function EmployeeDashboard({ usuario, onLogout, state }) {
                       </div>
                     )}
                     <small>
-                      Prazo final: {formatarData(tarefa.data_limite)} |
-                      Recompensa: +{tarefa.pontos_tarefa || 10} Pontos
+                      Prazo final: {formatarData(tarefa.data_limite)}
+                      {tarefa.origem !== "operacional" && ` | Recompensa: +${tarefa.pontos_tarefa || 10} Pontos`}
                     </small>
                     {tarefaExigeChecklistDocumentos(tarefa) && (
                       <ChecklistDocumentos
@@ -2709,6 +2863,7 @@ function EmployeeDashboard({ usuario, onLogout, state }) {
                         tarefa={tarefa}
                       />
                     )}
+                    {tarefa.origem === "operacional" && tarefa.status === "em_execucao" && <EntregaPop tarefa={tarefa} valor={entregasPop[tarefa.id] || {}} onChange={(valor) => setEntregasPop((atuais) => ({ ...atuais, [tarefa.id]: valor }))} />}
                   </div>
                   <div className="task-actions">
                     {tarefa.categoria && (
@@ -2724,7 +2879,13 @@ function EmployeeDashboard({ usuario, onLogout, state }) {
                     <span className={`status ${tarefa.status}`}>
                       {rotuloStatusTarefa(tarefa.status)}
                     </span>
-                    {tarefa.status === "devolvida" ? (
+                    {tarefa.status === "delegada" ? <>
+                      <button className="btn-return" onClick={() => setTarefaEmDevolucao(tarefa)}>Devolver ao solicitante</button>
+                      <button className="btn-primary" onClick={() => movimentarTarefa(tarefa, "aceitar")}>Aceitar tarefa</button>
+                    </> : tarefa.status === "recebida" || tarefa.status === "devolvida_correcao" ? <>
+                      <button className="btn-return" onClick={() => setTarefaEmDevolucao(tarefa)}>Responder / devolver</button>
+                      <button className="btn-primary" onClick={() => movimentarTarefa(tarefa, "iniciar")}>Iniciar execução</button>
+                    </> : tarefa.status === "aguardando_informacao" ? <button className="btn-primary" onClick={() => movimentarTarefa(tarefa, "iniciar")}>Retomar execução</button> : tarefa.status === "devolvida_conferencia" ? <small className="return-waiting">Aguardando conferência da supervisão</small> : tarefa.status === "devolvida" ? (
                       <small className="return-waiting">
                         Aguardando correção da solicitante
                       </small>
@@ -2735,8 +2896,9 @@ function EmployeeDashboard({ usuario, onLogout, state }) {
                           disabled={tarefaConcluindoId === tarefa.id}
                           onClick={() => setTarefaEmDevolucao(tarefa)}
                         >
-                          Devolver tarefa
+                          Responder / devolver
                         </button>
+                        {tarefa.origem === "operacional" && tarefa.status === "em_execucao" && <button className="btn-secondary" disabled={tarefaConcluindoId === tarefa.id} onClick={() => informarEspera(tarefa)}>Aguardar informação</button>}
                         <button
                           className="btn-success"
                           disabled={
@@ -2752,7 +2914,7 @@ function EmployeeDashboard({ usuario, onLogout, state }) {
                               : undefined
                           }
                         >
-                          {tarefaConcluindoId === tarefa.id ? "Confirmando..." : "Concluir"}
+                          {tarefaConcluindoId === tarefa.id ? "Enviando..." : tarefa.origem === "operacional" ? "Devolver para conferência" : "Concluir"}
                         </button>
                       </>
                     )}
@@ -4837,6 +4999,12 @@ export default function App() {
         .document-checklist-grid label.checked { color: #247b67; background: rgba(222,249,240,.78); border-color: rgba(54,170,143,.28); }
         .document-checklist-grid input { width: 16px; height: 16px; accent-color: #35aa91; }
         .document-checklist > p { margin: 11px 0 9px; color: #718199; font-size: 9px; }
+        .task-timeline { display: flex; align-items: flex-start; gap: 0; margin: 10px 0 12px; overflow-x: auto; }
+        .task-timeline-step { position: relative; min-width: 92px; color: #a6b2c2; display: grid; gap: 3px; font-weight: 750; }
+        .task-timeline-step:not(:last-child)::after { content: ""; position: absolute; left: 13px; right: -4px; top: 7px; height: 2px; background: #dce4ee; }
+        .task-timeline-step span { position: relative; z-index: 1; color: #c2ccd8; }
+        .task-timeline-step.done span { color: #357bd8; }
+        .task-timeline-step.done:not(:last-child)::after { background: #77a9e8; }
         .checklist-confirmed { margin-top: 11px; padding: 9px 11px; color: #247b67; background: rgba(214,246,236,.82); border-radius: 9px; font-size: 10px; font-weight: 800; }
 
         @media (max-width: 520px) {
