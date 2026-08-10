@@ -77,8 +77,8 @@ export async function gerarProcuracaoPdf(dados) {
       { texto: "Juliana Cristina Galzo,", negrito: true },
       {
         texto:
-          "brasileira, divorciada, advogada inscrita na OAB/SP 336.677, com " +
-          "endereço eletrônico: adv.mkmello@gmail.com, com escritório profissional " +
+          "brasileira, divorciada, advogada inscrita na OAB/SP 524.585, com " +
+          "endereço eletrônico: brajulianacgalzo@gmail.com, com escritório profissional " +
           "situado na Av. Cachoeira Paulista, nº 131, sala 3, Cidade Patriarca, " +
           "São Paulo - SP, CEP: 03551-000, onde recebe intimações e notificações.",
       },
@@ -141,7 +141,7 @@ export async function gerarProcuracaoPdf(dados) {
     ],
   });
 
-  y -= 60;
+  y = Math.min(y - 60, 170);
   desenharAssinatura(pagina, fontes, nome, y);
 
   if (y < 90 || y > A4[1]) {

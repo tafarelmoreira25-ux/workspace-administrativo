@@ -2,6 +2,7 @@ import MeuHistorico from './MeuHistorico';
 import MeuPlanner from './MeuPlanner';
 import GeradorDocumentos from './GeradorDocumentos';
 import PainelEquipeTV from './PainelEquipeTV';
+import ProcessualGerador from './ProcessualGerador';
 import { useCallback, useEffect, useState } from "react";
 import { supabase } from "./lib/supabase";
 
@@ -11,6 +12,7 @@ import { supabase } from "./lib/supabase";
 const ADMIN_EMAIL = (
   import.meta.env.VITE_ADMIN_EMAIL || "tafarel@platino.com"
 ).toLowerCase();
+const ITENS_POR_PAGINA = 20;
 const RESPONSABILIDADE_MENSAL_PREFIXO = "__RESPONSABILIDADE_MENSAL__";
 const CATEGORIAS_TAREFA = [
   "GOV",
@@ -21,6 +23,67 @@ const CATEGORIAS_TAREFA = [
   "LAUDO",
   "NOTIFICAÇÃO EXTRAJUDICIAL",
 ];
+const STATUS_TAREFA = [
+  { valor: "nova", rotulo: "Nova" },
+  { valor: "em_andamento", rotulo: "Em andamento" },
+  { valor: "devolvida", rotulo: "Devolvida para correção" },
+  { valor: "aguardando_cliente", rotulo: "Aguardando cliente" },
+  { valor: "aguardando_banco", rotulo: "Aguardando banco" },
+  { valor: "aguardando_judiciario", rotulo: "Aguardando Judiciário" },
+  { valor: "impedida", rotulo: "Impedida" },
+  { valor: "concluida", rotulo: "Concluída" },
+  { valor: "cancelada", rotulo: "Cancelada" },
+  { valor: "arquivada", rotulo: "Arquivada" },
+];
+const STATUS_ABERTOS = new Set([
+  "pendente",
+  "nova",
+  "em_andamento",
+  "devolvida",
+  "aguardando_cliente",
+  "aguardando_banco",
+  "aguardando_judiciario",
+  "impedida",
+]);
+const MOTIVOS_DEVOLUCAO = [
+  "Dados incorretos",
+  "Documento faltante",
+  "Documento ilegível",
+  "Informação divergente",
+  "Assinatura ausente",
+  "Outro",
+];
+const DOCUMENTOS_INICIAIS = [
+  { chave: "contrato_assinado", rotulo: "Contrato assinado" },
+  { chave: "documento_identificacao", rotulo: "RG ou CNH" },
+  { chave: "cpf", rotulo: "CPF" },
+  { chave: "comprovante_residencia", rotulo: "Comprovante de residência" },
+  { chave: "comprovante_renda", rotulo: "Comprovante de renda" },
+];
+
+function criarPerfilIntegranteVazio() {
+  return {
+    id: null,
+    nome: "",
+    email: "",
+    cargo: "",
+    setor: "",
+    data_admissao: "",
+    foto_url: "",
+    observacao_interna: "",
+    permissoes: { tarefas: true, planner: true, documentos: true },
+  };
+}
+
+function criarDesligamentoVazio(funcionarioId = "") {
+  return {
+    funcionario_id: funcionarioId ? String(funcionarioId) : "",
+    destino: "transferir",
+    nova_funcionaria_id: "",
+    data_desligamento: new Date().toISOString().slice(0, 10),
+    observacao: "",
+  };
+}
 
 async function buscarPerfilUsuario(usuarioAuth) {
   const email = usuarioAuth?.email?.trim().toLowerCase();
@@ -47,6 +110,9 @@ async function buscarPerfilUsuario(usuarioAuth) {
 
   if (error) throw error;
   if (!data) throw new Error("Usuário não encontrado no cadastro da equipe.");
+  if (data.ativo === false) {
+    throw new Error("Este perfil está inativo. Procure o supervisor responsável.");
+  }
 
   return { ...data, tipo: "funcionaria" };
 }
@@ -110,13 +176,102 @@ function rotuloTipoFeedback(tipo) {
 }
 
 function rotuloStatusTarefa(status) {
-  return status === "concluida" ? "Concluida" : "Pendente";
+  if (status === "pendente") return "Nova";
+  return STATUS_TAREFA.find((item) => item.valor === status)?.rotulo || status;
 }
 
 function rotuloPrioridade(prioridade) {
   if (prioridade === "urgente") return "Urgente";
   if (prioridade === "alta") return "Alta";
   return "Normal";
+}
+
+function normalizarTexto(texto = "") {
+  return texto
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase();
+}
+
+function tarefaExigeChecklistDocumentos(tarefa) {
+  const codigoEtapa = String(tarefa?.codigo_etapa || "").toUpperCase();
+  const texto = normalizarTexto(`${tarefa?.titulo || ""} ${tarefa?.descricao || ""}`);
+
+  return (
+    codigoEtapa === "ADM-007" ||
+    texto.includes("5 documentos iniciais") ||
+    texto.includes("cinco documentos iniciais") ||
+    texto.includes("conferir documentos iniciais")
+  );
+}
+
+function checklistDocumentosCompleto(tarefa) {
+  if (tarefa?.checklist_documentos_completo === true) return true;
+  const documentos = tarefa?.checklist_documentos || {};
+  return DOCUMENTOS_INICIAIS.every(
+    ({ chave }) => documentos[chave] === true,
+  );
+}
+
+function inicioDaSemana(data = new Date()) {
+  const inicio = new Date(data);
+  inicio.setHours(0, 0, 0, 0);
+  const dia = inicio.getDay();
+  inicio.setDate(inicio.getDate() - (dia === 0 ? 6 : dia - 1));
+  return inicio;
+}
+
+function fimDaSemana(data = new Date()) {
+  const fim = inicioDaSemana(data);
+  fim.setDate(fim.getDate() + 6);
+  fim.setHours(23, 59, 59, 999);
+  return fim;
+}
+
+function dataLimiteLocal(data) {
+  if (!data) return null;
+  const limite = new Date(`${String(data).slice(0, 10)}T23:59:59`);
+  return Number.isNaN(limite.getTime()) ? null : limite;
+}
+
+function calcularPerformanceSemanal(funcionariaId, tarefas) {
+  const agora = new Date();
+  const inicio = inicioDaSemana(agora);
+  const fim = fimDaSemana(agora);
+  const avaliadas = tarefas.filter((tarefa) => {
+    if (String(tarefa.funcionaria_id) !== String(funcionariaId)) return false;
+    if (!tarefa.data_limite || tarefa.status === "cancelada" || tarefa.status === "arquivada") {
+      return false;
+    }
+
+    const limite = dataLimiteLocal(tarefa.data_limite);
+    const conclusao = tarefa.concluida_em ? new Date(tarefa.concluida_em) : null;
+    const concluidaNaSemana =
+      conclusao && conclusao >= inicio && conclusao <= fim;
+    const prazoVenceuNaSemana =
+      limite && limite >= inicio && limite <= fim && limite < agora;
+
+    return Boolean(concluidaNaSemana || prazoVenceuNaSemana);
+  });
+
+  const perdas = avaliadas.filter((tarefa) => {
+    if (tarefa.prazo_perdido === true) return true;
+    const limite = dataLimiteLocal(tarefa.data_limite);
+    if (!limite) return false;
+    if (tarefa.status === "concluida" && tarefa.concluida_em) {
+      return new Date(tarefa.concluida_em) > limite;
+    }
+    return STATUS_ABERTOS.has(tarefa.status) && limite < agora;
+  }).length;
+
+  return {
+    avaliadas: avaliadas.length,
+    perdas,
+    percentualPerda: avaliadas.length
+      ? Math.round((perdas / avaliadas.length) * 100)
+      : null,
+    altaPerformance: avaliadas.length > 0 && perdas === 0,
+  };
 }
 
 // ==========================================
@@ -138,6 +293,7 @@ function UiIcon({ name, size = 20 }) {
     tarefas: <><path d="M9 6h11" /><path d="M9 12h11" /><path d="M9 18h11" /><path d="m3 6 1 1 2-2" /><path d="m3 12 1 1 2-2" /><path d="m3 18 1 1 2-2" /></>,
     equipe: <><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M22 21v-2a4 4 0 0 0-3-3.87" /><path d="M16 3.13a4 4 0 0 1 0 7.75" /></>,
     documentos: <><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z" /><path d="M14 2v6h6" /><path d="M8 13h8" /><path d="M8 17h6" /></>,
+    processual: <><path d="M6 3h12v18H6z" /><path d="M9 7h6" /><path d="M9 11h6" /><path d="M9 15h4" /></>,
     historico: <><path d="M3 12a9 9 0 1 0 3-6.7L3 8" /><path d="M3 3v5h5" /><path d="M12 7v5l3 2" /></>,
     planner: <><rect x="3" y="5" width="18" height="16" rx="2" /><path d="M16 3v4" /><path d="M8 3v4" /><path d="M3 11h18" /><path d="m8 16 2 2 4-4" /></>,
     tv: <><rect x="2" y="5" width="20" height="14" rx="2" /><path d="m8 2 4 3 4-3" /><path d="M8 22h8" /></>,
@@ -165,11 +321,26 @@ function UiIcon({ name, size = 20 }) {
   );
 }
 
-function NavItem({ active, icon, children, onClick }) {
+function NavItem({ active, icon, children, onClick, options = [] }) {
   return (
     <button className={`nav-item ${active ? "active-tab" : ""}`} onClick={onClick}>
-      <UiIcon name={icon} />
+      {icon === "documentos" ? (
+        <img
+          src="/assets/pdf-document-icon.png"
+          alt=""
+          className="nav-image-icon"
+        />
+      ) : (
+        <UiIcon name={icon} />
+      )}
       <span>{children}</span>
+      {options.length > 0 && (
+        <span className="nav-menu-popover" aria-hidden="true">
+          {options.map((option) => (
+            <small key={option}>{option}</small>
+          ))}
+        </span>
+      )}
     </button>
   );
 }
@@ -179,6 +350,217 @@ function MetricIcon({ type }) {
     <div className={`metric-icon metric-${type}`}>
       <UiIcon name={type} size={24} />
     </div>
+  );
+}
+
+function PerformanceBadge({ performance, mostrarRotulo = false }) {
+  if (!performance?.altaPerformance) return null;
+
+  const descricao = `Alta Performance: 0% de perda em ${performance.avaliadas} prazo(s) avaliado(s) nesta semana.`;
+  return (
+    <span className={`performance-badge ${mostrarRotulo ? "with-label" : ""}`} title={descricao}>
+      <span aria-hidden="true">★</span>
+      {mostrarRotulo && <strong>Alta Performance</strong>}
+      <span className="sr-only">{descricao}</span>
+    </span>
+  );
+}
+
+function AvatarMembro({ funcionario, performance, compacto = false }) {
+  return (
+    <div className={`member-avatar-wrap ${compacto ? "compact" : ""}`}>
+      <div className="member-avatar">
+        {funcionario?.foto_url ? (
+          <img src={funcionario.foto_url} alt={`Foto de ${funcionario.nome}`} />
+        ) : (
+          funcionario?.nome?.charAt(0) || "?"
+        )}
+      </div>
+      <PerformanceBadge performance={performance} />
+    </div>
+  );
+}
+
+function ModalDevolucao({ tarefa, onClose, onConfirmar }) {
+  const [motivo, setMotivo] = useState("");
+  const [comentario, setComentario] = useState("");
+  const [enviando, setEnviando] = useState(false);
+  const comentarioValido = comentario.trim().length >= 10;
+
+  async function confirmar(event) {
+    event.preventDefault();
+    if (!motivo || !comentarioValido) return;
+    setEnviando(true);
+    try {
+      await onConfirmar({
+        motivo,
+        comentario: comentario.trim(),
+      });
+    } finally {
+      setEnviando(false);
+    }
+  }
+
+  return (
+    <div className="modal-backdrop" role="presentation">
+      <section
+        aria-labelledby="devolucao-titulo"
+        aria-modal="true"
+        className="return-modal"
+        role="dialog"
+      >
+        <div className="return-modal-heading">
+          <div>
+            <span className="eyebrow">Devolução obrigatoriamente justificada</span>
+            <h2 id="devolucao-titulo">Devolver tarefa #{tarefa.id}</h2>
+            <p>{tarefa.titulo}</p>
+          </div>
+          <button
+            aria-label="Fechar devolução"
+            className="modal-close"
+            disabled={enviando}
+            onClick={onClose}
+            type="button"
+          >
+            ×
+          </button>
+        </div>
+
+        <form className="stack-form return-form" onSubmit={confirmar}>
+          <label>
+            Motivo da devolução
+            <select
+              autoFocus
+              onChange={(event) => setMotivo(event.target.value)}
+              required
+              value={motivo}
+            >
+              <option value="">Selecione um motivo...</option>
+              {MOTIVOS_DEVOLUCAO.map((item) => (
+                <option key={item} value={item}>{item}</option>
+              ))}
+            </select>
+          </label>
+          <label>
+            Comentário explicativo
+            <textarea
+              minLength="10"
+              onChange={(event) => setComentario(event.target.value)}
+              placeholder="Explique exatamente o que precisa ser corrigido antes do reenvio."
+              required
+              rows="5"
+              value={comentario}
+            />
+            <small className={comentarioValido ? "field-ok" : "field-help"}>
+              Mínimo de 10 caracteres. A devolução ficará registrada no histórico.
+            </small>
+          </label>
+          <div className="return-modal-actions">
+            <button
+              className="btn-secondary"
+              disabled={enviando}
+              onClick={onClose}
+              type="button"
+            >
+              Cancelar
+            </button>
+            <button
+              className="btn-return"
+              disabled={enviando || !motivo || !comentarioValido}
+              type="submit"
+            >
+              {enviando ? "Registrando..." : "Confirmar devolução"}
+            </button>
+          </div>
+        </form>
+      </section>
+    </div>
+  );
+}
+
+function ChecklistDocumentos({ tarefa, onAtualizada }) {
+  const [documentos, setDocumentos] = useState(
+    tarefa.checklist_documentos || {},
+  );
+  const [salvando, setSalvando] = useState(false);
+
+  const totalMarcados = DOCUMENTOS_INICIAIS.filter(
+    ({ chave }) => documentos[chave] === true,
+  ).length;
+  const completo = totalMarcados === DOCUMENTOS_INICIAIS.length;
+  const confirmado = checklistDocumentosCompleto(tarefa);
+  const bloqueado = tarefa.status === "devolvida" || tarefa.status === "concluida";
+
+  async function salvarChecklist() {
+    if (!completo || bloqueado) return;
+    setSalvando(true);
+    try {
+      const { data, error } = await supabase.rpc(
+        "salvar_checklist_documentos",
+        {
+          p_tarefa_id: Number(tarefa.id),
+          p_documentos: documentos,
+        },
+      );
+      if (error) throw error;
+      const atualizada = Array.isArray(data) ? data[0] : data;
+      if (!atualizada) throw new Error("O banco não confirmou o checklist.");
+      onAtualizada(atualizada);
+    } catch (error) {
+      console.error("Erro ao salvar checklist:", error);
+      alert(`Não foi possível confirmar os documentos: ${error.message}`);
+    } finally {
+      setSalvando(false);
+    }
+  }
+
+  return (
+    <section className={`document-checklist ${confirmado ? "complete" : ""}`}>
+      <div className="document-checklist-heading">
+        <div>
+          <span className="eyebrow">Etapa 2 · check-in obrigatório</span>
+          <h4>5 documentos iniciais</h4>
+        </div>
+        <span className="checklist-progress">
+          {confirmado ? "5/5 confirmado" : `${totalMarcados}/5`}
+        </span>
+      </div>
+      <div className="document-checklist-grid">
+        {DOCUMENTOS_INICIAIS.map(({ chave, rotulo }) => (
+          <label className={documentos[chave] ? "checked" : ""} key={chave}>
+            <input
+              checked={documentos[chave] === true}
+              disabled={bloqueado || confirmado}
+              onChange={(event) =>
+                setDocumentos((atuais) => ({
+                  ...atuais,
+                  [chave]: event.target.checked,
+                }))
+              }
+              type="checkbox"
+            />
+            <span>{rotulo}</span>
+          </label>
+        ))}
+      </div>
+      {confirmado ? (
+        <div className="checklist-confirmed">
+          ✓ Documentação conferida. A etapa está liberada para conclusão.
+        </div>
+      ) : (
+        <>
+          <p>O avanço para o Jurídico só será liberado após os cinco itens.</p>
+          <button
+            className="btn-primary compact"
+            disabled={!completo || salvando || bloqueado}
+            onClick={salvarChecklist}
+            type="button"
+          >
+            {salvando ? "Confirmando..." : "Confirmar 5 documentos"}
+          </button>
+        </>
+      )}
+    </section>
   );
 }
 
@@ -268,59 +650,83 @@ function Login({ onLogin }) {
   }
 
   return (
-    <div className="login-page">
-      <div className="ambient ambient-one" />
-      <div className="ambient ambient-two" />
-      <div className="login-showcase">
-        <div className="showcase-badge">
-          <UiIcon name="spark" size={18} />
-          Workspace inteligente
-        </div>
-        <h2>Gestão fluida.<br />Resultados visíveis.</h2>
-        <p>Delegue tarefas, acompanhe sua equipe e gere documentos com precisão em um único ambiente.</p>
-        <div className="showcase-stats">
-          <div><strong>01</strong><span>Operação centralizada</span></div>
-          <div><strong>24h</strong><span>Visão contínua</span></div>
-          <div><strong>PDF</strong><span>Documentos automáticos</span></div>
-        </div>
+    <div className="login-page login-page-liquid">
+      <div className="liquid-bg" aria-hidden="true">
+        <span className="ambient ambient-one" />
+        <span className="ambient ambient-two" />
+        <span className="ambient ambient-three" />
+        <span className="orbital-line orbital-one" />
+        <span className="orbital-line orbital-two" />
+
+        <span className="blue-focus blue-focus-one" />
+        <span className="blue-focus blue-focus-two" />
+        <span className="glow-dot dot-a" />
+        <span className="glow-dot dot-b" />
+        <span className="glow-dot dot-c" />
+        <span className="energy-line line-a" />
+        <span className="energy-line line-b" />
       </div>
-      <div className="login-card">
+
+      <section className="glass-card login-card" aria-label="Login Platino equipe">
+        <div className="login-card-accent" aria-hidden="true" />
         <div className="login-brand">
-          <img src="/logo-interface.png" alt="Logo Platino" className="brand-badge" />
           <div>
-            <span>PLATINO</span>
-            <strong>Workspace</strong>
+            <strong>Platino equipe</strong>
+            <span>Workspace Administrativo</span>
           </div>
         </div>
-        <span className="eyebrow">Acesso seguro</span>
-        <h1>Bem-vindo de volta</h1>
-        <p>Entre para acessar sua central administrativa.</p>
-        
+
+        <div className="login-heading">
+          <span>Acesso ao sistema</span>
+          <h1>Bem-vindo</h1>
+          <p>Informe suas credenciais para continuar.</p>
+        </div>
+
         <form className="login-form" onSubmit={fazerLogin}>
-          <label>
-            E-mail corporativo
-            <input 
-              type="email" 
-              value={email} 
-              onChange={(e) => setEmail(e.target.value)} 
-              placeholder="exemplo@empresa.com"
-            />
-          </label>
-          
-          <label>
-            Senha
-            <input 
-              type="password" 
-              value={senha} 
-              onChange={(e) => setSenha(e.target.value)} 
-              placeholder="Sua senha de acesso"
-            />
+          <label className="glass-field">
+            <span>E-mail corporativo</span>
+            <div className="glass-input">
+              <UiIcon name="equipe" size={20} />
+              <input
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="exemplo@empresa.com"
+              />
+            </div>
           </label>
 
-          <button type="submit" className="btn-primary full login-submit" disabled={carregando}>
-            {carregando ? "Autenticando..." : "Entrar no Workspace"}
+          <label className="glass-field">
+            <span>Senha</span>
+            <div className="glass-input">
+              <UiIcon name="logout" size={20} />
+              <input
+                type="password"
+                value={senha}
+                onChange={(e) => setSenha(e.target.value)}
+                placeholder="Sua senha de acesso"
+              />
+            </div>
+          </label>
+
+          <a href="#" className="forgot-password">
+            Esqueci minha senha
+          </a>
+
+          <button
+            type="submit"
+            className="glass-button full login-submit"
+            disabled={carregando}
+          >
+            <span>{carregando ? "Autenticando..." : "Entrar"}</span>
           </button>
+
         </form>
+      </section>
+
+      <div className="login-footer login-footer-minimal">
+        <span>© 2026 <strong>Platino equipe</strong></span>
+        <span>Versão 2.0.0</span>
       </div>
     </div>
   );
@@ -341,6 +747,7 @@ function AdminDashboard({ usuario, onLogout, state }) {
     responsabilidadesMensais,
     setResponsabilidadesMensais,
     recarregarTarefas,
+    recarregarFuncionarios,
     recarregarFeedbacks,
     recarregarResponsabilidadesMensais,
     showToast,
@@ -354,6 +761,15 @@ function AdminDashboard({ usuario, onLogout, state }) {
   const [salvandoEdicao, setSalvandoEdicao] = useState(false);
   const [filtroTarefas, setFiltroTarefas] = useState("todas");
   const [filtroCategoria, setFiltroCategoria] = useState("todas");
+  const [filtroResponsavel, setFiltroResponsavel] = useState("todas");
+  const [filtroPrazo, setFiltroPrazo] = useState("");
+  const [tarefasSelecionadas, setTarefasSelecionadas] = useState([]);
+  const [processandoEmMassa, setProcessandoEmMassa] = useState(false);
+  const [modoEquipe, setModoEquipe] = useState("membros");
+  const [perfilIntegrante, setPerfilIntegrante] = useState(criarPerfilIntegranteVazio);
+  const [salvandoIntegrante, setSalvandoIntegrante] = useState(false);
+  const [desligamento, setDesligamento] = useState(criarDesligamentoVazio);
+  const [processandoDesligamento, setProcessandoDesligamento] = useState(false);
 
   const [titulo, setTitulo] = useState("");
   const [descricao, setDescricao] = useState("");
@@ -376,11 +792,21 @@ function AdminDashboard({ usuario, onLogout, state }) {
   const [responsabilidadeTexto, setResponsabilidadeTexto] = useState("");
   const [salvandoResponsabilidades, setSalvandoResponsabilidades] =
     useState(false);
+  const [mostrarTarefasMes, setMostrarTarefasMes] = useState(false);
+  const [paginaTarefas, setPaginaTarefas] = useState(1);
+  const [paginaHistorico, setPaginaHistorico] = useState(1);
 
-  const equipe = funcionarios.filter(
+  const equipeCompleta = funcionarios.filter(
     (funcionario) => funcionario.email?.toLowerCase() !== ADMIN_EMAIL,
   );
-  const tarefasPendentes = listaTarefas.filter((t) => t.status === "pendente");
+  const equipe = equipeCompleta.filter((funcionario) => funcionario.ativo !== false);
+  const performanceEquipe = new Map(
+    equipeCompleta.map((funcionario) => [
+      String(funcionario.id),
+      calcularPerformanceSemanal(funcionario.id, listaTarefas),
+    ]),
+  );
+  const tarefasPendentes = listaTarefas.filter((t) => STATUS_ABERTOS.has(t.status));
   const tarefasUrgentes = tarefasPendentes.filter(
     (tarefa) => tarefa.prioridade === "urgente",
   );
@@ -388,13 +814,33 @@ function AdminDashboard({ usuario, onLogout, state }) {
     const correspondeCategoria =
       filtroCategoria === "todas" || tarefa.categoria === filtroCategoria;
     if (!correspondeCategoria) return false;
+    if (
+      filtroResponsavel !== "todas" &&
+      String(tarefa.funcionaria_id) !== filtroResponsavel
+    ) return false;
+    if (filtroPrazo && tarefa.data_limite !== filtroPrazo) return false;
     if (filtroTarefas === "todas") return true;
     if (filtroTarefas === "manuais") return tarefa.tarefa_manual === true;
     if (filtroTarefas === "urgente") {
-      return tarefa.status === "pendente" && tarefa.prioridade === "urgente";
+      return STATUS_ABERTOS.has(tarefa.status) && tarefa.prioridade === "urgente";
     }
+    if (filtroTarefas === "abertas") return STATUS_ABERTOS.has(tarefa.status);
     return tarefa.status === filtroTarefas;
   });
+  const tarefasOperacionaisFiltradas = tarefasFiltradas.filter((tarefa) =>
+    STATUS_ABERTOS.has(tarefa.status),
+  );
+  const tarefasHistoricoFiltradas = listaTarefas.filter(
+    (tarefa) => !STATUS_ABERTOS.has(tarefa.status),
+  );
+  const tarefasOperacionaisVisiveis = tarefasOperacionaisFiltradas.slice(
+    (paginaTarefas - 1) * ITENS_POR_PAGINA,
+    paginaTarefas * ITENS_POR_PAGINA,
+  );
+  const tarefasHistoricoVisiveis = tarefasHistoricoFiltradas.slice(
+    (paginaHistorico - 1) * ITENS_POR_PAGINA,
+    paginaHistorico * ITENS_POR_PAGINA,
+  );
   const responsabilidadesSelecionadas = responsabilidadesMensais
     .filter(
       (item) =>
@@ -454,7 +900,7 @@ function AdminDashboard({ usuario, onLogout, state }) {
         p_descricao: descricao.trim() || null,
         p_responsavel_texto: responsavelManual.trim() || null,
         p_data_limite: dataLimite || null,
-        p_status: "pendente",
+        p_status: "nova",
         p_prioridade: prioridade,
         p_categoria: categoria,
         p_apontamento: apontamento.trim() || null,
@@ -471,7 +917,7 @@ function AdminDashboard({ usuario, onLogout, state }) {
           funcionaria_id: Number(funcId),
           pontos_tarefa: Math.max(0, Number(pontosTarefa) || 0),
           data_limite: dataLimite || null,
-          status: "pendente",
+          status: "nova",
           prioridade,
           categoria,
           apontamento: apontamento.trim() || null,
@@ -624,6 +1070,78 @@ function AdminDashboard({ usuario, onLogout, state }) {
     showToast("Tarefa excluida.");
   }
 
+  function alternarSelecaoTarefa(id) {
+    const chave = String(id);
+    setTarefasSelecionadas((atuais) =>
+      atuais.includes(chave)
+        ? atuais.filter((item) => item !== chave)
+        : [...atuais, chave],
+    );
+  }
+
+  function alternarTodasTarefas() {
+    const idsVisiveis = tarefasOperacionaisVisiveis.map((tarefa) => String(tarefa.id));
+    const todasSelecionadas =
+      idsVisiveis.length > 0 &&
+      idsVisiveis.every((id) => tarefasSelecionadas.includes(id));
+
+    setTarefasSelecionadas((atuais) =>
+      todasSelecionadas
+        ? atuais.filter((id) => !idsVisiveis.includes(id))
+        : [...new Set([...atuais, ...idsVisiveis])],
+    );
+  }
+
+  async function alterarStatusEmMassa(status) {
+    if (tarefasSelecionadas.length === 0) return;
+    const confirmou = window.confirm(
+      `Alterar ${tarefasSelecionadas.length} tarefa(s) para "${rotuloStatusTarefa(status)}"?`,
+    );
+    if (!confirmou) return;
+
+    setProcessandoEmMassa(true);
+    try {
+      const ids = tarefasSelecionadas.map(Number);
+      const alteracoes = status === "arquivada"
+        ? { status, exibir_tv: false }
+        : { status };
+      const { error } = await supabase
+        .from("tarefas")
+        .update(alteracoes)
+        .in("id", ids);
+      if (error) throw error;
+      setTarefasSelecionadas([]);
+      await recarregarTarefas();
+      showToast(`${ids.length} tarefa(s) atualizada(s).`);
+    } catch (error) {
+      alert(`Não foi possível atualizar as tarefas: ${error.message}`);
+    } finally {
+      setProcessandoEmMassa(false);
+    }
+  }
+
+  async function excluirSelecionadas() {
+    if (tarefasSelecionadas.length === 0) return;
+    const confirmou = window.confirm(
+      `Excluir definitivamente ${tarefasSelecionadas.length} tarefa(s)? Esta ação não pode ser desfeita.`,
+    );
+    if (!confirmou) return;
+
+    setProcessandoEmMassa(true);
+    try {
+      const ids = tarefasSelecionadas.map(Number);
+      const { error } = await supabase.from("tarefas").delete().in("id", ids);
+      if (error) throw error;
+      setTarefasSelecionadas([]);
+      await recarregarTarefas();
+      showToast(`${ids.length} tarefa(s) excluída(s).`);
+    } catch (error) {
+      alert(`Não foi possível excluir as tarefas: ${error.message}`);
+    } finally {
+      setProcessandoEmMassa(false);
+    }
+  }
+
   function abrirPainelTvNovaAba() {
     const url = new URL(window.location.href);
     url.searchParams.set("modo", "tv");
@@ -658,6 +1176,120 @@ function AdminDashboard({ usuario, onLogout, state }) {
       );
       showToast(`Pontos atualizados com sucesso!`);
     }
+  }
+
+  function iniciarCadastroIntegrante(funcionario = null) {
+    setPerfilIntegrante(
+      funcionario
+        ? {
+            ...criarPerfilIntegranteVazio(),
+            ...funcionario,
+            data_admissao: funcionario.data_admissao || "",
+            foto_url: funcionario.foto_url || "",
+            observacao_interna: funcionario.observacao_interna || "",
+            permissoes: {
+              ...criarPerfilIntegranteVazio().permissoes,
+              ...(funcionario.permissoes || {}),
+            },
+          }
+        : criarPerfilIntegranteVazio(),
+    );
+    setModoEquipe("cadastro");
+  }
+
+  function atualizarPerfilIntegrante(campo, valor) {
+    setPerfilIntegrante((atual) => ({ ...atual, [campo]: valor }));
+  }
+
+  async function salvarPerfilIntegrante(event) {
+    event.preventDefault();
+    setSalvandoIntegrante(true);
+    try {
+      const { data, error } = await supabase.rpc("salvar_funcionario_supervisor", {
+        p_funcionario_id: perfilIntegrante.id ? Number(perfilIntegrante.id) : null,
+        p_nome: perfilIntegrante.nome.trim(),
+        p_email: perfilIntegrante.email.trim().toLowerCase(),
+        p_cargo: perfilIntegrante.cargo.trim() || null,
+        p_setor: perfilIntegrante.setor.trim() || null,
+        p_data_admissao: perfilIntegrante.data_admissao || null,
+        p_foto_url: perfilIntegrante.foto_url.trim() || null,
+        p_permissoes: perfilIntegrante.permissoes,
+        p_observacao_interna: perfilIntegrante.observacao_interna.trim() || null,
+      });
+      if (error) throw error;
+      const salvo = Array.isArray(data) ? data[0] : data;
+      if (!salvo) throw new Error("O banco não confirmou o cadastro.");
+      await recarregarFuncionarios();
+      setModoEquipe("membros");
+      showToast(perfilIntegrante.id ? "Cadastro atualizado." : "Integrante cadastrada. Configure o acesso em Authentication.");
+    } catch (error) {
+      alert(`Não foi possível salvar a integrante: ${error.message}`);
+    } finally {
+      setSalvandoIntegrante(false);
+    }
+  }
+
+  function iniciarDesligamento(funcionario) {
+    setDesligamento(criarDesligamentoVazio(funcionario.id));
+    setModoEquipe("desligamento");
+  }
+
+  async function reativarIntegrante(funcionario) {
+    if (!window.confirm(`Reativar o acesso interno de ${funcionario.nome}?`)) return;
+    const { error } = await supabase
+      .from("funcionarios")
+      .update({ ativo: true, data_desligamento: null })
+      .eq("id", funcionario.id);
+    if (error) return alert(`Não foi possível reativar: ${error.message}`);
+    await recarregarFuncionarios();
+    showToast("Integrante reativada.");
+  }
+
+  async function executarDesligamento(event) {
+    event.preventDefault();
+    if (desligamento.destino === "transferir" && !desligamento.nova_funcionaria_id) {
+      return alert("Selecione quem receberá as tarefas abertas.");
+    }
+    const origem = equipeCompleta.find((item) => String(item.id) === desligamento.funcionario_id);
+    if (!origem || !window.confirm(`Confirmar o desligamento de ${origem.nome}?`)) return;
+    setProcessandoDesligamento(true);
+    try {
+      const { data, error } = await supabase.rpc("desligar_funcionario_supervisor", {
+        p_funcionario_id: Number(desligamento.funcionario_id),
+        p_destino: desligamento.destino,
+        p_nova_funcionaria_id: desligamento.nova_funcionaria_id ? Number(desligamento.nova_funcionaria_id) : null,
+        p_data_desligamento: desligamento.data_desligamento,
+        p_observacao: desligamento.observacao.trim() || null,
+      });
+      if (error) throw error;
+      await Promise.all([recarregarFuncionarios(), recarregarTarefas()]);
+      setModoEquipe("membros");
+      setDesligamento(criarDesligamentoVazio());
+      showToast(`Desligamento concluído. ${data?.tarefas_processadas || 0} tarefa(s) tratada(s).`);
+    } catch (error) {
+      alert(`Não foi possível concluir o desligamento: ${error.message}`);
+    } finally {
+      setProcessandoDesligamento(false);
+    }
+  }
+
+  async function transferirTarefasFuncionario(origem) {
+    const destinos = equipe.filter((item) => String(item.id) !== String(origem.id));
+    if (destinos.length === 0) return alert("Não há outra integrante ativa para receber as tarefas.");
+    const opcoes = destinos.map((item) => `${item.id} - ${item.nome}`).join("\n");
+    const destinoId = window.prompt(`Informe o ID da nova responsável:\n${opcoes}`);
+    const destino = destinos.find((item) => String(item.id) === String(destinoId));
+    if (!destino) return;
+    if (!window.confirm(`Transferir todas as tarefas abertas de ${origem.nome} para ${destino.nome}?`)) return;
+
+    const ids = listaTarefas
+      .filter((tarefa) => String(tarefa.funcionaria_id) === String(origem.id) && STATUS_ABERTOS.has(tarefa.status))
+      .map((tarefa) => tarefa.id);
+    if (ids.length === 0) return showToast("Não existem tarefas abertas para transferir.");
+    const { error } = await supabase.from("tarefas").update({ funcionaria_id: destino.id }).in("id", ids);
+    if (error) return alert(`Não foi possível transferir: ${error.message}`);
+    await recarregarTarefas();
+    showToast(`${ids.length} tarefa(s) transferida(s) para ${destino.nome}.`);
   }
 
   async function handleEnviarFeedback(e) {
@@ -810,20 +1442,21 @@ function AdminDashboard({ usuario, onLogout, state }) {
     <div className="app-layout">
       <aside className="sidebar">
         <div className="brand">
-          <img src="/logo-interface.png" alt="Logo Platino" className="brand-icon" />
+          <img src="/assets/platino-infohub-icon.png" alt="Platino" className="brand-icon" />
           <div>
-            <strong>WORKSPACE</strong>
-            <span>Administrativo</span>
+            <strong>PLATINO</strong>
+            <span>Operating Workspace</span>
           </div>
         </div>
         <nav>
           <span className="nav-label">Navegação</span>
-          <NavItem active={abaAtiva === "dashboard"} icon="dashboard" onClick={() => setAbaAtiva("dashboard")}>Dashboard</NavItem>
-          <NavItem active={abaAtiva === "tarefas"} icon="tarefas" onClick={() => setAbaAtiva("tarefas")}>Tarefas</NavItem>
-          <NavItem active={false} icon="tv" onClick={() => setModoTv(true)}>Painel da TV</NavItem>
-          <NavItem active={abaAtiva === "responsabilidades"} icon="planner" onClick={() => setAbaAtiva("responsabilidades")}>Tarefas do Mês</NavItem>
-          <NavItem active={abaAtiva === "equipe"} icon="equipe" onClick={() => setAbaAtiva("equipe")}>Equipe</NavItem>
-          <NavItem active={abaAtiva === "documentos"} icon="documentos" onClick={() => setAbaAtiva("documentos")}>Documentos PDF</NavItem>
+          <NavItem active={abaAtiva === "dashboard"} icon="dashboard" onClick={() => setAbaAtiva("dashboard")} options={["Indicadores", "Urgências", "Ranking"]}>Dashboard</NavItem>
+          <NavItem active={abaAtiva === "tarefas"} icon="tarefas" onClick={() => setAbaAtiva("tarefas")} options={["Criar tarefa", "Apontamentos", "Filtros rápidos"]}>Tarefas</NavItem>
+          <NavItem active={abaAtiva === "historico"} icon="planner" onClick={() => setAbaAtiva("historico")}>Histórico de tarefas</NavItem>
+          <NavItem active={false} icon="tv" onClick={() => setModoTv(true)} options={["Modo painel", "Operação ao vivo"]}>Painel TV</NavItem>
+          <NavItem active={abaAtiva === "equipe"} icon="equipe" onClick={() => setAbaAtiva("equipe")} options={["Equipe", "Feedbacks", "Pontuação"]}>Equipe</NavItem>
+          <NavItem active={abaAtiva === "processual"} icon="processual" onClick={() => setAbaAtiva("processual")} options={["Organizar resumo", "Prévia", "Gerar PDF"]}>Processual</NavItem>
+          <NavItem active={abaAtiva === "documentos"} icon="documentos" onClick={() => setAbaAtiva("documentos")} options={["Gerador PDF", "Prévia viva", "Assistente IA"]}>Documentos</NavItem>
         </nav>
         <button className="sidebar-logout" onClick={onLogout}><UiIcon name="logout" /> Sair do Sistema</button>
       </aside>
@@ -843,7 +1476,7 @@ function AdminDashboard({ usuario, onLogout, state }) {
         {abaAtiva === "dashboard" && (
           <>
             <section className="cards-grid">
-              <div className="card" onClick={() => { setFiltroTarefas("pendente"); setAbaAtiva("tarefas"); }} style={{ cursor: 'pointer' }}>
+              <div className="card" onClick={() => { setFiltroTarefas("abertas"); setAbaAtiva("tarefas"); }} style={{ cursor: 'pointer' }}>
                 <MetricIcon type="tarefas" />
                 <span>Tarefas Pendentes</span>
                 <strong>{tarefasPendentes.length}</strong>
@@ -865,48 +1498,13 @@ function AdminDashboard({ usuario, onLogout, state }) {
               </div>
             </section>
 
-            <section className="content-grid" style={{ gridTemplateColumns: "1fr" }}>
-              <div className="panel large">
-                <h2 className="section-title">Acompanhamento da Esteira (Visão Geral)</h2>
-                {listaTarefas.length === 0 ? <p>Nenhuma tarefa listada no sistema.</p> : null}
-                {listaTarefas.map((tarefa) => {
-                  const func = funcionarios.find(
-                    (item) => String(item.id) === String(tarefa.funcionaria_id),
-                  );
-                  const nomeResponsavel =
-                    tarefa.responsavel_texto ||
-                    func?.nome ||
-                    (tarefa.tarefa_manual ? "Equipe" : "Nao atribuida");
-                  return (
-                    <div className="task-item" key={tarefa.id}>
-                      <div>
-                        <h3>{tarefa.titulo}</h3>
-                        <p style={{ fontSize: '14px', color: '#64748b', marginBottom: '8px' }}>{tarefa.descricao}</p>
-                        <small>
-                          Responsavel: <strong>{nomeResponsavel}</strong> |
-                          {!tarefa.tarefa_manual &&
-                            ` Pontos: ${tarefa.pontos_tarefa ?? 0} |`}
-                          Prazo: {formatarData(tarefa.data_limite)}
-                        </small>
-                      </div>
-                      <div className="task-actions">
-                        {tarefa.categoria && (
-                          <span className="category-badge">
-                            {tarefa.categoria}
-                          </span>
-                        )}
-                        <span
-                          className={`priority-badge priority-${tarefa.prioridade || "normal"}`}
-                        >
-                          {rotuloPrioridade(tarefa.prioridade)}
-                        </span>
-                        <span className={`status ${tarefa.status}`}>
-                          {rotuloStatusTarefa(tarefa.status)}
-                        </span>
-                      </div>
-                    </div>
-                  );
-                })}
+            <section className="panel large">
+              <div className="panel-title-row">
+                <div><h2>Central de operações</h2><p>A página inicial mostra apenas indicadores e atalhos.</p></div>
+                <div className="task-history-actions">
+                  <button className="btn-primary" onClick={() => setAbaAtiva("tarefas")}>Delegar tarefa</button>
+                  <button className="btn-secondary" onClick={() => setAbaAtiva("historico")}>Ver histórico</button>
+                </div>
               </div>
             </section>
           </>
@@ -924,6 +1522,12 @@ function AdminDashboard({ usuario, onLogout, state }) {
                 </p>
               </div>
               <div className="task-management-actions">
+                <button
+                  className="btn-secondary"
+                  onClick={() => setMostrarTarefasMes((atual) => !atual)}
+                >
+                  {mostrarTarefasMes ? "Ocultar tarefas do mês" : "Tarefas do mês"}
+                </button>
                 <button className="btn-secondary" onClick={() => setModoTv(true)}>
                   Visualizar painel
                 </button>
@@ -1186,8 +1790,15 @@ function AdminDashboard({ usuario, onLogout, state }) {
                               atualizarCampoEdicao("status", event.target.value)
                             }
                           >
-                            <option value="pendente">Pendente</option>
-                            <option value="concluida">Concluida</option>
+                            {STATUS_TAREFA.map((item) => (
+                              <option
+                                disabled={item.valor === "devolvida"}
+                                key={item.valor}
+                                value={item.valor}
+                              >
+                                {item.rotulo}
+                              </option>
+                            ))}
                           </select>
                         </label>
                       </div>
@@ -1301,10 +1912,32 @@ function AdminDashboard({ usuario, onLogout, state }) {
                   >
                     <option value="todas">Todas</option>
                     <option value="manuais">Manuais da TV</option>
-                    <option value="pendente">Pendentes</option>
+                    <option value="abertas">Abertas</option>
                     <option value="urgente">Urgentes</option>
-                    <option value="concluida">Concluidas</option>
+                    {STATUS_TAREFA.map((item) => (
+                      <option key={item.valor} value={item.valor}>
+                        {item.rotulo}
+                      </option>
+                    ))}
                   </select>
+                  <select
+                    value={filtroResponsavel}
+                    onChange={(event) => setFiltroResponsavel(event.target.value)}
+                    aria-label="Filtrar por colaboradora"
+                  >
+                    <option value="todas">Todas as colaboradoras</option>
+                    {equipeCompleta.map((funcionario) => (
+                      <option key={funcionario.id} value={funcionario.id}>
+                        {funcionario.nome}
+                      </option>
+                    ))}
+                  </select>
+                  <input
+                    type="date"
+                    value={filtroPrazo}
+                    onChange={(event) => setFiltroPrazo(event.target.value)}
+                    aria-label="Filtrar por prazo"
+                  />
                   <select
                     value={filtroCategoria}
                     onChange={(event) => setFiltroCategoria(event.target.value)}
@@ -1326,14 +1959,46 @@ function AdminDashboard({ usuario, onLogout, state }) {
                 </div>
               </div>
 
-              {tarefasFiltradas.length === 0 && (
+              <div className="task-bulk-toolbar">
+                <label>
+                  <input
+                    type="checkbox"
+                    checked={
+                      tarefasOperacionaisVisiveis.length > 0 &&
+                      tarefasOperacionaisVisiveis.every((tarefa) =>
+                        tarefasSelecionadas.includes(String(tarefa.id)),
+                      )
+                    }
+                    onChange={alternarTodasTarefas}
+                  />
+                  Selecionar todas ({tarefasSelecionadas.length})
+                </label>
+                <div>
+                  <button
+                    className="btn-secondary compact"
+                    disabled={processandoEmMassa || tarefasSelecionadas.length === 0}
+                    onClick={() => alterarStatusEmMassa("arquivada")}
+                  >
+                    Arquivar selecionadas
+                  </button>
+                  <button
+                    className="btn-danger compact"
+                    disabled={processandoEmMassa || tarefasSelecionadas.length === 0}
+                    onClick={excluirSelecionadas}
+                  >
+                    Excluir definitivamente
+                  </button>
+                </div>
+              </div>
+
+              {tarefasOperacionaisFiltradas.length === 0 && (
                 <div className="monthly-empty">
                   Nenhuma tarefa encontrada neste filtro.
                 </div>
               )}
 
               <div className="admin-task-list">
-                {tarefasFiltradas.map((tarefa) => {
+                {tarefasOperacionaisVisiveis.map((tarefa) => {
                   const responsavel = equipe.find(
                     (funcionario) =>
                       String(funcionario.id) ===
@@ -1349,6 +2014,13 @@ function AdminDashboard({ usuario, onLogout, state }) {
                       className={`admin-task-card priority-${tarefa.prioridade || "normal"}`}
                       key={tarefa.id}
                     >
+                      <input
+                        className="task-select-checkbox"
+                        type="checkbox"
+                        checked={tarefasSelecionadas.includes(String(tarefa.id))}
+                        onChange={() => alternarSelecaoTarefa(tarefa.id)}
+                        aria-label={`Selecionar tarefa ${tarefa.titulo}`}
+                      />
                       <div className="admin-task-main">
                         <div className="admin-task-badges">
                           <span className={`status ${tarefa.status}`}>
@@ -1383,6 +2055,15 @@ function AdminDashboard({ usuario, onLogout, state }) {
                             {tarefa.apontamento}
                           </div>
                         )}
+                        {tarefa.status === "devolvida" && (
+                          <div className="return-alert">
+                            <div>
+                              <strong>Devolvida · {tarefa.motivo_devolucao || "Correção necessária"}</strong>
+                              <small>{formatarDataHora(tarefa.devolvida_em)}</small>
+                            </div>
+                            <p>{tarefa.comentario_devolucao || "A colaboradora solicitou correção antes de continuar."}</p>
+                          </div>
+                        )}
                         <small>
                           Responsavel: {nomeResponsavel} | Prazo:{" "}
                           {formatarData(tarefa.data_limite)}
@@ -1408,11 +2089,40 @@ function AdminDashboard({ usuario, onLogout, state }) {
                   );
                 })}
               </div>
+              {tarefasOperacionaisFiltradas.length > ITENS_POR_PAGINA && (
+                <div className="task-history-actions">
+                  <button className="btn-secondary compact" disabled={paginaTarefas === 1} onClick={() => setPaginaTarefas((pagina) => pagina - 1)}>Anterior</button>
+                  <small>Página {paginaTarefas} de {Math.ceil(tarefasOperacionaisFiltradas.length / ITENS_POR_PAGINA)}</small>
+                  <button className="btn-secondary compact" disabled={paginaTarefas >= Math.ceil(tarefasOperacionaisFiltradas.length / ITENS_POR_PAGINA)} onClick={() => setPaginaTarefas((pagina) => pagina + 1)}>Próxima</button>
+                </div>
+              )}
             </section>
           </div>
         )}
 
-        {abaAtiva === "responsabilidades" && (
+        {abaAtiva === "historico" && (
+          <section className="panel large task-list-panel">
+            <div className="panel-title-row">
+              <div><span className="eyebrow">Consulta opcional</span><h2>Histórico de tarefas</h2><p>Concluídas, arquivadas e canceladas ficam somente nesta tela.</p></div>
+              <button className="btn-secondary" onClick={recarregarTarefas}>Atualizar</button>
+            </div>
+            {tarefasHistoricoVisiveis.length === 0 ? <div className="monthly-empty">Nenhuma tarefa no histórico.</div> : tarefasHistoricoVisiveis.map((tarefa) => {
+              const responsavel = equipeCompleta.find((item) => String(item.id) === String(tarefa.funcionaria_id));
+              return (
+                <article className="admin-task-card" key={tarefa.id}>
+                  <div className="admin-task-main">
+                    <div className="admin-task-badges"><span className={`status ${tarefa.status}`}>{rotuloStatusTarefa(tarefa.status)}</span>{tarefa.categoria && <span className="category-badge">{tarefa.categoria}</span>}</div>
+                    <h3>{tarefa.titulo}</h3>{tarefa.descricao && <p>{tarefa.descricao}</p>}
+                    <small>Responsável: {tarefa.responsavel_texto || responsavel?.nome || "Não atribuída"} | Prazo: {formatarData(tarefa.data_limite)}</small>
+                  </div>
+                </article>
+              );
+            })}
+            {tarefasHistoricoFiltradas.length > ITENS_POR_PAGINA && <div className="task-history-actions"><button className="btn-secondary compact" disabled={paginaHistorico === 1} onClick={() => setPaginaHistorico((pagina) => pagina - 1)}>Anterior</button><small>Página {paginaHistorico} de {Math.ceil(tarefasHistoricoFiltradas.length / ITENS_POR_PAGINA)}</small><button className="btn-secondary compact" disabled={paginaHistorico >= Math.ceil(tarefasHistoricoFiltradas.length / ITENS_POR_PAGINA)} onClick={() => setPaginaHistorico((pagina) => pagina + 1)}>Próxima</button></div>}
+          </section>
+        )}
+
+        {abaAtiva === "tarefas" && mostrarTarefasMes && (
           <section className="monthly-admin-grid">
             <div className="panel monthly-editor">
               <span className="eyebrow">Planejamento recorrente</span>
@@ -1516,24 +2226,64 @@ function AdminDashboard({ usuario, onLogout, state }) {
         )}
 
         {abaAtiva === "equipe" && (
-          <section className="content-grid" style={{ gridTemplateColumns: "1fr 1fr" }}>
+          <section className="team-management-workspace">
+            <div className="panel team-management-header">
+              <div>
+                <span className="eyebrow">Administração da equipe</span>
+                <h2>Integrantes e acessos</h2>
+                <p>Cadastre perfis, mantenha dados profissionais e conduza desligamentos preservando o histórico.</p>
+              </div>
+              <div className="team-tabs">
+                <button className={modoEquipe === "membros" ? "active" : ""} onClick={() => setModoEquipe("membros")}>Membros</button>
+                <button className={modoEquipe === "cadastro" ? "active" : ""} onClick={() => iniciarCadastroIntegrante()}>Adicionar integrante</button>
+                <button className={modoEquipe === "desligamento" ? "active" : ""} onClick={() => { setDesligamento(criarDesligamentoVazio()); setModoEquipe("desligamento"); }}>Desligamento</button>
+              </div>
+            </div>
+
+            {modoEquipe === "membros" && <div className="content-grid" style={{ gridTemplateColumns: "1fr 1fr" }}>
             <div className="panel">
-              <h2>Membros da Equipe e Placar de Pontos</h2>
+              <h2>Gestão de membros da equipe</h2>
               <div className="team-list">
-                {equipe.map((f) => (
-                  <div className="team-member" key={f.id}>
-                    <div className="member-avatar">{f.nome?.charAt(0)}</div>
-                    <div>
-                      <strong>{f.nome}</strong>
-                      <p>Esteira: {f.cargo}</p>
-                      <span className="points-badge">{f.pontos || 0} pontos acumulados</span>
+                {equipeCompleta.map((f) => {
+                  const performance = performanceEquipe.get(String(f.id));
+                  return (
+                    <div className={`team-member ${f.ativo === false ? "member-inactive" : ""} ${performance?.altaPerformance ? "member-high-performance" : ""}`} key={f.id}>
+                      <AvatarMembro funcionario={f} performance={performance} />
+                      <div className="member-details">
+                        <div className="member-name-row">
+                          <strong>{f.nome}</strong>
+                          <PerformanceBadge performance={performance} mostrarRotulo />
+                        </div>
+                        <p>{f.cargo || "Cargo não informado"} · {f.setor || "Setor não informado"}</p>
+                        <span className={`member-status ${f.ativo === false ? "inactive" : "active"}`}>
+                          {f.ativo === false ? "Inativa" : "Ativa"}
+                        </span>
+                        <span className="points-badge">{f.pontos || 0} pontos acumulados</span>
+                        <div className={`weekly-performance ${performance?.perdas ? "has-loss" : ""}`}>
+                          <strong>
+                            {performance?.percentualPerda === null
+                              ? "Semana ainda sem prazos avaliados"
+                              : `${performance.percentualPerda}% de perda de prazos`}
+                          </strong>
+                          {performance?.avaliadas > 0 && (
+                            <small>
+                              {performance.avaliadas} prazo(s) avaliado(s) · {performance.perdas} atraso(s)
+                            </small>
+                          )}
+                        </div>
+                      </div>
+                      <div className="member-actions">
+                        <button className="btn-secondary compact" onClick={() => iniciarCadastroIntegrante(f)}>Editar</button>
+                        <button className="btn-success compact" onClick={() => alterarPontosFuncionario(f.id, 10)}>+10</button>
+                        <button className="btn-danger compact" onClick={() => alterarPontosFuncionario(f.id, -10)}>-10</button>
+                        <button className="btn-secondary compact" onClick={() => transferirTarefasFuncionario(f)}>Transferir</button>
+                        <button className="btn-danger compact" onClick={() => f.ativo === false ? reativarIntegrante(f) : iniciarDesligamento(f)}>
+                          {f.ativo === false ? "Reativar" : "Inativar"}
+                        </button>
+                      </div>
                     </div>
-                    <div className="member-actions">
-                      <button className="btn-success compact" onClick={() => alterarPontosFuncionario(f.id, 10)}>+10</button>
-                      <button className="btn-danger compact" onClick={() => alterarPontosFuncionario(f.id, -10)}>-10</button>
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
 
@@ -1590,11 +2340,66 @@ function AdminDashboard({ usuario, onLogout, state }) {
                 vazio="Nenhum feedback profissional foi enviado ainda."
               />
             </div>
+            </div>}
+
+            {modoEquipe === "cadastro" && (
+              <div className="panel employee-profile-panel">
+                <div className="panel-title-row">
+                  <div>
+                    <span className="eyebrow">{perfilIntegrante.id ? "Editar cadastro" : "Nova integrante"}</span>
+                    <h2>{perfilIntegrante.id ? perfilIntegrante.nome : "Dados profissionais"}</h2>
+                  </div>
+                  <button className="btn-secondary compact" onClick={() => setModoEquipe("membros")}>Cancelar</button>
+                </div>
+                <form className="stack-form" onSubmit={salvarPerfilIntegrante}>
+                  <div className="employee-profile-grid">
+                    <label>Nome completo<input required value={perfilIntegrante.nome} onChange={(e) => atualizarPerfilIntegrante("nome", e.target.value)} /></label>
+                    <label>E-mail corporativo<input required type="email" value={perfilIntegrante.email} onChange={(e) => atualizarPerfilIntegrante("email", e.target.value)} /></label>
+                    <label>Cargo<input value={perfilIntegrante.cargo} onChange={(e) => atualizarPerfilIntegrante("cargo", e.target.value)} /></label>
+                    <label>Setor<input value={perfilIntegrante.setor} onChange={(e) => atualizarPerfilIntegrante("setor", e.target.value)} /></label>
+                    <label>Data de admissão<input type="date" value={perfilIntegrante.data_admissao} onChange={(e) => atualizarPerfilIntegrante("data_admissao", e.target.value)} /></label>
+                    <label>URL da foto<input type="url" placeholder="https://..." value={perfilIntegrante.foto_url} onChange={(e) => atualizarPerfilIntegrante("foto_url", e.target.value)} /></label>
+                  </div>
+                  <fieldset className="permission-fieldset">
+                    <legend>Permissões do workspace</legend>
+                    <div className="permission-grid">
+                      {[["tarefas", "Tarefas"], ["planner", "Planner"], ["documentos", "Documentos PDF"]].map(([chave, rotulo]) => (
+                        <label key={chave}><input type="checkbox" checked={perfilIntegrante.permissoes[chave] !== false} onChange={(e) => atualizarPerfilIntegrante("permissoes", { ...perfilIntegrante.permissoes, [chave]: e.target.checked })} />{rotulo}</label>
+                      ))}
+                    </div>
+                  </fieldset>
+                  <label>Observação interna<textarea rows="4" value={perfilIntegrante.observacao_interna} onChange={(e) => atualizarPerfilIntegrante("observacao_interna", e.target.value)} /></label>
+                  <div className="auth-notice"><strong>Acesso ao sistema</strong><span>Este cadastro cria o perfil interno. Para um novo login, crie ou convide o usuário em Authentication → Users no Supabase com o mesmo e-mail.</span></div>
+                  <button className="btn-primary" disabled={salvandoIntegrante}>{salvandoIntegrante ? "Salvando..." : "Salvar integrante"}</button>
+                </form>
+              </div>
+            )}
+
+            {modoEquipe === "desligamento" && (
+              <div className="panel offboarding-panel">
+                <span className="eyebrow">Fluxo guiado</span>
+                <h2>Desligamento de integrante</h2>
+                <form className="stack-form" onSubmit={executarDesligamento}>
+                  <label>Integrante<select required value={desligamento.funcionario_id} onChange={(e) => setDesligamento((atual) => ({ ...atual, funcionario_id: e.target.value, nova_funcionaria_id: "" }))}><option value="">Selecione...</option>{equipe.map((f) => <option key={f.id} value={f.id}>{f.nome}</option>)}</select></label>
+                  <div className="offboarding-summary">Tarefas abertas identificadas: <strong>{listaTarefas.filter((t) => String(t.funcionaria_id) === desligamento.funcionario_id && STATUS_ABERTOS.has(t.status)).length}</strong>. O histórico concluído e os feedbacks serão preservados.</div>
+                  <label>Tratamento das tarefas abertas<select value={desligamento.destino} onChange={(e) => setDesligamento((atual) => ({ ...atual, destino: e.target.value }))}><option value="transferir">Transferir para outra integrante</option><option value="arquivar">Arquivar</option><option value="cancelar">Cancelar</option></select></label>
+                  {desligamento.destino === "transferir" && <label>Nova responsável<select required value={desligamento.nova_funcionaria_id} onChange={(e) => setDesligamento((atual) => ({ ...atual, nova_funcionaria_id: e.target.value }))}><option value="">Selecione...</option>{equipe.filter((f) => String(f.id) !== desligamento.funcionario_id).map((f) => <option key={f.id} value={f.id}>{f.nome}</option>)}</select></label>}
+                  <label>Data do desligamento<input required type="date" value={desligamento.data_desligamento} onChange={(e) => setDesligamento((atual) => ({ ...atual, data_desligamento: e.target.value }))} /></label>
+                  <label>Motivo / observação interna<textarea required rows="4" value={desligamento.observacao} onChange={(e) => setDesligamento((atual) => ({ ...atual, observacao: e.target.value }))} /></label>
+                  <div className="auth-notice"><strong>Etapa externa necessária</strong><span>Após concluir, desative ou remova a sessão da integrante em Authentication → Users. A chave service_role não deve ser usada no React.</span></div>
+                  <button className="btn-danger" disabled={processandoDesligamento}>{processandoDesligamento ? "Processando..." : "Confirmar desligamento"}</button>
+                </form>
+              </div>
+            )}
           </section>
         )}
 
         {abaAtiva === "documentos" && (
           <GeradorDocumentos responsavel={usuario.nome} onSuccess={showToast} />
+        )}
+
+        {abaAtiva === "processual" && (
+          <ProcessualGerador responsavel={usuario.nome} onSuccess={showToast} />
         )}
       </main>
     </div>
@@ -1618,12 +2423,19 @@ function EmployeeDashboard({ usuario, onLogout, state }) {
   } = state;
   const [abaAtiva, setAbaAtiva] = useState("tarefas");
   const [tarefaConcluindoId, setTarefaConcluindoId] = useState(null);
+  const [tarefaEmDevolucao, setTarefaEmDevolucao] = useState(null);
+  const [paginaPendentes, setPaginaPendentes] = useState(1);
 
   const minhasTarefas = listaTarefas.filter(
     (tarefa) => String(tarefa.funcionaria_id) === String(usuario.id),
   );
-  const tarefasPendentes = minhasTarefas.filter((tarefa) => tarefa.status === "pendente");
+  const tarefasPendentes = minhasTarefas.filter((tarefa) => STATUS_ABERTOS.has(tarefa.status));
   const tarefasConcluidas = minhasTarefas.filter((tarefa) => tarefa.status === "concluida");
+  const minhaPerformance = calcularPerformanceSemanal(usuario.id, minhasTarefas);
+  const tarefasPendentesVisiveis = tarefasPendentes.slice(
+    (paginaPendentes - 1) * ITENS_POR_PAGINA,
+    paginaPendentes * ITENS_POR_PAGINA,
+  );
   const meusFeedbacks = feedbacks.filter(
     (feedback) =>
       String(feedback.funcionaria_id) === String(usuario.id),
@@ -1658,16 +2470,86 @@ function EmployeeDashboard({ usuario, onLogout, state }) {
     }
   }
 
+  function atualizarTarefaLocal(tarefaAtualizada) {
+    setListaTarefas((atuais) =>
+      atuais.map((item) =>
+        String(item.id) === String(tarefaAtualizada.id)
+          ? tarefaAtualizada
+          : item,
+      ),
+    );
+  }
+
+  async function devolverTarefa({ motivo, comentario }) {
+    try {
+      const { data, error } = await supabase.rpc("devolver_tarefa", {
+        p_tarefa_id: Number(tarefaEmDevolucao.id),
+        p_motivo: motivo,
+        p_comentario: comentario,
+      });
+      if (error) throw error;
+      const tarefaAtualizada = Array.isArray(data) ? data[0] : data;
+      if (!tarefaAtualizada) {
+        throw new Error("O banco não confirmou a devolução.");
+      }
+
+      atualizarTarefaLocal(tarefaAtualizada);
+      setTarefaEmDevolucao(null);
+      await recarregarTarefas();
+      showToast("Tarefa devolvida com motivo e comentário registrados.");
+    } catch (error) {
+      console.error("Erro ao devolver tarefa:", error);
+      alert(`Não foi possível devolver a tarefa: ${error.message}`);
+    }
+  }
+
+  function checklistAtualizado(tarefaAtualizada) {
+    atualizarTarefaLocal(tarefaAtualizada);
+    showToast("Check-in confirmado: 5 documentos validados.");
+  }
+
   async function concluirTarefa(tarefa) {
+    if (
+      tarefaExigeChecklistDocumentos(tarefa) &&
+      !checklistDocumentosCompleto(tarefa)
+    ) {
+      alert(
+        "A Etapa 2 está bloqueada. Confirme obrigatoriamente os 5 documentos iniciais antes de avançar para o Jurídico.",
+      );
+      return;
+    }
+
     setTarefaConcluindoId(tarefa.id);
 
-    const { data: tarefaAtualizada, error } = await supabase
-      .from("tarefas")
-      .update({ status: "concluida" })
-      .eq("id", tarefa.id)
-      .eq("funcionaria_id", usuario.id)
-      .select("id, status")
-      .maybeSingle();
+    let tarefaAtualizada;
+    let error;
+
+    if (tarefa.origem === "esteira") {
+      const resposta = await supabase.rpc(
+        "concluir_tarefa_e_liberar_proxima",
+        {
+          p_tarefa_id: Number(tarefa.id),
+          p_evidencia_url: tarefaExigeChecklistDocumentos(tarefa)
+            ? "checklist://5-documentos-iniciais-confirmados"
+            : tarefa.evidencia_url || null,
+          p_resultado: tarefaExigeChecklistDocumentos(tarefa)
+            ? "regular"
+            : "nao_se_aplica",
+        },
+      );
+      error = resposta.error;
+      tarefaAtualizada = resposta.data?.tarefa_concluida || null;
+    } else {
+      const resposta = await supabase
+        .from("tarefas")
+        .update({ status: "concluida" })
+        .eq("id", tarefa.id)
+        .eq("funcionaria_id", usuario.id)
+        .select("*")
+        .maybeSingle();
+      error = resposta.error;
+      tarefaAtualizada = resposta.data;
+    }
 
     if (error) {
       console.error("Erro ao concluir tarefa:", error);
@@ -1684,13 +2566,7 @@ function EmployeeDashboard({ usuario, onLogout, state }) {
       return;
     }
 
-    setListaTarefas((atuais) =>
-      atuais.map((item) =>
-        String(item.id) === String(tarefa.id)
-          ? { ...item, status: "concluida" }
-          : item,
-      ),
-    );
+    atualizarTarefaLocal(tarefaAtualizada);
 
     try {
       await recarregarTarefas();
@@ -1707,19 +2583,19 @@ function EmployeeDashboard({ usuario, onLogout, state }) {
     <div className="app-layout">
       <aside className="sidebar">
         <div className="brand">
-         <img src="/logo-interface.png" alt="Logo Platino" className="brand-icon" />
+          <img src="/assets/platino-infohub-icon.png" alt="Platino" className="brand-icon" />
           <div>
-            <strong>WORKSPACE</strong>
-            <span>Administrativo</span>
+            <strong>PLATINO</strong>
+            <span>Operating Workspace</span>
           </div>
         </div>
         <nav>
           <span className="nav-label">Meu espaço</span>
           <NavItem active={abaAtiva === "tarefas"} icon="tarefas" onClick={() => setAbaAtiva("tarefas")}>Minhas Tarefas</NavItem>
+          <NavItem active={abaAtiva === "historico"} icon="planner" onClick={() => setAbaAtiva("historico")}>Meu Histórico</NavItem>
           <NavItem active={abaAtiva === "feedbacks"} icon="feedback" onClick={() => setAbaAtiva("feedbacks")}>
             Meus Feedbacks ({meusFeedbacks.length})
           </NavItem>
-          <NavItem active={abaAtiva === "historico"} icon="historico" onClick={() => setAbaAtiva("historico")}>Meu Histórico</NavItem>
           <NavItem active={abaAtiva === "planner"} icon="planner" onClick={() => setAbaAtiva("planner")}>Meu Planner</NavItem>
           <NavItem active={abaAtiva === "documentos"} icon="documentos" onClick={() => setAbaAtiva("documentos")}>Documentos PDF</NavItem>
         </nav>
@@ -1732,9 +2608,21 @@ function EmployeeDashboard({ usuario, onLogout, state }) {
             <h1>Olá, {usuario.nome}</h1>
             <p>Acompanhe sua pauta diária na esteira operacional.</p>
           </div>
-          <div className="profile-pill">
+          <div className={`profile-pill ${minhaPerformance.altaPerformance ? "profile-high-performance" : ""}`}>
+            <AvatarMembro
+              compacto
+              funcionario={usuario}
+              performance={minhaPerformance}
+            />
             <span className="online-dot" />
-            <div><small>Colaboradora online</small><span>{usuario.cargo}</span></div>
+            <div>
+              <small>Colaboradora online</small>
+              <span>{usuario.cargo}</span>
+              <PerformanceBadge
+                mostrarRotulo
+                performance={minhaPerformance}
+              />
+            </div>
           </div>
         </header>
 
@@ -1775,15 +2663,18 @@ function EmployeeDashboard({ usuario, onLogout, state }) {
               <div className="panel large">
               <div className="panel-title-row">
                 <h2>Minhas tarefas pendentes</h2>
-                <button className="btn-secondary compact" onClick={recarregarTarefas}>
-                  Atualizar
-                </button>
+                <div className="task-history-actions">
+                  <button className="btn-secondary compact" onClick={() => setAbaAtiva("historico")}>Ver histórico</button>
+                  <button className="btn-secondary compact" onClick={recarregarTarefas}>
+                    Atualizar
+                  </button>
+                </div>
               </div>
               {tarefasPendentes.length === 0 ? (
                 <p>Nenhuma tarefa pendente no momento.</p>
               ) : null}
               
-              {tarefasPendentes.map((tarefa) => (
+              {tarefasPendentesVisiveis.map((tarefa) => (
                 <div className="task-item" key={tarefa.id}>
                   <div>
                     <h3>{tarefa.titulo}</h3>
@@ -1793,10 +2684,31 @@ function EmployeeDashboard({ usuario, onLogout, state }) {
                         <strong>Apontamento:</strong> {tarefa.apontamento}
                       </div>
                     )}
+                    {tarefa.status === "devolvida" && (
+                      <div className="return-alert employee-return-alert">
+                        <div>
+                          <strong>Devolvida para correção</strong>
+                          <small>{formatarDataHora(tarefa.devolvida_em)}</small>
+                        </div>
+                        <p>
+                          {tarefa.motivo_devolucao}
+                          {tarefa.comentario_devolucao
+                            ? ` · ${tarefa.comentario_devolucao}`
+                            : ""}
+                        </p>
+                      </div>
+                    )}
                     <small>
                       Prazo final: {formatarData(tarefa.data_limite)} |
                       Recompensa: +{tarefa.pontos_tarefa || 10} Pontos
                     </small>
+                    {tarefaExigeChecklistDocumentos(tarefa) && (
+                      <ChecklistDocumentos
+                        key={`${tarefa.id}-${tarefa.updated_at || ""}`}
+                        onAtualizada={checklistAtualizado}
+                        tarefa={tarefa}
+                      />
+                    )}
                   </div>
                   <div className="task-actions">
                     {tarefa.categoria && (
@@ -1812,16 +2724,42 @@ function EmployeeDashboard({ usuario, onLogout, state }) {
                     <span className={`status ${tarefa.status}`}>
                       {rotuloStatusTarefa(tarefa.status)}
                     </span>
-                    <button
-                      className="btn-success"
-                      disabled={tarefaConcluindoId === tarefa.id}
-                      onClick={() => concluirTarefa(tarefa)}
-                    >
-                      {tarefaConcluindoId === tarefa.id ? "Confirmando..." : "Concluir"}
-                    </button>
+                    {tarefa.status === "devolvida" ? (
+                      <small className="return-waiting">
+                        Aguardando correção da solicitante
+                      </small>
+                    ) : (
+                      <>
+                        <button
+                          className="btn-return"
+                          disabled={tarefaConcluindoId === tarefa.id}
+                          onClick={() => setTarefaEmDevolucao(tarefa)}
+                        >
+                          Devolver tarefa
+                        </button>
+                        <button
+                          className="btn-success"
+                          disabled={
+                            tarefaConcluindoId === tarefa.id ||
+                            (tarefaExigeChecklistDocumentos(tarefa) &&
+                              !checklistDocumentosCompleto(tarefa))
+                          }
+                          onClick={() => concluirTarefa(tarefa)}
+                          title={
+                            tarefaExigeChecklistDocumentos(tarefa) &&
+                            !checklistDocumentosCompleto(tarefa)
+                              ? "Confirme os 5 documentos antes de concluir"
+                              : undefined
+                          }
+                        >
+                          {tarefaConcluindoId === tarefa.id ? "Confirmando..." : "Concluir"}
+                        </button>
+                      </>
+                    )}
                   </div>
                 </div>
               ))}
+              {tarefasPendentes.length > ITENS_POR_PAGINA && <div className="task-history-actions"><button className="btn-secondary compact" disabled={paginaPendentes === 1} onClick={() => setPaginaPendentes((pagina) => pagina - 1)}>Anterior</button><small>Página {paginaPendentes} de {Math.ceil(tarefasPendentes.length / ITENS_POR_PAGINA)}</small><button className="btn-secondary compact" disabled={paginaPendentes >= Math.ceil(tarefasPendentes.length / ITENS_POR_PAGINA)} onClick={() => setPaginaPendentes((pagina) => pagina + 1)}>Próxima</button></div>}
               </div>
 
               <div className="side-stack">
@@ -1852,9 +2790,7 @@ function EmployeeDashboard({ usuario, onLogout, state }) {
           </div>
         )}
 
-        {abaAtiva === "historico" && (
-          <MeuHistorico tarefas={tarefasConcluidas} />
-        )}
+        {abaAtiva === "historico" && <MeuHistorico tarefas={tarefasConcluidas} />}
 
         {abaAtiva === "feedbacks" && (
           <section className="panel large feedback-workspace">
@@ -1890,6 +2826,13 @@ function EmployeeDashboard({ usuario, onLogout, state }) {
         )}
 
       </main>
+      {tarefaEmDevolucao && (
+        <ModalDevolucao
+          onClose={() => setTarefaEmDevolucao(null)}
+          onConfirmar={devolverTarefa}
+          tarefa={tarefaEmDevolucao}
+        />
+      )}
     </div>
   );
 }
@@ -2074,7 +3017,7 @@ export default function App() {
             if (
               usuarioLogado.tipo === "funcionaria" &&
               evento.eventType === "INSERT" &&
-              evento.new?.status === "pendente"
+              STATUS_ABERTOS.has(evento.new?.status)
             ) {
               showToast("Uma nova tarefa foi delegada para voce.");
             }
@@ -2133,6 +3076,7 @@ export default function App() {
     responsabilidadesMensais,
     setResponsabilidadesMensais,
     recarregarTarefas,
+    recarregarFuncionarios,
     recarregarFeedbacks,
     recarregarResponsabilidadesMensais,
     showToast,
@@ -2174,46 +3118,90 @@ export default function App() {
         .ui-icon { display: block; flex: 0 0 auto; }
         .full { width: 100%; }
 
-        .login-page { min-height: 100vh; position: relative; overflow: hidden; display: grid; grid-template-columns: minmax(320px, 1.1fr) minmax(360px, 480px); align-items: center; gap: clamp(48px, 8vw, 140px); padding: clamp(28px, 6vw, 88px); background: linear-gradient(135deg, #e7f3ff 0%, #f8fbff 52%, #dbeaff 100%); }
-        .ambient { position: absolute; border-radius: 50%; filter: blur(2px); pointer-events: none; }
-        .ambient-one { width: 460px; height: 460px; left: -170px; top: -180px; background: radial-gradient(circle, rgba(72, 142, 244, .28), transparent 68%); }
-        .ambient-two { width: 520px; height: 520px; right: -180px; bottom: -220px; background: radial-gradient(circle, rgba(109, 213, 237, .3), transparent 68%); }
-        .login-showcase, .login-card { position: relative; z-index: 1; }
-        .login-showcase { max-width: 660px; padding-left: 4vw; }
-        .showcase-badge { width: max-content; display: flex; align-items: center; gap: 8px; margin-bottom: 28px; padding: 9px 14px; color: var(--accent-strong); background: rgba(255,255,255,.58); border: 1px solid rgba(255,255,255,.8); border-radius: 999px; box-shadow: 0 8px 30px rgba(70, 119, 180, .1); font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; backdrop-filter: blur(16px); }
-        .login-showcase h2 { max-width: 620px; font-size: clamp(42px, 6vw, 78px); line-height: .98; letter-spacing: -4px; color: #102e60; }
-        .login-showcase > p { max-width: 560px; margin-top: 25px; font-size: 17px; }
-        .showcase-stats { display: flex; gap: 35px; margin-top: 46px; }
-        .showcase-stats div { display: flex; flex-direction: column; }
-        .showcase-stats strong { color: var(--accent-strong); font-size: 22px; letter-spacing: -.6px; }
-        .showcase-stats span { color: var(--muted); font-size: 11px; margin-top: 3px; text-transform: uppercase; letter-spacing: .7px; }
-        .login-card { width: 100%; padding: 42px; background: rgba(255,255,255,.72); border: 1px solid rgba(255,255,255,.88); border-radius: 30px; box-shadow: 0 30px 90px rgba(50, 91, 148, .2); backdrop-filter: blur(28px); }
-        .login-brand { display: flex; align-items: center; gap: 13px; margin-bottom: 44px; }
+        .login-page-liquid { min-height: 100vh; position: relative; overflow: hidden; display: grid; grid-template-columns: minmax(420px, 1.12fr) minmax(390px, 520px); align-items: center; gap: clamp(34px, 5vw, 88px); padding: clamp(30px, 5vw, 78px) clamp(34px, 5vw, 86px); background: #f8fbff url('/assets/platino-login-background.png') center / cover no-repeat; color: #102a56; isolation: isolate; }
+        .login-page-liquid::before { content: ''; position: absolute; inset: 0; z-index: 0; background: linear-gradient(90deg, rgba(248,251,255,.7) 0%, rgba(248,251,255,.46) 46%, rgba(248,251,255,.28) 100%); pointer-events: none; }
+        .liquid-bg { display: none; }
+        .ambient { position: absolute; border-radius: 999px; pointer-events: none; filter: blur(18px); }
+        .ambient-one { width: 470px; height: 470px; left: -160px; top: -170px; background: radial-gradient(circle, rgba(141,187,255,.32), transparent 68%); }
+        .ambient-two { width: 560px; height: 560px; right: -190px; bottom: -220px; background: radial-gradient(circle, rgba(47,107,255,.2), transparent 70%); }
+        .ambient-three { width: 390px; height: 390px; left: 38%; bottom: -150px; background: radial-gradient(circle, rgba(255,255,255,.86), transparent 64%); }
+        .orbital-line { position: absolute; border: 1px solid rgba(37,99,235,.11); border-radius: 50%; transform: rotate(-18deg); }
+        .orbital-one { width: 760px; height: 240px; left: 22%; top: 18%; }
+        .orbital-two { width: 620px; height: 190px; left: 30%; top: 40%; transform: rotate(24deg); }
+        .hero-content, .glass-card { position: relative; z-index: 1; }
+        .hero-content { min-height: 610px; display: flex; flex-direction: column; justify-content: center; max-width: 760px; padding-left: clamp(0px, 2vw, 34px); isolation: isolate; }
+        .hero-content > * { position: relative; z-index: 2; }
+        .floating-badge { width: max-content; display: inline-flex; align-items: center; gap: 9px; margin-bottom: 28px; padding: 10px 18px; color: #2563eb; background: rgba(255,255,255,.64); border: 1px solid rgba(255,255,255,.78); border-radius: 999px; box-shadow: 0 16px 36px rgba(47,107,255,.1), inset 0 1px 0 rgba(255,255,255,.96); font-size: 12px; font-weight: 900; letter-spacing: 1.4px; backdrop-filter: blur(24px); }
+        .hero-content h2 { position: relative; max-width: 560px; margin: 0; color: #0f2a55; font-size: clamp(58px, 6.1vw, 86px); line-height: .93; font-weight: 900; letter-spacing: 0; text-shadow: 0 18px 44px rgba(15,42,85,.08); }
+        .hero-content h2::before, .hero-content h2::after { display: none; }
+        .hero-content > p { position: relative; max-width: 510px; min-height: 0; margin-top: 28px; color: #6b7c93; font-size: 17px; line-height: 1.55; font-weight: 500; }
+        .hero-content > p::before { display: none; }
+        .brand-emblem-showcase { position: absolute; width: clamp(154px, 13vw, 214px); aspect-ratio: 1; left: clamp(430px, 35vw, 560px); top: 47%; z-index: 1; opacity: .42; pointer-events: none; transform: translateY(-50%); perspective: 1100px; }
+        .emblem-halo { position: absolute; inset: 9%; border-radius: 999px; background: radial-gradient(circle, rgba(141,187,255,.36), transparent 68%); filter: blur(18px); }
+        .emblem-orbit { position: absolute; inset: 15%; border: 1px solid rgba(37,99,235,.13); border-radius: 50%; }
+        .orbit-a { transform: rotateX(62deg) rotateZ(-16deg); }
+        .orbit-b { inset: 25%; transform: rotateX(58deg) rotateZ(27deg); opacity: .65; }
+        .emblem-glass-plate { position: absolute; inset: 17%; display: grid; place-items: center; border-radius: 30px; background: linear-gradient(145deg, rgba(255,255,255,.62), rgba(232,243,255,.34)); border: 1px solid rgba(255,255,255,.72); box-shadow: 0 18px 38px rgba(31,74,132,.12), inset 0 1px 0 rgba(255,255,255,.94); backdrop-filter: blur(18px); overflow: hidden; animation: emblemFloat 7s ease-in-out infinite; }
+        .emblem-symbol { position: relative; width: 112%; height: 112%; object-fit: cover; border-radius: 28px; filter: drop-shadow(0 14px 18px rgba(15,42,85,.14)); }
+        .showcase-stats { display: grid; grid-template-columns: repeat(3, minmax(118px, 1fr)); gap: 18px; max-width: 500px; margin-top: 36px; }
+        .metric-card, .showcase-stats > div { min-height: 136px; display: flex; flex-direction: column; justify-content: flex-end; gap: 9px; padding: 18px; color: #0f2a55; background: linear-gradient(145deg, rgba(255,255,255,.58), rgba(238,246,255,.35)); border: 1px solid rgba(255,255,255,.72); border-radius: 18px; box-shadow: 0 20px 46px rgba(31,74,132,.11), inset 0 1px 0 rgba(255,255,255,.96); backdrop-filter: blur(24px); }
+        .showcase-stats svg { color: #2563eb; margin-bottom: auto; }
+        .showcase-stats strong { color: #102a56; font-size: 25px; font-weight: 900; letter-spacing: 0; }
+        .showcase-stats span { color: #0f2a55; font-size: 10px; line-height: 1.45; font-weight: 800; letter-spacing: .25px; text-transform: uppercase; }
+        .showcase-stats > div span { font-size: 0; }
+        .showcase-stats > div:nth-child(1) span::before { content: 'OPERACAO CENTRALIZADA'; font-size: 10px; line-height: 1.45; }
+        .showcase-stats > div:nth-child(2) span::before { content: 'VISAO CONTINUA EM TEMPO REAL'; font-size: 10px; line-height: 1.45; }
+        .showcase-stats > div:nth-child(3) strong { font-size: 0; }
+        .showcase-stats > div:nth-child(3) strong::before { content: '100%'; font-size: 25px; }
+        .showcase-stats > div:nth-child(3) span::before { content: 'DOCUMENTOS ORGANIZADOS'; font-size: 10px; line-height: 1.45; }
+        .glass-card { width: 100%; padding: clamp(36px, 4vw, 56px); background: linear-gradient(145deg, rgba(255,255,255,.62), rgba(239,247,255,.38)); border: 1px solid rgba(255,255,255,.65); border-radius: 40px; box-shadow: 0 34px 90px rgba(47,107,255,.15), 0 12px 40px rgba(15,42,85,.08), inset 0 1px 0 rgba(255,255,255,.92); backdrop-filter: blur(24px); }
+        .login-card::before { content: ''; position: absolute; inset: 1px; border-radius: inherit; background: linear-gradient(135deg, rgba(255,255,255,.82), transparent 35%, rgba(141,187,255,.14)); pointer-events: none; }
+        .login-card > * { position: relative; z-index: 1; }
+        .login-brand { display: flex; align-items: center; gap: 16px; margin-bottom: 42px; }
         .login-brand div span, .login-brand div strong { display: block; }
-        .login-brand div span { color: var(--accent); font-size: 10px; font-weight: 800; letter-spacing: 2px; }
-        .login-brand div strong { color: var(--dark); font-size: 18px; }
-        .brand-badge { width: 52px; height: 52px; border-radius: 16px; object-fit: cover; box-shadow: 0 10px 24px rgba(54, 106, 178, .2); }
-        .login-card h1 { margin: 7px 0 7px; font-size: 30px; }
-        .login-form { display: flex; flex-direction: column; gap: 17px; margin-top: 28px; }
-        .login-form label, .stack-form label { color: var(--text); font-size: 12px; font-weight: 700; }
-        .login-form input { margin-top: 7px; width: 100%; }
-        .login-submit { margin-top: 8px; padding: 15px !important; font-size: 14px; }
+        .login-brand div strong { color: #0f2a55; font-size: 31px; font-weight: 700; letter-spacing: 8px; line-height: .95; }
+        .login-brand div span { margin-top: 8px; color: #243b61; font-size: 9px; font-weight: 800; letter-spacing: 2.8px; text-transform: uppercase; }
+        .brand-badge { width: 76px; height: 76px; border-radius: 24px; object-fit: cover; object-position: center; box-shadow: 0 14px 30px rgba(37,99,235,.2), 0 0 28px rgba(141,187,255,.36); }
+        .secure-badge { display: inline-flex; align-items: center; gap: 8px; color: #2563eb; font-size: 12px; font-weight: 900; letter-spacing: 1.2px; }
+        .login-card h1 { margin: 26px 0 7px; color: #0f2a55; font-size: clamp(27px, 2.1vw, 34px); line-height: 1.08; letter-spacing: 0; }
+        .login-card > p { color: #6b7c93; font-size: 14px; }
+        .login-form { display: flex; flex-direction: column; gap: 22px; margin-top: 32px; }
+        .login-form label, .stack-form label { color: #0f2a55; font-size: 12px; font-weight: 800; }
+        .glass-field { display: flex; flex-direction: column; gap: 9px; }
+        .glass-input { min-height: 58px; display: flex; align-items: center; gap: 12px; padding: 0 18px; color: #46617f; background: rgba(246,250,255,.45); border: 1px solid rgba(255,255,255,.72); border-radius: 17px; box-shadow: inset 0 1px 0 rgba(255,255,255,.94), 0 12px 28px rgba(47,107,255,.08); backdrop-filter: blur(18px); transition: .22s ease; }
+        .glass-input:focus-within { border-color: rgba(47,107,255,.42); box-shadow: 0 0 0 4px rgba(47,107,255,.09), inset 0 1px 0 rgba(255,255,255,.96); transform: translateY(-1px); }
+        .login-form input { width: 100%; margin: 0; padding: 0; color: #102a56; background: transparent; border: 0; box-shadow: none; outline: 0; font-size: 14px; font-weight: 700; }
+        .login-form input::placeholder { color: #71839b; font-weight: 600; }
+        .glass-button { min-height: 58px; display: inline-flex; align-items: center; justify-content: center; gap: 12px; margin-top: 8px; padding: 16px 20px; color: #fff; background: linear-gradient(135deg, #6aa2ff 0%, #2f6bff 52%, #2563eb 100%); border: 1px solid rgba(255,255,255,.5); border-radius: 18px; box-shadow: 0 18px 34px rgba(37,99,235,.28), inset 0 1px 0 rgba(255,255,255,.58), inset 0 -12px 22px rgba(15,42,85,.16); cursor: pointer; font-size: 15px; font-weight: 900; transition: .24s ease; }
+        .glass-button:hover { transform: translateY(-2px); box-shadow: 0 23px 42px rgba(37,99,235,.34), 0 0 28px rgba(141,187,255,.42), inset 0 1px 0 rgba(255,255,255,.68); }
+        .login-card-softline { height: 1px; margin-top: 34px; background: linear-gradient(90deg, transparent, rgba(37,99,235,.22), transparent); }
+        .login-footer { position: absolute; z-index: 2; bottom: 31px; display: flex; align-items: center; gap: 9px; color: #788aa3; font-size: 12px; font-weight: 600; }
+        .login-footer strong { color: #2563eb; }
+        .login-footer-left { left: clamp(34px, 5vw, 86px); }
+        .login-footer-right { right: clamp(34px, 5vw, 86px); }
+        .version-icon { width: 28px; height: 28px; border: 1px solid rgba(37,99,235,.3); border-radius: 50%; background: radial-gradient(circle at center, #8dbbff 0 16%, transparent 18% 38%, rgba(37,99,235,.18) 40% 48%, transparent 51%); box-shadow: 0 0 18px rgba(37,99,235,.16); }
+        @keyframes float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-10px); } }
+        @keyframes emblemFloat { 0%, 100% { transform: rotateY(-12deg) rotateX(6deg) translateY(0); } 50% { transform: rotateY(-8deg) rotateX(8deg) translateY(-8px); } }
 
-        .app-layout { min-height: 100vh; display: grid; grid-template-columns: 276px minmax(0, 1fr); }
-        .sidebar { height: 100vh; position: sticky; top: 0; z-index: 10; display: flex; flex-direction: column; gap: 36px; overflow: hidden; padding: 30px 22px; color: #dbeafe; background: linear-gradient(180deg, rgba(13, 40, 86, .98), rgba(9, 30, 67, .98)); border-right: 1px solid rgba(173, 211, 255, .12); box-shadow: 18px 0 55px rgba(34, 69, 115, .12); }
-        .sidebar::after { content: ''; position: absolute; width: 260px; height: 260px; left: -100px; bottom: -100px; border-radius: 50%; background: radial-gradient(circle, rgba(88, 164, 255, .25), transparent 68%); pointer-events: none; }
-        .brand { display: flex; align-items: center; gap: 13px; position: relative; z-index: 1; }
-        .brand-icon { width: 46px; height: 46px; border-radius: 15px; object-fit: cover; box-shadow: 0 10px 25px rgba(0,0,0,.22); }
-        .brand strong { display: block; color: #fff; font-size: 15px; letter-spacing: 1.2px; }
-        .brand span { display: block; margin-top: 2px; color: #82b9f7; font-size: 10px; text-transform: uppercase; letter-spacing: 1px; }
-        .sidebar nav { display: flex; flex-direction: column; gap: 7px; flex: 1; position: relative; z-index: 1; }
-        .nav-label { padding: 0 13px 10px; color: #6889b5; font-size: 9px; font-weight: 800; letter-spacing: 1.6px; text-transform: uppercase; }
-        .nav-item { width: 100%; display: flex; align-items: center; gap: 12px; padding: 13px 14px; color: #9fb7d5; background: transparent; border: 1px solid transparent; border-radius: 14px; cursor: pointer; font-size: 13px; font-weight: 600; text-align: left; transition: .25s ease; }
-        .nav-item:hover { color: #fff; background: rgba(116, 180, 255, .09); transform: translateX(3px); }
-        .nav-item.active-tab { color: #fff; background: linear-gradient(135deg, rgba(91, 158, 247, .32), rgba(95, 198, 237, .17)); border-color: rgba(152, 204, 255, .2); box-shadow: inset 0 1px rgba(255,255,255,.08), 0 10px 24px rgba(0,0,0,.12); }
-        .nav-item.active-tab .ui-icon { color: #79c7ff; filter: drop-shadow(0 0 7px rgba(88,190,255,.4)); }
-        .sidebar-logout { position: relative; z-index: 1; display: flex; align-items: center; justify-content: center; gap: 9px; padding: 12px; color: #9fb7d5; background: rgba(255,255,255,.04); border: 1px solid rgba(255,255,255,.08); border-radius: 13px; cursor: pointer; font-size: 12px; transition: .2s; }
-        .sidebar-logout:hover { color: #fff; background: rgba(255,255,255,.08); }
+        .app-layout { min-height: 100vh; display: block; background: radial-gradient(circle at 12% 0%, rgba(141,187,255,.18), transparent 28%), linear-gradient(135deg, #f8fbff 0%, #eef4fa 100%); }
+        .sidebar { position: sticky; top: 14px; z-index: 40; display: flex; align-items: center; gap: 18px; margin: 14px clamp(16px, 3vw, 36px) 0; padding: 12px 14px; color: #102a56; background: rgba(255,255,255,.62); border: 1px solid rgba(255,255,255,.75); border-radius: 28px; box-shadow: 0 22px 70px rgba(44, 86, 145, .12), inset 0 1px 0 rgba(255,255,255,.92); backdrop-filter: blur(28px); }
+        .sidebar::after { content: ''; position: absolute; inset: 1px; border-radius: inherit; background: linear-gradient(135deg, rgba(255,255,255,.78), transparent 42%, rgba(141,187,255,.13)); pointer-events: none; }
+        .brand { display: flex; align-items: center; gap: 12px; position: relative; z-index: 1; min-width: 210px; }
+        .brand-icon { display: block; width: 48px; height: 48px; border-radius: 50%; clip-path: circle(50% at 50% 50%); object-fit: cover; background: transparent; box-shadow: 0 10px 24px rgba(19,55,145,.2), 0 0 16px rgba(37,99,235,.18); image-rendering: auto; }
+        .brand strong { display: block; color: #0f2a55; font-size: 16px; letter-spacing: 1.8px; }
+        .brand span { display: block; margin-top: 2px; color: #6b7c93; font-size: 9px; text-transform: uppercase; letter-spacing: 1.2px; }
+        .sidebar nav { flex: 1; display: flex; align-items: center; justify-content: center; gap: 8px; position: relative; z-index: 2; }
+        .nav-label { display: none; }
+        .nav-item { position: relative; width: auto; min-height: 44px; display: inline-flex; align-items: center; justify-content: center; gap: 8px; padding: 10px 14px; color: #526780; background: rgba(248,251,255,.48); border: 1px solid rgba(255,255,255,.62); border-radius: 999px; cursor: pointer; font-size: 12px; font-weight: 800; text-align: center; transition: .24s ease; box-shadow: inset 0 1px 0 rgba(255,255,255,.88); }
+        .nav-image-icon { width: 22px; height: 22px; flex: 0 0 22px; object-fit: contain; border-radius: 6px; filter: drop-shadow(0 3px 5px rgba(196,49,34,.18)); }
+        .nav-item:hover { color: #2563eb; background: rgba(255,255,255,.82); transform: translateY(-2px); box-shadow: 0 14px 34px rgba(37,99,235,.12), inset 0 1px 0 rgba(255,255,255,.95); }
+        .nav-item.active-tab { color: #fff; background: linear-gradient(135deg, #6aa2ff, #2563eb); border-color: rgba(255,255,255,.76); box-shadow: 0 18px 34px rgba(37,99,235,.22), inset 0 1px 0 rgba(255,255,255,.55); }
+        .nav-item.active-tab .ui-icon { color: #fff; filter: drop-shadow(0 0 8px rgba(255,255,255,.38)); }
+        .nav-menu-popover { position: absolute; left: 50%; top: calc(100% + 10px); min-width: 190px; display: grid; gap: 7px; padding: 12px; color: #46617f; background: rgba(255,255,255,.78); border: 1px solid rgba(255,255,255,.74); border-radius: 18px; box-shadow: 0 22px 56px rgba(44,86,145,.16); backdrop-filter: blur(26px); opacity: 0; pointer-events: none; transform: translate(-50%, -6px) scale(.98); transition: .2s ease; }
+        .nav-menu-popover small { padding: 8px 10px; background: rgba(240,247,255,.68); border-radius: 12px; font-size: 10px; font-weight: 800; text-align: left; white-space: nowrap; }
+        .nav-item:hover .nav-menu-popover { opacity: 1; transform: translate(-50%, 0) scale(1); }
+        .sidebar-logout { position: relative; z-index: 1; display: flex; align-items: center; justify-content: center; gap: 8px; min-height: 44px; padding: 10px 14px; color: #526780; background: rgba(255,255,255,.58); border: 1px solid rgba(255,255,255,.72); border-radius: 999px; cursor: pointer; font-size: 12px; font-weight: 800; transition: .2s; }
+        .sidebar-logout:hover { color: #2563eb; transform: translateY(-2px); box-shadow: 0 14px 34px rgba(37,99,235,.12); }
 
         .main-content { min-width: 0; padding: 28px clamp(24px, 3.2vw, 48px) 48px; }
         .topbar { min-height: 94px; display: flex; align-items: center; justify-content: space-between; gap: 24px; margin-bottom: 28px; padding: 22px 26px; background: rgba(255,255,255,.55); border: 1px solid rgba(255,255,255,.8); border-radius: 24px; box-shadow: 0 15px 45px rgba(57, 100, 157, .08); backdrop-filter: blur(22px); }
@@ -2252,6 +3240,11 @@ export default function App() {
         .status { padding: 6px 10px; border-radius: 999px; font-size: 9px; font-weight: 800; letter-spacing: .7px; text-transform: uppercase; white-space: nowrap; }
         .status.pendente { color: #a66e16; background: rgba(255, 229, 170, .55); border: 1px solid rgba(216,164,54,.15); }
         .status.concluida { color: #268c77; background: rgba(190, 241, 228, .6); border: 1px solid rgba(66,191,165,.14); }
+        .status.nova { color: #315f91; background: #e2f0ff; }
+        .status.em_andamento { color: #225fb8; background: #dceaff; }
+        .status.aguardando_cliente, .status.aguardando_banco, .status.aguardando_judiciario { color: #986713; background: #fff0c9; }
+        .status.impedida { color: #b73350; background: #ffe2e9; }
+        .status.cancelada, .status.arquivada { color: #667085; background: #edf1f5; }
         .priority-badge, .category-badge, .tv-visibility-badge, .manual-task-badge { display: inline-flex; align-items: center; width: max-content; padding: 6px 10px; border-radius: 999px; font-size: 9px; font-weight: 800; letter-spacing: .6px; text-transform: uppercase; white-space: nowrap; }
         .priority-badge.priority-normal { color: #65758c; background: #edf3f8; }
         .priority-badge.priority-alta { color: #9b6414; background: #fff0c9; }
@@ -2281,7 +3274,13 @@ export default function App() {
         .task-list-heading { align-items: flex-end; }
         .task-list-heading h2 { margin-top: 4px; }
         .task-list-controls { display: flex; align-items: center; gap: 9px; }
+        .task-list-controls { flex-wrap: wrap; justify-content: flex-end; }
         .task-list-controls select { min-width: 150px; padding: 9px 12px !important; }
+        .task-list-controls input[type="date"] { width: 155px; padding: 9px 12px !important; }
+        .task-bulk-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 14px; margin-bottom: 16px; padding: 12px 14px; background: rgba(232,242,254,.62); border: 1px solid rgba(104,148,201,.13); border-radius: 14px; }
+        .task-bulk-toolbar label, .task-bulk-toolbar > div { display: flex; align-items: center; gap: 9px; color: var(--dark); font-size: 11px; font-weight: 800; }
+        .task-bulk-toolbar input, .task-select-checkbox { width: 17px !important; height: 17px !important; padding: 0 !important; flex: 0 0 auto; accent-color: var(--accent-strong); }
+        .task-select-checkbox { margin-left: 2px; }
         .admin-task-list { display: grid; gap: 12px; }
         .admin-task-card { position: relative; display: flex; align-items: center; justify-content: space-between; gap: 20px; overflow: hidden; padding: 18px 18px 18px 21px; background: rgba(247,251,255,.8); border: 1px solid rgba(111,157,210,.14); border-radius: 17px; }
         .admin-task-card::before { content: ''; position: absolute; inset: 0 auto 0 0; width: 4px; background: #9aa9bc; }
@@ -2314,7 +3313,7 @@ export default function App() {
         .tv-clock span { color: #8faaca; font-size: 10px; text-transform: capitalize; }
         .tv-controls { grid-column: 1 / -1; display: flex; justify-content: flex-end; gap: 8px; margin-top: -14px; }
         .tv-controls button { padding: 7px 10px; color: #9eb8d7; background: rgba(255,255,255,.04); border: 1px solid rgba(168,207,250,.12); border-radius: 9px; cursor: pointer; font-size: 9px; font-weight: 700; }
-        .tv-board { flex: 1; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: clamp(14px, 1.5vw, 24px); padding: 24px 0 17px; min-height: 0; }
+        .tv-board { flex: 1; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: clamp(14px, 1.5vw, 24px); padding: 24px 0 17px; min-height: 0; }
         .tv-column { display: flex; flex-direction: column; min-height: 0; padding: clamp(15px, 1.5vw, 22px); background: rgba(15,39,76,.72); border: 1px solid rgba(150,194,241,.11); border-radius: 21px; box-shadow: 0 22px 55px rgba(0,0,0,.16); }
         .tv-column > header { display: flex; align-items: center; justify-content: space-between; gap: 15px; margin-bottom: 17px; padding-bottom: 15px; border-bottom: 1px solid rgba(151,194,240,.1); }
         .tv-column > header span { color: var(--tv-accent); font-size: 8px; font-weight: 800; letter-spacing: 1.2px; text-transform: uppercase; }
@@ -2323,6 +3322,8 @@ export default function App() {
         .tv-column-urgent { --tv-accent: #ff7892; --tv-soft: rgba(255,101,133,.12); }
         .tv-column-pending { --tv-accent: #f4bc57; --tv-soft: rgba(244,188,87,.12); }
         .tv-column-done { --tv-accent: #5ed7b7; --tv-soft: rgba(94,215,183,.12); }
+        .tv-column-overdue { --tv-accent: #ff8e68; --tv-soft: rgba(255,142,104,.14); }
+        .tv-column-soon { --tv-accent: #7fc6ff; --tv-soft: rgba(127,198,255,.14); }
         .tv-column-list { min-height: 0; overflow: auto; scrollbar-width: thin; scrollbar-color: rgba(151,194,240,.22) transparent; }
         .tv-task-card { position: relative; margin-bottom: 11px; padding: 15px; overflow: hidden; background: rgba(255,255,255,.055); border: 1px solid rgba(172,210,250,.09); border-radius: 15px; }
         .tv-task-card::before { content: ''; position: absolute; inset: 0 auto 0 0; width: 3px; background: var(--tv-accent); }
@@ -2358,7 +3359,111 @@ export default function App() {
         .team-member strong { display: block; color: var(--dark); font-size: 13px; }
         .team-member p { margin: 2px 0; font-size: 10px; }
         .points-badge { color: var(--green); font-size: 10px; font-weight: 800; }
+        .member-status { display: inline-flex; margin: 3px 8px 3px 0; padding: 4px 7px; border-radius: 999px; font-size: 8px; font-weight: 900; text-transform: uppercase; }
+        .member-status.active { color: #268c77; background: rgba(190,241,228,.6); }
+        .member-status.inactive { color: #667085; background: #edf1f5; }
+        .team-member.member-inactive { opacity: .68; }
         .member-actions { display: flex; gap: 6px; }
+        .member-actions { flex-wrap: wrap; justify-content: flex-end; }
+        .team-management-workspace { display: flex; flex-direction: column; gap: 22px; }
+        .team-management-header { display: flex; align-items: center; justify-content: space-between; gap: 24px; }
+        .team-management-header h2 { margin: 5px 0; font-size: 24px; text-transform: none; }
+        .team-management-header p { font-size: 12px; }
+        .team-tabs { display: flex; gap: 7px; padding: 5px; background: rgba(232,242,254,.78); border-radius: 14px; }
+        .team-tabs button { padding: 10px 14px; color: var(--muted); background: transparent; border: 0; border-radius: 10px; cursor: pointer; font-size: 11px; font-weight: 800; }
+        .team-tabs button.active { color: #fff; background: linear-gradient(135deg, #4f8ff7, #3d78db); }
+        .employee-profile-panel, .offboarding-panel { width: min(100%, 900px); }
+        .employee-profile-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+        .employee-profile-grid label, .employee-profile-panel > form > label, .offboarding-panel label { display: flex; flex-direction: column; gap: 7px; }
+        .permission-fieldset { padding: 16px; border: 1px solid rgba(104,148,201,.18); border-radius: 14px; }
+        .permission-fieldset legend { padding: 0 7px; color: var(--dark); font-size: 11px; font-weight: 800; }
+        .permission-grid { display: flex; flex-wrap: wrap; gap: 12px; }
+        .permission-grid label { display: flex; align-items: center; gap: 8px; padding: 9px 12px; background: rgba(238,247,255,.72); border-radius: 10px; font-size: 11px; }
+        .permission-grid input { width: 17px !important; height: 17px; padding: 0 !important; }
+        .auth-notice, .offboarding-summary { display: flex; flex-direction: column; gap: 4px; padding: 14px; color: #526b8b; background: rgba(225,239,255,.72); border-left: 3px solid var(--accent); border-radius: 11px; font-size: 11px; line-height: 1.55; }
+        .auth-notice strong, .offboarding-summary strong { color: var(--dark); }
+        .offboarding-panel > h2 { margin: 6px 0 20px; font-size: 24px; text-transform: none; }
+        .automation-workspace, .process-workspace { display: flex; flex-direction: column; gap: 22px; }
+        .automation-heading, .process-heading { display: flex; align-items: center; justify-content: space-between; gap: 20px; }
+        .automation-heading h2, .process-heading h2 { margin: 5px 0; font-size: 26px; text-transform: none; }
+        .automation-heading > strong { padding: 12px 16px; color: var(--accent-strong); background: var(--accent-soft); border-radius: 14px; }
+        .automation-help { max-width: 760px; margin-top: 12px; padding: 11px 13px; color: #526b8b; background: rgba(232,242,254,.68); border: 1px solid rgba(104,148,201,.14); border-radius: 12px; font-size: 11px; line-height: 1.55; }
+        .automation-grid, .process-grid { display: grid; grid-template-columns: minmax(320px,.75fr) minmax(0,1.25fr); gap: 22px; align-items: start; }
+        .template-list, .process-list { display: grid; gap: 12px; }
+        .template-card, .process-card { display: flex; justify-content: space-between; gap: 18px; padding: 16px; background: rgba(247,251,255,.8); border: 1px solid rgba(111,157,210,.14); border-radius: 16px; }
+        .template-card.inactive { opacity: .55; }
+        .template-card h3, .process-card h3 { margin: 8px 0 4px; font-size: 15px; }
+        .template-card p, .process-card p { font-size: 11px; }
+        .template-card small, .process-card small { color: var(--muted); font-size: 9px; }
+        .template-actions, .process-card > div:last-child { min-width: 160px; display: flex; flex-direction: column; gap: 7px; }
+        .process-metrics { display: flex; gap: 10px; }
+        .process-metrics strong { min-width: 85px; padding: 12px; color: var(--dark); background: rgba(238,247,255,.9); border-radius: 14px; text-align: center; font-size: 20px; }
+        .process-metrics span { display: block; color: var(--muted); font-size: 8px; text-transform: uppercase; }
+        .process-search { max-width: 230px; }
+        .process-card { border-left: 4px solid #e9a63a; }
+        .process-card.risk-baixo { border-left-color: var(--green); }
+        .process-card.risk-alto, .process-card.risk-critico { border-left-color: var(--danger); }
+        .process-update-form { display: grid; grid-template-columns: 150px 150px 150px 1fr auto; gap: 9px; align-items: start; }
+        .timeline-list { display: grid; gap: 12px; margin-top: 20px; }
+        .timeline-list article { display: grid; grid-template-columns: 110px 1fr; gap: 16px; padding: 14px; border-left: 3px solid var(--accent); background: rgba(247,251,255,.8); border-radius: 12px; }
+        .timeline-list time { color: var(--muted); font-size: 10px; }
+        .timeline-list strong { color: var(--accent-strong); font-size: 10px; text-transform: uppercase; }
+        .timeline-list p { font-size: 12px; }
+        .processual-generator { display: flex; flex-direction: column; gap: 22px; }
+        .processual-generator-heading { display: flex; align-items: center; justify-content: space-between; gap: 24px; }
+        .processual-original-card { display: flex; align-items: center; gap: 22px; max-width: 820px; }
+        .processual-original-card h3 { margin: 5px 0 8px; color: var(--dark); font-size: 20px; }
+        .processual-original-card p { max-width: 620px; color: var(--muted); line-height: 1.6; }
+        .processual-original-icon { display: grid; place-items: center; width: 88px; height: 104px; flex: 0 0 88px; color: #b42318; background: linear-gradient(145deg, #fff, #ffe7e3); border: 1px solid rgba(180,35,24,.18); border-radius: 18px; box-shadow: 0 14px 30px rgba(180,35,24,.12); font-size: 13px; font-weight: 900; }
+        .processual-download { display: inline-flex; margin-top: 12px; text-decoration: none; }
+        .processual-link-field { display: flex; flex-direction: column; gap: 7px; margin-top: 20px; color: var(--dark); font-size: 11px; font-weight: 800; }
+        .processual-generator-heading h2 { margin: 5px 0; font-size: 28px; text-transform: none; }
+        .processual-generator-heading p { font-size: 12px; }
+        .processual-code { padding: 11px 14px; color: var(--accent-strong); background: var(--accent-soft); border-radius: 12px; font-size: 11px; font-weight: 800; white-space: nowrap; }
+        .processual-input-grid { display: grid; grid-template-columns: minmax(340px,.85fr) minmax(400px,1.15fr); gap: 22px; align-items: start; }
+        .processual-source { display: flex; flex-direction: column; gap: 10px; color: var(--dark); font-size: 13px; font-weight: 800; }
+        .processual-source textarea { min-height: 430px; }
+        .processual-preview-page { min-height: 640px; padding: 32px; color: #253a5c; background: #fff; border: 1px solid #dfe7f1; border-radius: 8px; box-shadow: 0 20px 55px rgba(25,65,120,.12); }
+        .processual-preview-page header { padding-bottom: 20px; border-bottom: 2px solid #153c75; }
+        .processual-preview-page header > span { color: var(--accent-strong); font-size: 10px; font-weight: 900; letter-spacing: 1.5px; }
+        .processual-preview-page header h2 { margin: 9px 0; font-size: 17px; text-transform: uppercase; }
+        .processual-preview-page header div { display: flex; justify-content: space-between; gap: 10px; font-size: 9px; }
+        .processual-preview-page section { margin-top: 16px; }
+        .processual-preview-page section h3 { margin-bottom: 10px; font-size: 11px; text-transform: uppercase; }
+        .processual-preview-page section > p { font-size: 9px; }
+        .processual-summary-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px 18px; }
+        .processual-summary-grid p { margin: 0; font-size: 9px; line-height: 1.4; }
+        .task-history-actions { display: flex; align-items: center; gap: 8px; }
+        .preview-process-block { margin-bottom: 16px; }
+        .preview-process-block strong { color: #153c75; font-size: 10px; text-transform: uppercase; }
+        .preview-process-block p { margin-top: 5px; color: #415674; font-size: 10px; line-height: 1.6; white-space: pre-wrap; }
+        .processual-preview-page footer { margin-top: 18px; padding-top: 12px; border-top: 1px solid #dfe7f1; }
+        .processual-preview-page footer p { margin-bottom: 6px; font-size: 7px; line-height: 1.4; }
+        .processual-form-sections { display: grid; gap: 24px; }
+        .processual-form-sections fieldset { padding: 18px; border: 1px solid rgba(104,148,201,.18); border-radius: 16px; }
+        .processual-form-sections legend { padding: 0 8px; color: var(--dark); font-size: 12px; font-weight: 900; text-transform: uppercase; }
+        .processual-form-sections label { display: flex; flex-direction: column; gap: 7px; color: var(--dark); font-size: 11px; font-weight: 800; }
+        .processual-form-sections .span-2 { grid-column: 1 / -1; }
+        .field-review { padding: 10px; background: #fff9e8; border: 1px solid #f2d691; border-radius: 12px; }
+        .field-review small { color: #9a6815; font-size: 9px; }
+        .attachment-picker { cursor: pointer; }
+        .attachment-picker input { display: none; }
+        .processual-attachments > small { color: var(--muted); }
+        .attachment-list { display: grid; gap: 10px; margin-top: 16px; }
+        .attachment-list article { display: grid; grid-template-columns: auto minmax(220px,1fr) 190px auto auto; gap: 10px; align-items: center; padding: 12px; background: rgba(247,251,255,.8); border-radius: 14px; }
+        .attachment-list article > div:nth-child(2) { display: grid; gap: 7px; }
+        .attachment-order { display: grid; justify-items: center; gap: 3px; }
+        .attachment-order button { width: 25px; height: 22px; border: 0; border-radius: 6px; cursor: pointer; }
+        .attachment-list article > label { display: flex; align-items: center; gap: 6px; font-size: 10px; }
+        .attachment-list article > label input { width: 16px !important; height: 16px; padding: 0 !important; }
+        .attachment-buttons { display: flex; gap: 6px; }
+        .processual-final-actions { display: flex; justify-content: flex-end; gap: 10px; }
+        .whatsapp-panel textarea { margin-bottom: 12px; }
+        .report-list { display: grid; gap: 9px; }
+        .report-list article { display: grid; grid-template-columns: 180px 1fr auto; gap: 12px; padding: 12px 14px; background: rgba(247,251,255,.8); border-radius: 12px; }
+        .report-list article strong { color: var(--accent-strong); font-size: 11px; }
+        .report-list article span { color: var(--dark); font-size: 11px; font-weight: 700; }
+        .report-list article small { color: var(--muted); font-size: 9px; }
         .feedback-history-panel { grid-column: 1 / -1; }
         .feedback-list { display: grid; gap: 12px; }
         .feedback-card { position: relative; overflow: hidden; padding: 17px 18px; background: rgba(247,251,255,.82); border: 1px solid rgba(104,148,201,.15); border-radius: 16px; }
@@ -2406,12 +3511,13 @@ export default function App() {
         @keyframes slideUp { from { transform: translateY(50px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
 
         .document-workspace { display: flex; flex-direction: column; gap: 24px; }
-        .document-heading { display: flex; align-items: flex-end; justify-content: space-between; gap: 24px; }
-        .document-heading h2 { color: var(--dark); font-size: 30px; letter-spacing: -1px; margin: 4px 0 6px; }
+        .document-heading { display: flex; align-items: flex-end; justify-content: space-between; gap: 24px; padding: 28px; background: linear-gradient(145deg, rgba(255,255,255,.68), rgba(239,247,255,.42)); border: 1px solid rgba(255,255,255,.78); border-radius: 28px; box-shadow: 0 24px 70px rgba(44,86,145,.1), inset 0 1px 0 rgba(255,255,255,.94); backdrop-filter: blur(26px); }
+        .document-heading-icon { width: 76px; height: 76px; flex: 0 0 76px; object-fit: contain; border-radius: 18px; filter: drop-shadow(0 12px 14px rgba(196,49,34,.2)); }
+        .document-heading h2 { color: var(--dark); font-size: 34px; letter-spacing: 0; margin: 4px 0 6px; }
         .eyebrow { color: var(--accent); font-size: 12px; font-weight: 800; letter-spacing: 1.2px; text-transform: uppercase; }
-        .document-number { color: var(--dark); background: rgba(255,255,255,.65); border: 1px solid rgba(255,255,255,.9); border-radius: 16px; padding: 12px 16px; box-shadow: 0 10px 30px rgba(61,104,163,.08); }
+        .document-number { color: var(--dark); background: rgba(255,255,255,.68); border: 1px solid rgba(255,255,255,.85); border-radius: 18px; padding: 13px 17px; box-shadow: 0 12px 34px rgba(61,104,163,.08), inset 0 1px 0 rgba(255,255,255,.92); backdrop-filter: blur(20px); }
         .document-number span { display: block; color: var(--muted); font-size: 11px; margin-bottom: 4px; text-transform: uppercase; }
-        .document-grid { display: grid; grid-template-columns: minmax(0, 1.55fr) minmax(320px, 0.75fr); gap: 24px; align-items: start; }
+        .document-grid { display: grid; grid-template-columns: minmax(0, 1.28fr) minmax(360px, .82fr); gap: 24px; align-items: start; }
         .document-form { display: flex; flex-direction: column; gap: 24px; }
         .document-form fieldset { border: 0; padding: 0; }
         .document-form legend { color: var(--dark); font-size: 15px; font-weight: 800; margin-bottom: 14px; text-transform: uppercase; }
@@ -2420,12 +3526,30 @@ export default function App() {
         .form-grid .span-2 { grid-column: span 2; }
         .form-grid textarea { line-height: 1.5; resize: vertical; }
         .template-summary { background: rgba(232,244,255,.75); border: 1px solid rgba(113,165,224,.18); border-radius: 12px; padding: 10px 12px; }
+        .smart-summary { position: relative; overflow: hidden; border-radius: 18px; background: linear-gradient(145deg, rgba(255,255,255,.72), rgba(232,244,255,.55)); box-shadow: inset 0 1px 0 rgba(255,255,255,.95); }
+        .doc-progress { height: 8px; overflow: hidden; margin: 12px 0 8px; background: rgba(174,199,230,.24); border-radius: 999px; }
+        .doc-progress span { display: block; height: 100%; background: linear-gradient(90deg, #8dbbff, #2563eb); border-radius: inherit; box-shadow: 0 0 18px rgba(37,99,235,.25); transition: width .25s ease; }
+        .smart-summary > strong { color: #2563eb; font-size: 11px; }
         .template-summary span { color: var(--dark); display: block; font-size: 11px; font-weight: 800; margin-bottom: 3px; text-transform: uppercase; }
         .template-summary p { font-size: 12px; }
         .form-error { background: #fef2f2; border: 1px solid #fecaca; border-radius: 10px; color: #b91c1c; font-size: 13px; padding: 10px 12px; }
         .document-actions { border-top: 1px solid var(--line); display: flex; justify-content: flex-end; gap: 10px; padding-top: 20px; }
-        .pdf-preview { position: sticky; top: 24px; }
-        .preview-page { aspect-ratio: 1 / 1.414; display: flex; flex-direction: column; padding: 28px; overflow: hidden; color: #334155; background: #fff; border: 1px solid rgba(255,255,255,.9); box-shadow: 0 28px 70px rgba(33,74,132,.18); border-radius: 4px; }
+        .pdf-preview { position: sticky; top: 112px; display: flex; flex-direction: column; gap: 16px; }
+        .ai-support-card { padding: 18px; background: linear-gradient(145deg, rgba(255,255,255,.7), rgba(238,247,255,.48)); border: 1px solid rgba(255,255,255,.78); border-radius: 24px; box-shadow: 0 18px 50px rgba(44,86,145,.1), inset 0 1px 0 rgba(255,255,255,.94); backdrop-filter: blur(24px); }
+        .ai-support-card h3 { margin: 3px 0 12px; color: #102a56; font-size: 18px; }
+        .ai-support-card p { margin-top: 8px; padding: 10px 12px; color: #526b8b; background: rgba(255,255,255,.58); border: 1px solid rgba(255,255,255,.7); border-radius: 14px; font-size: 12px; line-height: 1.45; }
+        .preview-page { aspect-ratio: 1 / 1.414; display: flex; flex-direction: column; padding: 28px; overflow: hidden; color: #334155; background: linear-gradient(145deg, rgba(255,255,255,.88), rgba(239,247,255,.68)); border: 1px solid rgba(255,255,255,.9); box-shadow: 0 28px 70px rgba(33,74,132,.15), inset 0 1px 0 rgba(255,255,255,.95); border-radius: 24px; backdrop-filter: blur(22px); }
+        .live-preview-page { min-height: 580px; }
+        .preview-brand-row { display: flex; align-items: center; gap: 12px; margin: 18px 0 24px; padding: 13px; background: rgba(255,255,255,.55); border: 1px solid rgba(255,255,255,.74); border-radius: 18px; }
+        .preview-brand-row img { width: 42px; height: 42px; border-radius: 14px; object-fit: cover; box-shadow: 0 8px 22px rgba(37,99,235,.14); }
+        .preview-brand-row strong, .preview-brand-row span { display: block; }
+        .preview-brand-row strong { color: #102a56; letter-spacing: 2px; }
+        .preview-brand-row span { color: #6b7c93; font-size: 8px; font-weight: 800; letter-spacing: 1.4px; text-transform: uppercase; }
+        .live-field-list { display: grid; gap: 8px; width: 100%; margin: 18px 0; }
+        .live-field-list div { padding: 10px 11px; background: rgba(248,251,255,.78); border: 1px solid rgba(196,216,242,.38); border-radius: 12px; text-align: left; }
+        .live-field-list span, .live-field-list strong { display: block; }
+        .live-field-list span { color: #7b8ca8; font-size: 8px; font-weight: 900; text-transform: uppercase; }
+        .live-field-list strong { margin-top: 3px; color: #102a56; font-size: 11px; line-height: 1.35; }
         .preview-header { align-items: center; background: linear-gradient(135deg, #16396e, #285da4); color: white; display: flex; gap: 10px; margin: -28px -28px 18px; padding: 18px 24px; }
         .preview-header img { background: white; border-radius: 50%; height: 34px; object-fit: cover; width: 34px; }
         .preview-header strong, .preview-header span { display: block; }
@@ -2476,12 +3600,12 @@ export default function App() {
         .loading-state { padding: 28px; color: var(--muted); text-align: center; }
 
         @media (max-width: 1024px) {
-          .app-layout { grid-template-columns: 1fr; }
-          .sidebar { height: auto; position: relative; padding: 20px; }
-          .sidebar nav { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); }
+          .app-layout { display: block; }
+          .sidebar { height: auto; position: sticky; top: 10px; flex-wrap: wrap; padding: 12px; }
+          .sidebar nav { display: flex; flex-wrap: wrap; justify-content: flex-start; }
           .nav-label { display: none; }
           .nav-item { justify-content: center; }
-          .sidebar-logout { position: absolute; right: 20px; top: 23px; width: auto; }
+          .sidebar-logout { position: relative; right: auto; top: auto; width: auto; margin-left: auto; }
           .cards-grid { grid-template-columns: repeat(2, 1fr); }
           .content-grid { grid-template-columns: 1fr; }
           .monthly-admin-grid { grid-template-columns: 1fr; }
@@ -2498,11 +3622,18 @@ export default function App() {
           .login-page { grid-template-columns: 1fr; }
           .login-showcase { display: none; }
           .login-card { max-width: 480px; margin: auto; }
+          .login-page-liquid { grid-template-columns: minmax(0, 1fr) minmax(350px, 430px); gap: 24px; padding: 28px; }
+          .login-page-liquid .login-showcase { display: flex; min-height: 560px; }
+          .hero-content h2 { font-size: clamp(44px, 5.8vw, 62px); }
+          .brand-emblem-showcase { left: 60%; top: 43%; width: min(18vw, 170px); opacity: .26; }
+          .showcase-stats { grid-template-columns: repeat(3, minmax(0, 1fr)); max-width: 420px; gap: 12px; }
+          .metric-card, .showcase-stats > div { min-height: 118px; padding: 14px; }
         }
 
         @media (max-width: 640px) {
           .main-content { padding: 16px; }
-          .sidebar nav { grid-template-columns: repeat(2, minmax(0,1fr)); }
+          .sidebar { align-items: stretch; }
+          .sidebar nav { width: 100%; display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); }
           .nav-item { justify-content: flex-start; }
           .sidebar-logout { position: static; }
           .topbar { align-items: flex-start; flex-direction: column; padding: 20px; }
@@ -2512,12 +3643,26 @@ export default function App() {
           .task-actions, .member-actions { width: 100%; }
           .task-management-header, .task-list-heading, .admin-task-card { align-items: flex-start; flex-direction: column; }
           .task-management-actions, .task-list-controls, .admin-task-actions { width: 100%; }
+          .task-bulk-toolbar { align-items: stretch; flex-direction: column; }
+          .task-bulk-toolbar > div { flex-wrap: wrap; }
           .task-management-actions button, .admin-task-actions button { flex: 1; }
           .task-list-controls select { flex: 1; min-width: 0; }
           .task-form-row { grid-template-columns: 1fr; }
           .employee-monthly-list { grid-template-columns: 1fr; }
           .team-member { grid-template-columns: 43px 1fr; }
           .member-actions { grid-column: span 2; }
+          .team-management-header { align-items: stretch; flex-direction: column; }
+          .team-tabs { flex-direction: column; }
+          .employee-profile-grid { grid-template-columns: 1fr; }
+          .automation-heading, .process-heading, .template-card, .process-card { align-items: stretch; flex-direction: column; }
+          .automation-grid, .process-grid { grid-template-columns: 1fr; }
+          .process-update-form { grid-template-columns: 1fr; }
+          .processual-generator-heading { align-items: stretch; flex-direction: column; }
+          .processual-original-card { align-items: flex-start; flex-direction: column; }
+          .processual-input-grid { grid-template-columns: 1fr; }
+          .attachment-list article { grid-template-columns: 1fr; }
+          .attachment-order { display: flex; justify-content: flex-start; align-items: center; }
+          .report-list article { grid-template-columns: 1fr; }
           .document-heading { align-items: flex-start; flex-direction: column; }
           .document-number { width: 100%; }
           .form-grid { grid-template-columns: 1fr; }
@@ -2536,17 +3681,1190 @@ export default function App() {
           .login-page { padding: 18px; }
           .login-card { padding: 30px 23px; border-radius: 24px; }
           .showcase-stats { gap: 18px; }
+          .login-page-liquid { min-height: 100svh; display: flex; flex-direction: column; justify-content: center; padding: 20px; }
+          .login-page-liquid::before { inset: 8px; border-radius: 22px; }
+          .login-page-liquid .login-showcase { display: flex; min-height: auto; width: 100%; padding: 16px 4px 0; }
+          .hero-content .floating-badge, .hero-content h2, .hero-content > p, .brand-emblem-showcase, .showcase-stats { display: none; }
+          .glass-card { max-width: 460px; padding: 30px 22px; border-radius: 28px; }
+          .login-brand { margin-bottom: 30px; }
+          .login-brand div strong { font-size: 25px; letter-spacing: 5px; }
+          .login-brand div span { font-size: 8px; letter-spacing: 1.8px; }
+          .brand-badge { width: 62px; height: 62px; border-radius: 20px; }
+          .login-footer { position: static; justify-content: center; width: 100%; font-size: 11px; }
+          .login-footer-right { margin-top: -8px; }
         }
+
+
+        /* =====================================================
+           LOGIN CELIOS — VERSÃO IGUAL AO MODELO DA REFERÊNCIA
+           Imagem esperada em: public/assets/celios-login-bg-3d.png
+        ===================================================== */
+        .login-page-liquid {
+          min-height: 100svh !important;
+          width: 100% !important;
+          position: relative !important;
+          overflow: hidden !important;
+          display: grid !important;
+          grid-template-columns: minmax(560px, 1fr) minmax(500px, 620px) !important;
+          align-items: stretch !important;
+          gap: clamp(36px, 5vw, 86px) !important;
+          padding: clamp(44px, 5.2vw, 78px) clamp(46px, 5.6vw, 96px) !important;
+          color: #102a56 !important;
+          isolation: isolate !important;
+          background:
+            linear-gradient(90deg, rgba(255,255,255,0.88) 0%, rgba(255,255,255,0.66) 22%, rgba(255,255,255,0.16) 46%, rgba(255,255,255,0.46) 69%, rgba(255,255,255,0.88) 100%),
+            radial-gradient(circle at 8% 16%, rgba(255,255,255,0.92), transparent 28%),
+            radial-gradient(circle at 86% 48%, rgba(240,248,255,0.82), transparent 35%),
+            url('/assets/platino-login-background.png') right center / auto 100% no-repeat !important;
+        }
+
+        .login-page-liquid::before {
+          content: "" !important;
+          position: absolute !important;
+          inset: 8px !important;
+          z-index: 0 !important;
+          pointer-events: none !important;
+          border-radius: 28px !important;
+          border: 1px solid rgba(185, 207, 235, 0.52) !important;
+          box-shadow:
+            inset 0 1px 0 rgba(255,255,255,0.90),
+            inset 0 -1px 0 rgba(37,99,235,0.05) !important;
+        }
+
+        .login-page-liquid::after {
+          content: "" !important;
+          position: absolute !important;
+          inset: 0 !important;
+          z-index: 0 !important;
+          pointer-events: none !important;
+          background:
+            linear-gradient(180deg, rgba(255,255,255,0.22), rgba(239,247,255,0.18)),
+            radial-gradient(circle at 48% 45%, rgba(47,107,255,0.08), transparent 26%),
+            radial-gradient(circle at 74% 50%, rgba(255,255,255,0.46), transparent 32%) !important;
+        }
+
+        .login-page-liquid .liquid-bg {
+          display: block !important;
+          position: absolute !important;
+          inset: 0 !important;
+          z-index: 0 !important;
+          pointer-events: none !important;
+        }
+
+        .login-page-liquid .ambient {
+          position: absolute !important;
+          border-radius: 999px !important;
+          filter: blur(24px) !important;
+          opacity: 0.62 !important;
+        }
+
+        .login-page-liquid .ambient-one {
+          width: 360px !important;
+          height: 360px !important;
+          left: -120px !important;
+          top: -130px !important;
+          background: radial-gradient(circle, rgba(141,187,255,0.18), transparent 68%) !important;
+        }
+
+        .login-page-liquid .ambient-two {
+          width: 460px !important;
+          height: 460px !important;
+          right: -160px !important;
+          bottom: -170px !important;
+          background: radial-gradient(circle, rgba(37,99,235,0.12), transparent 70%) !important;
+        }
+
+        .login-page-liquid .ambient-three,
+        .login-page-liquid .orbital-line {
+          display: none !important;
+        }
+
+        .login-page-liquid .login-showcase,
+        .login-page-liquid .login-card,
+        .login-page-liquid .login-footer {
+          position: relative !important;
+          z-index: 2 !important;
+        }
+
+        .login-page-liquid .login-showcase {
+          grid-column: 1 !important;
+          display: flex !important;
+          min-height: calc(100svh - clamp(88px, 10.4vw, 156px)) !important;
+          width: 100% !important;
+          flex-direction: column !important;
+          align-items: flex-start !important;
+          justify-content: center !important;
+          padding: clamp(20px, 2.8vw, 42px) 0 0 clamp(10px, 1vw, 18px) !important;
+        }
+
+        .login-page-liquid .brand-emblem-showcase {
+          display: none !important;
+        }
+
+        .login-page-liquid .showcase-badge {
+          display: inline-flex !important;
+          align-items: center !important;
+          gap: 10px !important;
+          width: fit-content !important;
+          margin-bottom: clamp(50px, 7vh, 78px) !important;
+          padding: 12px 23px !important;
+          color: #2563eb !important;
+          background: rgba(255,255,255,0.60) !important;
+          border: 1px solid rgba(255,255,255,0.76) !important;
+          border-radius: 999px !important;
+          box-shadow:
+            0 18px 38px rgba(37,99,235,0.10),
+            inset 0 1px 0 rgba(255,255,255,0.90) !important;
+          backdrop-filter: blur(18px) !important;
+          -webkit-backdrop-filter: blur(18px) !important;
+          font-size: 12px !important;
+          font-weight: 900 !important;
+          letter-spacing: 1.7px !important;
+        }
+
+        .login-page-liquid .hero-content h2 {
+          max-width: 455px !important;
+          margin: 0 !important;
+          color: #102a56 !important;
+          font-size: clamp(50px, 4.7vw, 74px) !important;
+          line-height: 0.96 !important;
+          font-weight: 950 !important;
+          letter-spacing: -2.4px !important;
+          text-shadow: 0 12px 34px rgba(15,42,85,0.08) !important;
+        }
+
+        .login-page-liquid .hero-content h2::before,
+        .login-page-liquid .hero-content h2::after,
+        .login-page-liquid .hero-content > p::before {
+          content: none !important;
+        }
+
+        .login-page-liquid .hero-content h2 span {
+          color: #2563eb !important;
+        }
+
+        .login-page-liquid .hero-content > p {
+          display: block !important;
+          max-width: 420px !important;
+          margin: 26px 0 0 !important;
+          color: rgba(60, 83, 116, 0.78) !important;
+          font-size: 17px !important;
+          line-height: 1.55 !important;
+          font-weight: 600 !important;
+        }
+
+        .login-page-liquid .showcase-stats {
+          display: grid !important;
+          grid-template-columns: repeat(3, minmax(118px, 152px)) !important;
+          gap: 24px !important;
+          margin-top: auto !important;
+          margin-bottom: 54px !important;
+        }
+
+        .login-page-liquid .showcase-stats > div {
+          min-height: 172px !important;
+          display: flex !important;
+          flex-direction: column !important;
+          justify-content: space-between !important;
+          padding: 24px 21px 22px !important;
+          border-radius: 20px !important;
+          background: rgba(255,255,255,0.48) !important;
+          border: 1px solid rgba(255,255,255,0.70) !important;
+          box-shadow:
+            0 22px 42px rgba(36, 72, 118, 0.09),
+            inset 0 1px 0 rgba(255,255,255,0.86) !important;
+          backdrop-filter: blur(20px) saturate(126%) !important;
+          -webkit-backdrop-filter: blur(20px) saturate(126%) !important;
+        }
+
+        .login-page-liquid .showcase-stats svg {
+          color: #2563eb !important;
+        }
+
+        .login-page-liquid .showcase-stats strong {
+          color: #102a56 !important;
+          font-size: 30px !important;
+          font-weight: 950 !important;
+          letter-spacing: -1px !important;
+        }
+
+        .login-page-liquid .showcase-stats span {
+          color: #102a56 !important;
+          font-size: 10px !important;
+          line-height: 1.35 !important;
+          font-weight: 950 !important;
+          text-transform: uppercase !important;
+          letter-spacing: 0.2px !important;
+        }
+
+        .login-page-liquid .showcase-stats > div::after {
+          content: "" !important;
+          width: 26px !important;
+          height: 3px !important;
+          margin-top: 12px !important;
+          border-radius: 999px !important;
+          background: #2563eb !important;
+          box-shadow: 0 0 14px rgba(37,99,235,0.28) !important;
+        }
+
+        .login-page-liquid .login-card {
+          grid-column: 2 !important;
+          justify-self: end !important;
+          align-self: center !important;
+          width: 100% !important;
+          max-width: 620px !important;
+          min-height: min(78svh, 790px) !important;
+          display: flex !important;
+          flex-direction: column !important;
+          justify-content: center !important;
+          position: relative !important;
+          z-index: 2 !important;
+          padding: clamp(48px, 4.5vw, 72px) clamp(48px, 4.3vw, 68px) !important;
+          border-radius: 38px !important;
+          background:
+            linear-gradient(145deg, rgba(255,255,255,0.58), rgba(235,246,255,0.36)) !important;
+          border: 1px solid rgba(255,255,255,0.68) !important;
+          box-shadow:
+            0 38px 88px rgba(42, 82, 132, 0.15),
+            0 14px 36px rgba(37, 99, 235, 0.08),
+            inset 0 1px 0 rgba(255,255,255,0.94),
+            inset 0 -1px 0 rgba(37,99,235,0.06) !important;
+          backdrop-filter: blur(30px) saturate(138%) !important;
+          -webkit-backdrop-filter: blur(30px) saturate(138%) !important;
+        }
+
+        .login-page-liquid .login-card::before {
+          content: "" !important;
+          position: absolute !important;
+          inset: 1px !important;
+          border-radius: inherit !important;
+          pointer-events: none !important;
+          background:
+            linear-gradient(135deg, rgba(255,255,255,0.72), rgba(255,255,255,0.07) 42%, rgba(141,187,255,0.14)),
+            radial-gradient(circle at 20% 0%, rgba(255,255,255,0.72), transparent 32%) !important;
+        }
+
+        .login-page-liquid .login-card > * {
+          position: relative !important;
+          z-index: 1 !important;
+        }
+
+        .login-page-liquid .login-brand {
+          justify-content: center !important;
+          gap: 18px !important;
+          margin-bottom: clamp(44px, 5vh, 66px) !important;
+        }
+
+        .login-page-liquid .brand-badge {
+          width: 74px !important;
+          height: 74px !important;
+          border-radius: 24px !important;
+          object-fit: cover !important;
+          background: rgba(255,255,255,0.62) !important;
+          box-shadow:
+            0 20px 36px rgba(37,99,235,0.14),
+            0 0 26px rgba(141,187,255,0.32),
+            inset 0 1px 0 rgba(255,255,255,0.88) !important;
+        }
+
+        .login-page-liquid .login-brand div strong {
+          color: #102a56 !important;
+          font-size: clamp(31px, 2.6vw, 43px) !important;
+          font-weight: 700 !important;
+          letter-spacing: 9px !important;
+          line-height: 1 !important;
+        }
+
+        .login-page-liquid .login-brand div span {
+          margin-top: 9px !important;
+          color: #405979 !important;
+          font-size: 8px !important;
+          letter-spacing: 2.8px !important;
+          font-weight: 900 !important;
+        }
+
+        .login-page-liquid .secure-badge {
+          display: inline-flex !important;
+          align-items: center !important;
+          gap: 10px !important;
+          width: fit-content !important;
+          color: #2563eb !important;
+          letter-spacing: 1.4px !important;
+          font-size: 12px !important;
+          font-weight: 950 !important;
+        }
+
+        .login-page-liquid .login-card h1 {
+          max-width: 440px !important;
+          margin: 24px 0 10px !important;
+          color: #102a56 !important;
+          font-size: clamp(32px, 2.6vw, 42px) !important;
+          line-height: 1.05 !important;
+          letter-spacing: -1.4px !important;
+          font-weight: 950 !important;
+        }
+
+        .login-page-liquid .login-card > p {
+          color: #667890 !important;
+          font-size: 15px !important;
+          font-weight: 600 !important;
+        }
+
+        .login-page-liquid .login-form {
+          margin-top: 36px !important;
+          gap: 22px !important;
+        }
+
+        .login-page-liquid .glass-field > span {
+          color: #102a56 !important;
+          font-size: 13px !important;
+          font-weight: 900 !important;
+        }
+
+        .login-page-liquid .glass-input {
+          min-height: 59px !important;
+          padding: 0 17px !important;
+          background: rgba(255,255,255,0.42) !important;
+          border: 1px solid rgba(255,255,255,0.76) !important;
+          border-radius: 17px !important;
+          box-shadow:
+            inset 0 1px 0 rgba(255,255,255,0.94),
+            0 12px 28px rgba(47,107,255,0.055) !important;
+        }
+
+        .login-page-liquid .glass-input svg {
+          color: #516986 !important;
+        }
+
+        .login-page-liquid .glass-input:focus-within {
+          border-color: rgba(47,107,255,0.42) !important;
+          box-shadow:
+            0 0 0 4px rgba(47,107,255,0.08),
+            inset 0 1px 0 rgba(255,255,255,0.96),
+            0 14px 30px rgba(47,107,255,0.08) !important;
+        }
+
+        .login-page-liquid .forgot-password {
+          appearance: none !important;
+          align-self: flex-start !important;
+          margin: -7px 0 0 !important;
+          padding: 0 !important;
+          color: #2563eb !important;
+          background: transparent !important;
+          border: 0 !important;
+          box-shadow: none !important;
+          cursor: pointer !important;
+          font-size: 13px !important;
+          font-weight: 850 !important;
+        }
+
+        .login-page-liquid .glass-button {
+          min-height: 61px !important;
+          margin-top: 10px !important;
+          color: #ffffff !important;
+          background:
+            linear-gradient(135deg, #7fb5ff 0%, #3f83ff 48%, #2563eb 100%) !important;
+          border: 1px solid rgba(255,255,255,0.66) !important;
+          border-radius: 18px !important;
+          box-shadow:
+            0 20px 42px rgba(37,99,235,0.26),
+            inset 0 1px 0 rgba(255,255,255,0.72),
+            inset 0 -14px 24px rgba(15,42,85,0.17) !important;
+          font-size: 16px !important;
+          font-weight: 950 !important;
+        }
+
+        .login-page-liquid .button-png-icon {
+          width: 23px !important;
+          height: 23px !important;
+          border-radius: 50% !important;
+          object-fit: cover !important;
+          box-shadow: 0 0 14px rgba(255,255,255,0.50) !important;
+        }
+
+        .login-page-liquid .glass-button:disabled {
+          opacity: 0.76 !important;
+          cursor: not-allowed !important;
+          filter: grayscale(0.08) !important;
+        }
+
+        .login-page-liquid .login-separator {
+          display: flex !important;
+          align-items: center !important;
+          gap: 16px !important;
+          margin: 29px 0 18px !important;
+          color: #5d718d !important;
+          font-size: 12px !important;
+          font-weight: 800 !important;
+        }
+
+        .login-page-liquid .login-separator::before,
+        .login-page-liquid .login-separator::after {
+          content: "" !important;
+          flex: 1 !important;
+          height: 1px !important;
+          background: linear-gradient(90deg, transparent, rgba(91,126,170,0.22), transparent) !important;
+        }
+
+        .login-page-liquid .sso-button {
+          min-height: 47px !important;
+          align-self: center !important;
+          display: inline-flex !important;
+          align-items: center !important;
+          justify-content: center !important;
+          gap: 10px !important;
+          padding: 0 24px !important;
+          color: #102a56 !important;
+          background: rgba(255,255,255,0.42) !important;
+          border: 1px solid rgba(255,255,255,0.76) !important;
+          border-radius: 14px !important;
+          box-shadow:
+            inset 0 1px 0 rgba(255,255,255,0.90),
+            0 12px 24px rgba(37,99,235,0.08) !important;
+          cursor: pointer !important;
+          font-weight: 850 !important;
+        }
+
+        .login-page-liquid .login-card-softline {
+          display: none !important;
+        }
+
+        .login-page-liquid .login-footer {
+          z-index: 2 !important;
+          color: rgba(73, 92, 120, 0.70) !important;
+          text-shadow: 0 1px 0 rgba(255,255,255,0.76) !important;
+        }
+
+        .login-page-liquid .login-footer strong {
+          color: #2563eb !important;
+        }
+
+        @media (max-width: 1200px) {
+          .login-page-liquid {
+            grid-template-columns: minmax(430px, 1fr) minmax(430px, 520px) !important;
+            gap: 34px !important;
+            padding: 34px !important;
+            background:
+              linear-gradient(90deg, rgba(255,255,255,0.88) 0%, rgba(255,255,255,0.50) 35%, rgba(255,255,255,0.72) 100%),
+              url('/assets/platino-login-background.png') right center / auto 100% no-repeat !important;
+          }
+
+          .login-page-liquid .login-showcase {
+            min-height: calc(100svh - 68px) !important;
+          }
+
+          .login-page-liquid .showcase-stats {
+            grid-template-columns: repeat(3, minmax(104px, 1fr)) !important;
+            gap: 15px !important;
+          }
+
+          .login-page-liquid .login-card {
+            max-width: 520px !important;
+            padding: 42px !important;
+          }
+        }
+
+        @media (max-width: 920px) {
+          .login-page-liquid {
+            display: flex !important;
+            min-height: 100svh !important;
+            align-items: center !important;
+            justify-content: center !important;
+            padding: 18px !important;
+            background:
+              linear-gradient(180deg, rgba(255,255,255,0.72), rgba(247,251,255,0.90)),
+              url('/assets/platino-login-background.png') 38% center / cover no-repeat !important;
+          }
+
+          .login-page-liquid .login-showcase {
+            display: none !important;
+          }
+
+          .login-page-liquid .login-card {
+            grid-column: auto !important;
+            justify-self: center !important;
+            width: min(100%, 470px) !important;
+            max-width: 470px !important;
+            min-height: auto !important;
+            padding: 32px 24px !important;
+            border-radius: 29px !important;
+            background: linear-gradient(145deg, rgba(255,255,255,0.82), rgba(241,248,255,0.70)) !important;
+          }
+
+          .login-page-liquid .login-footer {
+            display: none !important;
+          }
+
+          .login-page-liquid .login-brand {
+            margin-bottom: 30px !important;
+          }
+
+          .login-page-liquid .brand-badge {
+            width: 62px !important;
+            height: 62px !important;
+            border-radius: 20px !important;
+          }
+
+          .login-page-liquid .login-brand div strong {
+            font-size: 25px !important;
+            letter-spacing: 5px !important;
+          }
+        }
+
+
+        /* ===========================
+           AJUSTES FINAIS LOGIN CELIOS
+           Escrita limpa + botão corrigido + destaques azuis
+        =========================== */
+
+        .login-page-liquid {
+          position: relative !important;
+          overflow: hidden !important;
+          min-height: 100vh !important;
+          display: grid !important;
+          grid-template-columns: 1.1fr 0.9fr !important;
+          align-items: center !important;
+          gap: 40px !important;
+          padding: 42px 48px 70px !important;
+          border-radius: 28px !important;
+          background:
+            linear-gradient(135deg, rgba(255,255,255,0.72), rgba(245,249,255,0.80)),
+            url("/assets/platino-login-background.png") center center / cover no-repeat !important;
+          isolation: isolate !important;
+        }
+
+        .login-page-liquid::before {
+          content: "" !important;
+          position: absolute !important;
+          inset: 0 !important;
+          z-index: 0 !important;
+          background:
+            radial-gradient(circle at 28% 40%, rgba(45, 119, 255, 0.16), transparent 18%),
+            radial-gradient(circle at 53% 56%, rgba(87, 171, 255, 0.14), transparent 20%),
+            linear-gradient(90deg, rgba(255,255,255,0.28), rgba(255,255,255,0.18)) !important;
+          pointer-events: none !important;
+        }
+
+        .login-page-liquid::after {
+          content: "" !important;
+          position: absolute !important;
+          inset: 0 !important;
+          background:
+            radial-gradient(circle at 30% 42%, rgba(45, 119, 255, 0.12), transparent 18%),
+            radial-gradient(circle at 58% 50%, rgba(87, 171, 255, 0.10), transparent 20%),
+            radial-gradient(circle at 68% 24%, rgba(77, 140, 255, 0.08), transparent 14%) !important;
+          pointer-events: none !important;
+          z-index: 0 !important;
+        }
+
+        .liquid-bg,
+        .hero-content,
+        .login-card,
+        .login-footer {
+          position: relative !important;
+          z-index: 2 !important;
+        }
+
+        .liquid-bg { display: block !important; position: absolute !important; inset: 0 !important; pointer-events: none !important; }
+
+        .hero-content { max-width: 520px !important; min-height: auto !important; padding-left: 0 !important; display: flex !important; flex-direction: column !important; justify-content: center !important; }
+        .hero-content h2 { max-width: 540px !important; font-size: clamp(52px, 6vw, 76px) !important; line-height: 0.95 !important; font-weight: 900 !important; letter-spacing: -2px !important; color: #0d2b66 !important; margin: 0 0 22px !important; text-shadow: 0 18px 44px rgba(15,42,85,0.08) !important; }
+        .hero-content h2 span { color: #2f6bff !important; }
+        .hero-content h2::before,
+        .hero-content h2::after,
+        .hero-content > p::before,
+        .showcase-stats > div strong::before,
+        .showcase-stats > div span::before { content: none !important; display: none !important; }
+        .hero-content > p { max-width: 460px !important; min-height: 0 !important; font-size: 18px !important; line-height: 1.6 !important; color: #667a96 !important; margin: 0 0 34px !important; font-weight: 500 !important; }
+        .showcase-badge { display: inline-flex !important; align-items: center !important; gap: 10px !important; width: max-content !important; padding: 12px 18px !important; border-radius: 999px !important; background: rgba(255,255,255,0.58) !important; border: 1px solid rgba(255,255,255,0.8) !important; box-shadow: 0 12px 30px rgba(62, 95, 160, 0.08) !important; color: #2f6bff !important; font-size: 13px !important; font-weight: 700 !important; letter-spacing: 0.08em !important; margin-bottom: 28px !important; backdrop-filter: blur(10px) !important; }
+
+        .brand-emblem-showcase { position: absolute !important; left: 36% !important; top: 52% !important; transform: translate(-50%, -50%) !important; width: min(720px, 62vw) !important; aspect-ratio: 1 / 1 !important; pointer-events: none !important; z-index: 1 !important; opacity: 0.92 !important; }
+        .emblem-glass-plate { width: 100% !important; height: 100% !important; display: grid !important; place-items: center !important; background: transparent !important; border: 0 !important; box-shadow: none !important; overflow: visible !important; backdrop-filter: none !important; }
+        .emblem-symbol { width: 100% !important; height: 100% !important; object-fit: contain !important; border-radius: 0 !important; opacity: 0.92 !important; filter: drop-shadow(0 0 22px rgba(58, 132, 255, 0.22)) drop-shadow(0 18px 42px rgba(44, 96, 192, 0.18)) !important; animation: floatSymbol 6s ease-in-out infinite !important; }
+        .emblem-halo { position: absolute !important; inset: 18% !important; border-radius: 999px !important; background: radial-gradient(circle, rgba(74, 142, 255, 0.18), transparent 72%) !important; filter: blur(20px) !important; animation: pulseHalo 3.8s ease-in-out infinite !important; }
+        .emblem-orbit { position: absolute !important; left: 50% !important; top: 50% !important; border-radius: 999px !important; border: 1px solid rgba(102, 157, 255, 0.18) !important; transform: translate(-50%, -50%) !important; }
+        .orbit-a { width: 88% !important; height: 88% !important; inset: auto !important; }
+        .orbit-b { width: 74% !important; height: 74% !important; inset: auto !important; }
+
+        .showcase-stats { display: grid !important; grid-template-columns: repeat(3, minmax(90px, 1fr)) !important; gap: 34px !important; max-width: 480px !important; margin-top: 22px !important; position: relative !important; z-index: 3 !important; }
+        .showcase-stat-card,
+        .showcase-stats > div { min-height: auto !important; padding: 0 !important; border-radius: 0 !important; background: transparent !important; border: 0 !important; box-shadow: none !important; backdrop-filter: none !important; display: block !important; color: #102d67 !important; }
+        .showcase-stats svg,
+        .showcase-stat-card .ui-icon { display: none !important; }
+        .showcase-stat-card strong,
+        .showcase-stats > div strong { display: block !important; font-size: 22px !important; line-height: 1 !important; font-weight: 900 !important; color: #2f6bff !important; margin: 0 0 8px !important; letter-spacing: -0.2px !important; }
+        .showcase-stat-card span,
+        .showcase-stats > div span { display: block !important; color: #7f8da3 !important; font-size: 11px !important; line-height: 1.25 !important; font-weight: 700 !important; letter-spacing: 0 !important; text-transform: uppercase !important; }
+
+        .login-card { justify-self: end !important; width: 100% !important; max-width: 470px !important; padding: 38px 42px !important; border-radius: 34px !important; background: rgba(255,255,255,0.58) !important; border: 1px solid rgba(255,255,255,0.82) !important; box-shadow: 0 28px 70px rgba(44, 84, 158, 0.12), inset 0 1px 0 rgba(255,255,255,0.9) !important; backdrop-filter: blur(18px) !important; }
+        .login-brand { display: flex !important; align-items: center !important; gap: 16px !important; margin-bottom: 26px !important; }
+        .brand-badge-wrap { width: 68px !important; height: 68px !important; border-radius: 22px !important; display: grid !important; place-items: center !important; background: linear-gradient(180deg, rgba(255,255,255,0.9), rgba(241,247,255,0.72)) !important; border: 1px solid rgba(255,255,255,0.85) !important; box-shadow: 0 10px 26px rgba(43, 85, 167, 0.10), inset 0 1px 0 rgba(255,255,255,0.95) !important; flex: 0 0 auto !important; }
+        .brand-badge { width: 48px !important; height: 48px !important; border-radius: 0 !important; object-fit: contain !important; image-rendering: auto !important; filter: drop-shadow(0 0 10px rgba(68, 148, 255, 0.20)) contrast(1.05) saturate(1.06) !important; box-shadow: none !important; }
+        .login-brand strong,
+        .login-brand div strong { display: block !important; font-size: 22px !important; line-height: 1 !important; letter-spacing: 0.22em !important; color: #102d67 !important; font-weight: 800 !important; }
+        .login-brand span,
+        .login-brand div span { display: block !important; margin-top: 4px !important; font-size: 11px !important; letter-spacing: 0.18em !important; text-transform: uppercase !important; color: #5f7391 !important; font-weight: 800 !important; }
+        .secure-badge { display: inline-flex !important; align-items: center !important; gap: 8px !important; color: #2f6bff !important; font-size: 13px !important; font-weight: 800 !important; margin-bottom: 18px !important; }
+        .login-card h1 { font-size: 34px !important; line-height: 1.05 !important; font-weight: 900 !important; color: #0f2b66 !important; margin: 0 0 10px !important; }
+        .login-card p,
+        .login-page-liquid .login-card > p { color: #6a7d97 !important; font-size: 17px !important; font-weight: 500 !important; margin-bottom: 26px !important; }
+        .login-form,
+        .login-page-liquid .login-form { display: flex !important; flex-direction: column !important; gap: 18px !important; margin-top: 0 !important; }
+        .glass-field > span,
+        .login-page-liquid .glass-field > span { display: block !important; font-size: 14px !important; font-weight: 700 !important; color: #18386d !important; margin-bottom: 10px !important; }
+        .glass-input,
+        .login-page-liquid .glass-input { display: flex !important; align-items: center !important; gap: 12px !important; padding: 0 14px !important; height: 56px !important; min-height: 56px !important; border-radius: 18px !important; background: rgba(255,255,255,0.52) !important; border: 1px solid rgba(197, 214, 241, 0.95) !important; box-shadow: inset 0 1px 0 rgba(255,255,255,0.92) !important; }
+        .glass-input .ui-icon,
+        .login-page-liquid .glass-input svg { color: #6c7f9d !important; flex-shrink: 0 !important; }
+        .glass-input input { flex: 1 !important; height: 100% !important; border: none !important; outline: none !important; background: transparent !important; color: #17376f !important; font-size: 15px !important; }
+        .glass-input input::placeholder { color: #7a8ea8 !important; }
+        .forgot-password,
+        .login-page-liquid .forgot-password { display: inline-block !important; align-self: flex-start !important; margin-top: -6px !important; padding: 0 !important; font-size: 13px !important; font-weight: 700 !important; color: #2f6bff !important; text-decoration: none !important; background: transparent !important; border: 0 !important; box-shadow: none !important; cursor: pointer !important; }
+        .login-submit,
+        .login-page-liquid .glass-button.login-submit { margin-top: 4px !important; height: 58px !important; min-height: 58px !important; border: none !important; border-radius: 18px !important; background: linear-gradient(135deg, #7db1ff 0%, #3d7cff 48%, #205de9 100%) !important; color: #fff !important; font-size: 18px !important; font-weight: 800 !important; display: flex !important; align-items: center !important; justify-content: center !important; box-shadow: 0 14px 34px rgba(47, 107, 255, 0.28), inset 0 1px 0 rgba(255,255,255,0.55) !important; position: relative !important; overflow: hidden !important; cursor: pointer !important; gap: 0 !important; }
+        .login-submit::before { content: "" !important; position: absolute !important; top: 0 !important; left: -40% !important; width: 36% !important; height: 100% !important; background: linear-gradient(90deg, transparent, rgba(255,255,255,0.35), transparent) !important; transform: skewX(-20deg) !important; animation: buttonShine 3.8s linear infinite !important; }
+        .login-submit span { position: relative !important; z-index: 1 !important; }
+        .button-png-icon { display: none !important; }
+        .login-divider { display: flex !important; align-items: center !important; gap: 14px !important; margin-top: 2px !important; color: #7c8da5 !important; font-size: 13px !important; justify-content: center !important; }
+        .login-divider::before,
+        .login-divider::after { content: "" !important; height: 1px !important; flex: 1 !important; background: rgba(189, 204, 228, 0.88) !important; }
+        .login-separator { display: none !important; }
+        .sso-button,
+        .login-page-liquid .sso-button { align-self: center !important; display: inline-flex !important; align-items: center !important; justify-content: center !important; gap: 8px !important; padding: 12px 20px !important; border-radius: 16px !important; border: 1px solid rgba(197, 214, 241, 0.95) !important; background: rgba(255,255,255,0.56) !important; color: #24497f !important; font-weight: 700 !important; cursor: pointer !important; box-shadow: none !important; min-height: auto !important; }
+
+        .blue-focus { position: absolute !important; border-radius: 999px !important; filter: blur(30px) !important; opacity: 0.45 !important; pointer-events: none !important; animation: pulseGlow 4s ease-in-out infinite !important; }
+        .blue-focus-one { width: 180px !important; height: 180px !important; left: 26% !important; top: 36% !important; background: radial-gradient(circle, rgba(59, 131, 246, 0.28), transparent 70%) !important; }
+        .blue-focus-two { width: 140px !important; height: 140px !important; left: 46% !important; top: 62% !important; background: radial-gradient(circle, rgba(120, 196, 255, 0.24), transparent 70%) !important; }
+        .glow-dot { position: absolute !important; width: 10px !important; height: 10px !important; border-radius: 999px !important; background: #79b7ff !important; box-shadow: 0 0 12px rgba(84, 161, 255, 0.8), 0 0 24px rgba(84, 161, 255, 0.45) !important; animation: pulseDot 2.8s ease-in-out infinite !important; }
+        .dot-a { left: 5% !important; top: 62% !important; }
+        .dot-b { left: 58% !important; top: 30% !important; animation-delay: 0.8s !important; }
+        .dot-c { left: 72% !important; top: 80% !important; animation-delay: 1.5s !important; }
+        .energy-line { position: absolute !important; border-radius: 999px !important; pointer-events: none !important; opacity: 0.55 !important; filter: blur(0.2px) !important; }
+        .line-a { left: -4% !important; bottom: 16% !important; width: 42% !important; height: 4px !important; background: linear-gradient(90deg, transparent, rgba(107, 181, 255, 0.9), transparent) !important; transform: rotate(22deg) !important; animation: flowLine 6s linear infinite !important; }
+        .line-b { right: 18% !important; top: 18% !important; width: 24% !important; height: 3px !important; background: linear-gradient(90deg, transparent, rgba(151, 212, 255, 0.8), transparent) !important; transform: rotate(-18deg) !important; animation: flowLineAlt 5s linear infinite reverse !important; }
+        .login-footer { position: absolute !important; bottom: 22px !important; font-size: 13px !important; color: #7f91a9 !important; z-index: 3 !important; }
+        .login-footer-left { left: 42px !important; }
+        .login-footer-right { right: 42px !important; display: flex !important; align-items: center !important; gap: 8px !important; }
+        .version-icon { width: 18px !important; height: 18px !important; border-radius: 999px !important; border: 1px solid rgba(47, 107, 255, 0.45) !important; box-shadow: 0 0 0 3px rgba(47, 107, 255, 0.08) !important; }
+
+        @keyframes pulseDot { 0%, 100% { transform: scale(1); opacity: 0.75; } 50% { transform: scale(1.8); opacity: 1; } }
+        @keyframes pulseGlow { 0%, 100% { opacity: 0.28; transform: scale(1); } 50% { opacity: 0.48; transform: scale(1.08); } }
+        @keyframes flowLine { 0% { opacity: 0.18; transform: translateX(0) rotate(22deg); } 50% { opacity: 0.75; } 100% { opacity: 0.18; transform: translateX(24px) rotate(22deg); } }
+        @keyframes flowLineAlt { 0% { opacity: 0.18; transform: translateX(0) rotate(-18deg); } 50% { opacity: 0.75; } 100% { opacity: 0.18; transform: translateX(24px) rotate(-18deg); } }
+        @keyframes buttonShine { 0% { left: -40%; } 100% { left: 130%; } }
+        @keyframes floatSymbol { 0%, 100% { transform: translateY(0px); } 50% { transform: translateY(-8px); } }
+        @keyframes pulseHalo { 0%, 100% { opacity: 0.25; transform: scale(1); } 50% { opacity: 0.42; transform: scale(1.06); } }
+
+        @media (max-width: 1200px) {
+          .login-page-liquid { grid-template-columns: 1fr !important; padding: 28px 24px 70px !important; }
+          .login-card { justify-self: center !important; max-width: 520px !important; }
+          .hero-content { max-width: 100% !important; padding-top: 8px !important; }
+          .brand-emblem-showcase { left: 50% !important; top: 48% !important; width: min(620px, 90vw) !important; opacity: 0.3 !important; }
+          .showcase-stats { max-width: 100% !important; }
+        }
+
+        @media (max-width: 768px) {
+          .hero-content h2 { font-size: 44px !important; }
+          .showcase-stats { grid-template-columns: 1fr !important; }
+          .login-card { padding: 28px 22px !important; }
+          .login-footer { position: static !important; margin-top: 12px !important; }
+        }
+
+      
+
+        /* =====================================================
+           FUNDO MAIS NÍTIDO, AZUL E VALORIZADO — CeliOS Login
+           Ajuste final aplicado no arquivo completo
+        ===================================================== */
+
+        .login-page-liquid {
+          background:
+            radial-gradient(circle at 36% 45%, rgba(47, 107, 255, 0.16), transparent 22%),
+            radial-gradient(circle at 48% 58%, rgba(84, 176, 255, 0.14), transparent 24%),
+            linear-gradient(135deg, rgba(250, 253, 255, 0.34), rgba(238, 246, 255, 0.42)) !important;
+        }
+
+        .login-page-liquid::before {
+          content: "" !important;
+          position: absolute !important;
+          inset: 0 !important;
+          background: url("/assets/platino-login-background.png") center center / cover no-repeat !important;
+          filter: brightness(0.96) contrast(1.22) saturate(1.32) !important;
+          opacity: 1 !important;
+          z-index: 0 !important;
+          pointer-events: none !important;
+        }
+
+        .login-page-liquid::after {
+          content: "" !important;
+          position: absolute !important;
+          inset: 0 !important;
+          background:
+            radial-gradient(circle at 31% 45%, rgba(0, 102, 255, 0.12), transparent 20%),
+            radial-gradient(circle at 44% 60%, rgba(80, 180, 255, 0.10), transparent 22%),
+            radial-gradient(circle at 58% 32%, rgba(47, 107, 255, 0.08), transparent 18%),
+            linear-gradient(90deg, rgba(255,255,255,0.12), rgba(255,255,255,0.03) 48%, rgba(255,255,255,0.16)) !important;
+          z-index: 1 !important;
+          pointer-events: none !important;
+        }
+
+        .liquid-bg,
+        .hero-content,
+        .login-card,
+        .login-footer {
+          position: relative !important;
+          z-index: 3 !important;
+        }
+
+        .brand-emblem-showcase {
+          opacity: 1 !important;
+        }
+
+        .emblem-symbol {
+          filter:
+            drop-shadow(0 0 24px rgba(47, 107, 255, 0.34))
+            drop-shadow(0 20px 48px rgba(20, 74, 160, 0.24))
+            contrast(1.12)
+            saturate(1.18) !important;
+        }
+
+        .blue-focus-one {
+          opacity: 0.64 !important;
+          background: radial-gradient(circle, rgba(35, 112, 255, 0.46), transparent 68%) !important;
+        }
+
+        .blue-focus-two {
+          opacity: 0.60 !important;
+          background: radial-gradient(circle, rgba(72, 184, 255, 0.38), transparent 68%) !important;
+        }
+
+        .glow-dot {
+          width: 12px !important;
+          height: 12px !important;
+          background: #4fa8ff !important;
+          box-shadow:
+            0 0 14px rgba(47, 107, 255, 0.95),
+            0 0 34px rgba(84, 180, 255, 0.65) !important;
+        }
+
+        .energy-line {
+          opacity: 0.78 !important;
+          filter: blur(0.1px) !important;
+        }
+
+        .line-a {
+          background: linear-gradient(90deg, transparent, rgba(47, 137, 255, 0.95), rgba(153, 220, 255, 0.75), transparent) !important;
+        }
+
+        .line-b {
+          background: linear-gradient(90deg, transparent, rgba(98, 190, 255, 0.85), transparent) !important;
+        }
+
+        .login-card {
+          background: rgba(255, 255, 255, 0.48) !important;
+          backdrop-filter: blur(18px) saturate(1.2) !important;
+          box-shadow:
+            0 34px 84px rgba(38, 92, 178, 0.17),
+            inset 0 1px 0 rgba(255,255,255,0.92) !important;
+        }
+
+        .showcase-badge,
+        .showcase-stat-card {
+          background: rgba(255, 255, 255, 0.46) !important;
+          backdrop-filter: blur(13px) saturate(1.12) !important;
+        }
+
+        .hero-content h2 {
+          text-shadow: 0 14px 34px rgba(18, 54, 118, 0.08) !important;
+        }
+
+        .hero-content p {
+          color: #5f7493 !important;
+        }
+
+        /* Login final: layout responsivo sem depender de mockup unico como fundo. */
+        .login-page-liquid {
+          min-height: 100svh !important;
+          height: 100svh !important;
+          overflow: hidden !important;
+          display: grid !important;
+          grid-template-columns: minmax(420px, 1fr) minmax(390px, 500px) !important;
+          align-items: center !important;
+          gap: clamp(36px, 6vw, 96px) !important;
+          padding: clamp(28px, 4vw, 58px) clamp(28px, 5vw, 76px) !important;
+          background:
+            radial-gradient(circle at 42% 48%, rgba(47,107,255,0.13), transparent 20%),
+            radial-gradient(circle at 18% 16%, rgba(141,187,255,0.28), transparent 30%),
+            radial-gradient(circle at 86% 18%, rgba(255,255,255,0.96), transparent 32%),
+            linear-gradient(135deg, #f8fbff 0%, #eef6ff 52%, #ffffff 100%) !important;
+        }
+
+        .login-page-liquid::before {
+          content: "" !important;
+          position: absolute !important;
+          inset: 10px !important;
+          border: 1px solid rgba(176,198,228,0.36) !important;
+          border-radius: 26px !important;
+          background:
+            linear-gradient(120deg, rgba(255,255,255,0.62), rgba(255,255,255,0.14) 42%, rgba(141,187,255,0.10)),
+            repeating-linear-gradient(115deg, transparent 0 92px, rgba(37,99,235,0.035) 93px 94px) !important;
+          pointer-events: none !important;
+          z-index: 0 !important;
+        }
+
+        .login-page-liquid .login-showcase {
+          width: 100% !important;
+          max-width: 620px !important;
+          min-height: 0 !important;
+          padding: 0 !important;
+          justify-self: start !important;
+          z-index: 2 !important;
+        }
+
+        .login-page-liquid .hero-content h2 {
+          max-width: 560px !important;
+          min-height: 0 !important;
+          margin: 0 0 24px !important;
+          font-size: 0 !important;
+          letter-spacing: 0 !important;
+          color: transparent !important;
+        }
+
+        .login-page-liquid .hero-content h2::after {
+          display: none !important;
+          content: none !important;
+        }
+
+        .login-page-liquid .hero-content > p {
+          max-width: 560px !important;
+          margin: 0 0 42px !important;
+          color: #5f7493 !important;
+          font-size: 18px !important;
+          line-height: 1.55 !important;
+        }
+
+        .login-page-liquid .brand-emblem-showcase {
+          left: auto !important;
+          right: -6vw !important;
+          top: 50% !important;
+          width: clamp(220px, 28vw, 390px) !important;
+          opacity: 0.18 !important;
+          transform: translateY(-50%) !important;
+          z-index: 1 !important;
+        }
+
+        .login-page-liquid .emblem-symbol {
+          opacity: 1 !important;
+          filter: drop-shadow(0 18px 40px rgba(47,107,255,0.18)) !important;
+        }
+
+        .login-page-liquid .showcase-stats {
+          max-width: 500px !important;
+          gap: clamp(18px, 3vw, 42px) !important;
+          margin-top: 0 !important;
+          position: relative !important;
+          z-index: 3 !important;
+        }
+
+        .login-page-liquid .login-card {
+          justify-self: end !important;
+          max-width: 500px !important;
+          min-height: auto !important;
+          padding: clamp(34px, 4vw, 54px) !important;
+          background: rgba(255,255,255,0.56) !important;
+          border: 1px solid rgba(255,255,255,0.78) !important;
+          backdrop-filter: blur(24px) saturate(1.18) !important;
+          -webkit-backdrop-filter: blur(24px) saturate(1.18) !important;
+        }
+
+        .login-page-liquid .login-submit {
+          gap: 0 !important;
+        }
+
+        .login-page-liquid .button-png-icon,
+        .login-page-liquid .login-submit img {
+          display: none !important;
+        }
+
+        @media (max-width: 1180px) {
+          .login-page-liquid {
+            grid-template-columns: minmax(340px, 1fr) minmax(360px, 440px) !important;
+            gap: 28px !important;
+            padding: 26px !important;
+          }
+
+          .login-page-liquid .brand-emblem-showcase {
+            display: none !important;
+          }
+
+          .login-page-liquid .hero-content h2::before {
+            font-size: clamp(42px, 5.6vw, 62px) !important;
+          }
+        }
+
+        @media (max-width: 760px) {
+          .login-page-liquid {
+            height: auto !important;
+            min-height: 100svh !important;
+            overflow-y: auto !important;
+            display: flex !important;
+            justify-content: center !important;
+            padding: 20px !important;
+          }
+
+          .login-page-liquid .login-showcase {
+            display: none !important;
+          }
+
+          .login-page-liquid .login-card {
+            width: 100% !important;
+            max-width: 460px !important;
+            padding: 28px 22px !important;
+            border-radius: 28px !important;
+          }
+
+          .login-footer {
+            display: none !important;
+          }
+        }
+
+        /* Login minimalista */
+        .login-page-liquid {
+          display: flex !important;
+          align-items: center !important;
+          justify-content: center !important;
+          min-height: 100svh !important;
+          height: auto !important;
+          padding: 32px 20px 76px !important;
+          background: #f4f7fb !important;
+          border-radius: 0 !important;
+        }
+
+        .login-page-liquid::before {
+          inset: 0 !important;
+          border: 0 !important;
+          border-radius: 0 !important;
+          background: linear-gradient(180deg, #f8fafc 0%, #eef3f9 100%) !important;
+          filter: none !important;
+        }
+
+        .login-page-liquid::after,
+        .login-page-liquid .liquid-bg,
+        .login-page-liquid .login-showcase,
+        .login-page-liquid .brand-badge-wrap {
+          display: none !important;
+        }
+
+        .login-page-liquid .login-card {
+          width: min(100%, 430px) !important;
+          max-width: 430px !important;
+          min-height: auto !important;
+          margin: 0 !important;
+          padding: 42px 38px !important;
+          border: 1px solid #e2e8f0 !important;
+          border-radius: 22px !important;
+          background: #ffffff !important;
+          box-shadow: 0 18px 50px rgba(15, 42, 85, 0.08) !important;
+          backdrop-filter: none !important;
+          -webkit-backdrop-filter: none !important;
+        }
+
+        .login-page-liquid .login-card::before { display: none !important; }
+        .login-page-liquid .login-brand { justify-content: flex-start !important; margin-bottom: 34px !important; }
+        .login-page-liquid .login-brand div strong { font-size: 27px !important; letter-spacing: 6px !important; }
+        .login-page-liquid .login-brand div span { margin-top: 7px !important; font-size: 8px !important; }
+        .login-page-liquid .login-card h1 { font-size: 30px !important; }
+        .login-page-liquid .glass-input { background: #f8fafc !important; border-color: #dbe3ee !important; box-shadow: none !important; }
+        .login-page-liquid .login-footer { color: #8a98aa !important; }
+
+        @media (max-width: 520px) {
+          .login-page-liquid { padding: 18px !important; }
+          .login-page-liquid .login-card { padding: 32px 24px !important; border-radius: 18px !important; }
+          .login-page-liquid .login-footer { display: none !important; }
+        }
+
+        /* Composição final do login */
+        .login-page-liquid {
+          position: relative !important;
+          display: grid !important;
+          place-items: center !important;
+          min-height: 100svh !important;
+          padding: 48px 24px 82px !important;
+          background: #f8fafc url('/assets/platino-login-background.png') center / cover no-repeat !important;
+        }
+
+        .login-page-liquid::before {
+          display: block !important;
+          content: "" !important;
+          position: absolute !important;
+          inset: 0 !important;
+          background: linear-gradient(90deg, rgba(255,255,255,.12), rgba(255,255,255,.06) 52%, rgba(255,255,255,.3)) !important;
+          pointer-events: none !important;
+        }
+
+        .login-page-liquid .login-card {
+          position: relative !important;
+          z-index: 2 !important;
+          justify-self: center !important;
+          align-self: center !important;
+          width: min(100%, 440px) !important;
+          max-width: 440px !important;
+          padding: 42px 40px 40px !important;
+          overflow: hidden !important;
+          border: 1px solid rgba(184, 199, 219, .72) !important;
+          border-radius: 20px !important;
+          background: rgba(255, 255, 255, .96) !important;
+          box-shadow: 0 24px 70px rgba(21, 60, 117, .12), 0 2px 8px rgba(21, 60, 117, .04) !important;
+        }
+
+        .login-card-accent {
+          position: absolute !important;
+          z-index: 3 !important;
+          inset: 0 0 auto !important;
+          height: 4px !important;
+          background: linear-gradient(90deg, #173f83, #3b82f6 54%, #78b7ff) !important;
+        }
+
+        .login-page-liquid .login-brand {
+          justify-content: flex-start !important;
+          margin: 0 0 40px !important;
+        }
+
+        .login-page-liquid .login-brand div strong {
+          color: #102d5c !important;
+          font-family: "Segoe UI", Arial, sans-serif !important;
+          font-size: 24px !important;
+          font-weight: 800 !important;
+          letter-spacing: .08em !important;
+        }
+
+        .login-page-liquid .login-brand div span {
+          margin-top: 7px !important;
+          color: #8492a6 !important;
+          font-size: 9px !important;
+          font-weight: 800 !important;
+          letter-spacing: .14em !important;
+        }
+
+        .login-heading { margin-bottom: 30px !important; }
+        .login-heading > span { color: #316ed7 !important; font-size: 10px !important; font-weight: 900 !important; letter-spacing: .12em !important; text-transform: uppercase !important; }
+        .login-page-liquid .login-heading h1 { margin: 10px 0 7px !important; color: #102d5c !important; font-size: 30px !important; font-weight: 800 !important; letter-spacing: -.04em !important; }
+        .login-page-liquid .login-heading p { margin: 0 !important; color: #718096 !important; font-size: 14px !important; }
+
+        .login-page-liquid .login-form { gap: 19px !important; margin: 0 !important; }
+        .login-page-liquid .glass-field { gap: 8px !important; }
+        .login-page-liquid .glass-field > span { margin: 0 !important; color: #284568 !important; font-size: 12px !important; font-weight: 800 !important; }
+        .login-page-liquid .glass-input { height: 52px !important; min-height: 52px !important; padding: 0 15px !important; border: 1px solid #d7e0eb !important; border-radius: 12px !important; background: #f8fafc !important; box-shadow: none !important; }
+        .login-page-liquid .glass-input:focus-within { border-color: #4d83dc !important; background: #fff !important; box-shadow: 0 0 0 3px rgba(59, 130, 246, .1) !important; transform: none !important; }
+        .login-page-liquid .glass-input svg { color: #7186a2 !important; }
+        .login-page-liquid .glass-input input { height: auto !important; padding: 0 !important; border: 0 !important; border-radius: 0 !important; background: transparent !important; box-shadow: none !important; color: #162f52 !important; font-size: 14px !important; font-weight: 600 !important; }
+        .login-page-liquid .forgot-password { align-self: flex-end !important; margin: -7px 0 0 !important; color: #356fd3 !important; font-size: 11px !important; font-weight: 700 !important; }
+        .login-page-liquid .login-submit { height: 52px !important; min-height: 52px !important; margin-top: 4px !important; border-radius: 12px !important; background: linear-gradient(135deg, #2f73df, #1e5fc9) !important; box-shadow: 0 10px 24px rgba(37, 99, 201, .22) !important; font-size: 14px !important; font-weight: 800 !important; }
+        .login-page-liquid .login-submit::before { display: none !important; }
+
+        .login-page-liquid .login-footer-minimal {
+          position: absolute !important;
+          z-index: 3 !important;
+          right: auto !important;
+          bottom: 27px !important;
+          left: 50% !important;
+          display: flex !important;
+          align-items: center !important;
+          gap: 18px !important;
+          width: max-content !important;
+          margin: 0 !important;
+          color: #8795a8 !important;
+          font-size: 10px !important;
+          transform: translateX(-50%) !important;
+        }
+
+        .login-page-liquid .login-footer-minimal span + span { padding-left: 18px !important; border-left: 1px solid #cbd5e1 !important; }
+        .login-page-liquid .login-footer-minimal strong { color: #356fd3 !important; }
+
+        /* Gamificação semanal, devolução obrigatória e check-in documental */
+        .sr-only { position: absolute !important; width: 1px !important; height: 1px !important; padding: 0 !important; margin: -1px !important; overflow: hidden !important; clip: rect(0, 0, 0, 0) !important; white-space: nowrap !important; border: 0 !important; }
+        .performance-badge { display: inline-flex; align-items: center; justify-content: center; min-width: 22px; height: 22px; padding: 0 5px; color: #79520a; background: linear-gradient(145deg, #fff7bd, #f6c84a); border: 1px solid rgba(207,148,25,.45); border-radius: 999px; box-shadow: 0 5px 14px rgba(190,132,17,.24), inset 0 1px 0 rgba(255,255,255,.9); font-size: 13px; line-height: 1; }
+        .performance-badge.with-label { gap: 5px; height: 24px; padding: 0 8px; }
+        .performance-badge.with-label strong { color: #79520a; font-size: 8px; font-weight: 900; letter-spacing: .55px; text-transform: uppercase; }
+        .member-avatar-wrap { position: relative; width: 43px; height: 43px; flex: 0 0 auto; }
+        .member-avatar-wrap .member-avatar { overflow: hidden; }
+        .member-avatar-wrap .member-avatar img { width: 100%; height: 100%; object-fit: cover; }
+        .member-avatar-wrap > .performance-badge { position: absolute; right: -8px; bottom: -7px; z-index: 2; }
+        .member-avatar-wrap.compact { width: 38px; height: 38px; }
+        .member-avatar-wrap.compact .member-avatar { width: 38px; height: 38px; border-radius: 12px; }
+        .member-avatar-wrap.compact > .performance-badge { right: -7px; bottom: -8px; }
+        .member-name-row { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
+        .member-name-row > strong { display: inline-block; }
+        .member-details { min-width: 0; }
+        .team-member.member-high-performance { border-color: rgba(225,174,55,.44); background: linear-gradient(135deg, rgba(255,252,230,.92), rgba(246,251,255,.82)); box-shadow: 0 12px 34px rgba(190,132,17,.1); }
+        .weekly-performance { display: flex; flex-direction: column; gap: 1px; margin-top: 8px; padding: 7px 9px; color: #2d7b69; background: rgba(216,247,236,.7); border-radius: 9px; }
+        .weekly-performance strong { color: inherit; font-size: 9px; }
+        .weekly-performance small { color: #648078; font-size: 8px; }
+        .weekly-performance.has-loss { color: #b34c58; background: rgba(255,226,229,.72); }
+        .profile-pill.profile-high-performance { border-color: rgba(225,174,55,.42); background: linear-gradient(135deg, rgba(255,251,222,.94), rgba(238,247,255,.92)); box-shadow: 0 10px 30px rgba(190,132,17,.1); }
+        .profile-pill .performance-badge { display: inline-flex; width: max-content; margin-top: 5px; }
+        .profile-pill .performance-badge > span { display: inline; margin: 0; color: #79520a; font-size: 12px; }
+        .profile-pill .performance-badge strong { display: inline; }
+        .status.devolvida { color: #a64250; background: rgba(255,222,226,.74); border: 1px solid rgba(198,69,86,.2); }
+        .btn-return { display: inline-flex; align-items: center; justify-content: center; gap: 8px; padding: 11px 16px; color: #fff; background: linear-gradient(135deg, #de6a77, #bd4657); border: 0; border-radius: 12px; box-shadow: 0 8px 20px rgba(189,70,87,.2); cursor: pointer; font-size: 11px; font-weight: 800; transition: .2s ease; }
+        .btn-return:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 11px 24px rgba(189,70,87,.28); }
+        .btn-return:disabled { opacity: .48; cursor: not-allowed; box-shadow: none; }
+        .modal-backdrop { position: fixed; z-index: 9999; inset: 0; display: grid; place-items: center; padding: 20px; background: rgba(12,32,64,.5); backdrop-filter: blur(8px); }
+        .return-modal { width: min(560px, 100%); padding: 26px; color: var(--text); background: rgba(255,255,255,.98); border: 1px solid rgba(255,255,255,.92); border-radius: 22px; box-shadow: 0 32px 90px rgba(13,37,76,.3); }
+        .return-modal-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 18px; margin-bottom: 22px; }
+        .return-modal-heading h2 { margin: 5px 0 3px; color: var(--dark); font-size: 21px; }
+        .return-modal-heading p { margin: 0; font-size: 12px; }
+        .modal-close { width: 34px; height: 34px; color: #5d7089; background: #edf4fb; border: 0; border-radius: 10px; cursor: pointer; font-size: 23px; line-height: 1; }
+        .return-form label { gap: 7px; }
+        .field-help, .field-ok { margin-top: -2px; font-size: 9px; }
+        .field-help { color: #8b6870; }
+        .field-ok { color: #278a72; }
+        .return-modal-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 4px; }
+        .return-alert { margin: 10px 0; padding: 12px 14px; color: #803642; background: linear-gradient(135deg, rgba(255,234,237,.92), rgba(255,246,241,.88)); border: 1px solid rgba(196,70,87,.18); border-left: 4px solid #cf5363; border-radius: 11px; }
+        .return-alert > div { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+        .return-alert strong { color: #943c49; font-size: 11px; }
+        .return-alert small { color: #9c6f76; font-size: 8px; }
+        .return-alert p { margin: 5px 0 0; color: #76545a; font-size: 10px; line-height: 1.5; }
+        .return-waiting { max-width: 145px; color: #a15560; font-size: 9px; font-weight: 800; line-height: 1.35; text-align: right; }
+        .document-checklist { width: min(680px, 100%); margin-top: 16px; padding: 16px; background: linear-gradient(145deg, rgba(244,249,255,.95), rgba(255,255,255,.94)); border: 1px solid rgba(85,137,205,.2); border-radius: 15px; box-shadow: inset 0 1px 0 rgba(255,255,255,.9); }
+        .document-checklist.complete { border-color: rgba(54,170,143,.3); background: linear-gradient(145deg, rgba(235,252,246,.95), rgba(255,255,255,.96)); }
+        .document-checklist-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
+        .document-checklist-heading h4 { margin: 3px 0 0; color: #183b69; font-size: 14px; }
+        .checklist-progress { flex: 0 0 auto; padding: 5px 8px; color: #326dbd; background: #e4f0ff; border-radius: 999px; font-size: 9px; font-weight: 900; }
+        .document-checklist.complete .checklist-progress { color: #247b67; background: #daf5ec; }
+        .document-checklist-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+        .document-checklist-grid label { display: flex; align-items: center; gap: 9px; min-height: 38px; padding: 8px 10px; color: #536a86; background: rgba(255,255,255,.8); border: 1px solid rgba(104,148,201,.15); border-radius: 10px; cursor: pointer; font-size: 10px; font-weight: 750; }
+        .document-checklist-grid label.checked { color: #247b67; background: rgba(222,249,240,.78); border-color: rgba(54,170,143,.28); }
+        .document-checklist-grid input { width: 16px; height: 16px; accent-color: #35aa91; }
+        .document-checklist > p { margin: 11px 0 9px; color: #718199; font-size: 9px; }
+        .checklist-confirmed { margin-top: 11px; padding: 9px 11px; color: #247b67; background: rgba(214,246,236,.82); border-radius: 9px; font-size: 10px; font-weight: 800; }
+
+        @media (max-width: 520px) {
+          .login-page-liquid { padding: 22px 16px 70px !important; }
+          .login-page-liquid .login-card { padding: 36px 25px 30px !important; border-radius: 17px !important; }
+          .login-page-liquid .login-brand { margin-bottom: 32px !important; }
+          .login-page-liquid .login-footer-minimal { display: flex !important; bottom: 20px !important; }
+          .document-checklist-grid { grid-template-columns: 1fr; }
+          .return-modal { padding: 21px 17px; border-radius: 18px; }
+          .return-modal-actions { flex-direction: column-reverse; }
+          .return-modal-actions button { width: 100%; }
+        }
+
       `}</style>
       
       <Toast message={toastMessage} onClose={() => setToastMessage("")} />
 
       {inicializando ? (
-        <div className="login-page">
-          <div className="login-card">
-            <img src="/logo-interface.png" alt="Logo Platino" className="brand-badge" />
+        <div className="login-page login-page-liquid">
+          <section className="glass-card login-card loading-card" aria-label="Carregando CeliOS">
+            <div className="login-brand">
+              <div>
+                <strong>CeliOS</strong>
+                <span>Enterprise Operating System</span>
+              </div>
+            </div>
             <p>Carregando o workspace...</p>
-          </div>
+          </section>
         </div>
       ) : !usuarioLogado ? (
         <Login onLogin={handleLogin} />
@@ -2558,3 +4876,4 @@ export default function App() {
     </>
   );
 }
+

@@ -32,6 +32,11 @@ execute tambem:
 
 `supabase/painel_tv_tarefas.sql`
 
+Para ativar o selo semanal de Alta Performance, a devolução com justificativa
+obrigatória e o checklist bloqueante dos cinco documentos iniciais, execute:
+
+`supabase/gamificacao_devolucao_checklist.sql`
+
 Depois, no menu **Authentication > Users**, crie três usuários:
 
 - O supervisor com o e-mail `tafarel@platino.com`.

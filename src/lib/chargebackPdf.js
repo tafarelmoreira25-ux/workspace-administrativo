@@ -102,7 +102,10 @@ function desenharParagrafo({
     const ultimaLinha = indiceLinha === linhas.length - 1;
     const espaco =
       alinhamento === "justify" && !ultimaLinha && quantidadeEspacos
-        ? (largura - larguraPalavras) / quantidadeEspacos
+        ? Math.max(
+            espacoPadrao,
+            (largura - larguraPalavras) / quantidadeEspacos,
+          )
         : espacoPadrao;
     const larguraLinha =
       larguraPalavras + quantidadeEspacos * espacoPadrao;
@@ -333,7 +336,7 @@ export async function gerarChargebackPdf(dados) {
     });
   });
 
-  y -= 10;
+  y = Math.min(y - 10, 190);
   y = desenharParagrafo({
     pagina,
     fontes,
@@ -352,7 +355,7 @@ export async function gerarChargebackPdf(dados) {
     alturaLinha: 14,
     segmentos: [
       { texto: responsavel, negrito: true },
-      { texto: "- Representante autorizado" },
+      { texto: " - Representante autorizado" },
     ],
   });
 
