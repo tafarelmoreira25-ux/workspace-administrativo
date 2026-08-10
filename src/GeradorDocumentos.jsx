@@ -96,6 +96,11 @@ async function gerarDocumento(dados, modelo, numeroDocumento) {
       "./lib/termoCienciaPagamentoPdf"
     );
     bytes = await gerarTermoCienciaPagamentoPdf(dados);
+  } else if (modelo.modo === "termo-ciencia-seguranca") {
+    const { gerarTermoCienciaSegurancaPdf } = await import(
+      "./lib/termoCienciaSegurancaPdf"
+    );
+    bytes = await gerarTermoCienciaSegurancaPdf(dados);
   } else if (modelo.modo === "declaracao-ausencia-carteira-trabalho") {
     const { gerarDeclaracaoAusenciaCarteiraTrabalhoPdf } = await import(
       "./lib/declaracaoAusenciaCarteiraTrabalhoPdf"
@@ -265,6 +270,22 @@ function ResumoDocumento({ modelo, dados }) {
             {dados.valorTotal ? `R$ ${dados.valorTotal}` : "nao informado"}
           </strong>{" "}
           em <strong>{dados.quantidadeParcelas || "0"} parcelas</strong>.
+        </p>
+      </>
+    );
+  }
+
+  if (modelo.modo === "termo-ciencia-seguranca") {
+    return (
+      <>
+        <span>Autorização GOV.BR</span>
+        <h3>{modelo.nome}</h3>
+        <p>
+          Cliente: <strong>{dados.nomeCliente || "Nome do cliente"}</strong>
+        </p>
+        <p>
+          Protocolo:{" "}
+          <strong>{dados.numeroProtocolo || "não informado"}</strong>.
         </p>
       </>
     );
