@@ -425,6 +425,9 @@ function PerformanceBadge({ performance, mostrarRotulo = false }) {
 
 function mensagemErroOperacional(error) {
   const mensagem = error?.message || "Erro desconhecido.";
+  if (mensagem.includes("Use a acao Devolver Tarefa") || mensagem.includes("justificativa da devolucao")) {
+    return "A proteção antiga de devolução do Supabase ainda está ativa. Reexecute o arquivo motor_operacional_tarefas_2026.sql atualizado.";
+  }
   if (error?.code === "PGRST202" || mensagem.includes("schema cache") || mensagem.includes("delegar_tarefa_operacional")) {
     return "A estrutura da Central de Tarefas ainda não foi instalada no Supabase. Execute, na ordem, motor_operacional_tarefas_2026.sql e central_tarefas_modulos_2026.sql no SQL Editor.";
   }
@@ -3697,7 +3700,7 @@ export default function App() {
         .btn-danger { color: #bb536b; background: rgba(255,232,238,.8); border: 1px solid rgba(221,109,135,.13); }
         button:disabled { cursor: wait; opacity: .58; transform: none !important; }
         .team-member { display: grid; grid-template-columns: 43px 1fr auto; align-items: center; gap: 13px; padding: 15px; background: rgba(247,251,255,.75); border: 1px solid rgba(104,148,201,.14); border-radius: 16px; }
-        .member-avatar { width: 43px; height: 43px; display: grid; place-items: center; color: #fff; background: linear-gradient(145deg, #83b6f5, #4f82cf); border: 2px solid rgba(255,255,255,.95); border-radius: 50%; box-shadow: 0 8px 18px rgba(66,114,178,.24); font-weight: 800; }
+        .member-avatar { width: 54px; height: 54px; display: grid; place-items: center; color: #fff; background: linear-gradient(145deg, #83b6f5, #4f82cf); border: 3px solid rgba(255,255,255,.98); border-radius: 50%; box-shadow: 0 10px 24px rgba(49,94,154,.28); font-size: 16px; font-weight: 800; }
         .team-member strong { display: block; color: var(--dark); font-size: 13px; }
         .team-member p { margin: 2px 0; font-size: 10px; }
         .points-badge { color: var(--green); font-size: 10px; font-weight: 800; }
@@ -5128,13 +5131,13 @@ export default function App() {
         .performance-badge { display: inline-flex; align-items: center; justify-content: center; min-width: 22px; height: 22px; padding: 0 5px; color: #79520a; background: linear-gradient(145deg, #fff7bd, #f6c84a); border: 1px solid rgba(207,148,25,.45); border-radius: 999px; box-shadow: 0 5px 14px rgba(190,132,17,.24), inset 0 1px 0 rgba(255,255,255,.9); font-size: 13px; line-height: 1; }
         .performance-badge.with-label { gap: 5px; height: 24px; padding: 0 8px; }
         .performance-badge.with-label strong { color: #79520a; font-size: 8px; font-weight: 900; letter-spacing: .55px; text-transform: uppercase; }
-        .member-avatar-wrap { position: relative; width: 43px; height: 43px; flex: 0 0 auto; }
+        .member-avatar-wrap { position: relative; width: 54px; height: 54px; flex: 0 0 auto; }
         .member-avatar-wrap .member-avatar { overflow: hidden; }
-        .member-avatar-wrap .member-avatar img { width: 100%; height: 100%; object-fit: cover; }
-        .employee-avatar-sprite { width: 100%; height: 100%; display: block; background-image: url('/assets/equipe/avatares-equipe-2026.png'); background-repeat: no-repeat; background-size: 300% 200%; }
+        .member-avatar-wrap .member-avatar img { width: 100%; height: 100%; object-fit: cover; image-rendering: auto; }
+        .employee-avatar-sprite { width: 100%; height: 100%; display: block; background-image: url('/assets/equipe/avatares-equipe-2026.png'); background-repeat: no-repeat; background-size: 300% 200%; image-rendering: auto; transform: scale(1.08); }
         .member-avatar-wrap > .performance-badge { position: absolute; right: -8px; bottom: -7px; z-index: 2; }
-        .member-avatar-wrap.compact { width: 46px; height: 46px; }
-        .member-avatar-wrap.compact .member-avatar { width: 46px; height: 46px; border-radius: 50%; }
+        .member-avatar-wrap.compact { width: 64px; height: 64px; }
+        .member-avatar-wrap.compact .member-avatar { width: 64px; height: 64px; border-radius: 50%; }
         .member-avatar-wrap.compact > .performance-badge { right: -7px; bottom: -8px; }
         .member-name-row { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
         .member-name-row > strong { display: inline-block; }
@@ -5232,6 +5235,62 @@ export default function App() {
           .return-modal { padding: 21px 17px; border-radius: 18px; }
           .return-modal-actions { flex-direction: column-reverse; }
           .return-modal-actions button { width: 100%; }
+        }
+
+        /* Estrutura responsiva final: prevalece sobre os estilos legados. */
+        *, *::before, *::after { box-sizing: border-box; }
+        html, body, #root { width: 100%; max-width: 100%; overflow-x: clip; }
+        .app-layout { width: 100%; min-width: 0; }
+        .sidebar { width: min(1600px, calc(100% - 32px)); max-width: 1600px; display: grid; grid-template-columns: auto minmax(0,1fr) auto; grid-template-areas: "brand navigation logout"; align-items: center; gap: 14px; margin: 14px auto 0; }
+        .sidebar .brand { grid-area: brand; min-width: max-content; }
+        .sidebar nav { grid-area: navigation; width: 100%; min-width: 0; display: grid; grid-template-columns: repeat(auto-fit,minmax(88px,1fr)); gap: 6px; }
+        .sidebar nav .nav-label { display: none; }
+        .sidebar-logout { grid-area: logout; min-width: max-content; }
+        .nav-item { width: 100%; min-width: 0; padding: 9px 8px; line-height: 1.15; white-space: normal; }
+        .nav-item > span:not(.nav-menu-popover) { min-width: 0; overflow-wrap: anywhere; }
+        .main-content { width: min(1600px,100%); max-width: 1600px; min-width: 0; margin-inline: auto; }
+        .main-content > *, .panel, .card, .task-item, .content-grid, .side-stack { min-width: 0; max-width: 100%; }
+        .task-item { display: grid; grid-template-columns: minmax(0,1fr); align-items: start; gap: 14px; }
+        .task-item > div:first-child { width: 100%; min-width: 0; }
+        .task-actions { width: 100%; display: flex; flex-wrap: wrap; justify-content: flex-start; align-items: center; gap: 8px; padding-top: 12px; border-top: 1px solid rgba(92,137,192,.12); }
+        .task-actions button { flex: 0 1 auto; min-height: 40px; white-space: normal; }
+        .document-checklist { width: 100%; max-width: 760px; }
+        .document-checklist input, .document-checklist textarea { max-width: 100%; }
+        .employee-tasks-workspace .content-grid { grid-template-columns: minmax(0,1fr) minmax(260px,320px); }
+        .central-table-row, .urgency-row { min-width: 0; overflow-wrap: anywhere; }
+
+        @media (max-width: 1280px) {
+          .sidebar { width: calc(100% - 20px); margin-top: 10px; border-radius: 22px; }
+          .sidebar nav { grid-template-columns: repeat(5,minmax(86px,1fr)); }
+          .main-content { padding-inline: 18px; }
+          .employee-tasks-workspace .content-grid { grid-template-columns: minmax(0,1fr); }
+          .side-stack { width: 100%; }
+        }
+
+        @media (max-width: 900px) {
+          .sidebar { position: relative; top: auto; grid-template-columns: minmax(0,1fr) auto; grid-template-areas: "brand logout" "navigation navigation"; padding: 12px; }
+          .sidebar nav { grid-template-columns: repeat(3,minmax(0,1fr)); }
+          .topbar { flex-direction: column; align-items: stretch; gap: 14px; }
+          .profile-pill { width: 100%; }
+          .content-grid, .urgency-layout { grid-template-columns: minmax(0,1fr); }
+          .task-form-row, .advanced-fields { grid-template-columns: minmax(0,1fr); }
+        }
+
+        @media (max-width: 600px) {
+          .sidebar { width: calc(100% - 12px); margin-top: 6px; border-radius: 18px; }
+          .sidebar .brand span { display: none; }
+          .sidebar nav { grid-template-columns: repeat(2,minmax(0,1fr)); }
+          .nav-item { min-height: 46px; justify-content: flex-start; padding: 9px 10px; }
+          .sidebar-logout { padding-inline: 11px; }
+          .main-content { padding: 12px 8px 32px; }
+          .topbar, .panel { padding: 16px; border-radius: 18px; }
+          .task-item { padding: 14px; }
+          .task-actions { display: grid; grid-template-columns: minmax(0,1fr); }
+          .task-actions button { width: 100%; }
+          .document-checklist { padding: 12px; }
+          .central-metrics { grid-template-columns: repeat(2,minmax(0,1fr)); gap: 8px; }
+          .central-metric { padding: 12px; }
+          .central-metric strong { font-size: 24px; }
         }
 
       `}</style>

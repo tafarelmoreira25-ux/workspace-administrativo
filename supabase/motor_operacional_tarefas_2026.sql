@@ -266,6 +266,11 @@ begin
   else raise exception 'Transicao % invalida para o status %.',p_acao,t.status; end if;
 
   perform set_config('platino.motor_operacional','1',true);
+  -- Compatibilidade com o gatilho legado que protege devolucoes sem justificativa.
+  -- O motor ja validou p_motivo acima, portanto pode liberar a mesma transacao.
+  if destino='devolvida' then
+    perform set_config('platino.devolucao_validada','1',true);
+  end if;
   update public.tarefas set status=destino,aceita_em=t.aceita_em,execucao_iniciada_em=t.execucao_iniciada_em,
     bloqueio_motivo=t.bloqueio_motivo,devolvida_conferencia_em=t.devolvida_conferencia_em,
     checklist_execucao=t.checklist_execucao,observacoes_devolutiva=t.observacoes_devolutiva,
