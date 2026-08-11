@@ -2601,9 +2601,11 @@ function CentroNotificacoes() {
 }
 
 function FormularioDelegacaoUsuario({ usuario, funcionarios, onCriada, showToast }) {
-  const [form, setForm] = useState({ cliente: "", tipo: CATEGORIAS_TAREFA[0], outraAcao: "", titulo: "", solicitacao: "", resultado: "", setorExecutor: "Administrativo", responsavelId: "", prazo: "", prioridade: "normal" });
+  const formularioVazio = { cliente: "", tipo: CATEGORIAS_TAREFA[0], outraAcao: "", solicitacao: "", resultado: "", setorExecutor: "Administrativo", responsavelId: "", prazo: "", prioridade: "normal" };
+  const [form, setForm] = useState(formularioVazio);
   const [salvando, setSalvando] = useState(false);
   const [enviada, setEnviada] = useState(false);
+  const [maisOpcoes, setMaisOpcoes] = useState(false);
   const [destinatarios, setDestinatarios] = useState(funcionarios || []);
   useEffect(() => {
     supabase.rpc("listar_destinatarios_tarefa").then(({ data, error }) => {
@@ -2613,16 +2615,39 @@ function FormularioDelegacaoUsuario({ usuario, funcionarios, onCriada, showToast
   const equipeDisponivel = destinatarios.filter((item) => item.ativo !== false && String(item.id) !== String(usuario.id));
   const alterar = (campo, valor) => setForm((atual) => ({ ...atual, [campo]: valor }));
 
+  function dataLocalInput(data) {
+    const deslocamento = data.getTimezoneOffset() * 60_000;
+    return new Date(data.getTime() - deslocamento).toISOString().slice(0, 16);
+  }
+
+  function definirPrazo(tipo) {
+    const data = new Date();
+    if (tipo === "duas_horas") data.setHours(data.getHours() + 2, 0, 0, 0);
+    if (tipo === "hoje_18") {
+      data.setHours(18, 0, 0, 0);
+      if (data <= new Date()) data.setDate(data.getDate() + 1);
+    }
+    if (tipo === "amanha_10") { data.setDate(data.getDate() + 1); data.setHours(10, 0, 0, 0); }
+    if (tipo === "dois_dias") { data.setDate(data.getDate() + 2); data.setHours(18, 0, 0, 0); }
+    alterar("prazo", dataLocalInput(data));
+  }
+
+  function resultadoAutomatico() {
+    if (form.resultado.trim()) return form.resultado.trim();
+    return `Executar ${form.tipo === "OUTROS" ? form.outraAcao.trim() : form.tipo.toLowerCase()} para o cliente, registrar a devolutiva e inserir o link do documento no Drive quando aplicável.`;
+  }
+
   async function delegar(event) {
     event.preventDefault();
     if (form.tipo === "OUTROS" && !form.outraAcao.trim()) return alert("Descreva a ação solicitada.");
+    if (!form.prazo) return alert("Selecione um prazo rápido ou escolha uma data em Mais opções.");
     setSalvando(true);
     try {
       const { data, error } = await supabase.rpc("delegar_tarefa_operacional", {
         p_cliente_id: null, p_tratativa_id: null, p_nome_cliente: form.cliente.trim(),
-        p_tipo_codigo: CODIGOS_TIPO_TAREFA[form.tipo], p_titulo: form.titulo.trim(),
+        p_tipo_codigo: CODIGOS_TIPO_TAREFA[form.tipo], p_titulo: form.tipo === "OUTROS" ? form.outraAcao.trim() : form.tipo,
         p_solicitacao: `${form.tipo === "OUTROS" ? `Ação: ${form.outraAcao.trim()}\n` : ""}${form.solicitacao.trim()}`,
-        p_resultado_esperado: form.resultado.trim(),
+        p_resultado_esperado: resultadoAutomatico(),
         p_setor_solicitante: usuario.setor || usuario.cargo || "Equipe",
         p_setor_executor: form.setorExecutor, p_funcionaria_id: Number(form.responsavelId),
         p_prazo_limite: new Date(form.prazo).toISOString(), p_prioridade: form.prioridade,
@@ -2634,7 +2659,8 @@ function FormularioDelegacaoUsuario({ usuario, funcionarios, onCriada, showToast
       setEnviada(true);
       window.setTimeout(() => setEnviada(false), 1800);
       showToast(`Tarefa ${criada.id_externo || criada.id} delegada com sucesso.`);
-      setForm({ cliente: "", tipo: CATEGORIAS_TAREFA[0], outraAcao: "", titulo: "", solicitacao: "", resultado: "", setorExecutor: "Administrativo", responsavelId: "", prazo: "", prioridade: "normal" });
+      setForm(formularioVazio);
+      setMaisOpcoes(false);
     } catch (error) {
       alert(`Não foi possível delegar a tarefa: ${mensagemErroOperacional(error)}`);
     } finally { setSalvando(false); }
@@ -2642,15 +2668,15 @@ function FormularioDelegacaoUsuario({ usuario, funcionarios, onCriada, showToast
 
   return <section className="panel large delegation-panel">
     {enviada && <div className="delegation-sent" role="status"><span>✉</span><strong>Tarefa delegada com sucesso.</strong></div>}
-    <div className="panel-title-row"><div><span className="eyebrow">Delegação entre setores</span><h2>Delegar nova tarefa</h2><p>Você será registrado automaticamente como solicitante.</p></div></div>
+    <div className="panel-title-row"><div><span className="eyebrow">Delegação rápida</span><h2>Delegar nova tarefa</h2><p>Preencha somente o essencial. Solicitante, título, resultado e setor são preenchidos automaticamente.</p></div></div>
     <form className="stack-form task-form" onSubmit={delegar}>
       <div className="task-form-row"><label>Cliente<input required value={form.cliente} onChange={(e) => alterar("cliente", e.target.value)} /></label><label>Ação<select required value={form.tipo} onChange={(e) => alterar("tipo", e.target.value)}>{CATEGORIAS_TAREFA.map((tipo) => <option key={tipo}>{tipo}</option>)}</select></label></div>
       {form.tipo === "OUTROS" && <label>Descreva a ação<input required value={form.outraAcao} onChange={(e) => alterar("outraAcao", e.target.value)} /></label>}
-      <label>Título<input required value={form.titulo} onChange={(e) => alterar("titulo", e.target.value)} placeholder="Resumo objetivo da tarefa" /></label>
-      <label>Solicitação<textarea required rows="4" value={form.solicitacao} onChange={(e) => alterar("solicitacao", e.target.value)} placeholder="O que precisa ser feito?" /></label>
-      <label>Resultado esperado<textarea required rows="3" value={form.resultado} onChange={(e) => alterar("resultado", e.target.value)} placeholder="O que deve ser entregue e como será comprovado?" /></label>
-      <div className="task-form-row"><label>Setor executor<select value={form.setorExecutor} onChange={(e) => alterar("setorExecutor", e.target.value)}><option>Administrativo</option><option>Jurídico</option><option>Comercial</option><option>Processual</option></select></label><label>Responsável<select required value={form.responsavelId} onChange={(e) => alterar("responsavelId", e.target.value)}><option value="">Selecione outro usuário...</option>{equipeDisponivel.map((pessoa) => <option key={pessoa.id} value={pessoa.id}>{pessoa.nome} — {pessoa.setor || pessoa.cargo}</option>)}</select></label></div>
-      <div className="task-form-row"><label>Prazo com horário<input required type="datetime-local" value={form.prazo} onChange={(e) => alterar("prazo", e.target.value)} /></label><label>Prioridade<select value={form.prioridade} onChange={(e) => alterar("prioridade", e.target.value)}><option value="baixa">Baixa</option><option value="normal">Normal</option><option value="alta">Alta</option><option value="critica">Crítica</option></select></label></div>
+      <label>Responsável<select required value={form.responsavelId} onChange={(e) => { const id = e.target.value; const pessoa = destinatarios.find((item) => String(item.id) === id); setForm((atual) => ({ ...atual, responsavelId: id, setorExecutor: pessoa?.setor || atual.setorExecutor })); }}><option value="">Quem vai executar?</option>{equipeDisponivel.map((pessoa) => <option key={pessoa.id} value={pessoa.id}>{pessoa.nome} — {pessoa.setor || pessoa.cargo}</option>)}</select></label>
+      <label>O que precisa ser feito?<textarea required rows="3" value={form.solicitacao} onChange={(e) => alterar("solicitacao", e.target.value)} placeholder="Escreva a orientação principal para o responsável." /></label>
+      <div className="quick-deadline"><strong>Quando precisa ficar pronto?</strong><div>{[["duas_horas","Em 2 horas"],["hoje_18","Hoje às 18h"],["amanha_10","Amanhã às 10h"],["dois_dias","Em 2 dias"]].map(([valor, rotulo]) => <button className="btn-secondary compact" type="button" key={valor} onClick={() => definirPrazo(valor)}>{rotulo}</button>)}</div><small>{form.prazo ? `Prazo selecionado: ${formatarDataHora(new Date(form.prazo).toISOString())}` : "Selecione uma opção rápida."}</small></div>
+      <button className="advanced-toggle" type="button" onClick={() => setMaisOpcoes((valor) => !valor)}>{maisOpcoes ? "Ocultar opções" : "Mais opções"}</button>
+      {maisOpcoes && <div className="advanced-fields"><label>Escolher outra data e hora<input required type="datetime-local" value={form.prazo} onChange={(e) => alterar("prazo", e.target.value)} /></label><label>Prioridade<select value={form.prioridade} onChange={(e) => alterar("prioridade", e.target.value)}><option value="baixa">Baixa</option><option value="normal">Normal</option><option value="alta">Alta</option><option value="critica">Crítica</option></select></label><label>Resultado esperado opcional<textarea rows="2" value={form.resultado} onChange={(e) => alterar("resultado", e.target.value)} placeholder={resultadoAutomatico()} /></label><label>Setor executor<select value={form.setorExecutor} onChange={(e) => alterar("setorExecutor", e.target.value)}><option>Administrativo</option><option>Jurídico</option><option>Comercial</option><option>Processual</option></select></label></div>}
       <button className="btn-primary" disabled={salvando} type="submit">{salvando ? "Delegando..." : "Delegar tarefa"}</button>
     </form>
   </section>;
@@ -5184,6 +5210,11 @@ export default function App() {
         .delegation-panel { position: relative; overflow: hidden; }
         .delegation-sent { position: absolute; inset: 0; z-index: 8; display: grid; place-content: center; justify-items: center; gap: 12px; color: #195c49; background: rgba(242,253,248,.96); backdrop-filter: blur(8px); animation: delegationFade 1.8s ease both; }
         .delegation-sent span { font-size: 54px; animation: sendLetter 1s cubic-bezier(.2,.8,.2,1) both; }
+        .quick-deadline { display: grid; gap: 9px; padding: 14px; background: rgba(239,246,255,.78); border: 1px solid rgba(68,126,201,.14); border-radius: 14px; }
+        .quick-deadline > div { display: flex; flex-wrap: wrap; gap: 8px; }
+        .quick-deadline small { color: #607896; font-weight: 700; }
+        .advanced-toggle { width: max-content; padding: 0; color: #3977c8; background: transparent; border: 0; font-weight: 800; cursor: pointer; }
+        .advanced-fields { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 12px; padding: 14px; background: rgba(248,250,253,.86); border: 1px dashed rgba(81,125,181,.2); border-radius: 14px; }
         @keyframes sendLetter { 0% { transform: translate(-120px,45px) rotate(-16deg); opacity: 0; } 55% { opacity: 1; } 100% { transform: translate(0,0) rotate(0); } }
         @keyframes delegationFade { 0%,75% { opacity: 1; } 100% { opacity: 0; } }
         .checklist-confirmed { margin-top: 11px; padding: 9px 11px; color: #247b67; background: rgba(214,246,236,.82); border-radius: 9px; font-size: 10px; font-weight: 800; }
@@ -5197,6 +5228,7 @@ export default function App() {
           .central-metrics { grid-template-columns: repeat(2, minmax(0,1fr)); }
           .central-table-row { grid-template-columns: 1fr; }
           .urgency-layout { grid-template-columns: 1fr; }
+          .advanced-fields { grid-template-columns: 1fr; }
           .return-modal { padding: 21px 17px; border-radius: 18px; }
           .return-modal-actions { flex-direction: column-reverse; }
           .return-modal-actions button { width: 100%; }
