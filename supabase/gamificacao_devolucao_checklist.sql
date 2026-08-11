@@ -132,9 +132,7 @@ create policy "Equipe consulta tarefas permitidas"
 on public.tarefas for select to authenticated
 using (
   public.usuario_e_admin()
-  or funcionaria_id = public.funcionario_id_autenticado()
-  or lower(coalesce(solicitante_email, '')) =
-    lower(coalesce(auth.jwt() ->> 'email', ''))
+  or public.funcionario_id_autenticado() is not null
 );
 
 -- Nenhum UPDATE direto, nem mesmo do supervisor, pode fabricar uma devolucao

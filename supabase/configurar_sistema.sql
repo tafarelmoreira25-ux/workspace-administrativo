@@ -232,7 +232,7 @@ create policy "Equipe consulta funcionarios"
 on public.funcionarios for select to authenticated
 using (
   public.usuario_e_admin()
-  or id = public.funcionario_id_autenticado()
+  or public.funcionario_id_autenticado() is not null
 );
 
 drop policy if exists "Supervisor atualiza pontos" on public.funcionarios;
@@ -246,7 +246,7 @@ create policy "Equipe consulta tarefas permitidas"
 on public.tarefas for select to authenticated
 using (
   public.usuario_e_admin()
-  or funcionaria_id = public.funcionario_id_autenticado()
+  or public.funcionario_id_autenticado() is not null
 );
 
 drop policy if exists "Supervisor delega tarefas" on public.tarefas;

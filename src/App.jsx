@@ -1,4 +1,5 @@
 import MeuHistorico from './MeuHistorico';
+import AcompanhamentoEquipe from './AcompanhamentoEquipe';
 import MeuPlanner from './MeuPlanner';
 import GeradorDocumentos from './GeradorDocumentos';
 import PainelEquipeTV from './PainelEquipeTV';
@@ -2552,7 +2553,7 @@ function AdminDashboard({ usuario, onLogout, state }) {
 // ==========================================
 
 function CentralInicio({ tarefas, usuario, onNavigate }) {
-  const minhas = tarefas.filter((t) => usuario.tipo === "admin" || String(t.funcionaria_id) === String(usuario.id));
+  const minhas = tarefas.filter((t) => String(t.funcionaria_id) === String(usuario.id));
   const abertas = minhas.filter((t) => STATUS_ABERTOS.has(t.status));
   const hoje = new Date().toISOString().slice(0, 10);
   const em48h = new Date(Date.now() + 48 * 60 * 60 * 1000);
@@ -2911,6 +2912,7 @@ function EmployeeDashboard({ usuario, onLogout, state }) {
           <NavItem active={abaAtiva === "inicio"} icon="dashboard" onClick={() => setAbaAtiva("inicio")}>Início</NavItem>
           <NavItem active={abaAtiva === "tarefas"} icon="tarefas" onClick={() => setAbaAtiva("tarefas")}>Minhas Tarefas</NavItem>
           <NavItem active={abaAtiva === "delegar"} icon="tarefas" onClick={() => setAbaAtiva("delegar")}>Delegar tarefa</NavItem>
+          <NavItem active={abaAtiva === "acompanhamento"} icon="dashboard" onClick={() => setAbaAtiva("acompanhamento")}>Tarefas da equipe</NavItem>
           <NavItem active={abaAtiva === "clientes"} icon="equipe" onClick={() => setAbaAtiva("clientes")}>Clientes</NavItem>
           <NavItem active={abaAtiva === "urgencias"} icon="feedback" onClick={() => setAbaAtiva("urgencias")}>Urgências</NavItem>
           <NavItem active={abaAtiva === "notificacoes"} icon="feedback" onClick={() => setAbaAtiva("notificacoes")}>Notificações</NavItem>
@@ -3136,6 +3138,7 @@ function EmployeeDashboard({ usuario, onLogout, state }) {
         {abaAtiva === "notificacoes" && <CentroNotificacoes />}
 
         {abaAtiva === "historico" && <MeuHistorico tarefas={tarefasConcluidas} />}
+        {abaAtiva === "acompanhamento" && <AcompanhamentoEquipe tarefas={listaTarefas} funcionarios={funcionarios} onAtualizar={recarregarTarefas} />}
 
         {abaAtiva === "feedbacks" && (
           <section className="panel large feedback-workspace">
@@ -3350,10 +3353,6 @@ export default function App() {
       table: "tarefas",
     };
 
-    if (usuarioLogado.tipo === "funcionaria") {
-      alteracaoTarefa.filter = `funcionaria_id=eq.${usuarioLogado.id}`;
-    }
-
     const canalTarefas = supabase
       .channel(`tarefas-${usuarioLogado.tipo}-${usuarioLogado.id}`)
       .on("postgres_changes", alteracaoTarefa, (evento) => {
@@ -3362,6 +3361,7 @@ export default function App() {
             if (
               usuarioLogado.tipo === "funcionaria" &&
               evento.eventType === "INSERT" &&
+              String(evento.new?.funcionaria_id) === String(usuarioLogado.id) &&
               STATUS_ABERTOS.has(evento.new?.status)
             ) {
               showToast("Uma nova tarefa foi delegada para voce.");
@@ -3779,6 +3779,8 @@ export default function App() {
         .processual-summary-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px 18px; }
         .processual-summary-grid p { margin: 0; font-size: 9px; line-height: 1.4; }
         .task-history-actions { display: flex; align-items: center; gap: 8px; }
+        .pagination-numbered { justify-content: center; flex-wrap: wrap; margin-top: 18px; }
+        .pagination-numbered .active { color: white; background: var(--accent-strong); border-color: var(--accent-strong); }
         .preview-process-block { margin-bottom: 16px; }
         .preview-process-block strong { color: #153c75; font-size: 10px; text-transform: uppercase; }
         .preview-process-block p { margin-top: 5px; color: #415674; font-size: 10px; line-height: 1.6; white-space: pre-wrap; }
