@@ -43,6 +43,7 @@ alter table public.clientes
   add column if not exists planilha_atualizada boolean not null default false;
 
 alter table public.tarefas
+  add column if not exists solicitante_email text,
   add column if not exists id_externo text,
   add column if not exists nome_cliente text,
   add column if not exists etapa_esteira text,
@@ -54,6 +55,10 @@ alter table public.tarefas
   add column if not exists crm_atualizado boolean not null default false,
   add column if not exists planilha_atualizada boolean not null default false,
   add column if not exists arquivar_cliente_alerta boolean not null default false;
+
+update public.tarefas
+set solicitante_email='tafarel@platino.com'
+where nullif(trim(coalesce(solicitante_email,'')),'') is null;
 
 alter table public.tarefas
   alter column solicitante_email set default lower(coalesce(auth.jwt()->>'email',''));

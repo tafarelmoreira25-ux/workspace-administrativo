@@ -426,7 +426,7 @@ function PerformanceBadge({ performance, mostrarRotulo = false }) {
 function mensagemErroOperacional(error) {
   const mensagem = error?.message || "Erro desconhecido.";
   if (error?.code === "PGRST202" || mensagem.includes("schema cache") || mensagem.includes("delegar_tarefa_operacional")) {
-    return "O motor operacional ainda não foi instalado no Supabase. Execute o arquivo supabase/motor_operacional_tarefas_2026.sql no SQL Editor e tente novamente.";
+    return "A estrutura da Central de Tarefas ainda não foi instalada no Supabase. Execute, na ordem, motor_operacional_tarefas_2026.sql e central_tarefas_modulos_2026.sql no SQL Editor.";
   }
   return mensagem;
 }
@@ -1580,6 +1580,9 @@ function AdminDashboard({ usuario, onLogout, state }) {
           <span className="nav-label">Navegação</span>
           <NavItem active={abaAtiva === "dashboard"} icon="dashboard" onClick={() => setAbaAtiva("dashboard")} options={["Indicadores", "Urgências", "Ranking"]}>Dashboard</NavItem>
           <NavItem active={abaAtiva === "tarefas"} icon="tarefas" onClick={() => setAbaAtiva("tarefas")} options={["Criar tarefa", "Apontamentos", "Filtros rápidos"]}>Tarefas</NavItem>
+          <NavItem active={abaAtiva === "clientes"} icon="equipe" onClick={() => setAbaAtiva("clientes")}>Clientes</NavItem>
+          <NavItem active={abaAtiva === "urgencias"} icon="feedback" onClick={() => setAbaAtiva("urgencias")}>Urgências</NavItem>
+          <NavItem active={abaAtiva === "notificacoes"} icon="feedback" onClick={() => setAbaAtiva("notificacoes")}>Notificações</NavItem>
           <NavItem active={abaAtiva === "historico"} icon="planner" onClick={() => setAbaAtiva("historico")}>Histórico de tarefas</NavItem>
           <NavItem active={false} icon="tv" onClick={() => setModoTv(true)} options={["Modo painel", "Operação ao vivo"]}>Painel TV</NavItem>
           <NavItem active={abaAtiva === "equipe"} icon="equipe" onClick={() => setAbaAtiva("equipe")} options={["Equipe", "Feedbacks", "Pontuação"]}>Equipe</NavItem>
@@ -1603,6 +1606,7 @@ function AdminDashboard({ usuario, onLogout, state }) {
 
         {abaAtiva === "dashboard" && (
           <>
+            <CentralInicio tarefas={listaTarefas} usuario={usuario} onNavigate={setAbaAtiva} />
             <section className="cards-grid">
               <div className="card" onClick={() => { setFiltroTarefas("abertas"); setAbaAtiva("tarefas"); }} style={{ cursor: 'pointer' }}>
                 <MetricIcon type="tarefas" />
@@ -1637,6 +1641,10 @@ function AdminDashboard({ usuario, onLogout, state }) {
             </section>
           </>
         )}
+
+        {abaAtiva === "clientes" && <ModuloClientes />}
+        {abaAtiva === "urgencias" && <ModuloUrgencias usuario={usuario} funcionarios={funcionarios} showToast={showToast} />}
+        {abaAtiva === "notificacoes" && <CentroNotificacoes />}
 
         {abaAtiva === "tarefas" && (
           <div className="task-management">
@@ -2540,9 +2548,62 @@ function AdminDashboard({ usuario, onLogout, state }) {
 // 5. PAINEL DA FUNCIONÁRIA (ATUALIZADO COM PLANNER E HISTÓRICO)
 // ==========================================
 
+function CentralInicio({ tarefas, usuario, onNavigate }) {
+  const minhas = tarefas.filter((t) => usuario.tipo === "admin" || String(t.funcionaria_id) === String(usuario.id));
+  const abertas = minhas.filter((t) => STATUS_ABERTOS.has(t.status));
+  const hoje = new Date().toISOString().slice(0, 10);
+  const em48h = new Date(Date.now() + 48 * 60 * 60 * 1000);
+  const metricas = [
+    ["Atrasadas", abertas.filter(tarefaAtrasada).length, "critical"],
+    ["Vencem hoje", abertas.filter((t) => (t.prazo_limite || t.data_limite || "").slice(0, 10) === hoje).length, "urgent"],
+    ["Próximas 48h", abertas.filter((t) => t.prazo_limite && new Date(t.prazo_limite) > new Date() && new Date(t.prazo_limite) <= em48h).length, "warning"],
+    ["Urgentes", abertas.filter((t) => ["urgente", "critica"].includes(t.prioridade)).length, "urgent"],
+    ["Devolvidas", abertas.filter((t) => ["devolvida", "devolvida_correcao"].includes(t.status)).length, "warning"],
+    ["Recém-delegadas", abertas.filter((t) => t.status === "delegada").length, "normal"],
+    ["Em andamento", abertas.filter((t) => t.status === "em_execucao").length, "normal"],
+    ["Concluídas", minhas.filter((t) => t.status === "concluida").length, "success"],
+  ];
+  const atencao = abertas.filter((t) => tarefaAtrasada(t) || ["urgente", "critica"].includes(t.prioridade) || ["devolvida", "devolvida_correcao"].includes(t.status)).slice(0, 8);
+  return <div className="central-home"><section className="dashboard-grid central-metrics">{metricas.map(([rotulo, valor, tom]) => <button type="button" className={`card central-metric ${tom}`} key={rotulo} onClick={() => onNavigate("tarefas")}><span>{rotulo}</span><strong>{valor}</strong></button>)}</section><section className="panel large"><div className="panel-title-row"><div><span className="eyebrow">Prioridade operacional</span><h2>Atenção imediata</h2></div><button className="btn-primary compact" onClick={() => onNavigate("delegar")}>Delegar tarefa</button></div>{atencao.length === 0 ? <p>Nenhuma ocorrência crítica neste momento.</p> : <div className="central-table">{atencao.map((t) => <div className="central-table-row" key={t.id}><strong>{t.id_externo || `#${t.id}`}</strong><span>{t.nome_cliente || "Cliente não informado"}</span><span>{t.titulo}</span><span className={`status ${t.status}`}>{rotuloStatusTarefa(t.status)}</span><small>{formatarData(t.data_limite)}</small></div>)}</div>}</section></div>;
+}
+
+function ModuloClientes() {
+  const [clientes, setClientes] = useState([]);
+  const [busca, setBusca] = useState("");
+  const [erro, setErro] = useState("");
+  useEffect(() => { supabase.rpc("listar_clientes_central").then(({ data, error }) => { if (error) setErro(mensagemErroOperacional(error)); else setClientes(data || []); }); }, []);
+  const termo = normalizarTexto(busca);
+  const filtrados = clientes.filter((c) => !termo || normalizarTexto(`${c.nome} ${c.cpf || ""} ${c.codigo_interno || ""} ${c.crm_referencia || ""}`).includes(termo));
+  return <section className="panel large"><div className="panel-title-row"><div><span className="eyebrow">Jornada centralizada</span><h2>Clientes</h2><p>Cliente → tratativas → tarefas e histórico operacional.</p></div><strong>{filtrados.length}</strong></div><input className="central-search" value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar por nome, CPF, código ou CRM" />{erro ? <div className="return-alert">{erro}</div> : <div className="central-table">{filtrados.slice(0, 15).map((c) => <div className="central-table-row client-row" key={c.id}><strong>{c.nome}</strong><span>{c.cpf || "CPF não informado"}</span><span>{c.departamento_atual || "Sem departamento"}</span><span>{c.status_geral || c.status_operacional}</span>{c.pasta_drive_url ? <a href={c.pasta_drive_url} target="_blank" rel="noreferrer">Abrir Drive</a> : <small>Drive pendente</small>}</div>)}</div>}</section>;
+}
+
+function ModuloUrgencias({ funcionarios, showToast }) {
+  const vazio = { cliente: "", cpf: "", setor: "Administrativo", responsavel: "", tarefa: "", motivo: "", prazo: "", prioridade: "urgente", observacao: "", drive: "" };
+  const [form, setForm] = useState(vazio); const [lista, setLista] = useState([]); const [destinatarios, setDestinatarios] = useState(funcionarios || []); const [salvando, setSalvando] = useState(false);
+  const carregar = useCallback(async () => { const { data, error } = await supabase.from("urgencias").select("*").order("created_at", { ascending: false }); if (!error) setLista(data || []); }, []);
+  useEffect(() => { carregar(); supabase.rpc("listar_destinatarios_tarefa").then(({ data }) => data && setDestinatarios(data)); }, [carregar]);
+  const alterar = (campo, valor) => setForm((a) => ({ ...a, [campo]: valor }));
+  async function criar(e) { e.preventDefault(); setSalvando(true); const { data, error } = await supabase.rpc("criar_urgencia", { p_nome_cliente: form.cliente.trim(), p_cpf_ou_id: form.cpf.trim() || null, p_setor: form.setor, p_funcionaria_id: form.responsavel ? Number(form.responsavel) : null, p_tarefa: form.tarefa.trim(), p_motivo: form.motivo.trim(), p_prazo: new Date(form.prazo).toISOString(), p_prioridade: form.prioridade, p_observacao: form.observacao.trim() || null, p_drive_url: form.drive.trim() || null }); setSalvando(false); if (error) return alert(`Erro ao registrar urgência: ${mensagemErroOperacional(error)}`); setLista((a) => [Array.isArray(data) ? data[0] : data, ...a]); setForm(vazio); showToast("Urgência registrada e notificada."); }
+  async function mover(item, status) { const { data, error } = await supabase.rpc("movimentar_urgencia", { p_urgencia_id: Number(item.id), p_status: status, p_observacao: null }); if (error) return alert(error.message); const atualizada = Array.isArray(data) ? data[0] : data; setLista((a) => a.map((u) => u.id === atualizada.id ? atualizada : u)); }
+  return <div className="urgency-layout"><section className="panel"><span className="eyebrow">Quadro independente</span><h2>Registrar urgência</h2><form className="stack-form" onSubmit={criar}><div className="task-form-row"><label>Cliente<input required value={form.cliente} onChange={(e) => alterar("cliente", e.target.value)} /></label><label>CPF ou ID<input value={form.cpf} onChange={(e) => alterar("cpf", e.target.value)} /></label></div><div className="task-form-row"><label>Setor<select value={form.setor} onChange={(e) => alterar("setor", e.target.value)}><option>Administrativo</option><option>Jurídico</option><option>Comercial</option><option>Processual</option></select></label><label>Responsável<select value={form.responsavel} onChange={(e) => alterar("responsavel", e.target.value)}><option value="">Ainda não definido</option>{destinatarios.map((p) => <option value={p.id} key={p.id}>{p.nome}</option>)}</select></label></div><label>Tarefa necessária<input required value={form.tarefa} onChange={(e) => alterar("tarefa", e.target.value)} /></label><label>Motivo da urgência<textarea required rows="3" value={form.motivo} onChange={(e) => alterar("motivo", e.target.value)} /></label><div className="task-form-row"><label>Prazo limite<input required type="datetime-local" value={form.prazo} onChange={(e) => alterar("prazo", e.target.value)} /></label><label>Prioridade<select value={form.prioridade} onChange={(e) => alterar("prioridade", e.target.value)}><option value="alta">Alta</option><option value="urgente">Urgente</option><option value="critica">Crítica</option></select></label></div><label>Link do Drive<input type="url" value={form.drive} onChange={(e) => alterar("drive", e.target.value)} placeholder="https://drive.google.com/..." /></label><label>Observação<textarea rows="2" value={form.observacao} onChange={(e) => alterar("observacao", e.target.value)} /></label><button className="btn-primary" disabled={salvando}>{salvando ? "Registrando..." : "Registrar urgência"}</button></form></section><section className="panel large"><div className="panel-title-row"><h2>Urgências abertas</h2><strong>{lista.filter((u) => !["resolvida","cancelada"].includes(u.status)).length}</strong></div><div className="central-table">{lista.slice(0, 15).map((u) => <div className={`urgency-row priority-${u.prioridade}`} key={u.id}><div><strong>{u.codigo} · {u.nome_cliente}</strong><p>{u.tarefa_necessaria}</p><small>{u.motivo} · Prazo {formatarDataHora(u.prazo_limite)}</small></div><span className={`status ${u.status}`}>{u.status.replaceAll("_", " ")}</span><div className="task-history-actions">{u.status === "aberta" && <button className="btn-secondary compact" onClick={() => mover(u,"visualizada")}>Visualizar</button>}{["aberta","visualizada"].includes(u.status) && <button className="btn-primary compact" onClick={() => mover(u,"em_atendimento")}>Atender</button>}{u.status === "em_atendimento" && <button className="btn-success compact" onClick={() => mover(u,"resolvida")}>Resolver</button>}</div></div>)}</div></section></div>;
+}
+
+function CentroNotificacoes() {
+  const [notificacoes, setNotificacoes] = useState([]);
+  const carregar = useCallback(async () => { const { data } = await supabase.from("notificacoes_operacionais").select("*").order("created_at", { ascending: false }).limit(50); setNotificacoes(data || []); }, []);
+  useEffect(() => {
+    carregar();
+    const canal = supabase.channel("central-notificacoes").on("postgres_changes", { event: "INSERT", schema: "public", table: "notificacoes_operacionais" }, () => carregar()).subscribe();
+    return () => { supabase.removeChannel(canal); };
+  }, [carregar]);
+  async function ler(item) { await supabase.rpc("marcar_notificacao_lida", { p_notificacao_id: Number(item.id) }); setNotificacoes((a) => a.map((n) => n.id === item.id ? { ...n, lida_em: new Date().toISOString() } : n)); }
+  return <section className="panel large"><div className="panel-title-row"><div><span className="eyebrow">Atualizações operacionais</span><h2>Notificações</h2></div><strong>{notificacoes.filter((n) => !n.lida_em).length} não lidas</strong></div><div className="notification-list">{notificacoes.length === 0 ? <p>Nenhuma notificação.</p> : notificacoes.map((n) => <button type="button" onClick={() => ler(n)} className={`notification-item ${n.lida_em ? "read" : "unread"}`} key={n.id}><span>●</span><div><strong>{n.titulo}</strong><p>{n.mensagem}</p><small>{formatarDataHora(n.created_at)}</small></div></button>)}</div></section>;
+}
+
 function FormularioDelegacaoUsuario({ usuario, funcionarios, onCriada, showToast }) {
   const [form, setForm] = useState({ cliente: "", tipo: CATEGORIAS_TAREFA[0], outraAcao: "", titulo: "", solicitacao: "", resultado: "", setorExecutor: "Administrativo", responsavelId: "", prazo: "", prioridade: "normal" });
   const [salvando, setSalvando] = useState(false);
+  const [enviada, setEnviada] = useState(false);
   const [destinatarios, setDestinatarios] = useState(funcionarios || []);
   useEffect(() => {
     supabase.rpc("listar_destinatarios_tarefa").then(({ data, error }) => {
@@ -2570,6 +2631,8 @@ function FormularioDelegacaoUsuario({ usuario, funcionarios, onCriada, showToast
       if (error) throw error;
       const criada = Array.isArray(data) ? data[0] : data;
       onCriada(criada);
+      setEnviada(true);
+      window.setTimeout(() => setEnviada(false), 1800);
       showToast(`Tarefa ${criada.id_externo || criada.id} delegada com sucesso.`);
       setForm({ cliente: "", tipo: CATEGORIAS_TAREFA[0], outraAcao: "", titulo: "", solicitacao: "", resultado: "", setorExecutor: "Administrativo", responsavelId: "", prazo: "", prioridade: "normal" });
     } catch (error) {
@@ -2577,7 +2640,8 @@ function FormularioDelegacaoUsuario({ usuario, funcionarios, onCriada, showToast
     } finally { setSalvando(false); }
   }
 
-  return <section className="panel large">
+  return <section className="panel large delegation-panel">
+    {enviada && <div className="delegation-sent" role="status"><span>✉</span><strong>Tarefa delegada com sucesso.</strong></div>}
     <div className="panel-title-row"><div><span className="eyebrow">Delegação entre setores</span><h2>Delegar nova tarefa</h2><p>Você será registrado automaticamente como solicitante.</p></div></div>
     <form className="stack-form task-form" onSubmit={delegar}>
       <div className="task-form-row"><label>Cliente<input required value={form.cliente} onChange={(e) => alterar("cliente", e.target.value)} /></label><label>Ação<select required value={form.tipo} onChange={(e) => alterar("tipo", e.target.value)}>{CATEGORIAS_TAREFA.map((tipo) => <option key={tipo}>{tipo}</option>)}</select></label></div>
@@ -2604,7 +2668,7 @@ function EmployeeDashboard({ usuario, onLogout, state }) {
     recarregarResponsabilidadesMensais,
     showToast,
   } = state;
-  const [abaAtiva, setAbaAtiva] = useState("tarefas");
+  const [abaAtiva, setAbaAtiva] = useState("inicio");
   const [tarefaConcluindoId, setTarefaConcluindoId] = useState(null);
   const [tarefaEmDevolucao, setTarefaEmDevolucao] = useState(null);
   const [paginaPendentes, setPaginaPendentes] = useState(1);
@@ -2814,9 +2878,13 @@ function EmployeeDashboard({ usuario, onLogout, state }) {
           </div>
         </div>
         <nav>
-          <span className="nav-label">Meu espaço</span>
+          <span className="nav-label">Central de Tarefas</span>
+          <NavItem active={abaAtiva === "inicio"} icon="dashboard" onClick={() => setAbaAtiva("inicio")}>Início</NavItem>
           <NavItem active={abaAtiva === "tarefas"} icon="tarefas" onClick={() => setAbaAtiva("tarefas")}>Minhas Tarefas</NavItem>
           <NavItem active={abaAtiva === "delegar"} icon="tarefas" onClick={() => setAbaAtiva("delegar")}>Delegar tarefa</NavItem>
+          <NavItem active={abaAtiva === "clientes"} icon="equipe" onClick={() => setAbaAtiva("clientes")}>Clientes</NavItem>
+          <NavItem active={abaAtiva === "urgencias"} icon="feedback" onClick={() => setAbaAtiva("urgencias")}>Urgências</NavItem>
+          <NavItem active={abaAtiva === "notificacoes"} icon="feedback" onClick={() => setAbaAtiva("notificacoes")}>Notificações</NavItem>
           <NavItem active={abaAtiva === "historico"} icon="planner" onClick={() => setAbaAtiva("historico")}>Meu Histórico</NavItem>
           <NavItem active={abaAtiva === "feedbacks"} icon="feedback" onClick={() => setAbaAtiva("feedbacks")}>
             Meus Feedbacks ({meusFeedbacks.length})
@@ -2850,6 +2918,8 @@ function EmployeeDashboard({ usuario, onLogout, state }) {
             </div>
           </div>
         </header>
+
+        {abaAtiva === "inicio" && <CentralInicio tarefas={listaTarefas} usuario={usuario} onNavigate={setAbaAtiva} />}
 
         {abaAtiva === "tarefas" && (
           <div className="employee-tasks-workspace">
@@ -3032,6 +3102,9 @@ function EmployeeDashboard({ usuario, onLogout, state }) {
         )}
 
         {abaAtiva === "delegar" && <FormularioDelegacaoUsuario usuario={usuario} funcionarios={funcionarios} showToast={showToast} onCriada={(tarefa) => setListaTarefas((atuais) => [tarefa, ...atuais])} />}
+        {abaAtiva === "clientes" && <ModuloClientes />}
+        {abaAtiva === "urgencias" && <ModuloUrgencias usuario={usuario} funcionarios={funcionarios} showToast={showToast} />}
+        {abaAtiva === "notificacoes" && <CentroNotificacoes />}
 
         {abaAtiva === "historico" && <MeuHistorico tarefas={tarefasConcluidas} />}
 
@@ -5087,6 +5160,32 @@ export default function App() {
         .task-timeline-step span { position: relative; z-index: 1; color: #c2ccd8; }
         .task-timeline-step.done span { color: #357bd8; }
         .task-timeline-step.done:not(:last-child)::after { background: #77a9e8; }
+        .central-home { display: grid; gap: 20px; }
+        .central-metrics { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+        .central-metric { text-align: left; cursor: pointer; border: 1px solid rgba(67,105,152,.12); }
+        .central-metric strong { display: block; margin-top: 8px; font-size: 30px; color: #173962; }
+        .central-metric.critical { border-left: 4px solid #d94b55; }
+        .central-metric.urgent { border-left: 4px solid #ed8b36; }
+        .central-metric.warning { border-left: 4px solid #e5bd3d; }
+        .central-metric.success { border-left: 4px solid #35aa91; }
+        .central-search { width: 100%; margin: 12px 0 18px; }
+        .central-table { display: grid; gap: 8px; }
+        .central-table-row { display: grid; grid-template-columns: 130px 1.1fr 1.5fr 150px 120px; align-items: center; gap: 12px; padding: 12px 14px; background: rgba(247,250,254,.9); border: 1px solid rgba(79,126,184,.1); border-radius: 12px; }
+        .central-table-row a { color: #2f6fd0; font-weight: 800; }
+        .urgency-layout { display: grid; grid-template-columns: minmax(320px,.8fr) minmax(480px,1.5fr); gap: 18px; align-items: start; }
+        .urgency-row { display: grid; grid-template-columns: 1fr auto; gap: 10px 16px; padding: 15px; border: 1px solid rgba(79,126,184,.13); border-left: 4px solid #ed8b36; border-radius: 13px; background: #fff; }
+        .urgency-row.priority-critica { border-left-color: #d94b55; background: #fff8f8; }
+        .urgency-row .task-history-actions { grid-column: 1 / -1; }
+        .notification-list { display: grid; gap: 9px; }
+        .notification-item { width: 100%; display: flex; gap: 12px; padding: 14px; text-align: left; background: #f7faff; border: 1px solid rgba(72,119,180,.12); border-radius: 13px; }
+        .notification-item.unread { background: #edf5ff; border-color: rgba(48,111,208,.24); }
+        .notification-item > span { color: #3981df; }
+        .notification-item.read { opacity: .7; }
+        .delegation-panel { position: relative; overflow: hidden; }
+        .delegation-sent { position: absolute; inset: 0; z-index: 8; display: grid; place-content: center; justify-items: center; gap: 12px; color: #195c49; background: rgba(242,253,248,.96); backdrop-filter: blur(8px); animation: delegationFade 1.8s ease both; }
+        .delegation-sent span { font-size: 54px; animation: sendLetter 1s cubic-bezier(.2,.8,.2,1) both; }
+        @keyframes sendLetter { 0% { transform: translate(-120px,45px) rotate(-16deg); opacity: 0; } 55% { opacity: 1; } 100% { transform: translate(0,0) rotate(0); } }
+        @keyframes delegationFade { 0%,75% { opacity: 1; } 100% { opacity: 0; } }
         .checklist-confirmed { margin-top: 11px; padding: 9px 11px; color: #247b67; background: rgba(214,246,236,.82); border-radius: 9px; font-size: 10px; font-weight: 800; }
 
         @media (max-width: 520px) {
@@ -5095,6 +5194,9 @@ export default function App() {
           .login-page-liquid .login-brand { margin-bottom: 32px !important; }
           .login-page-liquid .login-footer-minimal { display: flex !important; bottom: 20px !important; }
           .document-checklist-grid { grid-template-columns: 1fr; }
+          .central-metrics { grid-template-columns: repeat(2, minmax(0,1fr)); }
+          .central-table-row { grid-template-columns: 1fr; }
+          .urgency-layout { grid-template-columns: 1fr; }
           .return-modal { padding: 21px 17px; border-radius: 18px; }
           .return-modal-actions { flex-direction: column-reverse; }
           .return-modal-actions button { width: 100%; }

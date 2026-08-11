@@ -32,19 +32,17 @@ execute tambem:
 
 `supabase/painel_tv_tarefas.sql`
 
-Para ativar o selo semanal de Alta Performance, a devolução com justificativa
-obrigatória e o checklist bloqueante dos cinco documentos iniciais, execute:
-
-`supabase/gamificacao_devolucao_checklist.sql`
-
-Para ativar as regras do **POP da Esteira de Tratativas v1.0 (2026)**, execute
-depois dos scripts acima:
+Para ativar o POP e a Central de Tarefas, execute nesta ordem:
 
 `supabase/evolucao_esteiras_administrativas.sql`
+
+`supabase/gamificacao_devolucao_checklist.sql`
 
 `supabase/pop_esteira_tratativas_2026.sql`
 
 `supabase/motor_operacional_tarefas_2026.sql`
+
+`supabase/central_tarefas_modulos_2026.sql`
 
 Essa migração gera IDs no formato `TSK-AAAAMMDD-001` e impede a conclusão
 sem devolutiva, nome de arquivo padronizado, link do Google Drive e confirmação
