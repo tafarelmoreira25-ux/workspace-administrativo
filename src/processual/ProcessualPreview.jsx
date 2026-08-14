@@ -17,7 +17,7 @@ export default function ProcessualPreview({ dados, codigo = "RLPROC-AAAA-PENDENT
   return (
     <article className="processual-preview-page">
       <header>
-        <span>PLATINO · CELIOS</span>
+        <span>PLATINO EQUIPE</span>
         <h2>Relatório de Atualização Processual</h2>
         <div>
           <strong>Código: {codigo}</strong>

@@ -45,7 +45,7 @@ export default function ModelosAutomaticos({ funcionarios, categorias, onAplicad
   }
 
   return <div className="automation-workspace">
-    <section className="panel automation-heading"><div><span className="eyebrow">Biblioteca operacional</span><h2>Modelos automáticos</h2><p>Use esta área para salvar tarefas que se repetem. Cadastre uma vez o título, a descrição, o prazo e os pontos; depois escolha a responsável e clique em Gerar tarefa.</p><div className="automation-help"><strong>Exemplo:</strong> crie o modelo “Solicitar documentos ao cliente”. Sempre que precisar, selecione a colaboradora e o CeliOS abrirá a tarefa completa automaticamente.</div></div><strong>{modelos.filter((m) => m.ativo).length} ativos</strong></section>
+    <section className="panel automation-heading"><div><span className="eyebrow">Biblioteca operacional</span><h2>Modelos automáticos</h2><p>Use esta área para salvar tarefas que se repetem. Cadastre uma vez o título, a descrição, o prazo e os pontos; depois escolha a responsável e clique em Gerar tarefa.</p><div className="automation-help"><strong>Exemplo:</strong> crie o modelo “Solicitar documentos ao cliente”. Sempre que precisar, selecione a colaboradora e o Platino abrirá a tarefa completa automaticamente.</div></div><strong>{modelos.filter((m) => m.ativo).length} ativos</strong></section>
     <section className="automation-grid">
       <div className="panel"><h2>{form.id ? "Editar modelo" : "Novo modelo"}</h2><form className="stack-form" onSubmit={salvar}>
         <label>Nome do modelo<input required value={form.nome} onChange={(e) => setForm({ ...form, nome: e.target.value })} /></label>

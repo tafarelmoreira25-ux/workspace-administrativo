@@ -266,9 +266,9 @@ export default function PainelEquipeTV({
     <div className="tv-page">
       <header className="tv-topbar">
         <div className="tv-brand">
-          <img src="/assets/celios-button-icon.png" alt="CeliOS" />
+          <img src="/assets/platino-infohub-icon.png" alt="Platino" />
           <div>
-            <span>CeliOS WORKSPACE</span>
+            <span>PLATINO WORKSPACE</span>
             <h1>Painel Operacional da Equipe</h1>
           </div>
         </div>

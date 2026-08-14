@@ -1,0 +1,95 @@
+-- Permite que o supervisor conclua somente tarefas atribuídas a ele próprio.
+-- Execute no SQL Editor depois de motor_operacional_tarefas_2026.sql.
+
+begin;
+
+insert into public.funcionarios (nome, email, cargo, ativo)
+values ('Tafarel Moreira', 'tafarel@platino.com', 'Supervisor', true)
+on conflict (email) do update
+set nome = excluded.nome,
+    ativo = true;
+
+create or replace function public.concluir_tarefa_propria_supervisor(
+  p_tarefa_id bigint
+)
+returns public.tarefas
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  tarefa public.tarefas;
+  tarefa_concluida public.tarefas;
+  funcionario_id bigint := public.funcionario_id_autenticado();
+  nome_funcionario text;
+  email_autor text := lower(trim(coalesce(auth.jwt() ->> 'email', '')));
+begin
+  if not public.usuario_e_admin() then
+    raise exception 'Ação restrita à supervisão.';
+  end if;
+
+  select nome
+  into nome_funcionario
+  from public.funcionarios
+  where id = funcionario_id;
+
+  select *
+  into tarefa
+  from public.tarefas
+  where id = p_tarefa_id
+  for update;
+
+  if tarefa.id is null then
+    raise exception 'Tarefa não encontrada.';
+  end if;
+
+  if not (
+    funcionario_id is not null
+    and tarefa.funcionaria_id = funcionario_id
+  ) and not (
+    lower(trim(coalesce(tarefa.responsavel_texto, ''))) =
+      lower(trim(coalesce(nome_funcionario, 'Tafarel Moreira')))
+  ) then
+    raise exception 'Esta tarefa não está atribuída ao supervisor autenticado.';
+  end if;
+
+  if tarefa.status not in (
+    'pendente', 'nova', 'em_andamento', 'delegada', 'recebida',
+    'em_execucao', 'aguardando_informacao', 'devolvida_correcao',
+    'bloqueada', 'devolvida', 'aguardando_cliente', 'aguardando_banco',
+    'aguardando_juridico', 'aguardando_judiciario', 'impedida', 'em_revisao'
+  ) then
+    raise exception 'A tarefa não está disponível para conclusão.';
+  end if;
+
+  perform set_config('platino.motor_operacional', '1', true);
+
+  update public.tarefas
+  set status = 'concluida',
+      concluida_em = now(),
+      conferida_em = now(),
+      conferida_por_email = email_autor,
+      updated_at = now(),
+      versao = coalesce(versao, 0) + 1
+  where id = tarefa.id
+  returning * into tarefa_concluida;
+
+  perform public.registrar_evento_tarefa(
+    tarefa_concluida.id,
+    'concluir_supervisor',
+    tarefa.status,
+    'concluida',
+    'Tratativa realizada e concluída pelo próprio supervisor responsável.',
+    jsonb_build_object('autor_email', email_autor)
+  );
+
+  return tarefa_concluida;
+end;
+$$;
+
+revoke all on function public.concluir_tarefa_propria_supervisor(bigint) from public;
+grant execute on function public.concluir_tarefa_propria_supervisor(bigint) to authenticated;
+
+notify pgrst, 'reload schema';
+
+commit;

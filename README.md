@@ -44,6 +44,8 @@ Para ativar o POP e a Central de Tarefas, execute nesta ordem:
 
 `supabase/central_tarefas_modulos_2026.sql`
 
+`supabase/concluir_tarefa_propria_supervisor.sql`
+
 Essa migração gera IDs no formato `TSK-AAAAMMDD-001` e impede a conclusão
 sem devolutiva, nome de arquivo padronizado, link do Google Drive e confirmação
 das atualizações no CRM e na Planilha Geral.
@@ -59,6 +61,9 @@ conferência, aprovação/correção humana, notificações e auditoria imutáve
 Documentos cumpridos não são enviados como PDF ao Workspace: o arquivo fica no
 Drive e o executor informa o link no campo de evidência. Tarefas operacionais
 não utilizam pontos.
+
+O último script permite que o supervisor marque como concluídas somente as
+tarefas atribuídas ao próprio cadastro, mantendo data e auditoria da conclusão.
 
 As regras determinísticas e o prompt auxiliar da IA ficam separados em:
 

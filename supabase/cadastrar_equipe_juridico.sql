@@ -32,7 +32,7 @@ select
   e.cargo,
   'Jurídico',
   true,
-  '{"tarefas": true, "planner": true, "documentos": true}'::jsonb,
+  '{"tarefas": true, "planner": true, cumentos": true}'::jsonb,
   0,
   e.observacao_interna,
   now()

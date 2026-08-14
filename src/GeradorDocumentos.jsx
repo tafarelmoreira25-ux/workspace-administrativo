@@ -494,7 +494,7 @@ export default function GeradorDocumentos({ responsavel, onSuccess }) {
               <div className="template-summary smart-summary">
                 <span>
                   {modeloSelecionado.identidadeVisual
-                    ? "Modelo CeliOS com identidade visual"
+                    ? "Modelo Platino com identidade visual"
                     : "Modelo oficial sem logotipo"}
                 </span>
                 <p>{modeloSelecionado.descricao}</p>
@@ -587,16 +587,16 @@ export default function GeradorDocumentos({ responsavel, onSuccess }) {
             <div className="preview-meta">
               <span>
                 {modeloSelecionado.identidadeVisual
-                  ? "Identidade visual CeliOS"
+                  ? "Identidade visual Platino"
                   : "Documento sem logotipo"}
               </span>
               <span>{formatarData(dados.dataEmissao)}</span>
             </div>
             <div className="preview-brand-row">
-              <img src="/assets/celios-button-icon.png" alt="CeliOS" />
+              <img src="/assets/platino-infohub-icon.png" alt="Platino" />
               <div>
-                <strong>CeliOS</strong>
-                <span>Enterprise Operating System</span>
+                <strong>Platino equipe</strong>
+                <span>Workspace Administrativo</span>
               </div>
             </div>
             <div className="template-preview-info">
@@ -621,7 +621,7 @@ export default function GeradorDocumentos({ responsavel, onSuccess }) {
           <p className="preview-note">
             Prévia dinâmica. O documento final será formatado em A4
             {modeloSelecionado.identidadeVisual
-              ? " com identidade visual CeliOS."
+              ? " com identidade visual Platino."
               : " e sem logotipo."}
           </p>
         </aside>

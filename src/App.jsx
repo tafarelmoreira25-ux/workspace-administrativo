@@ -15,6 +15,7 @@ const ADMIN_EMAIL = (
 ).toLowerCase();
 const NOMES_SUPERVISORES = ["tafarel", "nicolas"];
 const ITENS_POR_PAGINA = 15;
+const TEMPO_LIMITE_INICIALIZACAO_MS = 8_000;
 const RESPONSABILIDADE_MENSAL_PREFIXO = "__RESPONSABILIDADE_MENSAL__";
 const CATEGORIAS_TAREFA = [
   "CONTRATO",
@@ -76,6 +77,19 @@ const STATUS_ABERTOS = new Set([
   "devolvida_correcao",
   "bloqueada",
 ]);
+const FILTROS_TAREFAS_PRINCIPAIS = [
+  ["pendentes", "Pendentes"],
+  ["atrasadas", "Atrasadas"],
+  ["arquivadas", "Perdidas / Arquivadas"],
+];
+const ROTULOS_FILTRO_TAREFAS = {
+  vencem_hoje: "Vencem hoje",
+  proximas_48h: "Próximas 48h",
+  urgentes: "Urgentes",
+  devolvidas: "Devolvidas",
+  recem_delegadas: "Recém-delegadas",
+  em_andamento: "Em andamento",
+};
 const MOTIVOS_DEVOLUCAO = [
   "Dados incorretos",
   "Documento faltante",
@@ -92,6 +106,17 @@ const DOCUMENTOS_INICIAIS = [
   { chave: "comprovante_renda", rotulo: "Comprovante de renda" },
 ];
 const PADRAO_NOME_ARQUIVO = /^\d{4}-\d{2}-\d{2}(?:_[A-Z0-9]+(?:-[A-Z0-9]+)*){4}\.[A-Z0-9]{2,5}$/i;
+
+function limitarTempo(promise, tempoMs, mensagem) {
+  let temporizador;
+  const limite = new Promise((_, rejeitar) => {
+    temporizador = window.setTimeout(() => rejeitar(new Error(mensagem)), tempoMs);
+  });
+
+  return Promise.race([promise, limite]).finally(() => {
+    window.clearTimeout(temporizador);
+  });
+}
 
 function tarefaAtrasada(tarefa) {
   if (!STATUS_ABERTOS.has(tarefa?.status) || !tarefa?.data_limite) return false;
@@ -249,6 +274,21 @@ function normalizarTexto(texto = "") {
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
     .toLowerCase();
+}
+
+function tarefaAtribuidaAoUsuario(tarefa, usuario, funcionario) {
+  if (
+    funcionario?.id != null &&
+    String(tarefa?.funcionaria_id) === String(funcionario.id)
+  ) {
+    return true;
+  }
+
+  return (
+    Boolean(tarefa?.responsavel_texto) &&
+    normalizarTexto(tarefa.responsavel_texto.trim()) ===
+      normalizarTexto(usuario?.nome?.trim() || "")
+  );
 }
 
 function tarefaExigeChecklistDocumentos(tarefa) {
@@ -883,6 +923,7 @@ function AdminDashboard({ usuario, onLogout, state }) {
   const [filtroPrazo, setFiltroPrazo] = useState("");
   const [tarefasSelecionadas, setTarefasSelecionadas] = useState([]);
   const [processandoEmMassa, setProcessandoEmMassa] = useState(false);
+  const [tarefaConcluindoId, setTarefaConcluindoId] = useState(null);
   const [modoEquipe, setModoEquipe] = useState("membros");
   const [perfilIntegrante, setPerfilIntegrante] = useState(criarPerfilIntegranteVazio);
   const [salvandoIntegrante, setSalvandoIntegrante] = useState(false);
@@ -918,10 +959,18 @@ function AdminDashboard({ usuario, onLogout, state }) {
   const [paginaTarefas, setPaginaTarefas] = useState(1);
   const [paginaHistorico, setPaginaHistorico] = useState(1);
 
+  const funcionarioDoUsuario = funcionarios.find(
+    (funcionario) =>
+      funcionario.email?.trim().toLowerCase() ===
+      usuario.email?.trim().toLowerCase(),
+  );
   const equipeCompleta = funcionarios.filter(
     (funcionario) => funcionario.email?.toLowerCase() !== ADMIN_EMAIL,
   );
   const equipe = equipeCompleta.filter((funcionario) => funcionario.ativo !== false);
+  const destinatariosTarefa = funcionarios.filter(
+    (funcionario) => funcionario.ativo !== false,
+  );
   const performanceEquipe = new Map(
     equipeCompleta.map((funcionario) => [
       String(funcionario.id),
@@ -937,7 +986,11 @@ function AdminDashboard({ usuario, onLogout, state }) {
       filtroCategoria === "todas" || tarefa.categoria === filtroCategoria;
     if (!correspondeCategoria) return false;
     if (
-      filtroResponsavel !== "todas" &&
+      filtroResponsavel === "minhas" &&
+      !tarefaAtribuidaAoUsuario(tarefa, usuario, funcionarioDoUsuario)
+    ) return false;
+    if (
+      !["todas", "minhas"].includes(filtroResponsavel) &&
       String(tarefa.funcionaria_id) !== filtroResponsavel
     ) return false;
     if (filtroPrazo && tarefa.data_limite !== filtroPrazo) return false;
@@ -1083,6 +1136,50 @@ function AdminDashboard({ usuario, onLogout, state }) {
     const atualizada = Array.isArray(data) ? data[0] : data;
     setListaTarefas((atuais) => atuais.map((item) => String(item.id) === String(atualizada.id) ? atualizada : item));
     showToast(acao === "aprovar" ? "Tarefa conferida e concluída." : "Correção enviada ao responsável.");
+  }
+
+  async function concluirMinhaTarefa(tarefa) {
+    const confirmou = window.confirm(
+      `Confirmar que a tratativa "${tarefa.titulo}" foi realizada e concluída?`,
+    );
+    if (!confirmou) return;
+
+    setTarefaConcluindoId(tarefa.id);
+    try {
+      const { data, error } = await supabase.rpc(
+        "concluir_tarefa_propria_supervisor",
+        { p_tarefa_id: Number(tarefa.id) },
+      );
+      if (error) throw error;
+
+      const tarefaAtualizada = Array.isArray(data) ? data[0] : data;
+      if (!tarefaAtualizada) {
+        throw new Error("O banco não confirmou a conclusão.");
+      }
+
+      setListaTarefas((atuais) =>
+        atuais.map((item) =>
+          String(item.id) === String(tarefaAtualizada.id)
+            ? tarefaAtualizada
+            : item,
+        ),
+      );
+      setTarefasSelecionadas((atuais) =>
+        atuais.filter((id) => id !== String(tarefa.id)),
+      );
+      if (String(tarefaEmEdicao?.id) === String(tarefa.id)) {
+        setTarefaEmEdicao(null);
+      }
+      showToast("Tratativa concluída dentro do prazo operacional.");
+    } catch (error) {
+      console.error("Erro ao concluir tarefa do supervisor:", error);
+      alert(
+        "Não foi possível concluir a tarefa: " +
+          mensagemErroOperacional(error),
+      );
+    } finally {
+      setTarefaConcluindoId(null);
+    }
   }
 
   function iniciarEdicaoTarefa(tarefa) {
@@ -1763,7 +1860,7 @@ function AdminDashboard({ usuario, onLogout, state }) {
                           required
                         >
                           <option value="">Selecione...</option>
-                          {equipe.map((funcionario) => (
+                          {destinatariosTarefa.map((funcionario) => (
                             <option key={funcionario.id} value={funcionario.id}>
                               {funcionario.nome} ({funcionario.cargo})
                             </option>
@@ -1909,7 +2006,7 @@ function AdminDashboard({ usuario, onLogout, state }) {
                                 )
                               }
                             >
-                              {equipe.map((funcionario) => (
+                              {destinatariosTarefa.map((funcionario) => (
                                 <option
                                   key={funcionario.id}
                                   value={funcionario.id}
@@ -2064,6 +2161,7 @@ function AdminDashboard({ usuario, onLogout, state }) {
                     aria-label="Filtrar por colaboradora"
                   >
                     <option value="todas">Todas as colaboradoras</option>
+                    <option value="minhas">Minhas tarefas — Tafarel</option>
                     {equipeCompleta.map((funcionario) => (
                       <option key={funcionario.id} value={funcionario.id}>
                         {funcionario.nome}
@@ -2137,7 +2235,7 @@ function AdminDashboard({ usuario, onLogout, state }) {
 
               <div className="admin-task-list">
                 {tarefasOperacionaisVisiveis.map((tarefa) => {
-                  const responsavel = equipe.find(
+                  const responsavel = destinatariosTarefa.find(
                     (funcionario) =>
                       String(funcionario.id) ===
                       String(tarefa.funcionaria_id),
@@ -2146,6 +2244,11 @@ function AdminDashboard({ usuario, onLogout, state }) {
                     tarefa.responsavel_texto ||
                     responsavel?.nome ||
                     (tarefa.tarefa_manual ? "Equipe" : "Nao atribuida");
+                  const tarefaDoUsuario = tarefaAtribuidaAoUsuario(
+                    tarefa,
+                    usuario,
+                    funcionarioDoUsuario,
+                  );
 
                   return (
                     <article
@@ -2210,6 +2313,17 @@ function AdminDashboard({ usuario, onLogout, state }) {
                         </small>
                       </div>
                       <div className="admin-task-actions">
+                        {tarefaDoUsuario && tarefa.status !== "devolvida_conferencia" && (
+                          <button
+                            className="btn-success compact"
+                            disabled={tarefaConcluindoId === tarefa.id}
+                            onClick={() => concluirMinhaTarefa(tarefa)}
+                          >
+                            {tarefaConcluindoId === tarefa.id
+                              ? "Concluindo..."
+                              : "Concluir minha tarefa"}
+                          </button>
+                        )}
                         {tarefa.status === "devolvida_conferencia" && <>
                           <button className="btn-success compact" onClick={() => conferirTarefaOperacional(tarefa, "aprovar")}>Aprovar</button>
                           <button className="btn-return compact" onClick={() => conferirTarefaOperacional(tarefa, "corrigir")}>Solicitar correção</button>
@@ -2249,7 +2363,7 @@ function AdminDashboard({ usuario, onLogout, state }) {
               <button className="btn-secondary" onClick={recarregarTarefas}>Atualizar</button>
             </div>
             {tarefasHistoricoVisiveis.length === 0 ? <div className="monthly-empty">Nenhuma tarefa no histórico.</div> : tarefasHistoricoVisiveis.map((tarefa) => {
-              const responsavel = equipeCompleta.find((item) => String(item.id) === String(tarefa.funcionaria_id));
+              const responsavel = funcionarios.find((item) => String(item.id) === String(tarefa.funcionaria_id));
               return (
                 <article className="admin-task-card" key={tarefa.id}>
                   <div className="admin-task-main">
@@ -2558,17 +2672,17 @@ function CentralInicio({ tarefas, usuario, onNavigate }) {
   const hoje = new Date().toISOString().slice(0, 10);
   const em48h = new Date(Date.now() + 48 * 60 * 60 * 1000);
   const metricas = [
-    ["Atrasadas", abertas.filter(tarefaAtrasada).length, "critical"],
-    ["Vencem hoje", abertas.filter((t) => (t.prazo_limite || t.data_limite || "").slice(0, 10) === hoje).length, "urgent"],
-    ["Próximas 48h", abertas.filter((t) => t.prazo_limite && new Date(t.prazo_limite) > new Date() && new Date(t.prazo_limite) <= em48h).length, "warning"],
-    ["Urgentes", abertas.filter((t) => ["urgente", "critica"].includes(t.prioridade)).length, "urgent"],
-    ["Devolvidas", abertas.filter((t) => ["devolvida", "devolvida_correcao"].includes(t.status)).length, "warning"],
-    ["Recém-delegadas", abertas.filter((t) => t.status === "delegada").length, "normal"],
-    ["Em andamento", abertas.filter((t) => t.status === "em_execucao").length, "normal"],
-    ["Concluídas", minhas.filter((t) => t.status === "concluida").length, "success"],
+    ["Atrasadas", abertas.filter(tarefaAtrasada).length, "critical", "tarefas", "atrasadas"],
+    ["Vencem hoje", abertas.filter((t) => (t.prazo_limite || t.data_limite || "").slice(0, 10) === hoje).length, "urgent", "tarefas", "vencem_hoje"],
+    ["Próximas 48h", abertas.filter((t) => t.prazo_limite && new Date(t.prazo_limite) > new Date() && new Date(t.prazo_limite) <= em48h).length, "warning", "tarefas", "proximas_48h"],
+    ["Urgentes", abertas.filter((t) => ["urgente", "critica"].includes(t.prioridade)).length, "urgent", "tarefas", "urgentes"],
+    ["Devolvidas", abertas.filter((t) => ["devolvida", "devolvida_correcao"].includes(t.status)).length, "warning", "tarefas", "devolvidas"],
+    ["Recém-delegadas", abertas.filter((t) => t.status === "delegada").length, "normal", "tarefas", "recem_delegadas"],
+    ["Em andamento", abertas.filter((t) => t.status === "em_execucao").length, "normal", "tarefas", "em_andamento"],
+    ["Concluídas", minhas.filter((t) => t.status === "concluida").length, "success", "historico", null],
   ];
   const atencao = abertas.filter((t) => tarefaAtrasada(t) || ["urgente", "critica"].includes(t.prioridade) || ["devolvida", "devolvida_correcao"].includes(t.status)).slice(0, 8);
-  return <div className="central-home"><section className="dashboard-grid central-metrics">{metricas.map(([rotulo, valor, tom]) => <button type="button" className={`card central-metric ${tom}`} key={rotulo} onClick={() => onNavigate("tarefas")}><span>{rotulo}</span><strong>{valor}</strong></button>)}</section><section className="panel large"><div className="panel-title-row"><div><span className="eyebrow">Prioridade operacional</span><h2>Atenção imediata</h2></div><button className="btn-primary compact" onClick={() => onNavigate("delegar")}>Delegar tarefa</button></div>{atencao.length === 0 ? <p>Nenhuma ocorrência crítica neste momento.</p> : <div className="central-table">{atencao.map((t) => <div className="central-table-row" key={t.id}><strong>{t.id_externo || `#${t.id}`}</strong><span>{t.nome_cliente || "Cliente não informado"}</span><span>{t.titulo}</span><span className={`status ${t.status}`}>{rotuloStatusTarefa(t.status)}</span><small>{formatarData(t.data_limite)}</small></div>)}</div>}</section></div>;
+  return <div className="central-home"><section className="dashboard-grid central-metrics">{metricas.map(([rotulo, valor, tom, destino, filtro]) => <button type="button" className={`card central-metric ${tom}`} key={rotulo} onClick={() => onNavigate(destino, filtro)}><span>{rotulo}</span><strong>{valor}</strong></button>)}</section><section className="panel large"><div className="panel-title-row"><div><span className="eyebrow">Prioridade operacional</span><h2>Atenção imediata</h2></div><button className="btn-primary compact" onClick={() => onNavigate("delegar")}>Delegar tarefa</button></div>{atencao.length === 0 ? <p>Nenhuma ocorrência crítica neste momento.</p> : <div className="central-table">{atencao.map((t) => <div className="central-table-row" key={t.id}><strong>{t.id_externo || `#${t.id}`}</strong><span>{t.nome_cliente || "Cliente não informado"}</span><span>{t.titulo}</span><span className={`status ${t.status}`}>{rotuloStatusTarefa(t.status)}</span><small>{formatarData(t.data_limite)}</small></div>)}</div>}</section></div>;
 }
 
 function ModuloClientes() {
@@ -2710,12 +2824,21 @@ function EmployeeDashboard({ usuario, onLogout, state }) {
     (tarefa) => String(tarefa.funcionaria_id) === String(usuario.id),
   );
   const termoBusca = normalizarTexto(buscaTarefa.trim());
+  const hoje = new Date().toISOString().slice(0, 10);
+  const agora = new Date();
+  const em48h = new Date(agora.getTime() + 48 * 60 * 60 * 1000);
   const tarefasPendentes = minhasTarefas.filter((tarefa) => {
     const encontrada = !termoBusca || normalizarTexto(`${tarefa.id_externo || tarefa.id} ${tarefa.nome_cliente || ""} ${tarefa.titulo || ""} ${usuario.nome}`).includes(termoBusca);
     if (!encontrada) return false;
     if (filtroOperacional === "atrasadas") return tarefaAtrasada(tarefa);
     if (filtroOperacional === "arquivadas") return ["arquivada", "cancelada"].includes(tarefa.status);
-    return STATUS_ABERTOS.has(tarefa.status) && !tarefaAtrasada(tarefa);
+    if (filtroOperacional === "vencem_hoje") return STATUS_ABERTOS.has(tarefa.status) && (tarefa.prazo_limite || tarefa.data_limite || "").slice(0, 10) === hoje;
+    if (filtroOperacional === "proximas_48h") return STATUS_ABERTOS.has(tarefa.status) && tarefa.prazo_limite && new Date(tarefa.prazo_limite) > agora && new Date(tarefa.prazo_limite) <= em48h;
+    if (filtroOperacional === "urgentes") return STATUS_ABERTOS.has(tarefa.status) && ["urgente", "critica"].includes(tarefa.prioridade);
+    if (filtroOperacional === "devolvidas") return STATUS_ABERTOS.has(tarefa.status) && ["devolvida", "devolvida_correcao"].includes(tarefa.status);
+    if (filtroOperacional === "recem_delegadas") return tarefa.status === "delegada";
+    if (filtroOperacional === "em_andamento") return tarefa.status === "em_execucao";
+    return STATUS_ABERTOS.has(tarefa.status);
   });
   const tarefasConcluidas = minhasTarefas.filter((tarefa) => tarefa.status === "concluida");
   const minhaPerformance = calcularPerformanceSemanal(usuario.id, minhasTarefas);
@@ -2735,6 +2858,16 @@ function EmployeeDashboard({ usuario, onLogout, state }) {
         item.mes_referencia?.slice(0, 7) === mesAtual,
     )
     .sort((a, b) => (a.ordem || 0) - (b.ordem || 0));
+  const filtroIndicadorAtivo = ROTULOS_FILTRO_TAREFAS[filtroOperacional] || null;
+
+  function navegarDaTelaInicial(destino, filtro = null) {
+    if (destino === "tarefas" && filtro) {
+      setFiltroOperacional(filtro);
+      setBuscaTarefa("");
+      setPaginaPendentes(1);
+    }
+    setAbaAtiva(destino);
+  }
 
   async function atualizarMeusFeedbacks() {
     try {
@@ -2950,7 +3083,7 @@ function EmployeeDashboard({ usuario, onLogout, state }) {
           </div>
         </header>
 
-        {abaAtiva === "inicio" && <CentralInicio tarefas={listaTarefas} usuario={usuario} onNavigate={setAbaAtiva} />}
+        {abaAtiva === "inicio" && <CentralInicio tarefas={listaTarefas} usuario={usuario} onNavigate={navegarDaTelaInicial} />}
 
         {abaAtiva === "tarefas" && (
           <div className="employee-tasks-workspace">
@@ -2999,7 +3132,8 @@ function EmployeeDashboard({ usuario, onLogout, state }) {
               <div className="task-filters">
                 <input aria-label="Buscar tarefa" placeholder="Buscar por ID, cliente ou responsável" value={buscaTarefa} onChange={(e) => { setBuscaTarefa(e.target.value); setPaginaPendentes(1); }} />
                 <div className="task-kind-switch">
-                  {[['pendentes','Pendentes'],['atrasadas','Atrasadas'],['arquivadas','Perdidas / Arquivadas']].map(([valor, rotulo]) => <button type="button" key={valor} className={filtroOperacional === valor ? 'active' : ''} onClick={() => { setFiltroOperacional(valor); setPaginaPendentes(1); }}>{rotulo}</button>)}
+                  {FILTROS_TAREFAS_PRINCIPAIS.map(([valor, rotulo]) => <button type="button" key={valor} className={filtroOperacional === valor ? 'active' : ''} onClick={() => { setFiltroOperacional(valor); setPaginaPendentes(1); }}>{rotulo}</button>)}
+                  {filtroIndicadorAtivo ? <button type="button" className="active" title="Remover filtro do indicador" onClick={() => { setFiltroOperacional("pendentes"); setPaginaPendentes(1); }}>{filtroIndicadorAtivo} ×</button> : null}
                   <button type="button" onClick={() => setAbaAtiva("historico")}>Concluídas</button>
                 </div>
               </div>
@@ -3300,18 +3434,37 @@ export default function App() {
 
     async function restaurarSessao() {
       try {
-        const { data, error } = await supabase.auth.getSession();
+        const { data, error } = await limitarTempo(
+          supabase.auth.getSession(),
+          TEMPO_LIMITE_INICIALIZACAO_MS,
+          "Tempo limite excedido ao verificar a sessão.",
+        );
         if (error) throw error;
         if (!data.session?.user) return;
 
-        const perfil = await buscarPerfilUsuario(data.session.user);
+        const perfil = await limitarTempo(
+          buscarPerfilUsuario(data.session.user),
+          TEMPO_LIMITE_INICIALIZACAO_MS,
+          "Tempo limite excedido ao carregar o perfil.",
+        );
         if (!ativo) return;
 
         setUsuarioLogado(perfil);
-        await sincronizarDados();
+        setInicializando(false);
+        sincronizarDados().catch((error) => {
+          console.error("Erro ao sincronizar dados após restaurar a sessão:", error);
+          if (ativo) {
+            showToast("Sessão restaurada. Alguns dados ainda não foram carregados.");
+          }
+        });
       } catch (error) {
         console.error("Erro ao restaurar sessão:", error);
-        await supabase.auth.signOut();
+        supabase.auth.signOut({ scope: "local" }).catch((logoutError) => {
+          console.error("Erro ao limpar a sessão local:", logoutError);
+        });
+        if (ativo) {
+          showToast("Não foi possível restaurar sua sessão. Entre novamente.");
+        }
       } finally {
         if (ativo) setInicializando(false);
       }
@@ -3321,7 +3474,7 @@ export default function App() {
     return () => {
       ativo = false;
     };
-  }, [sincronizarDados]);
+  }, [showToast, sincronizarDados]);
 
   useEffect(() => {
     if (!usuarioLogado) return undefined;
@@ -4043,8 +4196,8 @@ export default function App() {
 
 
         /* =====================================================
-           LOGIN CELIOS — VERSÃO IGUAL AO MODELO DA REFERÊNCIA
-           Imagem esperada em: public/assets/celios-login-bg-3d.png
+           LOGIN PLATINO — VERSÃO IGUAL AO MODELO DA REFERÊNCIA
+           Imagem esperada em: public/assets/platino-login-background.png
         ===================================================== */
         .login-page-liquid {
           min-height: 100svh !important;
@@ -4560,7 +4713,7 @@ export default function App() {
 
 
         /* ===========================
-           AJUSTES FINAIS LOGIN CELIOS
+           AJUSTES FINAIS LOGIN PLATINO
            Escrita limpa + botão corrigido + destaques azuis
         =========================== */
 
@@ -4720,7 +4873,7 @@ export default function App() {
       
 
         /* =====================================================
-           FUNDO MAIS NÍTIDO, AZUL E VALORIZADO — CeliOS Login
+           FUNDO MAIS NÍTIDO, AZUL E VALORIZADO — Platino Login
            Ajuste final aplicado no arquivo completo
         ===================================================== */
 
@@ -5301,11 +5454,11 @@ export default function App() {
 
       {inicializando ? (
         <div className="login-page login-page-liquid">
-          <section className="glass-card login-card loading-card" aria-label="Carregando CeliOS">
+          <section className="glass-card login-card loading-card" aria-label="Carregando Platino equipe">
             <div className="login-brand">
               <div>
-                <strong>CeliOS</strong>
-                <span>Enterprise Operating System</span>
+                <strong>Platino equipe</strong>
+                <span>Workspace Administrativo</span>
               </div>
             </div>
             <p>Carregando o workspace...</p>
