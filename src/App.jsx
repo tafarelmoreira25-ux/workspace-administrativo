@@ -6,6 +6,12 @@ import PainelEquipeTV from './PainelEquipeTV';
 import ProcessualGerador from './ProcessualGerador';
 import { useCallback, useEffect, useState } from "react";
 import { supabase } from "./lib/supabase";
+import {
+  STATUS_TASKMANAGER,
+  obterEtapaTaskManager,
+  obterStatusTaskManager,
+  tarefaNoMacroStatus,
+} from "./taskWorkflow";
 
 // ==========================================
 // 1. CONFIGURAÇÕES E CONEXÕES
@@ -276,6 +282,37 @@ function normalizarTexto(texto = "") {
     .toLowerCase();
 }
 
+function ResumoFluxoTarefa({ tarefa, compacto = false }) {
+  const status = obterStatusTaskManager(tarefa);
+  const etapa = obterEtapaTaskManager(tarefa);
+
+  return (
+    <div className={`task-workflow-summary ${compacto ? "compact" : ""}`}>
+      <div className="task-workflow-heading">
+        <span className={`workflow-status workflow-status-${status.chave}`}>
+          {status.rotulo}
+        </span>
+        <span className="workflow-phase">
+          Fase {etapa.numero} de 9 · {etapa.nome}
+        </span>
+      </div>
+      {!compacto && (
+        <>
+          <div className="workflow-progress" aria-label={`Etapa ${status.passo} de 5: ${status.rotulo}`}>
+            {STATUS_TASKMANAGER.map((item) => (
+              <span
+                className={item.passo <= status.passo ? `active ${status.chave}` : ""}
+                key={item.chave}
+              />
+            ))}
+          </div>
+          <small>{status.ajuda} · Destino: {etapa.departamento}</small>
+        </>
+      )}
+    </div>
+  );
+}
+
 function tarefaAtribuidaAoUsuario(tarefa, usuario, funcionario) {
   if (
     funcionario?.id != null &&
@@ -537,8 +574,8 @@ function ModalDevolucao({ tarefa, onClose, onConfirmar }) {
       >
         <div className="return-modal-heading">
           <div>
-            <span className="eyebrow">Resposta registrada ao solicitante</span>
-            <h2 id="devolucao-titulo">Responder / devolver tarefa #{tarefa.id_externo || tarefa.id}</h2>
+            <span className="eyebrow">Bloqueio com histórico obrigatório</span>
+            <h2 id="devolucao-titulo">Sinalizar impedimento na tarefa #{tarefa.id_externo || tarefa.id}</h2>
             <p>{tarefa.titulo}</p>
           </div>
           <button
@@ -554,7 +591,7 @@ function ModalDevolucao({ tarefa, onClose, onConfirmar }) {
 
         <form className="stack-form return-form" onSubmit={confirmar}>
           <label>
-            Motivo da resposta ou devolução
+            Motivo do impedimento
             <select
               autoFocus
               onChange={(event) => setMotivo(event.target.value)}
@@ -578,7 +615,7 @@ function ModalDevolucao({ tarefa, onClose, onConfirmar }) {
               value={comentario}
             />
             <small className={comentarioValido ? "field-ok" : "field-help"}>
-              Mínimo de 10 caracteres. A devolução ficará registrada no histórico.
+              Mínimo de 10 caracteres. A pendência ficará registrada no histórico.
             </small>
           </label>
           <div className="return-modal-actions">
@@ -595,7 +632,7 @@ function ModalDevolucao({ tarefa, onClose, onConfirmar }) {
               disabled={enviando || !motivo || !comentarioValido}
               type="submit"
             >
-              {enviando ? "Registrando..." : "Registrar e devolver"}
+              {enviando ? "Registrando..." : "Registrar impedimento"}
             </button>
           </div>
         </form>
@@ -1000,6 +1037,9 @@ function AdminDashboard({ usuario, onLogout, state }) {
       return STATUS_ABERTOS.has(tarefa.status) && tarefa.prioridade === "urgente";
     }
     if (filtroTarefas === "abertas") return STATUS_ABERTOS.has(tarefa.status);
+    if (filtroTarefas.startsWith("macro:")) {
+      return tarefaNoMacroStatus(tarefa, filtroTarefas.replace("macro:", ""));
+    }
     return tarefa.status === filtroTarefas;
   });
   const tarefasOperacionaisFiltradas = tarefasFiltradas.filter((tarefa) =>
@@ -2149,8 +2189,8 @@ function AdminDashboard({ usuario, onLogout, state }) {
                     <option value="manuais">Manuais da TV</option>
                     <option value="abertas">Abertas</option>
                     <option value="urgente">Urgentes</option>
-                    {STATUS_TAREFA.map((item) => (
-                      <option key={item.valor} value={item.valor}>
+                    {STATUS_TASKMANAGER.map((item) => (
+                      <option key={item.chave} value={`macro:${item.chave}`}>
                         {item.rotulo}
                       </option>
                     ))}
@@ -2264,9 +2304,6 @@ function AdminDashboard({ usuario, onLogout, state }) {
                       />
                       <div className="admin-task-main">
                         <div className="admin-task-badges">
-                          <span className={`status ${tarefa.status}`}>
-                            {rotuloStatusTarefa(tarefa.status)}
-                          </span>
                           <span
                             className={`priority-badge priority-${tarefa.prioridade || "normal"}`}
                           >
@@ -2288,6 +2325,7 @@ function AdminDashboard({ usuario, onLogout, state }) {
                             </span>
                           )}
                         </div>
+                        <ResumoFluxoTarefa tarefa={tarefa} compacto />
                         <h3>{tarefa.titulo}</h3>
                         {tarefa.descricao && <p>{tarefa.descricao}</p>}
                         {tarefa.apontamento && (
@@ -2325,8 +2363,8 @@ function AdminDashboard({ usuario, onLogout, state }) {
                           </button>
                         )}
                         {tarefa.status === "devolvida_conferencia" && <>
-                          <button className="btn-success compact" onClick={() => conferirTarefaOperacional(tarefa, "aprovar")}>Aprovar</button>
-                          <button className="btn-return compact" onClick={() => conferirTarefaOperacional(tarefa, "corrigir")}>Solicitar correção</button>
+                          <button className="btn-success compact" onClick={() => conferirTarefaOperacional(tarefa, "aprovar")}>Aprovar e concluir</button>
+                          <button className="btn-return compact" onClick={() => conferirTarefaOperacional(tarefa, "corrigir")}>Devolver para ajuste</button>
                         </>}
                         <button
                           className="btn-secondary compact"
@@ -2921,7 +2959,7 @@ function EmployeeDashboard({ usuario, onLogout, state }) {
       atualizarTarefaLocal(tarefaAtualizada);
       setTarefaEmDevolucao(null);
       await recarregarTarefas();
-      showToast("Tarefa devolvida com motivo e comentário registrados.");
+      showToast("Impedimento registrado e tarefa movida para pendência.");
     } catch (error) {
       console.error("Erro ao devolver tarefa:", error);
       alert(`Não foi possível devolver a tarefa: ${error.message}`);
@@ -2943,6 +2981,23 @@ function EmployeeDashboard({ usuario, onLogout, state }) {
     atualizarTarefaLocal(Array.isArray(data) ? data[0] : data);
     await recarregarTarefas();
     showToast(acao === "aceitar" ? "Tarefa aceita e registrada." : "Status da tarefa atualizado.");
+    return Array.isArray(data) ? data[0] : data;
+  }
+
+  async function iniciarTarefaSimplificada(tarefa) {
+    setTarefaConcluindoId(tarefa.id);
+    try {
+      let tarefaAtual = tarefa;
+      if (tarefa.status === "delegada") {
+        tarefaAtual = await movimentarTarefa(tarefa, "aceitar");
+        if (!tarefaAtual) return;
+      }
+
+      await movimentarTarefa(tarefaAtual, "iniciar");
+      showToast("Tarefa iniciada. O prazo continua visivel ate a conclusao.");
+    } finally {
+      setTarefaConcluindoId(null);
+    }
   }
 
   function informarEspera(tarefa) {
@@ -3145,6 +3200,7 @@ function EmployeeDashboard({ usuario, onLogout, state }) {
                 <div className="task-item" key={tarefa.id}>
                   <div>
                     <h3>{tarefa.titulo}</h3>
+                    <ResumoFluxoTarefa tarefa={tarefa} />
                     {tarefa.origem === "operacional" && <LinhaTempoTarefa tarefa={tarefa} />}
                     <p>{tarefa.descricao}</p>
                     {tarefa.apontamento && (
@@ -3190,18 +3246,15 @@ function EmployeeDashboard({ usuario, onLogout, state }) {
                     >
                       {rotuloPrioridade(tarefa.prioridade)}
                     </span>
-                    <span className={`status ${tarefa.status}`}>
-                      {rotuloStatusTarefa(tarefa.status)}
-                    </span>
                     {tarefa.status === "delegada" ? <>
-                      <button className="btn-return" onClick={() => setTarefaEmDevolucao(tarefa)}>Devolver ao solicitante</button>
-                      <button className="btn-primary" onClick={() => movimentarTarefa(tarefa, "aceitar")}>Aceitar tarefa</button>
+                      <button className="btn-primary" disabled={tarefaConcluindoId === tarefa.id} onClick={() => iniciarTarefaSimplificada(tarefa)}>Começar tarefa</button>
+                      <button className="btn-return" onClick={() => setTarefaEmDevolucao(tarefa)}>Sinalizar impedimento</button>
                     </> : tarefa.status === "recebida" || tarefa.status === "devolvida_correcao" ? <>
-                      <button className="btn-return" onClick={() => setTarefaEmDevolucao(tarefa)}>Responder / devolver</button>
-                      <button className="btn-primary" onClick={() => movimentarTarefa(tarefa, "iniciar")}>Iniciar execução</button>
-                    </> : tarefa.status === "aguardando_informacao" ? <button className="btn-primary" onClick={() => movimentarTarefa(tarefa, "iniciar")}>Retomar execução</button> : tarefa.status === "devolvida_conferencia" ? <small className="return-waiting">Aguardando conferência da supervisão</small> : tarefa.status === "devolvida" ? (
+                      <button className="btn-primary" disabled={tarefaConcluindoId === tarefa.id} onClick={() => iniciarTarefaSimplificada(tarefa)}>{tarefa.status === "devolvida_correcao" ? "Corrigir tarefa" : "Começar tarefa"}</button>
+                      <button className="btn-return" onClick={() => setTarefaEmDevolucao(tarefa)}>Sinalizar impedimento</button>
+                    </> : tarefa.status === "aguardando_informacao" ? <button className="btn-primary" onClick={() => iniciarTarefaSimplificada(tarefa)}>Pendência resolvida: retomar</button> : tarefa.status === "devolvida_conferencia" ? <small className="return-waiting">Entrega enviada. Aguardando validação do supervisor.</small> : tarefa.status === "devolvida" ? (
                       <small className="return-waiting">
-                        Aguardando correção da solicitante
+                        Pendência registrada. Aguardando resposta do solicitante.
                       </small>
                     ) : (
                       <>
@@ -3210,9 +3263,9 @@ function EmployeeDashboard({ usuario, onLogout, state }) {
                           disabled={tarefaConcluindoId === tarefa.id}
                           onClick={() => setTarefaEmDevolucao(tarefa)}
                         >
-                          Responder / devolver
+                          Sinalizar impedimento
                         </button>
-                        {tarefa.origem === "operacional" && tarefa.status === "em_execucao" && <button className="btn-secondary" disabled={tarefaConcluindoId === tarefa.id} onClick={() => informarEspera(tarefa)}>Aguardar informação</button>}
+                        {tarefa.origem === "operacional" && tarefa.status === "em_execucao" && <button className="btn-secondary" disabled={tarefaConcluindoId === tarefa.id} onClick={() => informarEspera(tarefa)}>Registrar pendência</button>}
                         <button
                           className="btn-success"
                           disabled={
@@ -3228,7 +3281,7 @@ function EmployeeDashboard({ usuario, onLogout, state }) {
                               : undefined
                           }
                         >
-                          {tarefaConcluindoId === tarefa.id ? "Enviando..." : tarefa.origem === "operacional" ? "Devolver para conferência" : "Concluir"}
+                          {tarefaConcluindoId === tarefa.id ? "Enviando..." : tarefa.origem === "operacional" ? "Enviar para validação" : "Marcar como concluída"}
                         </button>
                       </>
                     )}
@@ -3734,6 +3787,23 @@ export default function App() {
         .task-item h3, .task-item h4 { margin-bottom: 5px; color: var(--dark); font-size: 14px; }
         .task-item p { font-size: 12px; }
         .task-item small { color: #7b8ca8; font-size: 10px; line-height: 1.6; }
+        .task-workflow-summary { display: grid; gap: 8px; width: min(100%, 720px); margin: 9px 0 12px; padding: 11px 12px; background: rgba(235,244,255,.7); border: 1px solid rgba(72,132,205,.13); border-radius: 12px; }
+        .task-workflow-summary.compact { display: block; width: auto; margin: 9px 0 5px; padding: 0; background: transparent; border: 0; }
+        .task-workflow-heading { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+        .workflow-status { display: inline-flex; align-items: center; width: max-content; padding: 6px 9px; border-radius: 999px; font-size: 9px; font-weight: 900; letter-spacing: .55px; text-transform: uppercase; }
+        .workflow-status-fila { color: #315f91; background: #e2f0ff; }
+        .workflow-status-em-andamento { color: #225fb8; background: #dceaff; }
+        .workflow-status-pendente-bloqueada { color: #a45d19; background: #fff0c9; }
+        .workflow-status-validacao-supervisor { color: #6f54a8; background: #eee7ff; }
+        .workflow-status-concluida { color: #247b67; background: #d8f4eb; }
+        .workflow-phase { color: #526b8b; font-size: 10px; font-weight: 800; }
+        .workflow-progress { display: grid; grid-template-columns: repeat(5, minmax(24px,1fr)); gap: 5px; }
+        .workflow-progress span { height: 5px; background: rgba(115,143,178,.18); border-radius: 99px; }
+        .workflow-progress span.active { background: #80aee9; }
+        .workflow-progress span.active.pendente-bloqueada { background: #e6ad4d; }
+        .workflow-progress span.active.validacao-supervisor { background: #9677d0; }
+        .workflow-progress span.active.concluida { background: #51b99f; }
+        .task-workflow-summary > small { margin: 0; color: #607896; }
         .task-actions { display: flex; align-items: center; gap: 9px; }
         .status { padding: 6px 10px; border-radius: 999px; font-size: 9px; font-weight: 800; letter-spacing: .7px; text-transform: uppercase; white-space: nowrap; }
         .status.pendente { color: #a66e16; background: rgba(255, 229, 170, .55); border: 1px solid rgba(216,164,54,.15); }

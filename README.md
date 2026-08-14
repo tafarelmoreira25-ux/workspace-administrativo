@@ -46,6 +46,8 @@ Para ativar o POP e a Central de Tarefas, execute nesta ordem:
 
 `supabase/concluir_tarefa_propria_supervisor.sql`
 
+`supabase/taskmanager_v1_simplificacao.sql`
+
 Essa migração gera IDs no formato `TSK-AAAAMMDD-001` e impede a conclusão
 sem devolutiva, nome de arquivo padronizado, link do Google Drive e confirmação
 das atualizações no CRM e na Planilha Geral.
@@ -64,6 +66,12 @@ não utilizam pontos.
 
 O último script permite que o supervisor marque como concluídas somente as
 tarefas atribuídas ao próprio cadastro, mantendo data e auditoria da conclusão.
+
+A camada TaskManager V1 mantém os estados técnicos para auditoria, mas mostra
+ao usuário somente cinco etapas: **Fila**, **Em andamento**, **Pendente /
+Bloqueada**, **Validação do supervisor** e **Concluída**. Ela também classifica
+cada tarefa em uma das nove fases operacionais e disponibiliza o catálogo T01
+a T09 sem apagar tarefas antigas.
 
 As regras determinísticas e o prompt auxiliar da IA ficam separados em:
 
