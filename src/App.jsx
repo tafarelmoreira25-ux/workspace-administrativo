@@ -3710,11 +3710,17 @@ function FormularioDelegacaoUsuario({ usuario, funcionarios, onCriada, showToast
   const alterar = (campo, valor) => setForm((atual) => ({ ...atual, [campo]: valor }));
 
   useEffect(() => {
-    if (!form.tipo || !responsaveisPorFuncao[form.tipo]) return;
-    const responsavelIdSugerido = String(responsaveisPorFuncao[form.tipo]);
-    if (!form.responsavelId || String(form.responsavelId) !== responsavelIdSugerido) {
-      setForm((atual) => ({ ...atual, responsavelId: responsavelIdSugerido }));
-    }
+    const responsavelIdSugerido = responsaveisPorFuncao[form.tipo];
+    if (!responsavelIdSugerido) return;
+    setForm((atual) => {
+      if (atual.responsavelId && String(atual.responsavelId) !== String(responsavelIdSugerido)) {
+        return atual;
+      }
+      return {
+        ...atual,
+        responsavelId: String(responsavelIdSugerido),
+      };
+    });
   }, [form.tipo, responsaveisPorFuncao]);
 
   function dataLocalInput(data) {
@@ -3739,6 +3745,9 @@ function FormularioDelegacaoUsuario({ usuario, funcionarios, onCriada, showToast
     if (!form.clienteDrive?.id) return alert("Selecione uma pasta de cliente sincronizada com o Google Drive.");
     if (form.tipo === "OUTROS" && !form.outraAcao.trim()) return alert("Descreva a ação solicitada.");
     if (!form.prazo) return alert("Selecione um prazo rápido ou escolha uma data em Mais opções.");
+    const responsavelAutomatico = responsaveisPorFuncao[form.tipo];
+    const idResponsavel = responsavelAutomatico || form.responsavelId;
+    if (!idResponsavel) return alert("Não há responsável definido para esta ação. Solicite ao supervisor configurar o indicativo da função.");
     const tituloDelegado = tituloAutomaticoDaTarefa(form.tipo, form.outraAcao);
     setSalvando(true);
     try {
@@ -3748,7 +3757,7 @@ function FormularioDelegacaoUsuario({ usuario, funcionarios, onCriada, showToast
         p_solicitacao: `${form.tipo === "OUTROS" ? `Ação: ${form.outraAcao.trim()}\n` : ""}${form.solicitacao.trim()}`,
         p_resultado_esperado: gerarResultadoEsperadoTarefa(form.tipo === "OUTROS" ? form.outraAcao : form.tipo),
         p_setor_solicitante: usuario.setor || usuario.cargo || "Equipe",
-        p_setor_executor: form.setorExecutor, p_funcionaria_id: Number(form.responsavelId),
+        p_setor_executor: form.setorExecutor, p_funcionaria_id: Number(idResponsavel),
         p_prazo_limite: new Date(form.prazo).toISOString(), p_prioridade: form.prioridade,
         p_criterios: form.apontamento.trim() ? { apontamento_inicial: form.apontamento.trim() } : null,
       });
@@ -3798,7 +3807,7 @@ function FormularioDelegacaoUsuario({ usuario, funcionarios, onCriada, showToast
       <div className="task-form-details">
         <div className="task-form-row">
           <label>Setor executor<select value={form.setorExecutor} onChange={(e) => alterar("setorExecutor", e.target.value)}><option>Administrativo</option><option>Jurídico</option><option>Comercial</option><option>Processual</option></select></label>
-          <label>Responsável<select required value={form.responsavelId} onChange={(e) => { const id = e.target.value; const pessoa = destinatarios.find((item) => String(item.id) === id); setForm((atual) => ({ ...atual, responsavelId: id, setorExecutor: pessoa?.setor || atual.setorExecutor })); }}><option value="">Quem vai executar?</option>{equipeDisponivel.map((pessoa) => <option key={pessoa.id} value={pessoa.id}>{pessoa.nome} — {pessoa.setor || pessoa.cargo}</option>)}</select></label>
+          <label>Responsável<select required value={form.responsavelId || responsavelIndicativo || ""} onChange={(e) => { const id = e.target.value; const pessoa = destinatarios.find((item) => String(item.id) === id); setForm((atual) => ({ ...atual, responsavelId: id, setorExecutor: pessoa?.setor || atual.setorExecutor })); }}><option value="">Quem vai executar?</option>{equipeDisponivel.map((pessoa) => <option key={pessoa.id} value={pessoa.id}>{pessoa.nome} — {pessoa.setor || pessoa.cargo}</option>)}</select></label>
         </div>
         <div className="task-form-row">
           <div className="quick-deadline"><strong>Prazo obrigatório</strong><div>{[["duas_horas","Em 2 horas"],["hoje_18","Hoje às 18h"],["amanha_10","Amanhã às 10h"],["dois_dias","Em 2 dias"]].map(([valor, rotulo]) => <button className="btn-secondary compact" type="button" key={valor} onClick={() => definirPrazo(valor)}>{rotulo}</button>)}</div><small>{form.prazo ? `Prazo selecionado: ${formatarDataHora(new Date(form.prazo).toISOString())}` : "Selecione uma opção rápida ou informe uma data."}</small></div>
@@ -5140,9 +5149,9 @@ export default function App() {
         .monthly-preview .panel-title-row h2, .monthly-employee-panel .panel-title-row h2 { margin: 5px 0 0; font-size: 20px; letter-spacing: -.4px; text-transform: none; }
         .compact-inline-actions { display: flex; align-items: center; gap: 8px; }
         .month-badge { flex: 0 0 auto; padding: 8px 12px; color: var(--accent-strong); background: rgba(220,237,255,.78); border: 1px solid rgba(79,143,247,.15); border-radius: 999px; font-size: 10px; font-weight: 800; }
-        .role-indicator-panel { display: grid; gap: 10px; margin-top: 8px; padding: 14px 16px; background: rgba(245,249,255,.8); border: 1px solid rgba(96,143,212,.18); border-radius: 14px; }
+        .role-indicator-panel { display: grid; gap: 10px; margin-top: 8px; padding: 14px 16px; background: linear-gradient(135deg, rgba(231,242,255,.88), rgba(243,248,255,.94)); border: 2px solid rgba(61,118,233,.78); border-radius: 14px; box-shadow: inset 0 0 0 1px rgba(255,255,255,.5), 0 8px 18px rgba(61,118,233,.08); }
         .role-indicator-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; color: var(--accent-strong); font-size: 10px; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; }
-        .role-indicator-card { display: flex; flex-direction: column; gap: 4px; padding: 12px 14px; background: rgba(255,255,255,.72); border: 1px solid rgba(94,142,210,.18); border-radius: 12px; }
+        .role-indicator-card { display: flex; flex-direction: column; gap: 4px; padding: 12px 14px; background: rgba(255,255,255,.9); border: 1px solid rgba(61,118,233,.32); border-radius: 12px; box-shadow: inset 0 0 0 1px rgba(61,118,233,.05); }
         .role-indicator-card small { color: var(--muted); font-size: 10px; }
         .role-indicator-card strong { color: var(--dark); font-size: 13px; }
         .role-mapping-panel { grid-column: 1 / -1; }
