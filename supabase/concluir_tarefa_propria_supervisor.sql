@@ -3,11 +3,19 @@
 
 begin;
 
+-- Algumas bases antigas não possuem uma restrição UNIQUE em funcionarios.email.
+-- Não usar ON CONFLICT(email), pois ele falharia e impediria a criação da RPC.
+with funcionario_atualizado as (
+  update public.funcionarios
+  set nome = 'Tafarel Moreira',
+      cargo = 'Supervisor',
+      ativo = true
+  where lower(trim(email)) = 'tafarel@platino.com'
+  returning id
+)
 insert into public.funcionarios (nome, email, cargo, ativo)
-values ('Tafarel Moreira', 'tafarel@platino.com', 'Supervisor', true)
-on conflict (email) do update
-set nome = excluded.nome,
-    ativo = true;
+select 'Tafarel Moreira', 'tafarel@platino.com', 'Supervisor', true
+where not exists (select 1 from funcionario_atualizado);
 
 create or replace function public.concluir_tarefa_propria_supervisor(
   p_tarefa_id bigint

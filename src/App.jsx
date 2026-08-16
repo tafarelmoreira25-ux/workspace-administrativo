@@ -515,6 +515,12 @@ function mensagemErroOperacional(error) {
   if (mensagem.includes("Use a acao Devolver Tarefa") || mensagem.includes("justificativa da devolucao")) {
     return "A proteção antiga de devolução do Supabase ainda está ativa. Reexecute o arquivo motor_operacional_tarefas_2026.sql atualizado.";
   }
+  if (
+    mensagem.includes("concluir_tarefa_propria_supervisor") ||
+    mensagem.includes("Could not find the function public.concluir_tarefa_propria_supervisor")
+  ) {
+    return "A função de conclusão de tarefas do gestor ainda não está instalada no Supabase. Execute o arquivo concluir_tarefa_propria_supervisor.sql no SQL Editor e atualize a página.";
+  }
   if (error?.code === "PGRST202" || mensagem.includes("schema cache") || mensagem.includes("delegar_tarefa_operacional")) {
     return "A estrutura da Central de Tarefas ainda não foi instalada no Supabase. Execute, na ordem, motor_operacional_tarefas_2026.sql e central_tarefas_modulos_2026.sql no SQL Editor.";
   }
@@ -2899,7 +2905,7 @@ function AdminDashboard({ usuario, onLogout, state }) {
 
         {abaAtiva === "documentos" && (
           <Suspense fallback={<section className="panel"><p>Carregando gerador de documentos...</p></section>}>
-            <GeradorDocumentos responsavel={usuario.nome} onSuccess={showToast} />
+            <GeradorDocumentos usuario={usuario} responsavel={usuario.nome} onSuccess={showToast} />
           </Suspense>
         )}
 
@@ -3598,7 +3604,7 @@ function EmployeeDashboard({ usuario, onLogout, state }) {
 
         {abaAtiva === "documentos" && (
           <Suspense fallback={<section className="panel"><p>Carregando gerador de documentos...</p></section>}>
-            <GeradorDocumentos responsavel={usuario.nome} onSuccess={showToast} />
+            <GeradorDocumentos usuario={usuario} responsavel={usuario.nome} onSuccess={showToast} />
           </Suspense>
         )}
 
