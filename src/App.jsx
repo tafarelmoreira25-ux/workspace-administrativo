@@ -5100,9 +5100,11 @@ export default function App() {
         .role-indicator-card strong { color: var(--dark); font-size: 13px; }
         .role-mapping-panel { grid-column: 1 / -1; }
         .role-mapping-list { display: grid; gap: 12px; }
-        .role-mapping-item { display: grid; grid-template-columns: minmax(180px, 1.2fr) minmax(180px, 1fr); align-items: center; gap: 12px; padding: 10px 12px; background: rgba(247,251,255,.78); border: 1px solid rgba(104,148,201,.14); border-radius: 12px; }
+        .role-mapping-item { display: grid; grid-template-columns: minmax(180px, 1.2fr) minmax(180px, 1fr); align-items: center; gap: 12px; padding: 10px 12px; background: rgba(247,251,255,.78); border: 1px solid rgba(104,148,201,.18); border-radius: 12px; transition: border-color .2s ease, box-shadow .2s ease, transform .2s ease; }
+        .role-mapping-item:focus-within { border-color: rgba(52,118,255,.7); box-shadow: 0 0 0 3px rgba(52,118,255,.16); transform: translateY(-1px); }
         .role-mapping-item span { color: var(--dark); font-size: 12px; font-weight: 700; }
-        .role-mapping-item select { width: 100%; }
+        .role-mapping-item select { width: 100%; border-color: rgba(104,148,201,.28); box-shadow: inset 0 0 0 1px rgba(104,148,201,.08); }
+        .role-mapping-item select:focus { outline: none; border-color: rgba(52,118,255,.9); box-shadow: 0 0 0 3px rgba(52,118,255,.18); }
         .monthly-list { display: grid; gap: 11px; margin: 0; padding: 0; list-style: none; }
         .monthly-list li { display: flex; align-items: center; gap: 13px; padding: 15px 16px; color: var(--text); background: rgba(247,251,255,.84); border: 1px solid rgba(104,148,201,.14); border-radius: 15px; }
         .monthly-list li > span { width: 29px; height: 29px; flex: 0 0 auto; display: grid; place-items: center; color: #fff; background: linear-gradient(145deg, #72acf1, #477fd2); border-radius: 10px; box-shadow: 0 7px 16px rgba(66,114,178,.18); font-size: 10px; font-weight: 800; }
