@@ -202,6 +202,11 @@ function gerarResultadoEsperadoTarefa(acao) {
   return `Executar ${acaoFormatada}, registrar a devolutiva e inserir o link do documento no Google Drive quando aplicável.`;
 }
 
+function tituloAutomaticoDaTarefa(categoria, outraAcao = "") {
+  if (categoria === "OUTROS") return outraAcao.trim();
+  return ACOES_TAREFA_VISUAIS.find((acao) => acao.valor === categoria)?.rotulo || categoria;
+}
+
 function SeletorAcaoVisual({ valor, onChange }) {
   return <fieldset className="task-choice-fieldset">
     <legend>Ação a ser executada</legend>
@@ -1442,11 +1447,12 @@ function AdminDashboard({ usuario, onLogout, state }) {
 
   async function handleCriarTarefa(e) {
     e.preventDefault();
-    if (!titulo || (!tarefaManual && (!funcId || !dataLimite || !nomeClienteTarefa || !setorSolicitante || !setorExecutor || !descricao.trim() || (categoria === "OUTROS" && !acaoOutra.trim())))) {
+    const tituloDelegado = tituloAutomaticoDaTarefa(categoria, acaoOutra);
+    if ((tarefaManual && !titulo.trim()) || (!tarefaManual && (!funcId || !dataLimite || !nomeClienteTarefa || !setorSolicitante || !setorExecutor || !descricao.trim() || !tituloDelegado))) {
       return alert(
         tarefaManual
           ? "Preencha o titulo da tarefa manual."
-          : "Preencha cliente, ação, título, setor solicitante, responsável e prazo.",
+          : "Preencha cliente, ação, solicitação, setor solicitante, responsável e prazo.",
       );
     }
     setSalvandoTarefa(true);
@@ -1472,7 +1478,7 @@ function AdminDashboard({ usuario, onLogout, state }) {
     } else {
       const resposta = await supabase.rpc("delegar_tarefa_operacional", {
         p_cliente_id: null, p_tratativa_id: null, p_nome_cliente: nomeClienteTarefa.trim(),
-        p_tipo_codigo: CODIGOS_TIPO_TAREFA[categoria], p_titulo: titulo.trim(),
+        p_tipo_codigo: CODIGOS_TIPO_TAREFA[categoria], p_titulo: tituloDelegado,
         p_solicitacao: descricao.trim(), p_resultado_esperado: gerarResultadoEsperadoTarefa(categoria === "OUTROS" ? acaoOutra : categoria),
         p_setor_solicitante: setorSolicitante, p_setor_executor: setorExecutor,
         p_funcionaria_id: Number(funcId), p_prazo_limite: new Date(dataLimite).toISOString(),
@@ -2161,7 +2167,7 @@ function AdminDashboard({ usuario, onLogout, state }) {
               </div>
             </section>
 
-            <section className="task-editor-grid">
+            <section className={`task-editor-grid ${tarefaEmEdicao ? "with-editor" : "single-column"}`}>
               <div className="panel">
                 <h2>
                   {tarefaManual
@@ -2185,7 +2191,7 @@ function AdminDashboard({ usuario, onLogout, state }) {
                       Manual da TV
                     </button>
                   </div>
-                  <label>
+                  {tarefaManual && <label>
                     Titulo
                     <input
                       type="text"
@@ -2194,7 +2200,7 @@ function AdminDashboard({ usuario, onLogout, state }) {
                       onChange={(event) => setTitulo(event.target.value)}
                       required
                     />
-                  </label>
+                  </label>}
                   {!tarefaManual && <div className="task-form-row">
                     <label>Nome do cliente<input required value={nomeClienteTarefa} onChange={(event) => setNomeClienteTarefa(event.target.value)} placeholder="Nome completo do cliente" /></label>
                     <label>Setor solicitante<select required value={setorSolicitante} onChange={(event) => setSetorSolicitante(event.target.value)}><option>Supervisão</option><option>Administrativo</option><option>Jurídico</option><option>Comercial</option><option>Processual</option></select></label>
@@ -2211,6 +2217,7 @@ function AdminDashboard({ usuario, onLogout, state }) {
                   </label>
                   <SeletorAcaoVisual valor={categoria} onChange={setCategoria} />
                   {categoria === "OUTROS" && !tarefaManual && <label>Descreva a outra ação<input required value={acaoOutra} onChange={(event) => setAcaoOutra(event.target.value)} placeholder="Informe exatamente o que deverá ser executado" /></label>}
+                  {!tarefaManual && <div className="task-auto-title"><span>Título gerado automaticamente</span><strong>{tituloAutomaticoDaTarefa(categoria, acaoOutra) || "Descreva a ação para definir o título"}</strong></div>}
                   <div className="task-form-details">
                   <div className="task-form-row">
                     {!tarefaManual && <label>Setor executor<select required value={setorExecutor} onChange={(event) => setSetorExecutor(event.target.value)}><option>Administrativo</option><option>Jurídico</option><option>Comercial</option><option>Processual</option></select></label>}
@@ -2287,7 +2294,7 @@ function AdminDashboard({ usuario, onLogout, state }) {
                 </form>
               </div>
 
-              <div className="panel">
+              {tarefaEmEdicao && <div className="panel">
                 {tarefaEmEdicao ? (
                   <>
                     <div className="panel-title-row">
@@ -2493,7 +2500,7 @@ function AdminDashboard({ usuario, onLogout, state }) {
                     </p>
                   </div>
                 )}
-              </div>
+              </div>}
             </section>
 
             <section className="panel task-list-panel">
@@ -3323,7 +3330,7 @@ function CentralNotificacoesBell() {
 }
 
 function FormularioDelegacaoUsuario({ usuario, funcionarios, onCriada, showToast }) {
-  const formularioVazio = { titulo: "", cliente: "", tipo: CATEGORIAS_TAREFA[0], outraAcao: "", solicitacao: "", setorExecutor: "Administrativo", responsavelId: "", prazo: "", prioridade: "normal", apontamento: "" };
+  const formularioVazio = { cliente: "", tipo: CATEGORIAS_TAREFA[0], outraAcao: "", solicitacao: "", setorExecutor: "Administrativo", responsavelId: "", prazo: "", prioridade: "normal", apontamento: "" };
   const [form, setForm] = useState(formularioVazio);
   const [salvando, setSalvando] = useState(false);
   const [enviada, setEnviada] = useState(false);
@@ -3358,11 +3365,12 @@ function FormularioDelegacaoUsuario({ usuario, funcionarios, onCriada, showToast
     event.preventDefault();
     if (form.tipo === "OUTROS" && !form.outraAcao.trim()) return alert("Descreva a ação solicitada.");
     if (!form.prazo) return alert("Selecione um prazo rápido ou escolha uma data em Mais opções.");
+    const tituloDelegado = tituloAutomaticoDaTarefa(form.tipo, form.outraAcao);
     setSalvando(true);
     try {
       const { data, error } = await supabase.rpc("delegar_tarefa_operacional", {
         p_cliente_id: null, p_tratativa_id: null, p_nome_cliente: form.cliente.trim(),
-        p_tipo_codigo: CODIGOS_TIPO_TAREFA[form.tipo], p_titulo: form.titulo.trim(),
+        p_tipo_codigo: CODIGOS_TIPO_TAREFA[form.tipo], p_titulo: tituloDelegado,
         p_solicitacao: `${form.tipo === "OUTROS" ? `Ação: ${form.outraAcao.trim()}\n` : ""}${form.solicitacao.trim()}`,
         p_resultado_esperado: gerarResultadoEsperadoTarefa(form.tipo === "OUTROS" ? form.outraAcao : form.tipo),
         p_setor_solicitante: usuario.setor || usuario.cargo || "Equipe",
@@ -3387,13 +3395,13 @@ function FormularioDelegacaoUsuario({ usuario, funcionarios, onCriada, showToast
     {enviada && <div className="delegation-sent" role="status"><span>✉</span><strong>Tarefa delegada com sucesso.</strong></div>}
     <div className="panel-title-row"><div><span className="eyebrow">Delegação rápida</span><h2>Delegar nova tarefa</h2><p>Organize a solicitação, escolha a ação e acompanhe o prazo com clareza.</p></div></div>
     <form className="stack-form task-form task-delegation-form" onSubmit={delegar}>
-      <label>Título da tarefa<input required value={form.titulo} onChange={(e) => alterar("titulo", e.target.value)} placeholder="Ex.: Notificar cliente sobre documentação pendente" /></label>
       <div className="task-form-row">
         <label>Nome do cliente<input required value={form.cliente} onChange={(e) => alterar("cliente", e.target.value)} placeholder="Nome completo do cliente" /></label>
         <label>Setor solicitante<input readOnly value={usuario.setor || usuario.cargo || "Equipe"} aria-label="Setor solicitante" /></label>
       </div>
       <SeletorAcaoVisual valor={form.tipo} onChange={(valor) => alterar("tipo", valor)} />
       {form.tipo === "OUTROS" && <label>Descreva a ação<input required value={form.outraAcao} onChange={(e) => alterar("outraAcao", e.target.value)} placeholder="Informe exatamente o que deverá ser executado" /></label>}
+      <div className="task-auto-title"><span>Título gerado automaticamente</span><strong>{tituloAutomaticoDaTarefa(form.tipo, form.outraAcao) || "Descreva a ação para definir o título"}</strong></div>
       <label>Solicitação<textarea required rows="4" value={form.solicitacao} onChange={(e) => alterar("solicitacao", e.target.value)} placeholder="Descreva com objetividade o que precisa ser feito." /></label>
       <div className="task-form-details">
         <div className="task-form-row">
@@ -4347,15 +4355,15 @@ export default function App() {
         .sidebar-logout:hover { color: #2563eb; transform: translateY(-2px); box-shadow: 0 14px 34px rgba(37,99,235,.12); }
 
         .main-content { min-width: 0; padding: 28px clamp(24px, 3.2vw, 48px) 48px; }
-        .topbar { min-height: 94px; display: flex; align-items: center; justify-content: space-between; gap: 24px; margin-bottom: 28px; padding: 22px 26px; background: rgba(255,255,255,.55); border: 1px solid rgba(255,255,255,.8); border-radius: 24px; box-shadow: 0 15px 45px rgba(57, 100, 157, .08); backdrop-filter: blur(22px); }
+        .topbar { position: relative; z-index: 100; min-height: 94px; display: flex; align-items: center; justify-content: space-between; gap: 24px; margin-bottom: 28px; padding: 22px 26px; background: rgba(255,255,255,.55); border: 1px solid rgba(255,255,255,.8); border-radius: 24px; box-shadow: 0 15px 45px rgba(57, 100, 157, .08); backdrop-filter: blur(22px); }
         .topbar p { font-size: 13px; }
         .topbar-actions { display: flex; align-items: center; justify-content: flex-end; gap: 12px; }
-        .notification-bell-wrap { position: relative; }
+        .notification-bell-wrap { position: relative; z-index: 101; }
         .notification-bell { position: relative; display: grid; width: 46px; height: 46px; place-items: center; color: #275383; background: rgba(255,255,255,.92); border: 1px solid rgba(84,133,194,.18); border-radius: 15px; box-shadow: 0 8px 22px rgba(54,94,148,.09); cursor: pointer; transition: .2s ease; }
         .notification-bell:hover, .notification-bell.is-open { color: #fff; background: linear-gradient(135deg, #2d83e6, #2562cf); border-color: transparent; box-shadow: 0 10px 25px rgba(37,98,207,.25); transform: translateY(-1px); }
         .notification-bell:focus-visible { outline: 3px solid rgba(52,132,234,.3); outline-offset: 3px; }
         .notification-badge { position: absolute; top: -6px; right: -7px; display: grid; min-width: 20px; height: 20px; padding: 0 5px; place-items: center; color: #fff; background: #d95061; border: 2px solid #fff; border-radius: 999px; box-shadow: 0 3px 9px rgba(183,49,68,.26); font-size: 9px; font-weight: 900; line-height: 1; }
-        .notification-popover { position: absolute; z-index: 80; top: calc(100% + 11px); right: 0; width: min(390px, calc(100vw - 36px)); overflow: hidden; background: rgba(255,255,255,.98); border: 1px solid rgba(88,133,191,.2); border-radius: 18px; box-shadow: 0 22px 50px rgba(29,65,111,.2); animation: notificationPopover .18s ease both; }
+        .notification-popover { position: absolute; z-index: 102; top: calc(100% + 11px); right: 0; width: min(390px, calc(100vw - 36px)); overflow: hidden; background: rgba(255,255,255,.98); border: 1px solid rgba(88,133,191,.2); border-radius: 18px; box-shadow: 0 22px 50px rgba(29,65,111,.2); animation: notificationPopover .18s ease both; }
         .notification-popover-header { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 17px 18px 14px; border-bottom: 1px solid rgba(77,121,178,.12); }
         .notification-popover-header .eyebrow { display: block; margin-bottom: 3px; font-size: 8px; }
         .notification-popover-header h2 { margin: 0; color: var(--dark); font-size: 17px; }
@@ -4432,11 +4440,15 @@ export default function App() {
         .task-management-header p { font-size: 12px; }
         .task-management-actions { display: flex; gap: 10px; flex: 0 0 auto; }
         .task-editor-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 22px; align-items: start; }
+        .task-editor-grid.single-column { grid-template-columns: minmax(0, 1fr); }
         .task-form { margin-top: 20px; }
         .task-form label { display: flex; flex-direction: column; gap: 7px; }
         .task-kind-switch { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 7px; padding: 5px; background: rgba(232,242,254,.78); border: 1px solid rgba(104,148,201,.13); border-radius: 13px; }
         .task-kind-switch button { padding: 10px 12px; color: #7182a0; background: transparent; border: 0; border-radius: 9px; cursor: pointer; font-size: 11px; font-weight: 800; }
         .task-kind-switch button.active { color: #fff; background: linear-gradient(135deg, #4f8ff7, #3d78db); box-shadow: 0 8px 18px rgba(55,118,216,.2); }
+        .task-auto-title { display: flex; align-items: center; justify-content: space-between; gap: 14px; min-height: 48px; padding: 10px 13px; color: #355071; background: linear-gradient(135deg, #f4f9ff, #edf5ff); border: 1px solid rgba(61,130,236,.2); border-radius: 12px; }
+        .task-auto-title span { color: #5e7897; font-size: 10px; font-weight: 800; letter-spacing: .05em; text-transform: uppercase; }
+        .task-auto-title strong { color: #163b70; font-size: 13px; text-align: right; }
         .task-form-row { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
         .task-form-details { display: grid; gap: 13px; padding: 15px; background: linear-gradient(135deg, rgba(246,250,255,.96), rgba(238,246,255,.78)); border: 1px solid rgba(84,136,205,.16); border-radius: 16px; box-shadow: 0 8px 22px rgba(40,90,155,.04); }
         .task-choice-fieldset { min-width: 0; margin: 0; padding: 0; border: 0; }
@@ -6180,6 +6192,8 @@ export default function App() {
           .urgency-layout { grid-template-columns: 1fr; }
           .task-action-picker { grid-template-columns: repeat(2, minmax(0,1fr)); }
           .task-action-chip { min-height: 62px; padding: 10px; }
+          .task-auto-title { align-items: flex-start; flex-direction: column; gap: 4px; }
+          .task-auto-title strong { text-align: left; }
           .priority-picker { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); }
           .priority-choice { justify-content: center; }
           .advanced-fields { grid-template-columns: 1fr; }
