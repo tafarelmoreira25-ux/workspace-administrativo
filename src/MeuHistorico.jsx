@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { supabase } from "./lib/supabase";
 
 function formatarData(data) {
   if (!data) return "Data não registrada";
@@ -11,6 +12,23 @@ function formatarData(data) {
 
 function linkGoogleDrive(url) {
   return /^https:\/\/(drive|docs)\.google\.com\//i.test(String(url || "").trim());
+}
+
+function LinkImagemComprovacao({ caminho }) {
+  const [imagemAssinada, setImagemAssinada] = useState({ caminho: "", url: "" });
+
+  useEffect(() => {
+    let ativo = true;
+    if (!caminho) return undefined;
+    supabase.storage.from("comprovacoes-tarefas").createSignedUrl(caminho, 3600)
+      .then(({ data }) => { if (ativo) setImagemAssinada({ caminho, url: data?.signedUrl || "" }); });
+    return () => { ativo = false; };
+  }, [caminho]);
+
+  if (!caminho) return null;
+  return imagemAssinada.caminho === caminho && imagemAssinada.url
+    ? <a className="drive-document-link" href={imagemAssinada.url} target="_blank" rel="noreferrer">🖼 Ver imagem anexada</a>
+    : <small>Imagem de comprovação anexada.</small>;
 }
 
 export default function MeuHistorico({ tarefas = [], onVoltar }) {
@@ -40,6 +58,7 @@ export default function MeuHistorico({ tarefas = [], onVoltar }) {
                 Pontos: {tarefa.pontos_tarefa || 10}
               </small>
               {linkGoogleDrive(tarefa.drive_document_url || tarefa.evidencia_url) && <a className="drive-document-link" href={tarefa.drive_document_url || tarefa.evidencia_url} target="_blank" rel="noreferrer">↗ Ver documento no Google Drive</a>}
+              <LinkImagemComprovacao caminho={tarefa.imagem_comprovacao_path} />
             </div>
             <span className="status concluida">Concluída</span>
           </div>

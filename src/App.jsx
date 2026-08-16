@@ -140,6 +140,8 @@ const DOCUMENTOS_INICIAIS = [
   { chave: "comprovante_residencia", rotulo: "Comprovante de residência" },
   { chave: "comprovante_renda", rotulo: "Comprovante de renda" },
 ];
+const BUCKET_IMAGENS_COMPROVACAO = "comprovacoes-tarefas";
+const TAMANHO_MAXIMO_IMAGEM_COMPROVACAO = 5 * 1024 * 1024;
 function limitarTempo(promise, tempoMs, mensagem) {
   let temporizador;
   const limite = new Promise((_, rejeitar) => {
@@ -193,6 +195,40 @@ function validarEntregaPop(entrega, tarefa) {
   if (!entrega.crmAtualizado) return "Confirme a atualização do CRM.";
   if (!entrega.planilhaAtualizada) return "Confirme a atualização da Planilha Geral.";
   return null;
+}
+
+function validarImagemComprovacao(arquivo) {
+  if (!arquivo) return null;
+  if (!arquivo.type?.startsWith("image/")) return "Selecione uma imagem em JPG, PNG, WEBP ou HEIC.";
+  if (arquivo.size > TAMANHO_MAXIMO_IMAGEM_COMPROVACAO) return "A imagem deve ter no máximo 5 MB.";
+  return null;
+}
+
+async function enviarImagemComprovacao(tarefa, arquivo) {
+  if (!arquivo) return null;
+  const falha = validarImagemComprovacao(arquivo);
+  if (falha) throw new Error(falha);
+  const { data: autenticacao, error: erroAutenticacao } = await supabase.auth.getUser();
+  if (erroAutenticacao || !autenticacao?.user?.id) throw new Error("Não foi possível identificar o usuário para anexar a imagem.");
+  const extensao = (arquivo.name.split(".").pop() || "jpg").toLowerCase().replace(/[^a-z0-9]/g, "") || "jpg";
+  const caminho = `${autenticacao.user.id}/${tarefa.id}/${Date.now()}-${parteNomeComprovante(tarefa.titulo, "TAREFA")}.${extensao}`;
+  const { error } = await supabase.storage.from(BUCKET_IMAGENS_COMPROVACAO).upload(caminho, arquivo, {
+    cacheControl: "3600",
+    contentType: arquivo.type,
+    upsert: false,
+  });
+  if (error) throw new Error(`Não foi possível enviar a imagem. Execute anexos_conclusao_tarefas_2026.sql no Supabase e tente novamente. ${error.message}`);
+  return caminho;
+}
+
+async function registrarImagemComprovacao(tarefa, caminho) {
+  if (!caminho) return null;
+  const { data, error } = await supabase.rpc("registrar_anexo_imagem_tarefa", {
+    p_tarefa_id: Number(tarefa.id),
+    p_imagem_path: caminho,
+  });
+  if (error) throw new Error(`A tarefa foi concluída, mas a imagem não pôde ser vinculada. Execute anexos_conclusao_tarefas_2026.sql no Supabase. ${error.message}`);
+  return Array.isArray(data) ? data[0] : data;
 }
 
 function gerarResultadoEsperadoTarefa(acao) {
@@ -746,7 +782,7 @@ function ModalDevolucao({ tarefa, onClose, onConfirmar }) {
         <div className="return-modal-heading">
           <div>
             <span className="eyebrow">Bloqueio com histórico obrigatório</span>
-            <h2 id="devolucao-titulo">Sinalizar impedimento na tarefa #{tarefa.id_externo || tarefa.id}</h2>
+            <h2 id="devolucao-titulo">Devolver tarefa #{tarefa.id_externo || tarefa.id}</h2>
             <p>{tarefa.titulo}</p>
           </div>
           <button
@@ -819,7 +855,7 @@ function EntregaPop({ tarefa, valor, onChange }) {
   return (
     <section className="document-checklist pop-delivery-checklist">
       <div className="document-checklist-heading">
-        <div><span className="eyebrow">POP 1.0 · prestação de contas</span><h4>Checklist de conclusão</h4><p>A comprovação é registrada por link; não envie arquivos pelo sistema.</p></div>
+        <div><span className="eyebrow">POP 1.0 · prestação de contas</span><h4>Checklist de conclusão</h4><p>Documentos são comprovados por link do Drive. Imagens de apoio podem ser anexadas abaixo.</p></div>
       </div>
       <label>Observações / devolutiva<textarea rows="3" value={valor.observacoes || ""} onChange={(e) => atualizar("observacoes", e.target.value)} placeholder="Descreva objetivamente o que foi executado e eventuais pendências." /></label>
       <label className="drive-link-field"><span>Link do Documento no Google Drive {comprovacaoObrigatoria ? "*" : "(opcional)"}</span><input type="url" value={valor.driveUrl || ""} onChange={(e) => atualizar("driveUrl", e.target.value)} placeholder="https://drive.google.com/file/d/..." aria-describedby={`drive-link-help-${tarefa.id}`} required={comprovacaoObrigatoria} /><small id={`drive-link-help-${tarefa.id}`}>Insira o link do arquivo salvo na pasta do cliente no Google Drive para comprovação da tarefa.</small></label>
@@ -832,6 +868,53 @@ function EntregaPop({ tarefa, valor, onChange }) {
       {/(distrato|desist.ncia|fim de servi.o|encerramento)/i.test(normalizarTexto(`${tarefa.titulo} ${tarefa.descricao}`)) && <div className="return-alert"><strong>Arquivo morto:</strong> confirme o distrato assinado e as provas sociais; depois mova a pasta para 02_ARQUIVO_MORTO.</div>}
     </section>
   );
+}
+
+function ModalConclusaoTarefa({ tarefa, entrega, enviando, onChange, onClose, onConfirmar, onDevolver }) {
+  const [imagem, setImagem] = useState(null);
+  const [erroImagem, setErroImagem] = useState("");
+
+  function selecionarImagem(evento) {
+    const arquivo = evento.target.files?.[0] || null;
+    const falha = validarImagemComprovacao(arquivo);
+    setErroImagem(falha || "");
+    setImagem(falha ? null : arquivo);
+  }
+
+  async function confirmar(evento) {
+    evento.preventDefault();
+    if (erroImagem) return;
+    await onConfirmar(imagem);
+  }
+
+  return <div className="modal-backdrop" role="presentation">
+    <section aria-labelledby="conclusao-titulo" aria-modal="true" className="return-modal completion-modal" role="dialog">
+      <div className="return-modal-heading">
+        <div>
+          <span className="eyebrow">Prestação de contas</span>
+          <h2 id="conclusao-titulo">Concluir tarefa</h2>
+          <p>{tarefa.titulo} · {tarefa.nome_cliente || "Cliente não informado"}</p>
+        </div>
+        <button aria-label="Fechar conclusão" className="modal-close" disabled={enviando} onClick={onClose} type="button">×</button>
+      </div>
+      <form className="stack-form completion-form" onSubmit={confirmar}>
+        <div className="completion-intro"><strong>Registre o que foi realizado.</strong><span>As observações e comprovações ficam no histórico da tarefa.</span></div>
+        <EntregaPop tarefa={tarefa} valor={entrega} onChange={onChange} />
+        <label className="completion-image-field">
+          <span>Imagem de comprovação <em>(opcional)</em></span>
+          <input accept="image/jpeg,image/png,image/webp,image/heic" onChange={selecionarImagem} type="file" />
+          <small>Anexe uma captura, foto ou comprovante visual em JPG, PNG, WEBP ou HEIC, até 5 MB.</small>
+          {imagem && <strong className="selected-proof-image">Imagem selecionada: {imagem.name}</strong>}
+          {erroImagem && <small className="field-error">{erroImagem}</small>}
+        </label>
+        <div className="return-modal-actions completion-actions">
+          <button className="btn-secondary" disabled={enviando} onClick={onClose} type="button">Cancelar</button>
+          <button className="btn-return" disabled={enviando} onClick={onDevolver} type="button">Devolver tarefa</button>
+          <button className="btn-success" disabled={enviando || Boolean(erroImagem)} type="submit">{enviando ? "Registrando..." : "Concluir tarefa"}</button>
+        </div>
+      </form>
+    </section>
+  </div>;
 }
 
 function LinhaTempoTarefa({ tarefa }) {
@@ -1195,6 +1278,24 @@ function LinkComprovanteDrive({ tarefa }) {
   return <a className="drive-document-link" href={url} target="_blank" rel="noreferrer">↗ Ver documento no Google Drive</a>;
 }
 
+function LinkImagemComprovacao({ tarefa }) {
+  const caminho = tarefa?.imagem_comprovacao_path;
+  const [imagemAssinada, setImagemAssinada] = useState({ caminho: "", url: "" });
+
+  useEffect(() => {
+    let ativo = true;
+    if (!caminho) return undefined;
+    supabase.storage.from(BUCKET_IMAGENS_COMPROVACAO).createSignedUrl(caminho, 3600)
+      .then(({ data }) => { if (ativo) setImagemAssinada({ caminho, url: data?.signedUrl || "" }); });
+    return () => { ativo = false; };
+  }, [caminho]);
+
+  if (!caminho) return null;
+  return imagemAssinada.caminho === caminho && imagemAssinada.url
+    ? <a className="drive-document-link image-proof-link" href={imagemAssinada.url} target="_blank" rel="noreferrer">🖼 Ver imagem anexada</a>
+    : <small className="image-proof-pending">Imagem de comprovação anexada.</small>;
+}
+
 function CartaoGestaoMembro({
   funcionario,
   performance,
@@ -1285,6 +1386,9 @@ function AdminDashboard({ usuario, onLogout, state }) {
   const [tarefasSelecionadas, setTarefasSelecionadas] = useState([]);
   const [processandoEmMassa, setProcessandoEmMassa] = useState(false);
   const [tarefaConcluindoId, setTarefaConcluindoId] = useState(null);
+  const [tarefaEmConclusao, setTarefaEmConclusao] = useState(null);
+  const [tarefaEmDevolucao, setTarefaEmDevolucao] = useState(null);
+  const [entregasConclusao, setEntregasConclusao] = useState({});
   const [modoEquipe, setModoEquipe] = useState("membros");
   const [perfilIntegrante, setPerfilIntegrante] = useState(criarPerfilIntegranteVazio);
   const [salvandoIntegrante, setSalvandoIntegrante] = useState(false);
@@ -1523,23 +1627,34 @@ function AdminDashboard({ usuario, onLogout, state }) {
     showToast(acao === "aprovar" ? "Tarefa conferida e concluída." : "Correção enviada ao responsável.");
   }
 
-  async function concluirMinhaTarefa(tarefa) {
-    const confirmou = window.confirm(
-      `Confirmar que a tratativa "${tarefa.titulo}" foi realizada e concluída?`,
-    );
-    if (!confirmou) return;
-
+  async function concluirMinhaTarefa(tarefa, imagemComprovacao = null) {
+    const entrega = entregasConclusao[tarefa.id] || {};
+    const falha = validarEntregaPop(entrega, tarefa);
+    if (falha) {
+      alert(`Tarefa não pode ser concluída. ${falha}`);
+      return;
+    }
     setTarefaConcluindoId(tarefa.id);
     try {
+      const caminhoImagem = await enviarImagemComprovacao(tarefa, imagemComprovacao);
       const { data, error } = await supabase.rpc(
         "concluir_tarefa_propria_supervisor",
-        { p_tarefa_id: Number(tarefa.id) },
+        {
+          p_tarefa_id: Number(tarefa.id),
+          p_observacoes: entrega.observacoes.trim(),
+          p_drive_url: entrega.driveUrl.trim() || null,
+        },
       );
       if (error) throw error;
 
-      const tarefaAtualizada = Array.isArray(data) ? data[0] : data;
+      let tarefaAtualizada = Array.isArray(data) ? data[0] : data;
       if (!tarefaAtualizada) {
         throw new Error("O banco não confirmou a conclusão.");
+      }
+
+      if (caminhoImagem) {
+        const tarefaComImagem = await registrarImagemComprovacao(tarefa, caminhoImagem);
+        if (tarefaComImagem) tarefaAtualizada = tarefaComImagem;
       }
 
       setListaTarefas((atuais) =>
@@ -1555,6 +1670,8 @@ function AdminDashboard({ usuario, onLogout, state }) {
       if (String(tarefaEmEdicao?.id) === String(tarefa.id)) {
         setTarefaEmEdicao(null);
       }
+      setTarefaEmConclusao(null);
+      setEntregasConclusao((atuais) => ({ ...atuais, [tarefa.id]: {} }));
       showToast("Tratativa concluída dentro do prazo operacional.");
     } catch (error) {
       console.error("Erro ao concluir tarefa do supervisor:", error);
@@ -1564,6 +1681,29 @@ function AdminDashboard({ usuario, onLogout, state }) {
       );
     } finally {
       setTarefaConcluindoId(null);
+    }
+  }
+
+  async function devolverMinhaTarefa({ motivo, comentario }) {
+    if (!tarefaEmDevolucao) return;
+    try {
+      const resposta = tarefaEmDevolucao.origem === "operacional"
+        ? await supabase.rpc("movimentar_tarefa_operacional", {
+            p_tarefa_id: Number(tarefaEmDevolucao.id), p_acao: "devolver_solicitante",
+            p_motivo: `${motivo}: ${comentario}`, p_checklist: null, p_observacoes: comentario,
+            p_nome_arquivo: null, p_drive_url: null, p_crm_atualizado: false, p_planilha_atualizada: false,
+          })
+        : await supabase.rpc("devolver_tarefa", {
+            p_tarefa_id: Number(tarefaEmDevolucao.id), p_motivo: motivo, p_comentario: comentario,
+          });
+      if (resposta.error) throw resposta.error;
+      const atualizada = Array.isArray(resposta.data) ? resposta.data[0] : resposta.data;
+      if (!atualizada) throw new Error("O banco não confirmou a devolução.");
+      setListaTarefas((atuais) => atuais.map((item) => String(item.id) === String(atualizada.id) ? atualizada : item));
+      setTarefaEmDevolucao(null);
+      showToast("Tarefa devolvida com a observação registrada.");
+    } catch (error) {
+      alert(`Não foi possível devolver a tarefa: ${mensagemErroOperacional(error)}`);
     }
   }
 
@@ -2673,13 +2813,14 @@ function AdminDashboard({ usuario, onLogout, state }) {
                             ` | Pontos: ${tarefa.pontos_tarefa ?? 0}`}
                         </small>
                         <LinkComprovanteDrive tarefa={tarefa} />
+                        <LinkImagemComprovacao tarefa={tarefa} />
                       </div>
                       <div className="admin-task-actions">
                         {tarefaDoUsuario && tarefa.status !== "devolvida_conferencia" && (
                           <button
                             className="btn-success compact"
                             disabled={tarefaConcluindoId === tarefa.id}
-                            onClick={() => concluirMinhaTarefa(tarefa)}
+                            onClick={() => setTarefaEmConclusao(tarefa)}
                           >
                             {tarefaConcluindoId === tarefa.id
                               ? "Concluindo..."
@@ -3016,6 +3157,18 @@ function AdminDashboard({ usuario, onLogout, state }) {
           </Suspense>
         )}
       </main>
+      {tarefaEmDevolucao && <ModalDevolucao tarefa={tarefaEmDevolucao} onClose={() => setTarefaEmDevolucao(null)} onConfirmar={devolverMinhaTarefa} />}
+      {tarefaEmConclusao && (
+        <ModalConclusaoTarefa
+          tarefa={tarefaEmConclusao}
+          entrega={entregasConclusao[tarefaEmConclusao.id] || {}}
+          enviando={tarefaConcluindoId === tarefaEmConclusao.id}
+          onChange={(valor) => setEntregasConclusao((atuais) => ({ ...atuais, [tarefaEmConclusao.id]: valor }))}
+          onClose={() => setTarefaEmConclusao(null)}
+          onConfirmar={(imagem) => concluirMinhaTarefa(tarefaEmConclusao, imagem)}
+          onDevolver={() => { setTarefaEmConclusao(null); setTarefaEmDevolucao(tarefaEmConclusao); }}
+        />
+      )}
     </div>
   );
 }
@@ -3427,6 +3580,7 @@ function EmployeeDashboard({ usuario, onLogout, state }) {
   } = state;
   const [abaAtiva, setAbaAtiva] = useState("inicio");
   const [tarefaConcluindoId, setTarefaConcluindoId] = useState(null);
+  const [tarefaEmConclusao, setTarefaEmConclusao] = useState(null);
   const [tarefaEmDevolucao, setTarefaEmDevolucao] = useState(null);
   const [paginaPendentes, setPaginaPendentes] = useState(1);
   const [filtroOperacional, setFiltroOperacional] = useState("pendentes");
@@ -3580,7 +3734,7 @@ function EmployeeDashboard({ usuario, onLogout, state }) {
     if (motivo?.trim().length >= 10) movimentarTarefa(tarefa, "aguardar", motivo.trim());
   }
 
-  async function concluirTarefa(tarefa) {
+  async function concluirTarefa(tarefa, imagemComprovacao = null) {
     if (
       tarefaExigeChecklistDocumentos(tarefa) &&
       !checklistDocumentosCompleto(tarefa)
@@ -3602,6 +3756,15 @@ function EmployeeDashboard({ usuario, onLogout, state }) {
 
     let tarefaAtualizada;
     let error;
+    let caminhoImagem;
+
+    try {
+      caminhoImagem = await enviarImagemComprovacao(tarefa, imagemComprovacao);
+    } catch (erroImagem) {
+      alert(erroImagem.message);
+      setTarefaConcluindoId(null);
+      return;
+    }
 
     if (tarefa.origem === "operacional") {
       const resposta = await supabase.rpc("movimentar_tarefa_operacional", {
@@ -3639,7 +3802,8 @@ function EmployeeDashboard({ usuario, onLogout, state }) {
       return;
     }
 
-    if (!tarefaAtualizada || tarefaAtualizada.status !== "concluida") {
+    const statusEsperado = tarefa.origem === "operacional" ? "devolvida_conferencia" : "concluida";
+    if (!tarefaAtualizada || tarefaAtualizada.status !== statusEsperado) {
       alert(
         "O banco não confirmou a conclusão. Execute a configuração do Supabase indicada no README.",
       );
@@ -3647,7 +3811,18 @@ function EmployeeDashboard({ usuario, onLogout, state }) {
       return;
     }
 
+    if (caminhoImagem) {
+      try {
+        const tarefaComImagem = await registrarImagemComprovacao(tarefa, caminhoImagem);
+        if (tarefaComImagem) tarefaAtualizada = tarefaComImagem;
+      } catch (erroAnexo) {
+        console.error("Erro ao vincular imagem de comprovação:", erroAnexo);
+        alert(erroAnexo.message);
+      }
+    }
+
     atualizarTarefaLocal(tarefaAtualizada);
+    setTarefaEmConclusao(null);
 
     try {
       await recarregarTarefas();
@@ -3797,6 +3972,7 @@ function EmployeeDashboard({ usuario, onLogout, state }) {
                       Prazo final: {formatarData(tarefa.data_limite)}
                       {tarefa.origem !== "operacional" && ` | Recompensa: +${tarefa.pontos_tarefa || 10} Pontos`}
                     </small>
+                    <LinkImagemComprovacao tarefa={tarefa} />
                     {tarefaExigeChecklistDocumentos(tarefa) && (
                       <ChecklistDocumentos
                         key={`${tarefa.id}-${tarefa.updated_at || ""}`}
@@ -3804,7 +3980,6 @@ function EmployeeDashboard({ usuario, onLogout, state }) {
                         tarefa={tarefa}
                       />
                     )}
-                    {tarefa.origem === "operacional" && tarefa.status === "em_execucao" && <EntregaPop tarefa={tarefa} valor={entregasPop[tarefa.id] || {}} onChange={(valor) => setEntregasPop((atuais) => ({ ...atuais, [tarefa.id]: valor }))} />}
                   </div>
                   <div className="task-actions">
                     {tarefa.categoria && (
@@ -3819,10 +3994,10 @@ function EmployeeDashboard({ usuario, onLogout, state }) {
                     </span>
                     {tarefa.status === "delegada" ? <>
                       <button className="btn-primary" disabled={tarefaConcluindoId === tarefa.id} onClick={() => iniciarTarefaSimplificada(tarefa)}>Começar tarefa</button>
-                      <button className="btn-return" onClick={() => setTarefaEmDevolucao(tarefa)}>Sinalizar impedimento</button>
+                      <button className="btn-return" onClick={() => setTarefaEmDevolucao(tarefa)}>Devolver tarefa</button>
                     </> : tarefa.status === "recebida" || tarefa.status === "devolvida_correcao" ? <>
                       <button className="btn-primary" disabled={tarefaConcluindoId === tarefa.id} onClick={() => iniciarTarefaSimplificada(tarefa)}>{tarefa.status === "devolvida_correcao" ? "Corrigir tarefa" : "Começar tarefa"}</button>
-                      <button className="btn-return" onClick={() => setTarefaEmDevolucao(tarefa)}>Sinalizar impedimento</button>
+                      <button className="btn-return" onClick={() => setTarefaEmDevolucao(tarefa)}>Devolver tarefa</button>
                     </> : tarefa.status === "aguardando_informacao" ? <button className="btn-primary" onClick={() => iniciarTarefaSimplificada(tarefa)}>Pendência resolvida: retomar</button> : tarefa.status === "devolvida_conferencia" ? <small className="return-waiting">Entrega enviada. Aguardando validação do supervisor.</small> : tarefa.status === "devolvida" ? (
                       <small className="return-waiting">
                         Pendência registrada. Aguardando resposta do solicitante.
@@ -3834,7 +4009,7 @@ function EmployeeDashboard({ usuario, onLogout, state }) {
                           disabled={tarefaConcluindoId === tarefa.id}
                           onClick={() => setTarefaEmDevolucao(tarefa)}
                         >
-                          Sinalizar impedimento
+                          Devolver tarefa
                         </button>
                         {tarefa.origem === "operacional" && tarefa.status === "em_execucao" && <button className="btn-secondary" disabled={tarefaConcluindoId === tarefa.id} onClick={() => informarEspera(tarefa)}>Registrar pendência</button>}
                         <button
@@ -3844,7 +4019,7 @@ function EmployeeDashboard({ usuario, onLogout, state }) {
                             (tarefaExigeChecklistDocumentos(tarefa) &&
                               !checklistDocumentosCompleto(tarefa))
                           }
-                          onClick={() => concluirTarefa(tarefa)}
+                          onClick={() => setTarefaEmConclusao(tarefa)}
                           title={
                             tarefaExigeChecklistDocumentos(tarefa) &&
                             !checklistDocumentosCompleto(tarefa)
@@ -3943,6 +4118,17 @@ function EmployeeDashboard({ usuario, onLogout, state }) {
           onClose={() => setTarefaEmDevolucao(null)}
           onConfirmar={devolverTarefa}
           tarefa={tarefaEmDevolucao}
+        />
+      )}
+      {tarefaEmConclusao && (
+        <ModalConclusaoTarefa
+          tarefa={tarefaEmConclusao}
+          entrega={entregasPop[tarefaEmConclusao.id] || {}}
+          enviando={tarefaConcluindoId === tarefaEmConclusao.id}
+          onChange={(valor) => setEntregasPop((atuais) => ({ ...atuais, [tarefaEmConclusao.id]: valor }))}
+          onClose={() => setTarefaEmConclusao(null)}
+          onConfirmar={(imagem) => concluirTarefa(tarefaEmConclusao, imagem)}
+          onDevolver={() => { setTarefaEmConclusao(null); setTarefaEmDevolucao(tarefaEmConclusao); }}
         />
       )}
     </div>
@@ -6129,6 +6315,21 @@ export default function App() {
         .drive-link-field { padding: 12px; background: rgba(232,243,255,.72); border: 1px solid rgba(75,132,201,.2); border-radius: 11px; }
         .drive-link-field small, .drive-link-filename { color: #6b8199; font-size: 9px; font-weight: 600; line-height: 1.45; }
         .drive-link-filename { display: block; margin: 8px 0 12px; overflow-wrap: anywhere; }
+        .image-proof-link, .image-proof-pending { margin-top: 7px; }
+        .image-proof-pending { display: block; color: #4f7196; font-size: 10px; font-weight: 700; }
+        .completion-modal { width: min(720px, 100%); max-height: min(88svh, 840px); overflow: auto; }
+        .completion-form { gap: 14px; }
+        .completion-intro { display: grid; gap: 3px; padding: 12px 14px; color: #315574; background: linear-gradient(135deg, #edf7ff, #f8fbff); border: 1px solid rgba(75,132,201,.18); border-radius: 12px; }
+        .completion-intro strong { color: #173d71; font-size: 12px; }
+        .completion-intro span { font-size: 10px; line-height: 1.45; }
+        .completion-modal .document-checklist { width: 100%; margin-top: 0; }
+        .completion-image-field { display: grid; gap: 7px; padding: 13px; color: #35536f; background: #fbfdff; border: 1px dashed rgba(75,132,201,.3); border-radius: 12px; font-size: 11px; font-weight: 800; }
+        .completion-image-field em { color: #718199; font-style: normal; font-weight: 600; }
+        .completion-image-field input { width: 100%; padding: 9px; background: #fff; border: 1px solid rgba(75,132,201,.18); border-radius: 9px; font-size: 11px; }
+        .completion-image-field small { color: #718199; font-size: 9px; font-weight: 600; line-height: 1.45; }
+        .selected-proof-image { color: #247b67; font-size: 10px; overflow-wrap: anywhere; }
+        .field-error { color: #b84252 !important; }
+        .completion-actions { margin-top: 2px; }
         .drive-document-link { display: inline-flex; align-items: center; width: max-content; margin-top: 10px; padding: 8px 10px; color: #245c9f; background: rgba(228,240,255,.84); border: 1px solid rgba(73,128,196,.2); border-radius: 9px; font-size: 10px; font-weight: 800; text-decoration: none; }
         .drive-document-link:hover { color: #123f76; background: #dceeff; }
         .task-timeline { display: flex; align-items: flex-start; gap: 0; margin: 10px 0 12px; overflow-x: auto; }
@@ -6319,6 +6520,31 @@ export default function App() {
             width: 100% !important;
             padding: 32px 24px !important;
           }
+        }
+
+        /* Mantém a aparência dos campos mesmo com preenchimento automático do navegador. */
+        .login-page-liquid .floating-input-wrap input {
+          padding: 19px 0 2px !important;
+          line-height: 1.2 !important;
+        }
+
+        .login-page-liquid .floating-input-wrap > span {
+          top: 12px !important;
+          font-size: 9px !important;
+          font-weight: 800 !important;
+          letter-spacing: .02em !important;
+          transform: translateY(-50%) !important;
+        }
+
+        .login-page-liquid .floating-input-wrap input:-webkit-autofill,
+        .login-page-liquid .floating-input-wrap input:-webkit-autofill:hover,
+        .login-page-liquid .floating-input-wrap input:-webkit-autofill:focus,
+        .login-page-liquid .floating-input-wrap input:-webkit-autofill:active {
+          -webkit-text-fill-color: #102d5c !important;
+          caret-color: #102d5c !important;
+          -webkit-box-shadow: 0 0 0 1000px #f8fafc inset !important;
+          box-shadow: 0 0 0 1000px #f8fafc inset !important;
+          transition: background-color 9999s ease-out 0s !important;
         }
 
       `}</style>

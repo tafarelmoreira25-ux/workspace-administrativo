@@ -3,6 +3,11 @@
 
 begin;
 
+alter table public.tarefas
+  add column if not exists observacoes_devolutiva text,
+  add column if not exists evidencia_url text,
+  add column if not exists drive_document_url text;
+
 -- Algumas bases antigas não possuem uma restrição UNIQUE em funcionarios.email.
 -- Não usar ON CONFLICT(email), pois ele falharia e impediria a criação da RPC.
 with funcionario_atualizado as (
@@ -18,7 +23,9 @@ select 'Tafarel Moreira', 'tafarel@platino.com', 'Supervisor', true
 where not exists (select 1 from funcionario_atualizado);
 
 create or replace function public.concluir_tarefa_propria_supervisor(
-  p_tarefa_id bigint
+  p_tarefa_id bigint,
+  p_observacoes text default null,
+  p_drive_url text default null
 )
 returns public.tarefas
 language plpgsql
@@ -70,6 +77,15 @@ begin
     raise exception 'A tarefa não está disponível para conclusão.';
   end if;
 
+  if nullif(trim(coalesce(p_observacoes, '')), '') is null then
+    raise exception 'Informe as observacoes da conclusao.';
+  end if;
+
+  if nullif(trim(coalesce(p_drive_url, '')), '') is not null
+     and trim(p_drive_url) !~* '^https://(drive|docs)\.google\.com/' then
+    raise exception 'Informe um link valido do Google Drive.';
+  end if;
+
   perform set_config('platino.motor_operacional', '1', true);
 
   update public.tarefas
@@ -77,6 +93,9 @@ begin
       concluida_em = now(),
       conferida_em = now(),
       conferida_por_email = email_autor,
+      observacoes_devolutiva = trim(p_observacoes),
+      evidencia_url = coalesce(nullif(trim(coalesce(p_drive_url, '')), ''), evidencia_url),
+      drive_document_url = coalesce(nullif(trim(coalesce(p_drive_url, '')), ''), drive_document_url),
       updated_at = now(),
       versao = coalesce(versao, 0) + 1
   where id = tarefa.id
@@ -87,8 +106,8 @@ begin
     'concluir_supervisor',
     tarefa.status,
     'concluida',
-    'Tratativa realizada e concluída pelo próprio supervisor responsável.',
-    jsonb_build_object('autor_email', email_autor)
+    'Tratativa realizada e concluída pelo próprio supervisor responsável: ' || trim(p_observacoes),
+    jsonb_build_object('autor_email', email_autor, 'drive_url', nullif(trim(coalesce(p_drive_url, '')), ''))
   );
 
   return tarefa_concluida;
@@ -97,6 +116,7 @@ $$;
 
 revoke all on function public.concluir_tarefa_propria_supervisor(bigint) from public;
 grant execute on function public.concluir_tarefa_propria_supervisor(bigint) to authenticated;
+grant execute on function public.concluir_tarefa_propria_supervisor(bigint, text, text) to authenticated;
 
 notify pgrst, 'reload schema';
 
