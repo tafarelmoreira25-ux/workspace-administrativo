@@ -1061,13 +1061,6 @@ function Login({ onLogin }) {
 
       <section className="glass-card login-card" aria-label="Login Platino equipe">
         <div className="login-card-accent" aria-hidden="true" />
-        <div className="login-brand">
-          <div>
-            <strong>Platino</strong>
-            <span className="login-workspace-badge">Workspace</span>
-          </div>
-        </div>
-
         <div className="login-heading">
           <h1>Bem-vindo de volta! <span aria-hidden="true">👋</span></h1>
           <p>Acesse sua conta corporativa.</p>
@@ -5927,10 +5920,35 @@ export default function App() {
         .login-page-liquid {
           position: relative !important;
           display: grid !important;
-          place-items: center !important;
+          grid-template-columns: minmax(0, 1fr) !important;
+          justify-items: start !important;
+          align-items: center !important;
           min-height: 100svh !important;
-          padding: 48px 24px 82px !important;
+          padding: clamp(32px, 5vw, 74px) clamp(24px, 8vw, 148px) 82px !important;
           background: #f8fafc url('/assets/platino-login-background.png') center / cover no-repeat !important;
+        }
+
+        .login-page-liquid::after {
+          content: "" !important;
+          position: absolute !important;
+          inset: 0 !important;
+          z-index: 0 !important;
+          pointer-events: none !important;
+          background: linear-gradient(90deg, rgba(248,251,255,.38), rgba(248,251,255,.08) 52%, transparent 72%) !important;
+        }
+
+        .login-page-liquid .login-card {
+          grid-column: 1 !important;
+          justify-self: start !important;
+          align-self: center !important;
+          width: min(100%, 430px) !important;
+          max-width: 430px !important;
+          min-height: auto !important;
+          padding: 42px 38px !important;
+          border: 1px solid rgba(226,232,240,.94) !important;
+          border-radius: 22px !important;
+          background: rgba(255,255,255,.94) !important;
+          box-shadow: 0 20px 54px rgba(15,42,85,.13) !important;
         }
 
         .login-page-liquid::before {
