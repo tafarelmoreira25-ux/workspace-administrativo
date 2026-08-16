@@ -12,7 +12,7 @@ set nome = case
     end,
     setor = 'Administrativo',
     updated_at = now()
-where lower(trim(nome)) in ('tafarel', 'tafarel moreira', 'yasmim', 'yasmin', 'thayla')
+where lower(trim(nome)) in ('tafarel', 'tafarel moreira', 'yasmim', 'yasmin', 'thayla', 'thayla venturini')
    or lower(trim(email)) in ('tafarel@platino.com', 'yasmin@adm.com');
 
 update public.funcionarios
@@ -32,12 +32,17 @@ set foto_url = '/assets/equipe/janaina.jpeg',
     updated_at = now()
 where lower(trim(email)) = 'janaina@platino.com';
 
+update public.funcionarios
+set foto_url = '/assets/equipe/thayla-venturini.jpeg',
+    updated_at = now()
+where lower(trim(nome)) in ('thayla', 'thayla venturini');
+
 commit;
 
 select id, nome, email, cargo, setor, ativo, foto_url
 from public.funcionarios
 where lower(trim(nome)) in (
-  'tafarel', 'tafarel moreira', 'yasmim', 'yasmin', 'thayla',
+  'tafarel', 'tafarel moreira', 'yasmim', 'yasmin', 'thayla', 'thayla venturini',
   'nicolas', 'tabata', 'giullian', 'janaina', 'elaine'
 )
 order by setor, nome;

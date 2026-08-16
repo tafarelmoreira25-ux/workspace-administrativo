@@ -4,6 +4,7 @@ import MeuPlanner from './MeuPlanner';
 import PainelEquipeTV from './PainelEquipeTV';
 import { lazy, Suspense, useCallback, useEffect, useState } from "react";
 import { supabase } from "./lib/supabase";
+import { criarResumoBoasVindas } from "./homeGreeting";
 import {
   STATUS_TASKMANAGER,
   obterEtapaTaskManager,
@@ -125,9 +126,16 @@ function limitarTempo(promise, tempoMs, mensagem) {
   });
 }
 
+function obterDataLocalISO(data = new Date()) {
+  const ano = data.getFullYear();
+  const mes = String(data.getMonth() + 1).padStart(2, "0");
+  const dia = String(data.getDate()).padStart(2, "0");
+  return `${ano}-${mes}-${dia}`;
+}
+
 function tarefaAtrasada(tarefa) {
   if (!STATUS_ABERTOS.has(tarefa?.status) || !tarefa?.data_limite) return false;
-  return tarefa.data_limite < new Date().toISOString().slice(0, 10);
+  return tarefa.data_limite < obterDataLocalISO();
 }
 
 function validarEntregaPop(entrega) {
@@ -525,6 +533,11 @@ const FOTOS_FIXAS_EQUIPE = {
   "janaina@platino.com": "/assets/equipe/janaina.jpeg",
 };
 
+const FOTOS_FIXAS_EQUIPE_POR_NOME = {
+  thayla: "/assets/equipe/thayla-venturini.jpeg",
+  "thayla venturini": "/assets/equipe/thayla-venturini.jpeg",
+};
+
 const GRUPOS_EQUIPE_GESTOR = [
   {
     id: "administrativo",
@@ -566,8 +579,12 @@ function ordenarEquipe(membros, ordem) {
 
 function AvatarMembro({ funcionario, performance, compacto = false }) {
   const email = funcionario?.email?.trim().toLowerCase();
+  const nome = normalizarTexto(funcionario?.nome || "");
   const posicaoSprite = AVATARES_EQUIPE[email];
-  const fotoUrl = funcionario?.foto_url || FOTOS_FIXAS_EQUIPE[email];
+  const fotoUrl =
+    funcionario?.foto_url ||
+    FOTOS_FIXAS_EQUIPE[email] ||
+    FOTOS_FIXAS_EQUIPE_POR_NOME[nome];
   return (
     <div className={`member-avatar-wrap ${compacto ? "compact" : ""}`}>
       <div className="member-avatar">
@@ -2909,7 +2926,7 @@ function CentralInicio({ tarefas, usuario, onNavigate }) {
   const minhas = tarefas.filter((t) => String(t.funcionaria_id) === String(usuario.id));
   const abertas = minhas.filter((t) => STATUS_ABERTOS.has(t.status));
   const dataAtual = new Date(agora);
-  const hoje = dataAtual.toISOString().slice(0, 10);
+  const hoje = obterDataLocalISO(dataAtual);
   const em48h = new Date(agora + 48 * 60 * 60 * 1000);
   const metricas = [
     ["Atrasadas", abertas.filter(tarefaAtrasada).length, "critical", "tarefas", "atrasadas"],
@@ -2922,7 +2939,13 @@ function CentralInicio({ tarefas, usuario, onNavigate }) {
     ["Concluídas", minhas.filter((t) => t.status === "concluida").length, "success", "historico", null],
   ];
   const atencao = abertas.filter((t) => tarefaAtrasada(t) || ["urgente", "critica"].includes(t.prioridade) || ["devolvida", "devolvida_correcao"].includes(t.status)).slice(0, 8);
-  return <div className="central-home"><section className="dashboard-grid central-metrics">{metricas.map(([rotulo, valor, tom, destino, filtro]) => <button type="button" className={`card central-metric ${tom}`} key={rotulo} onClick={() => onNavigate(destino, filtro)}><span>{rotulo}</span><strong>{valor}</strong></button>)}</section><section className="panel large"><div className="panel-title-row"><div><span className="eyebrow">Prioridade operacional</span><h2>Atenção imediata</h2></div><button className="btn-primary compact" onClick={() => onNavigate("delegar")}>Delegar tarefa</button></div>{atencao.length === 0 ? <p>Nenhuma ocorrência crítica neste momento.</p> : <div className="central-table">{atencao.map((t) => <div className="central-table-row" key={t.id}><strong>{t.id_externo || `#${t.id}`}</strong><span>{t.nome_cliente || "Cliente não informado"}</span><span>{t.titulo}</span><span className={`status ${t.status}`}>{rotuloStatusTarefa(t.status)}</span><small>{formatarData(t.data_limite)}</small></div>)}</div>}</section></div>;
+  const resumoBoasVindas = criarResumoBoasVindas({
+    nome: usuario.nome,
+    tarefasAbertas: abertas,
+    tarefasConcluidas: minhas.filter((t) => t.status === "concluida").length,
+    hoje,
+  });
+  return <div className="central-home"><section className={`welcome-summary ${resumoBoasVindas.tom}`} role="status"><div><span className="eyebrow">Resumo da sua pauta</span><h2>{resumoBoasVindas.titulo}</h2><p>{resumoBoasVindas.mensagem}</p></div>{resumoBoasVindas.filtro ? <button type="button" className="btn-primary compact" onClick={() => onNavigate("tarefas", resumoBoasVindas.filtro)}>Ver prioridades</button> : <span className="welcome-summary-ok">Tudo certo</span>}</section><section className="dashboard-grid central-metrics">{metricas.map(([rotulo, valor, tom, destino, filtro]) => <button type="button" className={`card central-metric ${tom}`} key={rotulo} onClick={() => onNavigate(destino, filtro)}><span>{rotulo}</span><strong>{valor}</strong></button>)}</section><section className="panel large"><div className="panel-title-row"><div><span className="eyebrow">Prioridade operacional</span><h2>Atenção imediata</h2></div><button className="btn-primary compact" onClick={() => onNavigate("delegar")}>Delegar tarefa</button></div>{atencao.length === 0 ? <p>Nenhuma ocorrência crítica neste momento.</p> : <div className="central-table">{atencao.map((t) => <div className="central-table-row" key={t.id}><strong>{t.id_externo || `#${t.id}`}</strong><span>{t.nome_cliente || "Cliente não informado"}</span><span>{t.titulo}</span><span className={`status ${t.status}`}>{rotuloStatusTarefa(t.status)}</span><small>{formatarData(t.data_limite)}</small></div>)}</div>}</section></div>;
 }
 
 function ModuloClientes() {
@@ -3079,7 +3102,7 @@ function EmployeeDashboard({ usuario, onLogout, state }) {
     (tarefa) => String(tarefa.funcionaria_id) === String(usuario.id),
   );
   const termoBusca = normalizarTexto(buscaTarefa.trim());
-  const hoje = new Date().toISOString().slice(0, 10);
+  const hoje = obterDataLocalISO();
   const agora = new Date();
   const em48h = new Date(agora.getTime() + 48 * 60 * 60 * 1000);
   const tarefasPendentes = minhasTarefas.filter((tarefa) => {
@@ -5665,6 +5688,15 @@ export default function App() {
         .task-timeline-step.done span { color: #357bd8; }
         .task-timeline-step.done:not(:last-child)::after { background: #77a9e8; }
         .central-home { display: grid; gap: 20px; }
+        .welcome-summary { position: relative; display: flex; align-items: center; justify-content: space-between; gap: 24px; min-height: 145px; padding: 27px 30px; overflow: hidden; color: #173962; background: linear-gradient(135deg, #f5f9ff 0%, #eef5ff 100%); border: 1px solid rgba(67,105,152,.13); border-left: 5px solid #4b83cf; border-radius: 20px; box-shadow: 0 14px 32px rgba(39,78,128,.08); }
+        .welcome-summary::after { content: ""; position: absolute; width: 190px; height: 190px; right: -70px; top: -95px; border-radius: 50%; background: rgba(75,131,207,.08); pointer-events: none; }
+        .welcome-summary > * { position: relative; z-index: 1; }
+        .welcome-summary h2 { margin: 5px 0 7px; font-size: clamp(22px, 2.4vw, 32px); }
+        .welcome-summary p { max-width: 760px; margin: 0; color: #526b8b; font-size: 15px; line-height: 1.6; }
+        .welcome-summary.critical { background: linear-gradient(135deg, #fff7f8 0%, #fff0f2 100%); border-left-color: #d94b55; }
+        .welcome-summary.urgent, .welcome-summary.warning { background: linear-gradient(135deg, #fffaf3 0%, #fff5e6 100%); border-left-color: #ed8b36; }
+        .welcome-summary.success { background: linear-gradient(135deg, #f3fcf9 0%, #eaf8f3 100%); border-left-color: #35aa91; }
+        .welcome-summary-ok { flex: none; padding: 9px 13px; color: #247b67; background: rgba(255,255,255,.72); border: 1px solid rgba(53,170,145,.2); border-radius: 999px; font-size: 12px; font-weight: 850; }
         .central-metrics { grid-template-columns: repeat(4, minmax(0, 1fr)); }
         .central-metric { text-align: left; cursor: pointer; border: 1px solid rgba(67,105,152,.12); }
         .central-metric strong { display: block; margin-top: 8px; font-size: 30px; color: #173962; }
@@ -5704,6 +5736,8 @@ export default function App() {
           .login-page-liquid .login-footer-minimal { display: flex !important; bottom: 20px !important; }
           .document-checklist-grid { grid-template-columns: 1fr; }
           .central-metrics { grid-template-columns: repeat(2, minmax(0,1fr)); }
+          .welcome-summary { align-items: flex-start; flex-direction: column; min-height: 0; padding: 21px 19px; gap: 15px; }
+          .welcome-summary .btn-primary { width: 100%; }
           .central-table-row { grid-template-columns: 1fr; }
           .urgency-layout { grid-template-columns: 1fr; }
           .advanced-fields { grid-template-columns: 1fr; }
