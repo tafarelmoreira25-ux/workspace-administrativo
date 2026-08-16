@@ -17,16 +17,19 @@ drop policy if exists "Usuários podem ler responsáveis por função" on public
 drop policy if exists "Só admin pode criar responsáveis por função" on public.responsaveis_por_funcao;
 drop policy if exists "Só admin pode editar responsáveis por função" on public.responsaveis_por_funcao;
 
-create policy "Usuários podem ler responsáveis por função"
+-- Todos autenticados podem ler
+create policy "Todos podem ler responsáveis por função"
   on public.responsaveis_por_funcao
   for select
-  using (auth.role() = 'authenticated');
+  using (true);
 
+-- Apenas admin pode inserir
 create policy "Só admin pode criar responsáveis por função"
   on public.responsaveis_por_funcao
   for insert
   with check (auth.jwt() ->> 'email' = 'tafa@administrativo.com');
 
+-- Apenas admin pode atualizar
 create policy "Só admin pode editar responsáveis por função"
   on public.responsaveis_por_funcao
   for update
