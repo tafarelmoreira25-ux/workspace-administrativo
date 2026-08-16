@@ -1580,7 +1580,13 @@ function AdminDashboard({ usuario, onLogout, state }) {
       try {
         setCarregandoResponsaveis(true);
         const { data, error } = await supabase.rpc("carregar_responsaveis_por_funcao");
-        if (!error && data) {
+        if (error) {
+          console.error("Erro RPC carregar_responsaveis_por_funcao:", error);
+          console.warn("Verifique se o RPC está habilitado no Supabase.");
+          return;
+        }
+        if (data && data.length > 0) {
+          console.log("Responsáveis carregados:", data);
           const mapeamento = Object.fromEntries(
             data.map((item) => [item.categoria_tarefa, item.funcionaria_id || ""])
           );
@@ -1588,9 +1594,11 @@ function AdminDashboard({ usuario, onLogout, state }) {
             ...atual,
             ...mapeamento,
           }));
+        } else {
+          console.log("Nenhum responsável mapeado ainda.");
         }
       } catch (error) {
-        console.error("Erro ao carregar responsáveis por função:", error);
+        console.error("Exceção ao carregar responsáveis por função:", error);
       } finally {
         setCarregandoResponsaveis(false);
       }
@@ -1669,14 +1677,16 @@ function AdminDashboard({ usuario, onLogout, state }) {
         p_mapeamento: responsaveisPorFuncao,
       });
       if (error) {
-        console.error("Erro ao salvar indicativo operacional:", error);
-        showToast("Não foi possível salvar o indicativo operacional.");
+        console.error("Erro RPC ao salvar indicativo operacional:", error);
+        console.log("Dados enviados:", responsaveisPorFuncao);
+        showToast(`Erro ao salvar: ${error.message || error}`);
         return;
       }
+      console.log("Indicativo operacional salvo com sucesso.");
       showToast("Indicativo operacional salvo no sistema.");
     } catch (error) {
-      console.error("Erro ao salvar indicativo operacional:", error);
-      showToast("Erro ao salvar indicativo operacional.");
+      console.error("Exceção ao salvar indicativo operacional:", error);
+      showToast(`Erro: ${error.message}`);
     }
   }
 
@@ -3732,7 +3742,13 @@ function FormularioDelegacaoUsuario({ usuario, funcionarios, onCriada, showToast
     async function carregarResponsaveisSupabase() {
       try {
         const { data, error } = await supabase.rpc("carregar_responsaveis_por_funcao");
-        if (!error && data) {
+        if (error) {
+          console.error("Erro RPC na delegação:", error);
+          console.warn("Verifique se o RPC está habilitado no Supabase.");
+          return;
+        }
+        if (data && data.length > 0) {
+          console.log("Responsáveis carregados na delegação:", data);
           const mapeamento = Object.fromEntries(
             data.map((item) => [item.categoria_tarefa, item.funcionaria_id || ""])
           );
@@ -3740,9 +3756,11 @@ function FormularioDelegacaoUsuario({ usuario, funcionarios, onCriada, showToast
             ...atual,
             ...mapeamento,
           }));
+        } else {
+          console.log("Nenhum responsável mapeado na delegação.");
         }
       } catch (error) {
-        console.error("Erro ao carregar responsáveis por função:", error);
+        console.error("Exceção ao carregar responsáveis na delegação:", error);
       }
     }
     carregarResponsaveisSupabase();

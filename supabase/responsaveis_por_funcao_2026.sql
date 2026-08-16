@@ -13,6 +13,10 @@ create table if not exists public.responsaveis_por_funcao (
 -- Política de segurança RLS: todos autenticados podem ler, só o admin pode escrever
 alter table public.responsaveis_por_funcao enable row level security;
 
+drop policy if exists "Usuários podem ler responsáveis por função" on public.responsaveis_por_funcao;
+drop policy if exists "Só admin pode criar responsáveis por função" on public.responsaveis_por_funcao;
+drop policy if exists "Só admin pode editar responsáveis por função" on public.responsaveis_por_funcao;
+
 create policy "Usuários podem ler responsáveis por função"
   on public.responsaveis_por_funcao
   for select
@@ -21,13 +25,13 @@ create policy "Usuários podem ler responsáveis por função"
 create policy "Só admin pode criar responsáveis por função"
   on public.responsaveis_por_funcao
   for insert
-  with check (auth.jwt() ->> 'email' = 'tafarel.principal@globomail.com');
+  with check (auth.jwt() ->> 'email' = 'tafa@administrativo.com');
 
 create policy "Só admin pode editar responsáveis por função"
   on public.responsaveis_por_funcao
   for update
-  using (auth.jwt() ->> 'email' = 'tafarel.principal@globomail.com')
-  with check (auth.jwt() ->> 'email' = 'tafarel.principal@globomail.com');
+  using (auth.jwt() ->> 'email' = 'tafa@administrativo.com')
+  with check (auth.jwt() ->> 'email' = 'tafa@administrativo.com');
 
 -- RPC para carregar todos os responsáveis mapeados
 create or replace function public.carregar_responsaveis_por_funcao()
@@ -53,7 +57,7 @@ language plpgsql
 security definer
 as $$
 declare
-  v_admin_email text := 'tafarel.principal@globomail.com';
+  v_admin_email text := 'tafa@administrativo.com';
 begin
   -- Verificação de permissão
   if (select (auth.jwt() ->> 'email') = v_admin_email) is false then
@@ -81,7 +85,7 @@ language plpgsql
 security definer
 as $$
 declare
-  v_admin_email text := 'tafarel.principal@globomail.com';
+  v_admin_email text := 'tafa@administrativo.com';
   v_categoria text;
   v_funcionaria_id bigint;
 begin
