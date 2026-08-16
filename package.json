@@ -8,7 +8,7 @@
     "start": "vite --host 0.0.0.0",
     "build": "vite build",
     "lint": "eslint .",
-    "test": "node --test src/taskWorkflow.test.js src/homeGreeting.test.js src/lib/procuracaoConjunto.test.js src/lib/documentWorkspace.test.js src/lib/googleDriveClients.test.js src/lib/taskCompletionRules.test.js",
+    "test": "node --test src/taskWorkflow.test.js src/homeGreeting.test.js src/lib/procuracaoConjunto.test.js src/lib/documentWorkspace.test.js src/lib/googleDriveClients.test.js src/lib/taskCompletionRules.test.js src/lib/notificationRouting.test.js",
     "check": "npm run lint && npm test && npm run build",
     "preview": "vite preview"
   },

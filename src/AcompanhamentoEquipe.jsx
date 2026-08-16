@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import MeuHistorico from "./MeuHistorico";
 
 const ENCERRADOS = new Set(["concluida", "cancelada", "arquivada"]);
@@ -46,7 +46,7 @@ function situacao(tarefa) {
   return "Em aberto";
 }
 
-export default function AcompanhamentoEquipe({ tarefas = [], funcionarios = [], historicoPessoal = [], onAtualizar }) {
+export default function AcompanhamentoEquipe({ tarefas = [], funcionarios = [], historicoPessoal = [], onAtualizar, destinoNotificacao = null }) {
   const [filtro, setFiltro] = useState("todas");
   const [busca, setBusca] = useState("");
   const [pagina, setPagina] = useState(1);
@@ -60,12 +60,26 @@ export default function AcompanhamentoEquipe({ tarefas = [], funcionarios = [], 
     if (filtro === "concluidas" && tarefa.status !== "concluida") return false;
     const termo = busca.trim().toLocaleLowerCase("pt-BR");
     const responsavel = nomes.get(String(tarefa.funcionaria_id)) || "";
-    return !termo || `${tarefa.id_externo || tarefa.id} ${tarefa.titulo || ""} ${tarefa.nome_cliente || ""} ${responsavel}`.toLocaleLowerCase("pt-BR").includes(termo);
+    return !termo || `${tarefa.id_externo || ""} ${tarefa.id || ""} ${tarefa.titulo || ""} ${tarefa.nome_cliente || ""} ${responsavel}`.toLocaleLowerCase("pt-BR").includes(termo);
   });
   const total = (nome) => calculadas.filter((t) => nome === "abertas" ? !ENCERRADOS.has(t.status) : nome === "concluidas" ? t.status === "concluida" : t.situacaoCalculada === nome).length;
   const totalPaginas = Math.max(1, Math.ceil(registros.length / ITENS_POR_PAGINA));
   const paginaAtual = Math.min(pagina, totalPaginas);
   const registrosVisiveis = registros.slice((paginaAtual - 1) * ITENS_POR_PAGINA, paginaAtual * ITENS_POR_PAGINA);
+
+  useEffect(() => {
+    if (!destinoNotificacao) return;
+    if (destinoNotificacao.secao === "historico") {
+      setVisualizacao("historico");
+      return;
+    }
+    setVisualizacao("equipe");
+    if (destinoNotificacao.tarefaId) {
+      setBusca(String(destinoNotificacao.tarefaId));
+      setFiltro("todas");
+      setPagina(1);
+    }
+  }, [destinoNotificacao]);
 
   function selecionarFiltro(valor) {
     setFiltro(valor);
@@ -78,7 +92,7 @@ export default function AcompanhamentoEquipe({ tarefas = [], funcionarios = [], 
   }
 
   if (visualizacao === "historico") {
-    return <MeuHistorico tarefas={historicoPessoal} onVoltar={() => setVisualizacao("equipe")} />;
+    return <MeuHistorico tarefas={historicoPessoal} focoTarefaId={destinoNotificacao?.tarefaId} onVoltar={() => setVisualizacao("equipe")} />;
   }
 
   return <section className="panel large">
@@ -91,7 +105,7 @@ export default function AcompanhamentoEquipe({ tarefas = [], funcionarios = [], 
       <button className="card central-metric normal" onClick={() => setVisualizacao("historico")} type="button"><span>Meu histórico</span><strong>{historicoPessoal.length}</strong><small>Ver tarefas concluídas</small></button>
     </div>
     <div className="task-filters"><input aria-label="Buscar tarefas da equipe" onChange={alterarBusca} placeholder="Buscar por ID, cliente, tarefa ou responsável" value={busca} /><div className="task-kind-switch">{[["todas", "Todas"], ["abertas", "Em aberto"], ["vencem_hoje", "Vencem hoje"], ["atrasadas", "Atrasadas"], ["concluidas", "Concluídas"]].map(([valor, rotulo]) => <button className={filtro === valor ? "active" : ""} key={valor} onClick={() => selecionarFiltro(valor)} type="button">{rotulo}</button>)}</div></div>
-    {registros.length === 0 ? <p>Nenhuma tarefa encontrada neste filtro.</p> : <><div className="central-table">{registrosVisiveis.map((tarefa) => <div className="central-table-row" key={tarefa.id}><div><strong>{tarefa.id_externo || `#${tarefa.id}`} · {tarefa.titulo}</strong><small>{tarefa.nome_cliente || "Cliente não informado"}</small></div><span>{nomes.get(String(tarefa.funcionaria_id)) || `Responsável #${tarefa.funcionaria_id}`}</span><span className={`status ${tarefa.status}`}>{tarefa.situacaoCalculada}</span><small>Prazo: {formatar(tarefa.prazo_limite || tarefa.data_limite)}{tarefa.concluida_em ? ` · Feita: ${formatar(tarefa.concluida_em)}` : ""}</small></div>)}</div>
+    {registros.length === 0 ? <p>Nenhuma tarefa encontrada neste filtro.</p> : <><div className="central-table">{registrosVisiveis.map((tarefa) => <div className="central-table-row" data-task-id={tarefa.id} key={tarefa.id}><div><strong>{tarefa.id_externo || `#${tarefa.id}`} · {tarefa.titulo}</strong><small>{tarefa.nome_cliente || "Cliente não informado"}</small></div><span>{nomes.get(String(tarefa.funcionaria_id)) || `Responsável #${tarefa.funcionaria_id}`}</span><span className={`status ${tarefa.status}`}>{tarefa.situacaoCalculada}</span><small>Prazo: {formatar(tarefa.prazo_limite || tarefa.data_limite)}{tarefa.concluida_em ? ` · Feita: ${formatar(tarefa.concluida_em)}` : ""}</small></div>)}</div>
       <nav aria-label="Paginação das tarefas" className="task-history-actions pagination-numbered">
         <button className="btn-secondary compact" disabled={paginaAtual === 1} onClick={() => setPagina(paginaAtual - 1)} type="button">Anterior</button>
         {paginasParaExibir(paginaAtual, totalPaginas).map((item) => typeof item === "number" ? <button aria-current={paginaAtual === item ? "page" : undefined} className={`btn-secondary compact ${paginaAtual === item ? "active" : ""}`} key={item} onClick={() => setPagina(item)} type="button">{item}</button> : <span key={item}>…</span>)}

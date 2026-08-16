@@ -4,6 +4,7 @@ import PainelEquipeTV from './PainelEquipeTV';
 import ClienteDriveSelector from './components/ClienteDriveSelector';
 import { GOOGLE_DRIVE_CLIENTES_ROOT_URL } from './lib/googleDriveClients';
 import { tarefaExigeComprovacao } from './lib/taskCompletionRules';
+import { destinoDaNotificacao } from './lib/notificationRouting';
 import { lazy, Suspense, useCallback, useEffect, useState } from "react";
 import { supabase } from "./lib/supabase";
 import { criarResumoBoasVindas } from "./homeGreeting";
@@ -1480,6 +1481,10 @@ function AdminDashboard({ usuario, onLogout, state }) {
   const [responsabilidadeTexto, setResponsabilidadeTexto] = useState("");
   const [salvandoResponsabilidades, setSalvandoResponsabilidades] =
     useState(false);
+  const [responsabilidadeMensalExpandida, setResponsabilidadeMensalExpandida] =
+    useState(false);
+  const [responsabilidadeUsuarioExpandida, setResponsabilidadeUsuarioExpandida] =
+    useState(false);
   const [mostrarTarefasMes, setMostrarTarefasMes] = useState(false);
   const [paginaTarefas, setPaginaTarefas] = useState(1);
   const [paginaHistorico, setPaginaHistorico] = useState(1);
@@ -1572,6 +1577,11 @@ function AdminDashboard({ usuario, onLogout, state }) {
         item.mes_referencia?.slice(0, 7) === responsabilidadeMes,
     )
     .sort((a, b) => (a.ordem || 0) - (b.ordem || 0));
+  const responsabilidadesSelecionadasVisiveis = responsabilidadeMensalExpandida
+    ? responsabilidadesSelecionadas
+    : responsabilidadesSelecionadas.slice(0, 4);
+  const temMaisResponsabilidadesSelecionadas =
+    responsabilidadesSelecionadas.length > 4;
   const funcionariaResponsabilidades = equipe.find(
     (funcionario) =>
       String(funcionario.id) === String(responsabilidadeFuncId),
@@ -2246,6 +2256,23 @@ function AdminDashboard({ usuario, onLogout, state }) {
     }
   }
 
+  function navegarPelaNotificacao(destino) {
+    if (destino.aba === "tarefas") {
+      setFiltroTarefas("todas");
+      setFiltroCategoria("todas");
+      setFiltroResponsavel("todas");
+      setFiltroPrazo("");
+      const indice = tarefasPendentes.findIndex((tarefa) => String(tarefa.id) === String(destino.tarefaId));
+      setPaginaTarefas(indice >= 0 ? Math.floor(indice / ITENS_POR_PAGINA) + 1 : 1);
+    }
+    if (destino.aba === "historico") {
+      const indice = tarefasHistoricoFiltradas.findIndex((tarefa) => String(tarefa.id) === String(destino.tarefaId));
+      setPaginaHistorico(indice >= 0 ? Math.floor(indice / ITENS_POR_PAGINA) + 1 : 1);
+    }
+    setAbaAtiva(destino.aba);
+    realcarDestinoNotificacao(destino);
+  }
+
   if (modoTv) {
     return (
       <PainelEquipeTV
@@ -2289,7 +2316,7 @@ function AdminDashboard({ usuario, onLogout, state }) {
             <p>Controle centralizado da esteira operacional.</p>
           </div>
           <div className="topbar-actions">
-            <CentralNotificacoesBell />
+            <CentralNotificacoesBell gestor onNavigate={navegarPelaNotificacao} />
             <div className="profile-pill">
               <span className="online-dot" />
               <div><small>Supervisor online</small><span>{usuario.nome}</span></div>
@@ -2828,6 +2855,7 @@ function AdminDashboard({ usuario, onLogout, state }) {
                   return (
                     <article
                       className={`admin-task-card priority-${tarefa.prioridade || "normal"}`}
+                      data-task-id={tarefa.id}
                       key={tarefa.id}
                     >
                       <input
@@ -2941,7 +2969,7 @@ function AdminDashboard({ usuario, onLogout, state }) {
             {tarefasHistoricoVisiveis.length === 0 ? <div className="monthly-empty">Nenhuma tarefa no histórico.</div> : tarefasHistoricoVisiveis.map((tarefa) => {
               const responsavel = funcionarios.find((item) => String(item.id) === String(tarefa.funcionaria_id));
               return (
-                <article className="admin-task-card" key={tarefa.id}>
+                <article className="admin-task-card" data-task-id={tarefa.id} key={tarefa.id}>
                   <div className="admin-task-main">
                     <div className="admin-task-badges"><span className={`status ${tarefa.status}`}>{rotuloStatusTarefa(tarefa.status)}</span>{tarefa.categoria && <span className="category-badge">{tarefa.categoria}</span>}</div>
                     <h3>{tarefa.titulo}</h3>{tarefa.descricao && <p>{tarefa.descricao}</p>}
@@ -3034,9 +3062,22 @@ function AdminDashboard({ usuario, onLogout, state }) {
                       "Selecione uma colaboradora"}
                   </h2>
                 </div>
-                <span className="month-badge">
-                  {formatarMes(responsabilidadeMes)}
-                </span>
+                <div className="task-history-actions compact-inline-actions">
+                  {temMaisResponsabilidadesSelecionadas && (
+                    <button
+                      className="btn-secondary compact"
+                      type="button"
+                      onClick={() =>
+                        setResponsabilidadeMensalExpandida((atual) => !atual)
+                      }
+                    >
+                      {responsabilidadeMensalExpandida ? "Recolher" : "Ver tudo"}
+                    </button>
+                  )}
+                  <span className="month-badge">
+                    {formatarMes(responsabilidadeMes)}
+                  </span>
+                </div>
               </div>
 
               {responsabilidadesSelecionadas.length === 0 ? (
@@ -3046,7 +3087,7 @@ function AdminDashboard({ usuario, onLogout, state }) {
                 </div>
               ) : (
                 <ol className="monthly-list">
-                  {responsabilidadesSelecionadas.map((item, indice) => (
+                  {responsabilidadesSelecionadasVisiveis.map((item, indice) => (
                     <li key={item.id}>
                       <span>{indice + 1}</span>
                       <strong>{item.titulo}</strong>
@@ -3433,7 +3474,22 @@ function ModuloUrgencias({ funcionarios, showToast }) {
   return <div className="urgency-layout"><section className="panel"><span className="eyebrow">Quadro independente</span><h2>Registrar urgência</h2><form className="stack-form" onSubmit={criar}><div className="task-form-row"><label>Cliente<input required value={form.cliente} onChange={(e) => alterar("cliente", e.target.value)} /></label><label>CPF ou ID<input value={form.cpf} onChange={(e) => alterar("cpf", e.target.value)} /></label></div><div className="task-form-row"><label>Setor<select value={form.setor} onChange={(e) => alterar("setor", e.target.value)}><option>Administrativo</option><option>Jurídico</option><option>Comercial</option><option>Processual</option></select></label><label>Responsável<select value={form.responsavel} onChange={(e) => alterar("responsavel", e.target.value)}><option value="">Ainda não definido</option>{destinatarios.map((p) => <option value={p.id} key={p.id}>{p.nome}</option>)}</select></label></div><label>Tarefa necessária<input required value={form.tarefa} onChange={(e) => alterar("tarefa", e.target.value)} /></label><label>Motivo da urgência<textarea required rows="3" value={form.motivo} onChange={(e) => alterar("motivo", e.target.value)} /></label><div className="task-form-row"><label>Prazo limite<input required type="datetime-local" value={form.prazo} onChange={(e) => alterar("prazo", e.target.value)} /></label><label>Prioridade<select value={form.prioridade} onChange={(e) => alterar("prioridade", e.target.value)}><option value="alta">Alta</option><option value="urgente">Urgente</option><option value="critica">Crítica</option></select></label></div><label>Link do Drive<input type="url" value={form.drive} onChange={(e) => alterar("drive", e.target.value)} placeholder="https://drive.google.com/..." /></label><label>Observação<textarea rows="2" value={form.observacao} onChange={(e) => alterar("observacao", e.target.value)} /></label><button className="btn-primary" disabled={salvando}>{salvando ? "Registrando..." : "Registrar urgência"}</button></form></section><section className="panel large"><div className="panel-title-row"><h2>Urgências abertas</h2><strong>{lista.filter((u) => !["resolvida","cancelada"].includes(u.status)).length}</strong></div><div className="central-table">{lista.slice(0, 15).map((u) => <div className={`urgency-row priority-${u.prioridade}`} key={u.id}><div><strong>{u.codigo} · {u.nome_cliente}</strong><p>{u.tarefa_necessaria}</p><small>{u.motivo} · Prazo {formatarDataHora(u.prazo_limite)}</small></div><span className={`status ${u.status}`}>{u.status.replaceAll("_", " ")}</span><div className="task-history-actions">{u.status === "aberta" && <button className="btn-secondary compact" onClick={() => mover(u,"visualizada")}>Visualizar</button>}{["aberta","visualizada"].includes(u.status) && <button className="btn-primary compact" onClick={() => mover(u,"em_atendimento")}>Atender</button>}{u.status === "em_atendimento" && <button className="btn-success compact" onClick={() => mover(u,"resolvida")}>Resolver</button>}</div></div>)}</div></section></div>;
 }
 
-function CentralNotificacoesBell() {
+function realcarDestinoNotificacao(destino) {
+  window.setTimeout(() => {
+    let elemento = null;
+    if (destino?.tarefaId) {
+      elemento = document.querySelector(`[data-task-id="${Number(destino.tarefaId)}"]`);
+    }
+    if (!elemento && destino?.secao === "urgencias") elemento = document.querySelector(".unified-workspace-section, .urgency-layout");
+    if (!elemento && destino?.secao === "feedbacks") elemento = document.querySelector(".feedback-workspace, .feedback-home-card");
+    if (!elemento) return;
+    elemento.scrollIntoView({ behavior: "smooth", block: "center" });
+    elemento.classList.add("notification-navigation-target");
+    window.setTimeout(() => elemento.classList.remove("notification-navigation-target"), 2400);
+  }, 180);
+}
+
+function CentralNotificacoesBell({ gestor = false, onNavigate }) {
   const [notificacoes, setNotificacoes] = useState([]);
   const [aberto, setAberto] = useState(false);
   const [carregando, setCarregando] = useState(true);
@@ -3462,6 +3518,12 @@ function CentralNotificacoesBell() {
     if (item.lida_em) return;
     const { error } = await supabase.rpc("marcar_notificacao_lida", { p_notificacao_id: Number(item.id) });
     if (!error) setNotificacoes((atual) => atual.map((n) => n.id === item.id ? { ...n, lida_em: new Date().toISOString() } : n));
+  }
+
+  async function abrirNotificacao(item) {
+    await ler(item);
+    setAberto(false);
+    onNavigate?.(destinoDaNotificacao(item, gestor), item);
   }
 
   const naoLidas = notificacoes.filter((notificacao) => !notificacao.lida_em).length;
@@ -3494,7 +3556,7 @@ function CentralNotificacoesBell() {
             {carregando ? <p className="notification-empty">Carregando notificações...</p> : notificacoes.length === 0 ? <p className="notification-empty">Nenhuma notificação por enquanto.</p> : notificacoes.slice(0, 12).map((notificacao) => (
               <button
                 type="button"
-                onClick={() => ler(notificacao)}
+                onClick={() => abrirNotificacao(notificacao)}
                 className={`notification-item ${notificacao.lida_em ? "read" : "unread"}`}
                 key={notificacao.id}
               >
@@ -3502,7 +3564,7 @@ function CentralNotificacoesBell() {
                 <div>
                   <strong>{notificacao.titulo}</strong>
                   <p>{notificacao.mensagem}</p>
-                  <small>{formatarDataHora(notificacao.created_at)}</small>
+                  <small>{formatarDataHora(notificacao.created_at)} · Abrir atualização →</small>
                 </div>
               </button>
             ))}
@@ -3633,6 +3695,7 @@ function EmployeeDashboard({ usuario, onLogout, state }) {
   const [filtroOperacional, setFiltroOperacional] = useState("pendentes");
   const [buscaTarefa, setBuscaTarefa] = useState("");
   const [entregasPop, setEntregasPop] = useState({});
+  const [destinoNotificacaoAtual, setDestinoNotificacaoAtual] = useState(null);
 
   const minhasTarefas = listaTarefas.filter(
     (tarefa) => String(tarefa.funcionaria_id) === String(usuario.id),
@@ -3642,7 +3705,7 @@ function EmployeeDashboard({ usuario, onLogout, state }) {
   const agora = new Date();
   const em48h = new Date(agora.getTime() + 48 * 60 * 60 * 1000);
   const tarefasPendentes = minhasTarefas.filter((tarefa) => {
-    const encontrada = !termoBusca || normalizarTexto(`${tarefa.id_externo || tarefa.id} ${tarefa.nome_cliente || ""} ${tarefa.titulo || ""} ${usuario.nome}`).includes(termoBusca);
+    const encontrada = !termoBusca || normalizarTexto(`${tarefa.id_externo || ""} ${tarefa.id || ""} ${tarefa.nome_cliente || ""} ${tarefa.titulo || ""} ${usuario.nome}`).includes(termoBusca);
     if (!encontrada) return false;
     if (filtroOperacional === "atrasadas") return tarefaAtrasada(tarefa);
     if (filtroOperacional === "arquivadas") return ["arquivada", "cancelada"].includes(tarefa.status);
@@ -3681,6 +3744,17 @@ function EmployeeDashboard({ usuario, onLogout, state }) {
       setPaginaPendentes(1);
     }
     setAbaAtiva(destino);
+  }
+
+  function navegarPelaNotificacao(destino) {
+    setDestinoNotificacaoAtual(destino);
+    if (destino.aba === "tarefas") {
+      setFiltroOperacional("pendentes");
+      setBuscaTarefa(destino.tarefaId ? String(destino.tarefaId) : "");
+      setPaginaPendentes(1);
+    }
+    setAbaAtiva(destino.aba);
+    realcarDestinoNotificacao(destino);
   }
 
   async function atualizarMeusFeedbacks() {
@@ -3911,7 +3985,7 @@ function EmployeeDashboard({ usuario, onLogout, state }) {
             <p>Acompanhe sua pauta diária na esteira operacional.</p>
           </div>
           <div className="topbar-actions">
-            <CentralNotificacoesBell />
+            <CentralNotificacoesBell onNavigate={navegarPelaNotificacao} />
             <div className={`profile-pill ${minhaPerformance.altaPerformance ? "profile-high-performance" : ""}`}>
               <AvatarMembro
                 compacto
@@ -3941,12 +4015,26 @@ function EmployeeDashboard({ usuario, onLogout, state }) {
                   <span className="eyebrow">Responsabilidades recorrentes</span>
                   <h2>Tarefas de {formatarMes(mesAtual)}</h2>
                 </div>
-                <button
-                  className="btn-secondary compact"
-                  onClick={recarregarResponsabilidadesMensais}
-                >
-                  Atualizar
-                </button>
+                <div className="task-history-actions">
+                  {minhasResponsabilidadesDoMes.length > 4 && (
+                    <button
+                      className="btn-secondary compact"
+                      type="button"
+                      onClick={() =>
+                        setResponsabilidadeUsuarioExpandida((atual) => !atual)
+                      }
+                    >
+                      {responsabilidadeUsuarioExpandida ? "Recolher" : "Ver tudo"}
+                    </button>
+                  )}
+                  <button
+                    className="btn-secondary compact"
+                    onClick={recarregarResponsabilidadesMensais}
+                    type="button"
+                  >
+                    Atualizar
+                  </button>
+                </div>
               </div>
 
               {minhasResponsabilidadesDoMes.length === 0 ? (
@@ -3956,7 +4044,10 @@ function EmployeeDashboard({ usuario, onLogout, state }) {
                 </div>
               ) : (
                 <ol className="monthly-list employee-monthly-list">
-                  {minhasResponsabilidadesDoMes.map((item, indice) => (
+                  {(responsabilidadeUsuarioExpandida
+                    ? minhasResponsabilidadesDoMes
+                    : minhasResponsabilidadesDoMes.slice(0, 4)
+                  ).map((item, indice) => (
                     <li key={item.id}>
                       <span>{indice + 1}</span>
                       <strong>{item.titulo}</strong>
@@ -3990,7 +4081,7 @@ function EmployeeDashboard({ usuario, onLogout, state }) {
               ) : null}
               
               {tarefasPendentesVisiveis.map((tarefa) => (
-                <div className="task-item" key={tarefa.id}>
+                <div className="task-item" data-task-id={tarefa.id} key={tarefa.id}>
                   <div>
                     <h3>{tarefa.titulo}</h3>
                     <ResumoFluxoTarefa tarefa={tarefa} />
@@ -4127,7 +4218,7 @@ function EmployeeDashboard({ usuario, onLogout, state }) {
         {abaAtiva === "delegar" && <FormularioDelegacaoUsuario usuario={usuario} funcionarios={funcionarios} showToast={showToast} onCriada={(tarefa) => setListaTarefas((atuais) => [tarefa, ...atuais])} />}
         {abaAtiva === "clientes" && <ModuloClientes />}
 
-        {abaAtiva === "acompanhamento" && <AcompanhamentoEquipe tarefas={listaTarefas} funcionarios={funcionarios} historicoPessoal={tarefasConcluidas} onAtualizar={recarregarTarefas} />}
+        {abaAtiva === "acompanhamento" && <AcompanhamentoEquipe tarefas={listaTarefas} funcionarios={funcionarios} historicoPessoal={tarefasConcluidas} onAtualizar={recarregarTarefas} destinoNotificacao={destinoNotificacaoAtual} />}
 
         {abaAtiva === "feedbacks" && (
           <section className="panel large feedback-workspace">
@@ -4959,6 +5050,7 @@ export default function App() {
         .monthly-preview::after, .monthly-employee-panel::after { content: ''; position: absolute; width: 260px; height: 260px; right: -110px; top: -130px; border-radius: 50%; background: radial-gradient(circle, rgba(87, 160, 248, .16), transparent 68%); pointer-events: none; }
         .monthly-preview .panel-title-row, .monthly-employee-panel .panel-title-row { position: relative; z-index: 1; }
         .monthly-preview .panel-title-row h2, .monthly-employee-panel .panel-title-row h2 { margin: 5px 0 0; font-size: 20px; letter-spacing: -.4px; text-transform: none; }
+        .compact-inline-actions { display: flex; align-items: center; gap: 8px; }
         .month-badge { flex: 0 0 auto; padding: 8px 12px; color: var(--accent-strong); background: rgba(220,237,255,.78); border: 1px solid rgba(79,143,247,.15); border-radius: 999px; font-size: 10px; font-weight: 800; }
         .monthly-list { display: grid; gap: 11px; margin: 0; padding: 0; list-style: none; }
         .monthly-list li { display: flex; align-items: center; gap: 13px; padding: 15px 16px; color: var(--text); background: rgba(247,251,255,.84); border: 1px solid rgba(104,148,201,.14); border-radius: 15px; }
