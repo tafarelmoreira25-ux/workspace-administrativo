@@ -1476,6 +1476,23 @@ function AdminDashboard({ usuario, onLogout, state }) {
   const [feedbackMsg, setFeedbackMsg] = useState("");
   const [feedbackTipo, setFeedbackTipo] = useState("positivo");
   const [enviandoFeedback, setEnviandoFeedback] = useState(false);
+  const [responsaveisPorFuncao, setResponsaveisPorFuncao] = useState(() => {
+    const chave = "platino-responsaveis-por-funcao-v1";
+    const padrao = {
+      "CITAÇÃO": "",
+      "LAUDO": "",
+      "PROCURAÇÕES": "",
+      "NOTIFICAÇÃO EXTRAJUDICIAL": "",
+      "GOV": "",
+    };
+
+    try {
+      const salvo = JSON.parse(window.localStorage.getItem(chave) || "{}") || {};
+      return { ...padrao, ...salvo };
+    } catch (error) {
+      return padrao;
+    }
+  });
   const [responsabilidadeFuncId, setResponsabilidadeFuncId] = useState("");
   const [responsabilidadeMes, setResponsabilidadeMes] = useState(obterMesAtual);
   const [responsabilidadeTexto, setResponsabilidadeTexto] = useState("");
@@ -1562,6 +1579,23 @@ function AdminDashboard({ usuario, onLogout, state }) {
   const tarefasHistoricoFiltradas = listaTarefas.filter(
     (tarefa) => !STATUS_ABERTOS.has(tarefa.status),
   );
+  useEffect(() => {
+    const chave = "platino-responsaveis-por-funcao-v1";
+    try {
+      window.localStorage.setItem(chave, JSON.stringify(responsaveisPorFuncao));
+    } catch (error) {
+      console.warn("Não foi possível salvar os indicadores de função:", error);
+    }
+  }, [responsaveisPorFuncao]);
+
+  useEffect(() => {
+    if (!tarefaManual && responsaveisPorFuncao[categoria]) {
+      const responsavelSugerido = String(responsaveisPorFuncao[categoria]);
+      if (!funcId || String(funcId) !== responsavelSugerido) {
+        setFuncId(responsavelSugerido);
+      }
+    }
+  }, [categoria, tarefaManual, responsaveisPorFuncao, funcId]);
   const tarefasOperacionaisVisiveis = tarefasOperacionaisFiltradas.slice(
     (paginaTarefas - 1) * ITENS_POR_PAGINA,
     paginaTarefas * ITENS_POR_PAGINA,
@@ -1597,6 +1631,22 @@ function AdminDashboard({ usuario, onLogout, state }) {
       .sort((a, b) => (a.ordem || 0) - (b.ordem || 0))
       .map((item) => item.titulo)
       .join("\n");
+  }
+
+  function nomeResponsavelIndicativo(categoria) {
+    const funcionarioId = responsaveisPorFuncao[categoria];
+    if (!funcionarioId) return null;
+    const funcionario = equipeCompleta.find(
+      (item) => String(item.id) === String(funcionarioId),
+    );
+    return funcionario?.nome || null;
+  }
+
+  function atualizarIndicativoResponsavel(categoria, funcionarioId) {
+    setResponsaveisPorFuncao((atual) => ({
+      ...atual,
+      [categoria]: funcionarioId || "",
+    }));
   }
 
   function selecionarFuncionariaResponsabilidades(funcionariaId) {
@@ -2495,6 +2545,20 @@ function AdminDashboard({ usuario, onLogout, state }) {
                     <SeletorPrioridadeVisual valor={prioridade} onChange={setPrioridade} />
                   </div>
                   </div>
+                  {!tarefaManual && (
+                    <div className="role-indicator-panel">
+                      <div className="role-indicator-header">
+                        <span>Indicativo da função</span>
+                        <strong>{categoria}</strong>
+                      </div>
+                      <div className="role-indicator-card">
+                        <small>Responsável sugerido:</small>
+                        <strong>
+                          {nomeResponsavelIndicativo(categoria) || "Sem responsável definido"}
+                        </strong>
+                      </div>
+                    </div>
+                  )}
                   <label>
                     Apontamento inicial
                     <textarea
@@ -3115,6 +3179,32 @@ function AdminDashboard({ usuario, onLogout, state }) {
             </div>
 
             {modoEquipe === "membros" && <div className="content-grid team-management-grid">
+            <div className="panel role-mapping-panel">
+              <div className="panel-title-row">
+                <div>
+                  <span className="eyebrow">Indicativo operacional</span>
+                  <h2>Responsáveis por função</h2>
+                </div>
+              </div>
+              <div className="role-mapping-list">
+                {ACOES_TAREFA_VISUAIS.filter((acao) => ["CITAÇÃO", "LAUDO", "PROCURAÇÕES", "NOTIFICAÇÃO EXTRAJUDICIAL", "GOV"].includes(acao.valor)).map((acao) => (
+                  <label className="role-mapping-item" key={acao.valor}>
+                    <span>{acao.rotulo}</span>
+                    <select
+                      value={responsaveisPorFuncao[acao.valor] || ""}
+                      onChange={(event) => atualizarIndicativoResponsavel(acao.valor, event.target.value)}
+                    >
+                      <option value="">Sem responsável definido</option>
+                      {equipe.map((funcionario) => (
+                        <option key={funcionario.id} value={funcionario.id}>
+                          {funcionario.nome}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                ))}
+              </div>
+            </div>
             <div className="panel team-directory-panel">
               <div className="panel-title-row">
                 <div>
@@ -5003,6 +5093,16 @@ export default function App() {
         .monthly-preview .panel-title-row h2, .monthly-employee-panel .panel-title-row h2 { margin: 5px 0 0; font-size: 20px; letter-spacing: -.4px; text-transform: none; }
         .compact-inline-actions { display: flex; align-items: center; gap: 8px; }
         .month-badge { flex: 0 0 auto; padding: 8px 12px; color: var(--accent-strong); background: rgba(220,237,255,.78); border: 1px solid rgba(79,143,247,.15); border-radius: 999px; font-size: 10px; font-weight: 800; }
+        .role-indicator-panel { display: grid; gap: 10px; margin-top: 8px; padding: 14px 16px; background: rgba(245,249,255,.8); border: 1px solid rgba(96,143,212,.18); border-radius: 14px; }
+        .role-indicator-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; color: var(--accent-strong); font-size: 10px; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; }
+        .role-indicator-card { display: flex; flex-direction: column; gap: 4px; padding: 12px 14px; background: rgba(255,255,255,.72); border: 1px solid rgba(94,142,210,.18); border-radius: 12px; }
+        .role-indicator-card small { color: var(--muted); font-size: 10px; }
+        .role-indicator-card strong { color: var(--dark); font-size: 13px; }
+        .role-mapping-panel { grid-column: 1 / -1; }
+        .role-mapping-list { display: grid; gap: 12px; }
+        .role-mapping-item { display: grid; grid-template-columns: minmax(180px, 1.2fr) minmax(180px, 1fr); align-items: center; gap: 12px; padding: 10px 12px; background: rgba(247,251,255,.78); border: 1px solid rgba(104,148,201,.14); border-radius: 12px; }
+        .role-mapping-item span { color: var(--dark); font-size: 12px; font-weight: 700; }
+        .role-mapping-item select { width: 100%; }
         .monthly-list { display: grid; gap: 11px; margin: 0; padding: 0; list-style: none; }
         .monthly-list li { display: flex; align-items: center; gap: 13px; padding: 15px 16px; color: var(--text); background: rgba(247,251,255,.84); border: 1px solid rgba(104,148,201,.14); border-radius: 15px; }
         .monthly-list li > span { width: 29px; height: 29px; flex: 0 0 auto; display: grid; place-items: center; color: #fff; background: linear-gradient(145deg, #72acf1, #477fd2); border-radius: 10px; box-shadow: 0 7px 16px rgba(66,114,178,.18); font-size: 10px; font-weight: 800; }
