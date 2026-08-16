@@ -6278,6 +6278,49 @@ export default function App() {
           .central-metric strong { font-size: 24px; }
         }
 
+        /* Login: posição lateral em telas amplas e leitura confortável nas menores. */
+        .login-page-liquid {
+          display: flex !important;
+          align-items: center !important;
+          justify-content: flex-start !important;
+          padding: clamp(32px, 5vw, 74px) clamp(28px, 7vw, 128px) 82px !important;
+        }
+
+        .login-page-liquid .login-card {
+          grid-column: auto !important;
+          justify-self: auto !important;
+          margin: 0 !important;
+        }
+
+        @media (max-width: 880px) {
+          .login-page-liquid {
+            justify-content: center !important;
+            padding: 32px 24px 76px !important;
+            background-position: 64% center !important;
+          }
+
+          .login-page-liquid::after {
+            background: rgba(248,251,255,.26) !important;
+          }
+
+          .login-page-liquid .login-card {
+            width: min(100%, 430px) !important;
+          }
+        }
+
+        @media (max-width: 520px) {
+          .login-page-liquid {
+            min-height: 100svh !important;
+            padding: 22px 16px 70px !important;
+            background-position: 60% center !important;
+          }
+
+          .login-page-liquid .login-card {
+            width: 100% !important;
+            padding: 32px 24px !important;
+          }
+        }
+
       `}</style>
       
       <Toast message={toastMessage} onClose={() => setToastMessage("")} />
