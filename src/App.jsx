@@ -1477,18 +1477,12 @@ function AdminDashboard({ usuario, onLogout, state }) {
   const [feedbackTipo, setFeedbackTipo] = useState("positivo");
   const [enviandoFeedback, setEnviandoFeedback] = useState(false);
   const [responsaveisPorFuncao, setResponsaveisPorFuncao] = useState(() => {
-    const chave = "platino-responsaveis-por-funcao-v1";
     const padrao = Object.fromEntries(
       CATEGORIAS_TAREFA.map((categoria) => [categoria, ""]),
     );
-
-    try {
-      const salvo = JSON.parse(window.localStorage.getItem(chave) || "{}") || {};
-      return { ...padrao, ...salvo };
-    } catch (error) {
-      return padrao;
-    }
+    return padrao;
   });
+  const [carregandoResponsaveis, setCarregandoResponsaveis] = useState(true);
   const [responsabilidadeFuncId, setResponsabilidadeFuncId] = useState("");
   const [responsabilidadeMes, setResponsabilidadeMes] = useState(obterMesAtual);
   const [responsabilidadeTexto, setResponsabilidadeTexto] = useState("");
@@ -1580,14 +1574,29 @@ function AdminDashboard({ usuario, onLogout, state }) {
   const tarefasHistoricoFiltradas = listaTarefas.filter(
     (tarefa) => !STATUS_ABERTOS.has(tarefa.status),
   );
+
   useEffect(() => {
-    const chave = "platino-responsaveis-por-funcao-v1";
-    try {
-      window.localStorage.setItem(chave, JSON.stringify(responsaveisPorFuncao));
-    } catch (error) {
-      console.warn("Não foi possível salvar os indicadores de função:", error);
+    async function carregarResponsaveisSupabase() {
+      try {
+        setCarregandoResponsaveis(true);
+        const { data, error } = await supabase.rpc("carregar_responsaveis_por_funcao");
+        if (!error && data) {
+          const mapeamento = Object.fromEntries(
+            data.map((item) => [item.categoria_tarefa, item.funcionaria_id || ""])
+          );
+          setResponsaveisPorFuncao((atual) => ({
+            ...atual,
+            ...mapeamento,
+          }));
+        }
+      } catch (error) {
+        console.error("Erro ao carregar responsáveis por função:", error);
+      } finally {
+        setCarregandoResponsaveis(false);
+      }
     }
-  }, [responsaveisPorFuncao]);
+    carregarResponsaveisSupabase();
+  }, []);
 
   useEffect(() => {
     if (!tarefaManual && responsaveisPorFuncao[categoria]) {
@@ -1652,6 +1661,23 @@ function AdminDashboard({ usuario, onLogout, state }) {
       ...atual,
       [categoria]: funcionarioId || "",
     }));
+  }
+
+  async function salvarIndicativoOperacional() {
+    try {
+      const { data, error } = await supabase.rpc("salvar_todos_responsaveis_funcao", {
+        p_mapeamento: responsaveisPorFuncao,
+      });
+      if (error) {
+        console.error("Erro ao salvar indicativo operacional:", error);
+        showToast("Não foi possível salvar o indicativo operacional.");
+        return;
+      }
+      showToast("Indicativo operacional salvo no sistema.");
+    } catch (error) {
+      console.error("Erro ao salvar indicativo operacional:", error);
+      showToast("Erro ao salvar indicativo operacional.");
+    }
   }
 
   function selecionarFuncionariaResponsabilidades(funcionariaId) {
@@ -3190,13 +3216,23 @@ function AdminDashboard({ usuario, onLogout, state }) {
                   <span className="eyebrow">Indicativo operacional</span>
                   <h2>Responsáveis por função</h2>
                 </div>
-                <button
-                  type="button"
-                  className="btn-secondary compact"
-                  onClick={() => setIndicativoOperacionalExpandido((atual) => !atual)}
-                >
-                  {indicativoOperacionalExpandido ? "Recolher" : "Expandir"}
-                </button>
+                <div className="task-history-actions">
+                  <button
+                    type="button"
+                    className="btn-secondary compact"
+                    onClick={() => setIndicativoOperacionalExpandido((atual) => !atual)}
+                  >
+                    {indicativoOperacionalExpandido ? "Recolher" : "Expandir"}
+                  </button>
+                  <button
+                    type="button"
+                    className="btn-primary compact"
+                    onClick={salvarIndicativoOperacional}
+                    disabled={carregandoResponsaveis}
+                  >
+                    {carregandoResponsaveis ? "Carregando..." : "Salvar"}
+                  </button>
+                </div>
               </div>
               {indicativoOperacionalExpandido && (
                 <div className="role-mapping-list">
@@ -3687,18 +3723,30 @@ function FormularioDelegacaoUsuario({ usuario, funcionarios, onCriada, showToast
   const [maisOpcoes, setMaisOpcoes] = useState(false);
   const [destinatarios, setDestinatarios] = useState(funcionarios || []);
   const [responsaveisPorFuncao, setResponsaveisPorFuncao] = useState(() => {
-    const chave = "platino-responsaveis-por-funcao-v1";
     const padrao = Object.fromEntries(
       CATEGORIAS_TAREFA.map((categoria) => [categoria, ""]),
     );
-
-    try {
-      const salvo = JSON.parse(window.localStorage.getItem(chave) || "{}") || {};
-      return { ...padrao, ...salvo };
-    } catch (error) {
-      return padrao;
-    }
+    return padrao;
   });
+  useEffect(() => {
+    async function carregarResponsaveisSupabase() {
+      try {
+        const { data, error } = await supabase.rpc("carregar_responsaveis_por_funcao");
+        if (!error && data) {
+          const mapeamento = Object.fromEntries(
+            data.map((item) => [item.categoria_tarefa, item.funcionaria_id || ""])
+          );
+          setResponsaveisPorFuncao((atual) => ({
+            ...atual,
+            ...mapeamento,
+          }));
+        }
+      } catch (error) {
+        console.error("Erro ao carregar responsáveis por função:", error);
+      }
+    }
+    carregarResponsaveisSupabase();
+  }, []);
   useEffect(() => {
     supabase.rpc("listar_destinatarios_tarefa").then(({ data, error }) => {
       if (!error && data) setDestinatarios(data);
