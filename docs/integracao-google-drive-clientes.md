@@ -54,7 +54,7 @@ Nenhuma credencial do Google deve ser criada na Vercel nem em variável `VITE_*`
 
 ## Operação
 
-O gestor abre **Clientes** e clica em **Atualizar do Google Drive**. A sincronização:
+O gestor abre **Clientes** e clica em **Atualizar do Google Drive**. A quantidade exibida na primeira sincronização será a contagem completa retornada pela API, e não a amostra inicial mostrada pela página web do Drive. A sincronização:
 
 - cria o índice de novas pastas;
 - atualiza nomes de pastas renomeadas;
