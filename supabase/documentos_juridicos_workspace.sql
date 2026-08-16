@@ -38,6 +38,48 @@ create index if not exists documentos_juridicos_cliente_idx
 create index if not exists documentos_juridicos_criador_idx
   on public.documentos_juridicos (created_by, created_at desc);
 
+-- Nomes de exibição da biblioteca. Apenas gestores podem alterá-los e toda a
+-- equipe consulta a mesma nomenclatura ao selecionar os modelos.
+create table if not exists public.modelos_juridicos_config (
+  modelo_id text primary key,
+  nome_exibicao text not null check (char_length(trim(nome_exibicao)) between 3 and 100),
+  atualizado_por uuid not null default auth.uid(),
+  atualizado_em timestamptz not null default now()
+);
+
+create or replace function public.atualizar_modelo_juridico_config()
+returns trigger
+language plpgsql
+set search_path = public
+as $$
+begin
+  new.nome_exibicao = trim(regexp_replace(new.nome_exibicao, '\\s+', ' ', 'g'));
+  new.atualizado_por = auth.uid();
+  new.atualizado_em = now();
+  return new;
+end;
+$$;
+
+drop trigger if exists modelos_juridicos_config_updated_at on public.modelos_juridicos_config;
+create trigger modelos_juridicos_config_updated_at
+before insert or update on public.modelos_juridicos_config
+for each row execute function public.atualizar_modelo_juridico_config();
+
+alter table public.modelos_juridicos_config enable row level security;
+revoke all on public.modelos_juridicos_config from anon;
+grant select, insert, update on public.modelos_juridicos_config to authenticated;
+
+drop policy if exists "Equipe consulta nomes dos modelos juridicos" on public.modelos_juridicos_config;
+create policy "Equipe consulta nomes dos modelos juridicos"
+on public.modelos_juridicos_config for select to authenticated
+using (true);
+
+drop policy if exists "Gestor configura nomes dos modelos juridicos" on public.modelos_juridicos_config;
+create policy "Gestor configura nomes dos modelos juridicos"
+on public.modelos_juridicos_config for all to authenticated
+using (public.usuario_e_admin())
+with check (public.usuario_e_admin());
+
 create or replace function public.atualizar_updated_at_documentos_juridicos()
 returns trigger
 language plpgsql

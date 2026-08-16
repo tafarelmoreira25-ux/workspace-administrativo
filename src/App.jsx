@@ -113,8 +113,6 @@ const DOCUMENTOS_INICIAIS = [
   { chave: "comprovante_residencia", rotulo: "Comprovante de residência" },
   { chave: "comprovante_renda", rotulo: "Comprovante de renda" },
 ];
-const PADRAO_NOME_ARQUIVO = /^\d{4}-\d{2}-\d{2}(?:_[A-Z0-9]+(?:-[A-Z0-9]+)*){4}\.[A-Z0-9]{2,5}$/i;
-
 function limitarTempo(promise, tempoMs, mensagem) {
   let temporizador;
   const limite = new Promise((_, rejeitar) => {
@@ -138,12 +136,31 @@ function tarefaAtrasada(tarefa) {
   return tarefa.data_limite < obterDataLocalISO();
 }
 
-function validarEntregaPop(entrega) {
+function urlGoogleDriveValida(url) {
+  return /^https:\/\/(drive|docs)\.google\.com\//i.test(url?.trim() || "");
+}
+
+function tarefaExigeComprovacao(tarefa) {
+  return tarefa?.requer_comprovacao !== false;
+}
+
+function parteNomeComprovante(valor, padrao) {
+  const normalizado = String(valor || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toUpperCase()
+    .replace(/[^A-Z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+  return normalizado || padrao;
+}
+
+function nomeComprovanteDrive(tarefa) {
+  return `${obterDataLocalISO()}_${parteNomeComprovante(tarefa.nome_cliente, "CLIENTE")}_${parteNomeComprovante(tarefa.titulo, "TAREFA")}_CONCLUIDA_EQUIPE.pdf`;
+}
+
+function validarEntregaPop(entrega, tarefa) {
   if (!entrega.observacoes?.trim()) return "Informe a devolutiva do que foi executado.";
-  if (!PADRAO_NOME_ARQUIVO.test(entrega.nomeArquivo?.trim() || "")) {
-    return "Nomenclatura inválida. Use DATA_CLIENTE_TIPO-DE-DOCUMENTO_STATUS_RESPONSAVEL.extensão.";
-  }
-  if (!/^https:\/\/(drive|docs)\.google\.com\//i.test(entrega.driveUrl?.trim() || "")) {
+  if (tarefaExigeComprovacao(tarefa) && !urlGoogleDriveValida(entrega.driveUrl)) {
     return "Cole um link válido do Google Drive para comprovar o arquivamento.";
   }
   if (!entrega.crmAtualizado) return "Confirme a atualização do CRM.";
@@ -712,14 +729,15 @@ function ModalDevolucao({ tarefa, onClose, onConfirmar }) {
 function EntregaPop({ tarefa, valor, onChange }) {
   const atualizar = (campo, novoValor) => onChange({ ...valor, [campo]: novoValor });
   const criterios = Array.isArray(tarefa.criterios_conclusao) ? tarefa.criterios_conclusao : [];
+  const comprovacaoObrigatoria = tarefaExigeComprovacao(tarefa);
   return (
     <section className="document-checklist pop-delivery-checklist">
       <div className="document-checklist-heading">
-        <div><span className="eyebrow">POP 1.0 · prestação de contas</span><h4>Checklist de conclusão</h4></div>
+        <div><span className="eyebrow">POP 1.0 · prestação de contas</span><h4>Checklist de conclusão</h4><p>A comprovação é registrada por link; não envie arquivos pelo sistema.</p></div>
       </div>
       <label>Observações / devolutiva<textarea rows="3" value={valor.observacoes || ""} onChange={(e) => atualizar("observacoes", e.target.value)} placeholder="Descreva objetivamente o que foi executado e eventuais pendências." /></label>
-      <label>Nome do arquivo<input value={valor.nomeArquivo || ""} onChange={(e) => atualizar("nomeArquivo", e.target.value)} placeholder="2026-08-10_JOAO-SILVA_PROTOCOLO-GOV_FINAL_ADMINISTRATIVO.pdf" /></label>
-      <label>Link do documento no Drive (não anexar PDF)<input type="url" value={valor.driveUrl || ""} onChange={(e) => atualizar("driveUrl", e.target.value)} placeholder="Cole aqui o link https://drive.google.com/..." /></label>
+      <label className="drive-link-field"><span>Link do Documento no Google Drive {comprovacaoObrigatoria ? "*" : "(opcional)"}</span><input type="url" value={valor.driveUrl || ""} onChange={(e) => atualizar("driveUrl", e.target.value)} placeholder="https://drive.google.com/file/d/..." aria-describedby={`drive-link-help-${tarefa.id}`} required={comprovacaoObrigatoria} /><small id={`drive-link-help-${tarefa.id}`}>Insira o link do arquivo salvo na pasta do cliente no Google Drive para comprovação da tarefa.</small></label>
+      <small className="drive-link-filename">Nome técnico registrado automaticamente: {nomeComprovanteDrive(tarefa)}</small>
       <div className="document-checklist-grid">
         {criterios.map((criterio) => <label className={valor.checklist?.[criterio] ? "checked" : ""} key={criterio}><input type="checkbox" checked={valor.checklist?.[criterio] || false} onChange={(e) => atualizar("checklist", { ...(valor.checklist || {}), [criterio]: e.target.checked })} /><span>{criterio}</span></label>)}
         <label className={valor.crmAtualizado ? "checked" : ""}><input type="checkbox" checked={valor.crmAtualizado || false} onChange={(e) => atualizar("crmAtualizado", e.target.checked)} /><span>CRM atualizado</span></label>
@@ -1072,6 +1090,12 @@ function RedefinirSenha({ onConcluida }) {
       </section>
     </div>
   );
+}
+
+function LinkComprovanteDrive({ tarefa }) {
+  const url = tarefa?.drive_document_url || tarefa?.evidencia_url;
+  if (!urlGoogleDriveValida(url)) return null;
+  return <a className="drive-document-link" href={url} target="_blank" rel="noreferrer">↗ Ver documento no Google Drive</a>;
 }
 
 function CartaoGestaoMembro({
@@ -2573,6 +2597,7 @@ function AdminDashboard({ usuario, onLogout, state }) {
                           {!tarefa.tarefa_manual && tarefa.origem !== "operacional" &&
                             ` | Pontos: ${tarefa.pontos_tarefa ?? 0}`}
                         </small>
+                        <LinkComprovanteDrive tarefa={tarefa} />
                       </div>
                       <div className="admin-task-actions">
                         {tarefaDoUsuario && tarefa.status !== "devolvida_conferencia" && (
@@ -2632,6 +2657,7 @@ function AdminDashboard({ usuario, onLogout, state }) {
                     <div className="admin-task-badges"><span className={`status ${tarefa.status}`}>{rotuloStatusTarefa(tarefa.status)}</span>{tarefa.categoria && <span className="category-badge">{tarefa.categoria}</span>}</div>
                     <h3>{tarefa.titulo}</h3>{tarefa.descricao && <p>{tarefa.descricao}</p>}
                     <small>Responsável: {tarefa.responsavel_texto || responsavel?.nome || "Não atribuída"} | Prazo: {formatarData(tarefa.data_limite)}</small>
+                    <LinkComprovanteDrive tarefa={tarefa} />
                   </div>
                 </article>
               );
@@ -3263,7 +3289,7 @@ function EmployeeDashboard({ usuario, onLogout, state }) {
     }
 
     const entrega = entregasPop[tarefa.id] || {};
-    const falhaPop = validarEntregaPop(entrega);
+    const falhaPop = validarEntregaPop(entrega, tarefa);
     if (falhaPop) {
       alert(`Tarefa não pode ser concluída. ${falhaPop}`);
       return;
@@ -3278,7 +3304,7 @@ function EmployeeDashboard({ usuario, onLogout, state }) {
       const resposta = await supabase.rpc("movimentar_tarefa_operacional", {
         p_tarefa_id: Number(tarefa.id), p_acao: "devolver_conferencia", p_motivo: null,
         p_checklist: entrega.checklist || {}, p_observacoes: entrega.observacoes.trim(),
-        p_nome_arquivo: entrega.nomeArquivo.trim(), p_drive_url: entrega.driveUrl.trim(),
+        p_nome_arquivo: nomeComprovanteDrive(tarefa), p_drive_url: entrega.driveUrl.trim(),
         p_crm_atualizado: entrega.crmAtualizado, p_planilha_atualizada: entrega.planilhaAtualizada,
       });
       error = resposta.error;
@@ -3286,7 +3312,7 @@ function EmployeeDashboard({ usuario, onLogout, state }) {
     } else if (tarefa.origem === "esteira") {
       const resposta = await supabase.rpc("concluir_tarefa_pop", {
         p_tarefa_id: Number(tarefa.id), p_observacoes: entrega.observacoes.trim(),
-        p_nome_arquivo: entrega.nomeArquivo.trim(), p_drive_url: entrega.driveUrl.trim(),
+        p_nome_arquivo: nomeComprovanteDrive(tarefa), p_drive_url: entrega.driveUrl.trim(),
         p_crm_atualizado: entrega.crmAtualizado, p_planilha_atualizada: entrega.planilhaAtualizada,
         p_resultado: tarefaExigeChecklistDocumentos(tarefa) ? "regular" : "nao_se_aplica",
       });
@@ -3295,7 +3321,7 @@ function EmployeeDashboard({ usuario, onLogout, state }) {
     } else {
       const resposta = await supabase.rpc("concluir_tarefa_pop", {
         p_tarefa_id: Number(tarefa.id), p_observacoes: entrega.observacoes.trim(),
-        p_nome_arquivo: entrega.nomeArquivo.trim(), p_drive_url: entrega.driveUrl.trim(),
+        p_nome_arquivo: nomeComprovanteDrive(tarefa), p_drive_url: entrega.driveUrl.trim(),
         p_crm_atualizado: entrega.crmAtualizado, p_planilha_atualizada: entrega.planilhaAtualizada,
         p_resultado: "nao_se_aplica",
       });
@@ -5687,6 +5713,13 @@ export default function App() {
         .document-checklist-grid label.checked { color: #247b67; background: rgba(222,249,240,.78); border-color: rgba(54,170,143,.28); }
         .document-checklist-grid input { width: 16px; height: 16px; accent-color: #35aa91; }
         .document-checklist > p { margin: 11px 0 9px; color: #718199; font-size: 9px; }
+        .pop-delivery-checklist > label { display: grid; gap: 6px; margin-top: 11px; color: #35536f; font-size: 10px; font-weight: 800; }
+        .pop-delivery-checklist > label input, .pop-delivery-checklist > label textarea { width: 100%; }
+        .drive-link-field { padding: 12px; background: rgba(232,243,255,.72); border: 1px solid rgba(75,132,201,.2); border-radius: 11px; }
+        .drive-link-field small, .drive-link-filename { color: #6b8199; font-size: 9px; font-weight: 600; line-height: 1.45; }
+        .drive-link-filename { display: block; margin: 8px 0 12px; overflow-wrap: anywhere; }
+        .drive-document-link { display: inline-flex; align-items: center; width: max-content; margin-top: 10px; padding: 8px 10px; color: #245c9f; background: rgba(228,240,255,.84); border: 1px solid rgba(73,128,196,.2); border-radius: 9px; font-size: 10px; font-weight: 800; text-decoration: none; }
+        .drive-document-link:hover { color: #123f76; background: #dceeff; }
         .task-timeline { display: flex; align-items: flex-start; gap: 0; margin: 10px 0 12px; overflow-x: auto; }
         .task-timeline-step { position: relative; min-width: 92px; color: #a6b2c2; display: grid; gap: 3px; font-weight: 750; }
         .task-timeline-step:not(:last-child)::after { content: ""; position: absolute; left: 13px; right: -4px; top: 7px; height: 2px; background: #dce4ee; }

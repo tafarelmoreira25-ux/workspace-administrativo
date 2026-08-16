@@ -9,6 +9,10 @@ function formatarData(data) {
   }).format(new Date(texto.includes("T") ? texto : `${texto}T12:00:00`));
 }
 
+function linkGoogleDrive(url) {
+  return /^https:\/\/(drive|docs)\.google\.com\//i.test(String(url || "").trim());
+}
+
 export default function MeuHistorico({ tarefas = [] }) {
   const [pagina, setPagina] = useState(1);
   const totalPaginas = Math.max(1, Math.ceil(tarefas.length / 15));
@@ -32,6 +36,7 @@ export default function MeuHistorico({ tarefas = [] }) {
                 Concluída em: {formatarData(tarefa.concluida_em)} |
                 Pontos: {tarefa.pontos_tarefa || 10}
               </small>
+              {linkGoogleDrive(tarefa.drive_document_url || tarefa.evidencia_url) && <a className="drive-document-link" href={tarefa.drive_document_url || tarefa.evidencia_url} target="_blank" rel="noreferrer">↗ Ver documento no Google Drive</a>}
             </div>
             <span className="status concluida">Concluída</span>
           </div>
