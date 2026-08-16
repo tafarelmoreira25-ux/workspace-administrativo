@@ -13,7 +13,7 @@ create table if not exists public.responsaveis_por_funcao (
 -- Política de segurança RLS: todos autenticados podem ler, só o admin pode escrever
 alter table public.responsaveis_por_funcao enable row level security;
 
-drop policy if exists "Usuários podem ler responsáveis por função" on public.responsaveis_por_funcao;
+drop policy if exists "Todos podem ler responsáveis por função" on public.responsaveis_por_funcao;
 drop policy if exists "Só admin pode criar responsáveis por função" on public.responsaveis_por_funcao;
 drop policy if exists "Só admin pode editar responsáveis por função" on public.responsaveis_por_funcao;
 
@@ -41,6 +41,7 @@ create or replace function public.carregar_responsaveis_por_funcao()
 returns table (categoria_tarefa text, funcionaria_id bigint, nome_funcionario text)
 language sql
 stable
+security definer
 as $$
 select 
   rpf.categoria_tarefa,
