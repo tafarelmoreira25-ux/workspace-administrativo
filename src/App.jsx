@@ -1498,6 +1498,8 @@ function AdminDashboard({ usuario, onLogout, state }) {
     useState(false);
   const [responsabilidadeUsuarioExpandida, setResponsabilidadeUsuarioExpandida] =
     useState(false);
+  const [indicativoOperacionalExpandido, setIndicativoOperacionalExpandido] =
+    useState(true);
   const [mostrarTarefasMes, setMostrarTarefasMes] = useState(false);
   const [paginaTarefas, setPaginaTarefas] = useState(1);
   const [paginaHistorico, setPaginaHistorico] = useState(1);
@@ -3181,25 +3183,34 @@ function AdminDashboard({ usuario, onLogout, state }) {
                   <span className="eyebrow">Indicativo operacional</span>
                   <h2>Responsáveis por função</h2>
                 </div>
+                <button
+                  type="button"
+                  className="btn-secondary compact"
+                  onClick={() => setIndicativoOperacionalExpandido((atual) => !atual)}
+                >
+                  {indicativoOperacionalExpandido ? "Recolher" : "Expandir"}
+                </button>
               </div>
-              <div className="role-mapping-list">
-                {ACOES_TAREFA_VISUAIS.filter((acao) => CATEGORIAS_TAREFA.includes(acao.valor)).map((acao) => (
-                  <label className="role-mapping-item" key={acao.valor}>
-                    <span>{acao.rotulo}</span>
-                    <select
-                      value={responsaveisPorFuncao[acao.valor] || ""}
-                      onChange={(event) => atualizarIndicativoResponsavel(acao.valor, event.target.value)}
-                    >
-                      <option value="">Sem responsável definido</option>
-                      {equipe.map((funcionario) => (
-                        <option key={funcionario.id} value={funcionario.id}>
-                          {funcionario.nome}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                ))}
-              </div>
+              {indicativoOperacionalExpandido && (
+                <div className="role-mapping-list">
+                  {ACOES_TAREFA_VISUAIS.filter((acao) => CATEGORIAS_TAREFA.includes(acao.valor)).map((acao) => (
+                    <label className="role-mapping-item" key={acao.valor}>
+                      <span>{acao.rotulo}</span>
+                      <select
+                        value={responsaveisPorFuncao[acao.valor] || ""}
+                        onChange={(event) => atualizarIndicativoResponsavel(acao.valor, event.target.value)}
+                      >
+                        <option value="">Sem responsável definido</option>
+                        {equipe.map((funcionario) => (
+                          <option key={funcionario.id} value={funcionario.id}>
+                            {funcionario.nome}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                  ))}
+                </div>
+              )}
             </div>
             <div className="panel team-directory-panel">
               <div className="panel-title-row">
@@ -5101,6 +5112,7 @@ export default function App() {
         .role-mapping-item span { color: var(--dark); font-size: 12px; font-weight: 700; }
         .role-mapping-item select { width: 100%; border-color: rgba(104,148,201,.28); box-shadow: inset 0 0 0 1px rgba(104,148,201,.08); }
         .role-mapping-item select:focus { outline: none; border-color: rgba(52,118,255,.9); box-shadow: 0 0 0 3px rgba(52,118,255,.18); }
+        .role-mapping-panel .panel-title-row { align-items: center; }
         .monthly-list { display: grid; gap: 11px; margin: 0; padding: 0; list-style: none; }
         .monthly-list li { display: flex; align-items: center; gap: 13px; padding: 15px 16px; color: var(--text); background: rgba(247,251,255,.84); border: 1px solid rgba(104,148,201,.14); border-radius: 15px; }
         .monthly-list li > span { width: 29px; height: 29px; flex: 0 0 auto; display: grid; place-items: center; color: #fff; background: linear-gradient(145deg, #72acf1, #477fd2); border-radius: 10px; box-shadow: 0 7px 16px rgba(66,114,178,.18); font-size: 10px; font-weight: 800; }
