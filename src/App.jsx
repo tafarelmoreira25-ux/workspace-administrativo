@@ -3738,6 +3738,10 @@ function FormularioDelegacaoUsuario({ usuario, funcionarios, onCriada, showToast
     );
     return padrao;
   });
+  const [responsavelSugerido, setResponsavelSugerido] = useState({
+    id: null,
+    nome: "Sem responsável definido",
+  });
   useEffect(() => {
     async function carregarResponsaveisSupabase() {
       try {
@@ -3750,7 +3754,7 @@ function FormularioDelegacaoUsuario({ usuario, funcionarios, onCriada, showToast
         if (data && data.length > 0) {
           console.log("Responsáveis carregados na delegação:", data);
           const mapeamento = Object.fromEntries(
-            data.map((item) => [item.categoria_tarefa, item.funcionaria_id || ""])
+            data.map((item) => [item.categoria_tarefa, item.funcionaria_id || ""]),
           );
           setResponsaveisPorFuncao((atual) => ({
             ...atual,
@@ -3772,8 +3776,63 @@ function FormularioDelegacaoUsuario({ usuario, funcionarios, onCriada, showToast
   }, []);
   const equipeDisponivel = destinatarios.filter((item) => item.ativo !== false && String(item.id) !== String(usuario.id));
   const responsavelIndicativo = responsaveisPorFuncao[form.tipo];
-  const responsavelSugerido = responsavelIndicativo ? destinatarios.find((item) => String(item.id) === String(responsavelIndicativo)) : null;
+  const responsavelSugeridoMapeado = responsavelIndicativo ? destinatarios.find((item) => String(item.id) === String(responsavelIndicativo)) : null;
   const alterar = (campo, valor) => setForm((atual) => ({ ...atual, [campo]: valor }));
+
+  useEffect(() => {
+    let ativo = true;
+
+    async function buscarResponsavelSugerido() {
+      if (!form.tipo) {
+        setResponsavelSugerido({ id: null, nome: "Sem responsável definido" });
+        return;
+      }
+
+      try {
+        const { data, error } = await supabase.rpc("obter_responsavel_por_categoria", {
+          p_categoria: form.tipo,
+        });
+
+        if (!ativo) return;
+
+        if (error) {
+          console.error("Erro ao buscar responsável sugerido:", error);
+          setResponsavelSugerido(
+            responsavelSugeridoMapeado
+              ? { id: responsavelSugeridoMapeado.id, nome: responsavelSugeridoMapeado.nome }
+              : { id: null, nome: "Sem responsável definido" },
+          );
+          return;
+        }
+
+        if (data && data.length > 0 && data[0].funcionaria_id) {
+          setResponsavelSugerido({
+            id: data[0].funcionaria_id,
+            nome: data[0].nome_funcionario,
+          });
+          return;
+        }
+
+        setResponsavelSugerido({
+          id: null,
+          nome: "Sem responsável definido",
+        });
+      } catch (error) {
+        if (!ativo) return;
+        console.error("Exceção ao buscar responsável sugerido:", error);
+        setResponsavelSugerido(
+          responsavelSugeridoMapeado
+            ? { id: responsavelSugeridoMapeado.id, nome: responsavelSugeridoMapeado.nome }
+            : { id: null, nome: "Sem responsável definido" },
+        );
+      }
+    }
+
+    buscarResponsavelSugerido();
+    return () => {
+      ativo = false;
+    };
+  }, [form.tipo, responsavelIndicativo, responsavelSugeridoMapeado]);
 
   useEffect(() => {
     const responsavelIdSugerido = responsaveisPorFuncao[form.tipo];
@@ -3866,7 +3925,7 @@ function FormularioDelegacaoUsuario({ usuario, funcionarios, onCriada, showToast
         </div>
         <div className="role-indicator-card">
           <small>Responsável sugerido:</small>
-          <strong>{responsavelSugerido ? responsavelSugerido.nome : "Sem responsável definido"}</strong>
+          <strong>{responsavelSugerido.nome}</strong>
         </div>
       </div>
       <label>Solicitação<textarea required rows="4" value={form.solicitacao} onChange={(e) => alterar("solicitacao", e.target.value)} placeholder="Descreva com objetividade o que precisa ser feito." /></label>

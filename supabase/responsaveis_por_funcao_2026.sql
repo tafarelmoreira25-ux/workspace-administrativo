@@ -10,12 +10,6 @@ create table if not exists public.responsaveis_por_funcao (
   atualizado_em timestamptz not null default now()
 );
 
--- Política de segurança RLS: todos autenticados podem ler, só o admin pode escrever
-alter table public.responsaveis_por_funcao enable row level security;
-
-drop policy if exists "Todos podem ler responsáveis por função" on public.responsaveis_por_funcao;
-drop policy if exists "Só admin pode criar responsáveis por função" on public.responsaveis_por_funcao;
-drop policy if exists "Só admin pode editar responsáveis por função" on public.responsaveis_por_funcao;
 
 -- Todos autenticados podem ler
 create policy "Todos podem ler responsáveis por função"
@@ -49,6 +43,22 @@ select
   coalesce(f.nome, 'Sem responsável') as nome_funcionario
 from public.responsaveis_por_funcao rpf
 left join public.funcionarios f on rpf.funcionaria_id = f.id;
+$$;
+
+-- RPC para buscar o responsável sugerido por categoria de tarefa
+create or replace function public.obter_responsavel_por_categoria(p_categoria text)
+returns table (categoria_tarefa text, funcionaria_id bigint, nome_funcionario text)
+language sql
+stable
+security definer
+as $$
+select
+  rpf.categoria_tarefa,
+  rpf.funcionaria_id,
+  coalesce(f.nome, 'Sem responsável') as nome_funcionario
+from public.responsaveis_por_funcao rpf
+left join public.funcionarios f on rpf.funcionaria_id = f.id
+where rpf.categoria_tarefa = p_categoria;
 $$;
 
 -- RPC para atualizar um responsável por função
