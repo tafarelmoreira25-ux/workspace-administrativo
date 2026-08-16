@@ -8,11 +8,12 @@
     "start": "vite --host 0.0.0.0",
     "build": "vite build",
     "lint": "eslint .",
+    "test": "node --test src/taskWorkflow.test.js",
+    "check": "npm run lint && npm test && npm run build",
     "preview": "vite preview"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.106.2",
-    "jspdf": "^4.2.1",
     "pdf-lib": "^1.17.1",
     "react": "^19.2.6",
     "react-dom": "^19.2.6"

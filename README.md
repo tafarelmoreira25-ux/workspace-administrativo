@@ -12,16 +12,38 @@ npm install
 npm start
 ```
 
+Crie o arquivo local de configuração sem versioná-lo:
+
+```bash
+Copy-Item .env.example .env.local
+```
+
+Preencha em `.env.local` a URL e a chave pública `anon` do seu projeto
+Supabase. Nunca use a chave `service_role` no frontend.
+
 Abra o endereço exibido pelo terminal, normalmente `http://localhost:5173`.
 
 Para testar a versão final:
 
 ```bash
-npm run build
+npm run check
 npm run preview
 ```
 
+O comando `npm run check` executa lint, testes automatizados e build.
+
 ## Configuração do Supabase
+
+### Recuperação de senha
+
+No painel do Supabase, abra **Authentication → URL Configuration** e configure:
+
+- **Site URL**: a URL principal publicada na Vercel.
+- **Redirect URLs**: a URL principal da Vercel, as URLs de preview que pretende
+  testar e `http://localhost:5173` para desenvolvimento local.
+
+Sem essas URLs autorizadas, o e-mail pode ser enviado, mas o link de
+recuperação não conseguirá retornar ao sistema.
 
 Execute uma vez no SQL Editor do Supabase:
 
@@ -138,5 +160,28 @@ O modelo original da procuração está arquivado em:
 
 ## Segurança
 
-O arquivo `.env` local não deve ser enviado ao Git. O projeto contém um
-`.env.example` apenas com os nomes das configurações necessárias.
+Os arquivos `.env` e `.env.local` não devem ser enviados ao Git. O projeto
+contém um `.env.example` apenas com os nomes das configurações necessárias.
+
+## Publicação na Vercel
+
+Como o repositório possui uma pasta externa e outra interna com o mesmo nome,
+configure **Root Directory** como `tafa-performance`, apontando para a pasta que
+contém este `package.json`.
+
+Use as seguintes configurações:
+
+- Framework Preset: **Vite**.
+- Build Command: `npm run build`.
+- Output Directory: `dist`.
+
+Cadastre em **Settings → Environment Variables**, para Production, Preview e
+Development:
+
+- `VITE_SUPABASE_URL`
+- `VITE_SUPABASE_ANON_KEY`
+- `VITE_ADMIN_EMAIL`
+
+Todas as variáveis iniciadas por `VITE_` são incluídas no bundle do navegador.
+Por isso, `VITE_SUPABASE_ANON_KEY` deve conter somente a chave pública `anon`;
+nunca use `service_role`.

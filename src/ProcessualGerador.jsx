@@ -6,7 +6,6 @@ import {
   criarDadosProcessuaisVazios,
   organizarResumoProcessual,
 } from "./processual/processualParser";
-import { baixarPDF, gerarRelatorioProcessualPDF } from "./processual/ProcessualRelatorioPDF";
 
 export default function ProcessualGerador({ responsavel, onSuccess }) {
   const [resumo, setResumo] = useState("");
@@ -36,6 +35,9 @@ export default function ProcessualGerador({ responsavel, onSuccess }) {
     }
     setGerando(true);
     try {
+      const { baixarPDF, gerarRelatorioProcessualPDF } = await import(
+        "./processual/ProcessualRelatorioPDF"
+      );
       const arquivo = await gerarRelatorioProcessualPDF({
         dados,
         codigo: `RLPROC-${Date.now().toString().slice(-6)}`,

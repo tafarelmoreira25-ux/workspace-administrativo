@@ -1,10 +1,8 @@
 import MeuHistorico from './MeuHistorico';
 import AcompanhamentoEquipe from './AcompanhamentoEquipe';
 import MeuPlanner from './MeuPlanner';
-import GeradorDocumentos from './GeradorDocumentos';
 import PainelEquipeTV from './PainelEquipeTV';
-import ProcessualGerador from './ProcessualGerador';
-import { useCallback, useEffect, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useState } from "react";
 import { supabase } from "./lib/supabase";
 import {
   STATUS_TASKMANAGER,
@@ -12,6 +10,9 @@ import {
   obterStatusTaskManager,
   tarefaNoMacroStatus,
 } from "./taskWorkflow";
+
+const GeradorDocumentos = lazy(() => import("./GeradorDocumentos"));
+const ProcessualGerador = lazy(() => import("./ProcessualGerador"));
 
 // ==========================================
 // 1. CONFIGURAÇÕES E CONEXÕES
@@ -809,6 +810,8 @@ function Login({ onLogin }) {
   const [email, setEmail] = useState("");
   const [senha, setSenha] = useState("");
   const [carregando, setCarregando] = useState(false);
+  const [enviandoRecuperacao, setEnviandoRecuperacao] = useState(false);
+  const [avisoRecuperacao, setAvisoRecuperacao] = useState("");
 
   async function fazerLogin(event) {
     event.preventDefault();
@@ -842,6 +845,28 @@ function Login({ onLogin }) {
     } finally {
       setCarregando(false);
     }
+  }
+
+  async function solicitarRecuperacao() {
+    const emailNormalizado = email.trim().toLowerCase();
+    if (!emailNormalizado) {
+      setAvisoRecuperacao("Informe seu e-mail corporativo para recuperar a senha.");
+      return;
+    }
+
+    setEnviandoRecuperacao(true);
+    setAvisoRecuperacao("");
+    const destino = `${window.location.origin}${window.location.pathname}`;
+    const { error } = await supabase.auth.resetPasswordForEmail(emailNormalizado, {
+      redirectTo: destino,
+    });
+    setEnviandoRecuperacao(false);
+
+    setAvisoRecuperacao(
+      error
+        ? `Não foi possível enviar a recuperação: ${error.message}`
+        : "Se o e-mail estiver cadastrado, você receberá um link para criar uma nova senha.",
+    );
   }
 
   return (
@@ -904,9 +929,16 @@ function Login({ onLogin }) {
             </div>
           </label>
 
-          <a href="#" className="forgot-password">
-            Esqueci minha senha
-          </a>
+          <button
+            className="forgot-password"
+            disabled={enviandoRecuperacao}
+            onClick={solicitarRecuperacao}
+            type="button"
+          >
+            {enviandoRecuperacao ? "Enviando..." : "Esqueci minha senha"}
+          </button>
+
+          {avisoRecuperacao && <p className="auth-message" role="status">{avisoRecuperacao}</p>}
 
           <button
             type="submit"
@@ -923,6 +955,54 @@ function Login({ onLogin }) {
         <span>© 2026 <strong>Platino equipe</strong></span>
         <span>Versão 2.0.0</span>
       </div>
+    </div>
+  );
+}
+
+function RedefinirSenha({ onConcluida }) {
+  const [senha, setSenha] = useState("");
+  const [confirmacao, setConfirmacao] = useState("");
+  const [mensagem, setMensagem] = useState("");
+  const [salvando, setSalvando] = useState(false);
+
+  async function salvarNovaSenha(evento) {
+    evento.preventDefault();
+    if (senha.length < 8) {
+      setMensagem("A nova senha deve ter pelo menos 8 caracteres.");
+      return;
+    }
+    if (senha !== confirmacao) {
+      setMensagem("A confirmação não corresponde à nova senha.");
+      return;
+    }
+
+    setSalvando(true);
+    setMensagem("");
+    const { error } = await supabase.auth.updateUser({ password: senha });
+    setSalvando(false);
+
+    if (error) {
+      setMensagem(`Não foi possível atualizar a senha: ${error.message}`);
+      return;
+    }
+
+    await supabase.auth.signOut();
+    window.history.replaceState({}, "", `${window.location.origin}${window.location.pathname}`);
+    onConcluida();
+  }
+
+  return (
+    <div className="login-page login-page-liquid">
+      <section className="glass-card login-card" aria-label="Criar nova senha">
+        <div className="login-brand"><div><strong>Platino equipe</strong><span>Workspace Administrativo</span></div></div>
+        <div className="login-heading"><span>Recuperação de acesso</span><h1>Crie uma nova senha</h1><p>Use pelo menos 8 caracteres.</p></div>
+        <form className="login-form" onSubmit={salvarNovaSenha}>
+          <label className="glass-field"><span>Nova senha</span><div className="glass-input"><UiIcon name="logout" size={20} /><input autoComplete="new-password" onChange={(evento) => setSenha(evento.target.value)} required type="password" value={senha} /></div></label>
+          <label className="glass-field"><span>Confirmar nova senha</span><div className="glass-input"><UiIcon name="logout" size={20} /><input autoComplete="new-password" onChange={(evento) => setConfirmacao(evento.target.value)} required type="password" value={confirmacao} /></div></label>
+          {mensagem && <p className="auth-message" role="alert">{mensagem}</p>}
+          <button className="glass-button full" disabled={salvando} type="submit">{salvando ? "Salvando..." : "Salvar nova senha"}</button>
+        </form>
+      </section>
     </div>
   );
 }
@@ -2689,11 +2769,15 @@ function AdminDashboard({ usuario, onLogout, state }) {
         )}
 
         {abaAtiva === "documentos" && (
-          <GeradorDocumentos responsavel={usuario.nome} onSuccess={showToast} />
+          <Suspense fallback={<section className="panel"><p>Carregando gerador de documentos...</p></section>}>
+            <GeradorDocumentos responsavel={usuario.nome} onSuccess={showToast} />
+          </Suspense>
         )}
 
         {abaAtiva === "processual" && (
-          <ProcessualGerador responsavel={usuario.nome} onSuccess={showToast} />
+          <Suspense fallback={<section className="panel"><p>Carregando módulo processual...</p></section>}>
+            <ProcessualGerador responsavel={usuario.nome} onSuccess={showToast} />
+          </Suspense>
         )}
       </main>
     </div>
@@ -2705,14 +2789,20 @@ function AdminDashboard({ usuario, onLogout, state }) {
 // ==========================================
 
 function CentralInicio({ tarefas, usuario, onNavigate }) {
+  const [agora, setAgora] = useState(() => Date.now());
+  useEffect(() => {
+    const intervalo = window.setInterval(() => setAgora(Date.now()), 60_000);
+    return () => window.clearInterval(intervalo);
+  }, []);
   const minhas = tarefas.filter((t) => String(t.funcionaria_id) === String(usuario.id));
   const abertas = minhas.filter((t) => STATUS_ABERTOS.has(t.status));
-  const hoje = new Date().toISOString().slice(0, 10);
-  const em48h = new Date(Date.now() + 48 * 60 * 60 * 1000);
+  const dataAtual = new Date(agora);
+  const hoje = dataAtual.toISOString().slice(0, 10);
+  const em48h = new Date(agora + 48 * 60 * 60 * 1000);
   const metricas = [
     ["Atrasadas", abertas.filter(tarefaAtrasada).length, "critical", "tarefas", "atrasadas"],
     ["Vencem hoje", abertas.filter((t) => (t.prazo_limite || t.data_limite || "").slice(0, 10) === hoje).length, "urgent", "tarefas", "vencem_hoje"],
-    ["Próximas 48h", abertas.filter((t) => t.prazo_limite && new Date(t.prazo_limite) > new Date() && new Date(t.prazo_limite) <= em48h).length, "warning", "tarefas", "proximas_48h"],
+    ["Próximas 48h", abertas.filter((t) => t.prazo_limite && new Date(t.prazo_limite) > dataAtual && new Date(t.prazo_limite) <= em48h).length, "warning", "tarefas", "proximas_48h"],
     ["Urgentes", abertas.filter((t) => ["urgente", "critica"].includes(t.prioridade)).length, "urgent", "tarefas", "urgentes"],
     ["Devolvidas", abertas.filter((t) => ["devolvida", "devolvida_correcao"].includes(t.status)).length, "warning", "tarefas", "devolvidas"],
     ["Recém-delegadas", abertas.filter((t) => t.status === "delegada").length, "normal", "tarefas", "recem_delegadas"],
@@ -2736,8 +2826,18 @@ function ModuloClientes() {
 function ModuloUrgencias({ funcionarios, showToast }) {
   const vazio = { cliente: "", cpf: "", setor: "Administrativo", responsavel: "", tarefa: "", motivo: "", prazo: "", prioridade: "urgente", observacao: "", drive: "" };
   const [form, setForm] = useState(vazio); const [lista, setLista] = useState([]); const [destinatarios, setDestinatarios] = useState(funcionarios || []); const [salvando, setSalvando] = useState(false);
-  const carregar = useCallback(async () => { const { data, error } = await supabase.from("urgencias").select("*").order("created_at", { ascending: false }); if (!error) setLista(data || []); }, []);
-  useEffect(() => { carregar(); supabase.rpc("listar_destinatarios_tarefa").then(({ data }) => data && setDestinatarios(data)); }, [carregar]);
+  useEffect(() => {
+    let ativo = true;
+    Promise.all([
+      supabase.from("urgencias").select("*").order("created_at", { ascending: false }),
+      supabase.rpc("listar_destinatarios_tarefa"),
+    ]).then(([urgencias, pessoas]) => {
+      if (!ativo) return;
+      if (!urgencias.error) setLista(urgencias.data || []);
+      if (pessoas.data) setDestinatarios(pessoas.data);
+    });
+    return () => { ativo = false; };
+  }, []);
   const alterar = (campo, valor) => setForm((a) => ({ ...a, [campo]: valor }));
   async function criar(e) { e.preventDefault(); setSalvando(true); const { data, error } = await supabase.rpc("criar_urgencia", { p_nome_cliente: form.cliente.trim(), p_cpf_ou_id: form.cpf.trim() || null, p_setor: form.setor, p_funcionaria_id: form.responsavel ? Number(form.responsavel) : null, p_tarefa: form.tarefa.trim(), p_motivo: form.motivo.trim(), p_prazo: new Date(form.prazo).toISOString(), p_prioridade: form.prioridade, p_observacao: form.observacao.trim() || null, p_drive_url: form.drive.trim() || null }); setSalvando(false); if (error) return alert(`Erro ao registrar urgência: ${mensagemErroOperacional(error)}`); setLista((a) => [Array.isArray(data) ? data[0] : data, ...a]); setForm(vazio); showToast("Urgência registrada e notificada."); }
   async function mover(item, status) { const { data, error } = await supabase.rpc("movimentar_urgencia", { p_urgencia_id: Number(item.id), p_status: status, p_observacao: null }); if (error) return alert(error.message); const atualizada = Array.isArray(data) ? data[0] : data; setLista((a) => a.map((u) => u.id === atualizada.id ? atualizada : u)); }
@@ -2746,12 +2846,17 @@ function ModuloUrgencias({ funcionarios, showToast }) {
 
 function CentroNotificacoes() {
   const [notificacoes, setNotificacoes] = useState([]);
-  const carregar = useCallback(async () => { const { data } = await supabase.from("notificacoes_operacionais").select("*").order("created_at", { ascending: false }).limit(50); setNotificacoes(data || []); }, []);
   useEffect(() => {
+    let ativo = true;
+    const carregar = () => {
+      supabase.from("notificacoes_operacionais").select("*").order("created_at", { ascending: false }).limit(50).then(({ data }) => {
+        if (ativo) setNotificacoes(data || []);
+      });
+    };
     carregar();
-    const canal = supabase.channel("central-notificacoes").on("postgres_changes", { event: "INSERT", schema: "public", table: "notificacoes_operacionais" }, () => carregar()).subscribe();
-    return () => { supabase.removeChannel(canal); };
-  }, [carregar]);
+    const canal = supabase.channel("central-notificacoes").on("postgres_changes", { event: "INSERT", schema: "public", table: "notificacoes_operacionais" }, carregar).subscribe();
+    return () => { ativo = false; supabase.removeChannel(canal); };
+  }, []);
   async function ler(item) { await supabase.rpc("marcar_notificacao_lida", { p_notificacao_id: Number(item.id) }); setNotificacoes((a) => a.map((n) => n.id === item.id ? { ...n, lida_em: new Date().toISOString() } : n)); }
   return <section className="panel large"><div className="panel-title-row"><div><span className="eyebrow">Atualizações operacionais</span><h2>Notificações</h2></div><strong>{notificacoes.filter((n) => !n.lida_em).length} não lidas</strong></div><div className="notification-list">{notificacoes.length === 0 ? <p>Nenhuma notificação.</p> : notificacoes.map((n) => <button type="button" onClick={() => ler(n)} className={`notification-item ${n.lida_em ? "read" : "unread"}`} key={n.id}><span>●</span><div><strong>{n.titulo}</strong><p>{n.mensagem}</p><small>{formatarDataHora(n.created_at)}</small></div></button>)}</div></section>;
 }
@@ -3357,7 +3462,9 @@ function EmployeeDashboard({ usuario, onLogout, state }) {
         )}
 
         {abaAtiva === "documentos" && (
-          <GeradorDocumentos responsavel={usuario.nome} onSuccess={showToast} />
+          <Suspense fallback={<section className="panel"><p>Carregando gerador de documentos...</p></section>}>
+            <GeradorDocumentos responsavel={usuario.nome} onSuccess={showToast} />
+          </Suspense>
         )}
 
       </main>
@@ -3384,6 +3491,9 @@ export default function App() {
   const [responsabilidadesMensais, setResponsabilidadesMensais] = useState([]);
   const [toastMessage, setToastMessage] = useState("");
   const [inicializando, setInicializando] = useState(true);
+  const [modoRecuperacao, setModoRecuperacao] = useState(
+    () => new URLSearchParams(window.location.hash.slice(1)).get("type") === "recovery",
+  );
 
   const showToast = useCallback((msg) => {
     setToastMessage(msg);
@@ -3483,10 +3593,22 @@ export default function App() {
   }, []);
 
   useEffect(() => {
+    const { data } = supabase.auth.onAuthStateChange((evento) => {
+      if (evento === "PASSWORD_RECOVERY") {
+        setModoRecuperacao(true);
+        setUsuarioLogado(null);
+        setInicializando(false);
+      }
+    });
+    return () => data.subscription.unsubscribe();
+  }, []);
+
+  useEffect(() => {
     let ativo = true;
 
     async function restaurarSessao() {
       try {
+        if (modoRecuperacao) return;
         const { data, error } = await limitarTempo(
           supabase.auth.getSession(),
           TEMPO_LIMITE_INICIALIZACAO_MS,
@@ -3527,7 +3649,7 @@ export default function App() {
     return () => {
       ativo = false;
     };
-  }, [showToast, sincronizarDados]);
+  }, [modoRecuperacao, showToast, sincronizarDados]);
 
   useEffect(() => {
     if (!usuarioLogado) return undefined;
@@ -3723,6 +3845,7 @@ export default function App() {
         .glass-input:focus-within { border-color: rgba(47,107,255,.42); box-shadow: 0 0 0 4px rgba(47,107,255,.09), inset 0 1px 0 rgba(255,255,255,.96); transform: translateY(-1px); }
         .login-form input { width: 100%; margin: 0; padding: 0; color: #102a56; background: transparent; border: 0; box-shadow: none; outline: 0; font-size: 14px; font-weight: 700; }
         .login-form input::placeholder { color: #71839b; font-weight: 600; }
+        .auth-message { margin: -8px 0 0; color: #375579; font-size: 12px; line-height: 1.5; }
         .glass-button { min-height: 58px; display: inline-flex; align-items: center; justify-content: center; gap: 12px; margin-top: 8px; padding: 16px 20px; color: #fff; background: linear-gradient(135deg, #6aa2ff 0%, #2f6bff 52%, #2563eb 100%); border: 1px solid rgba(255,255,255,.5); border-radius: 18px; box-shadow: 0 18px 34px rgba(37,99,235,.28), inset 0 1px 0 rgba(255,255,255,.58), inset 0 -12px 22px rgba(15,42,85,.16); cursor: pointer; font-size: 15px; font-weight: 900; transition: .24s ease; }
         .glass-button:hover { transform: translateY(-2px); box-shadow: 0 23px 42px rgba(37,99,235,.34), 0 0 28px rgba(141,187,255,.42), inset 0 1px 0 rgba(255,255,255,.68); }
         .login-card-softline { height: 1px; margin-top: 34px; background: linear-gradient(90deg, transparent, rgba(37,99,235,.22), transparent); }
@@ -5522,7 +5645,9 @@ export default function App() {
       
       <Toast message={toastMessage} onClose={() => setToastMessage("")} />
 
-      {inicializando ? (
+      {modoRecuperacao ? (
+        <RedefinirSenha onConcluida={() => setModoRecuperacao(false)} />
+      ) : inicializando ? (
         <div className="login-page login-page-liquid">
           <section className="glass-card login-card loading-card" aria-label="Carregando Platino equipe">
             <div className="login-brand">

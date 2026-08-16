@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 
 const ENCERRADOS = new Set(["concluida", "cancelada", "arquivada"]);
 const ITENS_POR_PAGINA = 15;
@@ -62,27 +62,33 @@ export default function AcompanhamentoEquipe({ tarefas = [], funcionarios = [], 
   });
   const total = (nome) => calculadas.filter((t) => nome === "abertas" ? !ENCERRADOS.has(t.status) : nome === "concluidas" ? t.status === "concluida" : t.situacaoCalculada === nome).length;
   const totalPaginas = Math.max(1, Math.ceil(registros.length / ITENS_POR_PAGINA));
-  const registrosVisiveis = registros.slice((pagina - 1) * ITENS_POR_PAGINA, pagina * ITENS_POR_PAGINA);
+  const paginaAtual = Math.min(pagina, totalPaginas);
+  const registrosVisiveis = registros.slice((paginaAtual - 1) * ITENS_POR_PAGINA, paginaAtual * ITENS_POR_PAGINA);
 
-  useEffect(() => setPagina(1), [busca, filtro]);
-  useEffect(() => {
-    if (pagina > totalPaginas) setPagina(totalPaginas);
-  }, [pagina, totalPaginas]);
+  function selecionarFiltro(valor) {
+    setFiltro(valor);
+    setPagina(1);
+  }
+
+  function alterarBusca(evento) {
+    setBusca(evento.target.value);
+    setPagina(1);
+  }
 
   return <section className="panel large">
     <div className="panel-title-row"><div><span className="eyebrow">Consulta compartilhada</span><h2>Acompanhamento da equipe</h2><p>Todos podem verificar o andamento. A execução continua restrita ao responsável.</p></div><button className="btn-secondary compact" onClick={onAtualizar} type="button">Atualizar</button></div>
     <div className="dashboard-grid central-metrics">
-      <button className="card central-metric normal" onClick={() => setFiltro("abertas")} type="button"><span>Em aberto</span><strong>{total("abertas")}</strong></button>
-      <button className="card central-metric warning" onClick={() => setFiltro("vencem_hoje")} type="button"><span>Vencem hoje</span><strong>{total("Vence hoje")}</strong></button>
-      <button className="card central-metric danger" onClick={() => setFiltro("atrasadas")} type="button"><span>Atrasadas</span><strong>{total("Atrasada")}</strong></button>
-      <button className="card central-metric success" onClick={() => setFiltro("concluidas")} type="button"><span>Concluídas</span><strong>{total("concluidas")}</strong></button>
+      <button className="card central-metric normal" onClick={() => selecionarFiltro("abertas")} type="button"><span>Em aberto</span><strong>{total("abertas")}</strong></button>
+      <button className="card central-metric warning" onClick={() => selecionarFiltro("vencem_hoje")} type="button"><span>Vencem hoje</span><strong>{total("Vence hoje")}</strong></button>
+      <button className="card central-metric danger" onClick={() => selecionarFiltro("atrasadas")} type="button"><span>Atrasadas</span><strong>{total("Atrasada")}</strong></button>
+      <button className="card central-metric success" onClick={() => selecionarFiltro("concluidas")} type="button"><span>Concluídas</span><strong>{total("concluidas")}</strong></button>
     </div>
-    <div className="task-filters"><input aria-label="Buscar tarefas da equipe" onChange={(e) => setBusca(e.target.value)} placeholder="Buscar por ID, cliente, tarefa ou responsável" value={busca} /><div className="task-kind-switch">{[["todas", "Todas"], ["abertas", "Em aberto"], ["vencem_hoje", "Vencem hoje"], ["atrasadas", "Atrasadas"], ["concluidas", "Concluídas"]].map(([valor, rotulo]) => <button className={filtro === valor ? "active" : ""} key={valor} onClick={() => setFiltro(valor)} type="button">{rotulo}</button>)}</div></div>
+    <div className="task-filters"><input aria-label="Buscar tarefas da equipe" onChange={alterarBusca} placeholder="Buscar por ID, cliente, tarefa ou responsável" value={busca} /><div className="task-kind-switch">{[["todas", "Todas"], ["abertas", "Em aberto"], ["vencem_hoje", "Vencem hoje"], ["atrasadas", "Atrasadas"], ["concluidas", "Concluídas"]].map(([valor, rotulo]) => <button className={filtro === valor ? "active" : ""} key={valor} onClick={() => selecionarFiltro(valor)} type="button">{rotulo}</button>)}</div></div>
     {registros.length === 0 ? <p>Nenhuma tarefa encontrada neste filtro.</p> : <><div className="central-table">{registrosVisiveis.map((tarefa) => <div className="central-table-row" key={tarefa.id}><div><strong>{tarefa.id_externo || `#${tarefa.id}`} · {tarefa.titulo}</strong><small>{tarefa.nome_cliente || "Cliente não informado"}</small></div><span>{nomes.get(String(tarefa.funcionaria_id)) || `Responsável #${tarefa.funcionaria_id}`}</span><span className={`status ${tarefa.status}`}>{tarefa.situacaoCalculada}</span><small>Prazo: {formatar(tarefa.prazo_limite || tarefa.data_limite)}{tarefa.concluida_em ? ` · Feita: ${formatar(tarefa.concluida_em)}` : ""}</small></div>)}</div>
       <nav aria-label="Paginação das tarefas" className="task-history-actions pagination-numbered">
-        <button className="btn-secondary compact" disabled={pagina === 1} onClick={() => setPagina((p) => p - 1)} type="button">Anterior</button>
-        {paginasParaExibir(pagina, totalPaginas).map((item) => typeof item === "number" ? <button aria-current={pagina === item ? "page" : undefined} className={`btn-secondary compact ${pagina === item ? "active" : ""}`} key={item} onClick={() => setPagina(item)} type="button">{item}</button> : <span key={item}>…</span>)}
-        <button className="btn-secondary compact" disabled={pagina === totalPaginas} onClick={() => setPagina((p) => p + 1)} type="button">Próxima</button>
+        <button className="btn-secondary compact" disabled={paginaAtual === 1} onClick={() => setPagina(paginaAtual - 1)} type="button">Anterior</button>
+        {paginasParaExibir(paginaAtual, totalPaginas).map((item) => typeof item === "number" ? <button aria-current={paginaAtual === item ? "page" : undefined} className={`btn-secondary compact ${paginaAtual === item ? "active" : ""}`} key={item} onClick={() => setPagina(item)} type="button">{item}</button> : <span key={item}>…</span>)}
+        <button className="btn-secondary compact" disabled={paginaAtual === totalPaginas} onClick={() => setPagina(paginaAtual + 1)} type="button">Próxima</button>
         <small>{registros.length} tarefa(s)</small>
       </nav></>}
   </section>;
