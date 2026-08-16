@@ -1,6 +1,8 @@
 import AcompanhamentoEquipe from './AcompanhamentoEquipe';
 import MeuPlanner from './MeuPlanner';
 import PainelEquipeTV from './PainelEquipeTV';
+import ClienteDriveSelector from './components/ClienteDriveSelector';
+import { GOOGLE_DRIVE_CLIENTES_ROOT_URL } from './lib/googleDriveClients';
 import { lazy, Suspense, useCallback, useEffect, useState } from "react";
 import { supabase } from "./lib/supabase";
 import { criarResumoBoasVindas } from "./homeGreeting";
@@ -1406,6 +1408,7 @@ function AdminDashboard({ usuario, onLogout, state }) {
   const [tarefaManual, setTarefaManual] = useState(false);
   const [responsavelManual, setResponsavelManual] = useState("");
   const [nomeClienteTarefa, setNomeClienteTarefa] = useState("");
+  const [clienteDriveTarefa, setClienteDriveTarefa] = useState(null);
   const [setorSolicitante, setSetorSolicitante] = useState("Supervisão");
   const [acaoOutra, setAcaoOutra] = useState("");
   const [setorExecutor, setSetorExecutor] = useState("Administrativo");
@@ -1545,7 +1548,7 @@ function AdminDashboard({ usuario, onLogout, state }) {
   async function handleCriarTarefa(e) {
     e.preventDefault();
     const tituloDelegado = tituloAutomaticoDaTarefa(categoria, acaoOutra);
-    if ((tarefaManual && !titulo.trim()) || (!tarefaManual && (!funcId || !dataLimite || !nomeClienteTarefa || !setorSolicitante || !setorExecutor || !descricao.trim() || !tituloDelegado))) {
+    if ((tarefaManual && !titulo.trim()) || (!tarefaManual && (!funcId || !dataLimite || !clienteDriveTarefa?.id || !nomeClienteTarefa || !setorSolicitante || !setorExecutor || !descricao.trim() || !tituloDelegado))) {
       return alert(
         tarefaManual
           ? "Preencha o titulo da tarefa manual."
@@ -1574,7 +1577,7 @@ function AdminDashboard({ usuario, onLogout, state }) {
       error = resposta.error;
     } else {
       const resposta = await supabase.rpc("delegar_tarefa_operacional", {
-        p_cliente_id: null, p_tratativa_id: null, p_nome_cliente: nomeClienteTarefa.trim(),
+        p_cliente_id: Number(clienteDriveTarefa.id), p_tratativa_id: null, p_nome_cliente: nomeClienteTarefa.trim(),
         p_tipo_codigo: CODIGOS_TIPO_TAREFA[categoria], p_titulo: tituloDelegado,
         p_solicitacao: descricao.trim(), p_resultado_esperado: gerarResultadoEsperadoTarefa(categoria === "OUTROS" ? acaoOutra : categoria),
         p_setor_solicitante: setorSolicitante, p_setor_executor: setorExecutor,
@@ -1600,6 +1603,7 @@ function AdminDashboard({ usuario, onLogout, state }) {
       setFuncId("");
       setResponsavelManual("");
       setNomeClienteTarefa("");
+      setClienteDriveTarefa(null);
       setAcaoOutra("");
       setDataLimite("");
       setPrioridade("normal");
@@ -2270,7 +2274,7 @@ function AdminDashboard({ usuario, onLogout, state }) {
           </>
         )}
 
-        {abaAtiva === "clientes" && <ModuloClientes />}
+        {abaAtiva === "clientes" && <ModuloClientes podeSincronizar />}
         {abaAtiva === "urgencias" && <ModuloUrgencias usuario={usuario} funcionarios={funcionarios} showToast={showToast} />}
 
         {abaAtiva === "tarefas" && (
@@ -2335,7 +2339,14 @@ function AdminDashboard({ usuario, onLogout, state }) {
                     />
                   </label>}
                   {!tarefaManual && <div className="task-form-row">
-                    <label>Nome do cliente<input required value={nomeClienteTarefa} onChange={(event) => setNomeClienteTarefa(event.target.value)} placeholder="Nome completo do cliente" /></label>
+                    <ClienteDriveSelector
+                      required
+                      selecionado={clienteDriveTarefa}
+                      onSelecionar={(cliente) => {
+                        setClienteDriveTarefa(cliente);
+                        setNomeClienteTarefa(cliente?.nome || "");
+                      }}
+                    />
                     <label>Setor solicitante<select required value={setorSolicitante} onChange={(event) => setSetorSolicitante(event.target.value)}><option>Supervisão</option><option>Administrativo</option><option>Jurídico</option><option>Comercial</option><option>Processual</option></select></label>
                   </div>}
                   <label>
@@ -3240,13 +3251,12 @@ function InicioColaborador({ tarefas, usuario, onNavigate, feedbacks, onAtualiza
   </>;
 }
 
-function ModuloClientes() {
+function ModuloClientes({ podeSincronizar = false }) {
   const [clientes, setClientes] = useState([]);
   const [busca, setBusca] = useState("");
   const [erro, setErro] = useState("");
-  const [editando, setEditando] = useState(null);
-  const [formCliente, setFormCliente] = useState(null);
-  const [salvando, setSalvando] = useState(false);
+  const [aviso, setAviso] = useState("");
+  const [sincronizando, setSincronizando] = useState(false);
 
   useEffect(() => {
     let ativo = true;
@@ -3258,113 +3268,74 @@ function ModuloClientes() {
     return () => { ativo = false; };
   }, []);
   const termo = normalizarTexto(busca);
-  const filtrados = clientes.filter((c) => !termo || normalizarTexto(`${c.nome} ${c.cpf || ""} ${c.codigo_interno || ""} ${c.crm_referencia || ""}`).includes(termo));
+  const clientesDrive = clientes.filter((cliente) => cliente.drive_folder_id && cliente.drive_status === "ativo");
+  const filtrados = clientesDrive.filter((cliente) => !termo || normalizarTexto(`${cliente.nome} ${cliente.pasta_drive_nome || ""}`).includes(termo));
+  const ultimaSincronizacao = clientesDrive.reduce((maisRecente, cliente) => {
+    if (!cliente.drive_last_synced_at) return maisRecente;
+    return !maisRecente || cliente.drive_last_synced_at > maisRecente
+      ? cliente.drive_last_synced_at
+      : maisRecente;
+  }, "");
 
-  function abrirEditor(cliente = null) {
-    setEditando(cliente?.id || "novo");
-    setFormCliente({
-      id: cliente?.id || null,
-      nome: cliente?.nome || "",
-      cpf: cliente?.cpf || "",
-      numeroContrato: cliente?.numero_contrato || "",
-      numeroProcesso: cliente?.numero_processo || "",
-      departamento: cliente?.departamento_atual || "",
-      crm: cliente?.crm_referencia || "",
-      pastaDriveUrl: cliente?.pasta_drive_url || "",
-      pastaDriveNome: cliente?.pasta_drive_nome || "",
-    });
-  }
-
-  function alterarCliente(campo, valor) {
-    setFormCliente((atual) => ({ ...atual, [campo]: valor }));
-  }
-
-  async function salvarCliente(evento) {
-    evento.preventDefault();
-    const nome = formCliente.nome.trim();
-    const linkDrive = formCliente.pastaDriveUrl.trim();
-    if (!nome) { setErro("Informe o nome do cliente."); return; }
-    if (linkDrive && !/^https:\/\/(drive|docs)\.google\.com\//i.test(linkDrive)) {
-      setErro("Informe um link válido do Google Drive.");
+  async function sincronizarDrive() {
+    setSincronizando(true);
+    setErro("");
+    setAviso("");
+    const { data, error } = await supabase.functions.invoke("sincronizar-clientes-drive", { body: {} });
+    if (error || data?.error) {
+      setErro(data?.error || error?.message || "Não foi possível sincronizar o Google Drive.");
+      setSincronizando(false);
       return;
     }
-
-    setSalvando(true);
-    const { data, error: erroSalvar } = await supabase.rpc("salvar_cliente_central", {
-      p_cliente_id: formCliente.id ? Number(formCliente.id) : null,
-      p_nome: nome,
-      p_cpf: formCliente.cpf.trim() || null,
-      p_numero_contrato: formCliente.numeroContrato.trim() || null,
-      p_numero_processo: formCliente.numeroProcesso.trim() || null,
-      p_departamento_atual: formCliente.departamento.trim() || null,
-      p_crm_referencia: formCliente.crm.trim() || null,
-      p_pasta_drive_url: linkDrive || null,
-      p_pasta_drive_nome: formCliente.pastaDriveNome.trim() || null,
-    });
-    setSalvando(false);
-    if (erroSalvar) { setErro(mensagemErroOperacional(erroSalvar)); return; }
-    const clienteSalvo = Array.isArray(data) ? data[0] : data;
-    setClientes((atuais) => {
-      const semAnterior = atuais.filter((cliente) => String(cliente.id) !== String(clienteSalvo.id));
-      return [clienteSalvo, ...semAnterior];
-    });
-    setEditando(null);
-    setFormCliente(null);
-    setErro("");
+    const consulta = await supabase.rpc("listar_clientes_central");
+    setSincronizando(false);
+    if (consulta.error) {
+      setErro(mensagemErroOperacional(consulta.error));
+      return;
+    }
+    setClientes(consulta.data || []);
+    const resumo = data?.resumo || {};
+    setAviso(`Drive atualizado: ${resumo.total_recebido || 0} pastas verificadas, ${resumo.inseridos || 0} novas e ${resumo.atualizados || 0} atualizadas.`);
   }
+
   return (
     <section className="panel large client-management-panel">
       <div className="panel-title-row">
         <div>
-          <span className="eyebrow">Jornada centralizada</span>
-          <h2>Clientes</h2>
-          <p>Cadastre os dados do cliente e mantenha o link da pasta no Google Drive sempre acessível.</p>
+          <span className="eyebrow">Base corporativa sincronizada</span>
+          <h2>Clientes do Google Drive</h2>
+          <p>As pastas de <strong>01_CLIENTES_ATIVOS</strong> são a fonte oficial para delegação de tarefas.</p>
         </div>
         <div className="task-history-actions">
-          <strong>{filtrados.length}</strong>
-          <button type="button" className="btn-primary compact" onClick={() => abrirEditor()}>Novo cliente</button>
+          <a className="btn-secondary compact" href={GOOGLE_DRIVE_CLIENTES_ROOT_URL} target="_blank" rel="noreferrer">Abrir pasta geral</a>
+          {podeSincronizar && <button type="button" className="btn-primary compact" disabled={sincronizando} onClick={sincronizarDrive}>{sincronizando ? "Sincronizando..." : "Atualizar do Google Drive"}</button>}
         </div>
       </div>
 
-      {editando && formCliente && (
-        <form className="client-editor" onSubmit={salvarCliente}>
-          <div className="client-editor-heading">
-            <div>
-              <span className="eyebrow">{formCliente.id ? "Edição do cadastro" : "Novo cadastro"}</span>
-              <h3>{formCliente.id ? "Atualizar cliente" : "Cadastrar cliente"}</h3>
-            </div>
-            <button type="button" className="model-library-close" onClick={() => { setEditando(null); setFormCliente(null); }} aria-label="Fechar edição">×</button>
-          </div>
-          <div className="client-editor-grid">
-            <label>Nome completo *<input required value={formCliente.nome} onChange={(evento) => alterarCliente("nome", evento.target.value)} placeholder="Nome completo do cliente" /></label>
-            <label>CPF ou CNPJ<input value={formCliente.cpf} onChange={(evento) => alterarCliente("cpf", evento.target.value)} placeholder="000.000.000-00" /></label>
-            <label>Número do contrato<input value={formCliente.numeroContrato} onChange={(evento) => alterarCliente("numeroContrato", evento.target.value)} /></label>
-            <label>Número do processo<input value={formCliente.numeroProcesso} onChange={(evento) => alterarCliente("numeroProcesso", evento.target.value)} /></label>
-            <label>Departamento atual<input value={formCliente.departamento} onChange={(evento) => alterarCliente("departamento", evento.target.value)} placeholder="Ex.: Jurídico" /></label>
-            <label>Referência no CRM<input value={formCliente.crm} onChange={(evento) => alterarCliente("crm", evento.target.value)} /></label>
-            <label className="wide">Link da pasta do cliente no Google Drive<input type="url" value={formCliente.pastaDriveUrl} onChange={(evento) => alterarCliente("pastaDriveUrl", evento.target.value)} placeholder="https://drive.google.com/drive/folders/..." /></label>
-            <label>Nome da pasta no Drive<input value={formCliente.pastaDriveNome} onChange={(evento) => alterarCliente("pastaDriveNome", evento.target.value)} placeholder="Ex.: Cliente - João da Silva" /></label>
-          </div>
-          <p className="client-editor-help">Cole o link da pasta do cliente no Google Drive. A equipe poderá abri-la diretamente pela lista.</p>
-          <div className="client-editor-actions">
-            <button type="button" className="btn-secondary" onClick={() => { setEditando(null); setFormCliente(null); }}>Cancelar</button>
-            <button type="submit" className="btn-primary" disabled={salvando}>{salvando ? "Salvando..." : "Salvar cliente"}</button>
-          </div>
-        </form>
-      )}
-
-      <input className="central-search" value={busca} onChange={(evento) => setBusca(evento.target.value)} placeholder="Buscar por nome, CPF, código ou CRM" />
-      {erro ? <div className="return-alert">{erro}</div> : (
+      <div className="drive-sync-summary">
+        <div><span>Clientes ativos</span><strong>{clientesDrive.length}</strong></div>
+        <div><span>Última sincronização</span><strong>{ultimaSincronizacao ? formatarDataHora(ultimaSincronizacao) : "Pendente"}</strong></div>
+        <div><span>Origem</span><strong>Google Drive da empresa</strong></div>
+      </div>
+      {aviso && <div className="drive-sync-success" role="status">{aviso}</div>}
+      {erro && <div className="return-alert">{erro}</div>}
+      <input className="central-search" value={busca} onChange={(evento) => setBusca(evento.target.value)} placeholder="Buscar uma pasta de cliente ativo" />
+      {filtrados.length === 0 ? (
+        <div className="drive-clients-empty">
+          <span aria-hidden="true">📁</span>
+          <strong>Nenhum cliente sincronizado</strong>
+          <p>{podeSincronizar ? "Configure a integração e clique em Atualizar do Google Drive." : "Solicite ao gestor a sincronização da pasta de clientes ativos."}</p>
+        </div>
+      ) : (
         <div className="central-table">
-          {filtrados.slice(0, 15).map((cliente) => (
+          {filtrados.slice(0, 100).map((cliente) => (
             <div className="central-table-row client-row" key={cliente.id}>
-              <div><strong>{cliente.nome}</strong><small>{cliente.codigo_interno || "Sem código"}</small></div>
-              <span>{cliente.cpf || "CPF não informado"}</span>
-              <span>{cliente.departamento_atual || "Sem departamento"}</span>
-              <span>{cliente.status_geral || cliente.status_operacional}</span>
+              <div><strong>{cliente.nome}</strong><small>{cliente.pasta_drive_nome}</small></div>
+              <span>Google Drive</span>
+              <span className="drive-client-status">Sincronizado</span>
+              <span>{cliente.drive_modified_time ? formatarDataHora(cliente.drive_modified_time) : "Data não informada"}</span>
               <div className="client-row-actions">
-                {cliente.pasta_drive_url ? <a href={cliente.pasta_drive_url} target="_blank" rel="noreferrer">Abrir Drive</a> : <small>Drive pendente</small>}
-                <button type="button" className="btn-secondary compact" onClick={() => abrirEditor(cliente)}>Editar</button>
+                <a href={cliente.pasta_drive_url} target="_blank" rel="noreferrer">Abrir pasta</a>
               </div>
             </div>
           ))}
@@ -3476,7 +3447,7 @@ function CentralNotificacoesBell() {
 }
 
 function FormularioDelegacaoUsuario({ usuario, funcionarios, onCriada, showToast }) {
-  const formularioVazio = { cliente: "", tipo: CATEGORIAS_TAREFA[0], outraAcao: "", solicitacao: "", setorExecutor: "Administrativo", responsavelId: "", prazo: "", prioridade: "normal", apontamento: "" };
+  const formularioVazio = { cliente: "", clienteDrive: null, tipo: CATEGORIAS_TAREFA[0], outraAcao: "", solicitacao: "", setorExecutor: "Administrativo", responsavelId: "", prazo: "", prioridade: "normal", apontamento: "" };
   const [form, setForm] = useState(formularioVazio);
   const [salvando, setSalvando] = useState(false);
   const [enviada, setEnviada] = useState(false);
@@ -3509,13 +3480,14 @@ function FormularioDelegacaoUsuario({ usuario, funcionarios, onCriada, showToast
 
   async function delegar(event) {
     event.preventDefault();
+    if (!form.clienteDrive?.id) return alert("Selecione uma pasta de cliente sincronizada com o Google Drive.");
     if (form.tipo === "OUTROS" && !form.outraAcao.trim()) return alert("Descreva a ação solicitada.");
     if (!form.prazo) return alert("Selecione um prazo rápido ou escolha uma data em Mais opções.");
     const tituloDelegado = tituloAutomaticoDaTarefa(form.tipo, form.outraAcao);
     setSalvando(true);
     try {
       const { data, error } = await supabase.rpc("delegar_tarefa_operacional", {
-        p_cliente_id: null, p_tratativa_id: null, p_nome_cliente: form.cliente.trim(),
+        p_cliente_id: Number(form.clienteDrive.id), p_tratativa_id: null, p_nome_cliente: form.cliente.trim(),
         p_tipo_codigo: CODIGOS_TIPO_TAREFA[form.tipo], p_titulo: tituloDelegado,
         p_solicitacao: `${form.tipo === "OUTROS" ? `Ação: ${form.outraAcao.trim()}\n` : ""}${form.solicitacao.trim()}`,
         p_resultado_esperado: gerarResultadoEsperadoTarefa(form.tipo === "OUTROS" ? form.outraAcao : form.tipo),
@@ -3542,7 +3514,15 @@ function FormularioDelegacaoUsuario({ usuario, funcionarios, onCriada, showToast
     <div className="panel-title-row"><div><span className="eyebrow">Delegação rápida</span><h2>Delegar nova tarefa</h2><p>Organize a solicitação, escolha a ação e acompanhe o prazo com clareza.</p></div></div>
     <form className="stack-form task-form task-delegation-form" onSubmit={delegar}>
       <div className="task-form-row">
-        <label>Nome do cliente<input required value={form.cliente} onChange={(e) => alterar("cliente", e.target.value)} placeholder="Nome completo do cliente" /></label>
+        <ClienteDriveSelector
+          required
+          selecionado={form.clienteDrive}
+          onSelecionar={(cliente) => setForm((atual) => ({
+            ...atual,
+            clienteDrive: cliente,
+            cliente: cliente?.nome || "",
+          }))}
+        />
         <label>Setor solicitante<input readOnly value={usuario.setor || usuario.cargo || "Equipe"} aria-label="Setor solicitante" /></label>
       </div>
       <SeletorAcaoVisual valor={form.tipo} onChange={(valor) => alterar("tipo", valor)} />
@@ -6356,6 +6336,37 @@ export default function App() {
         .central-metric.warning { border-left: 4px solid #e5bd3d; }
         .central-metric.success { border-left: 4px solid #35aa91; }
         .central-search { width: 100%; margin: 12px 0 18px; }
+        .drive-client-field { position: relative; display: grid; gap: 7px; min-width: 0; }
+        .drive-client-field > label { color: #284568; font-size: 11px; font-weight: 800; }
+        .drive-client-combobox { position: relative; min-width: 0; }
+        .drive-client-combobox .drive-folder-icon { position: absolute; z-index: 2; left: 14px; top: 50%; transform: translateY(-50%); font-size: 16px; pointer-events: none; }
+        .drive-client-combobox input { width: 100%; min-height: 44px; margin: 0; padding-left: 42px; padding-right: 42px; }
+        .drive-client-combobox.is-open input { border-color: #4c8ef7; box-shadow: 0 0 0 3px rgba(76,142,247,.12); }
+        .drive-client-clear { position: absolute; z-index: 3; right: 8px; top: 50%; width: 32px; height: 32px; transform: translateY(-50%); border: 0; border-radius: 9px; background: transparent; color: #637b9a; font-size: 22px; cursor: pointer; }
+        .drive-client-options { position: absolute; z-index: 80; top: calc(100% + 7px); left: 0; right: 0; display: grid; max-height: 310px; overflow-y: auto; padding: 7px; background: #fff; border: 1px solid rgba(60,112,182,.22); border-radius: 14px; box-shadow: 0 22px 52px rgba(25,65,117,.2); }
+        .drive-client-options > p { padding: 14px; font-size: 11px; }
+        .drive-client-options .drive-client-error { color: #b63e4a; }
+        .drive-client-options button { display: flex; align-items: center; gap: 10px; min-height: 50px; padding: 9px 11px; text-align: left; background: transparent; border: 0; border-radius: 10px; cursor: pointer; }
+        .drive-client-options button:hover, .drive-client-options button[aria-selected="true"] { background: #edf5ff; }
+        .drive-client-options button > span:last-child { display: grid; gap: 2px; min-width: 0; }
+        .drive-client-options strong, .drive-client-options small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .drive-client-options strong { color: #173962; font-size: 11px; }
+        .drive-client-options small { color: #7182a0; font-size: 9px; }
+        .drive-client-selected { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 12px; background: #eff8f5; border: 1px solid rgba(50,165,137,.18); border-radius: 11px; }
+        .drive-client-selected > span { display: grid; gap: 2px; }
+        .drive-client-selected strong { color: #267563; font-size: 10px; }
+        .drive-client-selected small { color: #66857d; font-size: 9px; }
+        .drive-client-selected a { flex: 0 0 auto; color: #2f6fd0; font-size: 10px; font-weight: 800; }
+        .drive-sync-summary { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 10px; margin: 18px 0 6px; }
+        .drive-sync-summary > div { display: grid; gap: 5px; padding: 14px; background: #f6faff; border: 1px solid rgba(69,119,183,.12); border-radius: 13px; }
+        .drive-sync-summary span { color: #7182a0; font-size: 9px; font-weight: 800; text-transform: uppercase; letter-spacing: .7px; }
+        .drive-sync-summary strong { color: #173962; font-size: 12px; }
+        .drive-sync-success { margin: 12px 0 0; padding: 11px 13px; color: #247b67; background: #effaf6; border: 1px solid rgba(48,164,135,.18); border-radius: 11px; font-size: 11px; font-weight: 700; }
+        .drive-clients-empty { display: grid; justify-items: center; gap: 8px; padding: 42px 20px; text-align: center; border: 1px dashed rgba(74,120,180,.25); border-radius: 14px; background: #f9fbfe; }
+        .drive-clients-empty > span { font-size: 30px; }
+        .drive-clients-empty strong { color: #173962; }
+        .drive-clients-empty p { max-width: 460px; font-size: 11px; }
+        .drive-client-status { width: max-content; padding: 5px 8px; color: #257963; background: #eaf8f3; border-radius: 999px; font-size: 9px; font-weight: 800; }
         .central-table { display: grid; gap: 8px; }
         .central-table-row { display: grid; grid-template-columns: 130px 1.1fr 1.5fr 150px 120px; align-items: center; gap: 12px; padding: 12px 14px; background: rgba(247,250,254,.9); border: 1px solid rgba(79,126,184,.1); border-radius: 12px; }
         .central-table-row a { color: #2f6fd0; font-weight: 800; }
@@ -6383,7 +6394,7 @@ export default function App() {
         .notification-item.unread { background: #edf5ff; border-color: rgba(48,111,208,.24); }
         .notification-item > span { color: #3981df; }
         .notification-item.read { opacity: .7; }
-        .delegation-panel { position: relative; overflow: hidden; }
+        .delegation-panel { position: relative; overflow: visible; }
         .delegation-sent { position: absolute; inset: 0; z-index: 8; display: grid; place-content: center; justify-items: center; gap: 12px; color: #195c49; background: rgba(242,253,248,.96); backdrop-filter: blur(8px); animation: delegationFade 1.8s ease both; }
         .delegation-sent span { font-size: 54px; animation: sendLetter 1s cubic-bezier(.2,.8,.2,1) both; }
         .quick-deadline { display: grid; gap: 9px; padding: 14px; background: rgba(239,246,255,.78); border: 1px solid rgba(68,126,201,.14); border-radius: 14px; }
@@ -6405,6 +6416,8 @@ export default function App() {
           .welcome-summary { align-items: flex-start; flex-direction: column; min-height: 0; padding: 21px 19px; gap: 15px; }
           .welcome-summary .btn-primary { width: 100%; }
           .central-table-row { grid-template-columns: 1fr; }
+          .drive-sync-summary { grid-template-columns: 1fr; }
+          .drive-client-selected { align-items: flex-start; flex-direction: column; }
           .client-editor-grid { grid-template-columns: 1fr; }
           .client-editor-grid .wide { grid-column: auto; }
           .client-row-actions { justify-content: flex-start; }
