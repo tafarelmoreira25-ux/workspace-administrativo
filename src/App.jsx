@@ -540,6 +540,7 @@ function UiIcon({ name, size = 20 }) {
     ranking: <><path d="M8 21h8" /><path d="M12 17v4" /><path d="M7 4h10v5a5 5 0 0 1-10 0Z" /><path d="M7 6H4v2a4 4 0 0 0 4 4" /><path d="M17 6h3v2a4 4 0 0 1-4 4" /></>,
     feedback: <><path d="M21 15a4 4 0 0 1-4 4H8l-5 3V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4Z" /><path d="M8 9h8" /><path d="M8 13h5" /></>,
     notificacao: <><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9" /><path d="M10 21h4" /></>,
+    olho: <><path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6S2 12 2 12Z" /><circle cx="12" cy="12" r="2.5" /></>,
     logout: <><path d="M10 17l5-5-5-5" /><path d="M15 12H3" /><path d="M21 19V5a2 2 0 0 0-2-2h-6" /></>,
     spark: <><path d="m12 3-1.8 4.5L6 9l4.2 1.5L12 15l1.8-4.5L18 9l-4.2-1.5Z" /><path d="m5 15-.8 2L2 18l2.2.8L5 21l.8-2.2L8 18l-2.2-1Z" /></>,
   };
@@ -974,6 +975,7 @@ function ListaFeedbacks({
 function Login({ onLogin }) {
   const [email, setEmail] = useState("");
   const [senha, setSenha] = useState("");
+  const [mostrarSenha, setMostrarSenha] = useState(false);
   const [carregando, setCarregando] = useState(false);
   const [enviandoRecuperacao, setEnviandoRecuperacao] = useState(false);
   const [avisoRecuperacao, setAvisoRecuperacao] = useState("");
@@ -1056,41 +1058,57 @@ function Login({ onLogin }) {
         <div className="login-card-accent" aria-hidden="true" />
         <div className="login-brand">
           <div>
-            <strong>Platino equipe</strong>
-            <span>Workspace Administrativo</span>
+            <strong>Platino</strong>
+            <span className="login-workspace-badge">Workspace</span>
           </div>
         </div>
 
         <div className="login-heading">
-          <span>Acesso ao sistema</span>
-          <h1>Bem-vindo</h1>
-          <p>Informe suas credenciais para continuar.</p>
+          <h1>Bem-vindo de volta! <span aria-hidden="true">👋</span></h1>
+          <p>Acesse sua conta corporativa.</p>
         </div>
 
         <form className="login-form" onSubmit={fazerLogin}>
-          <label className="glass-field">
-            <span>E-mail corporativo</span>
+          <label className="glass-field floating-field">
+            <span className="sr-only">E-mail corporativo</span>
             <div className="glass-input">
-              <UiIcon name="equipe" size={20} />
-              <input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="exemplo@empresa.com"
-              />
+              <UiIcon name="equipe" size={19} />
+              <div className="floating-input-wrap">
+                <input
+                  autoComplete="email"
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder=" "
+                />
+                <span>E-mail corporativo</span>
+              </div>
             </div>
           </label>
 
-          <label className="glass-field">
-            <span>Senha</span>
+          <label className="glass-field floating-field">
+            <span className="sr-only">Senha</span>
             <div className="glass-input">
-              <UiIcon name="logout" size={20} />
-              <input
-                type="password"
-                value={senha}
-                onChange={(e) => setSenha(e.target.value)}
-                placeholder="Sua senha de acesso"
-              />
+              <UiIcon name="logout" size={19} />
+              <div className="floating-input-wrap">
+                <input
+                  autoComplete="current-password"
+                  type={mostrarSenha ? "text" : "password"}
+                  value={senha}
+                  onChange={(e) => setSenha(e.target.value)}
+                  placeholder=" "
+                />
+                <span>Senha</span>
+              </div>
+              <button
+                type="button"
+                className="password-visibility"
+                onClick={() => setMostrarSenha((atual) => !atual)}
+                aria-label={mostrarSenha ? "Ocultar senha" : "Exibir senha"}
+                title={mostrarSenha ? "Ocultar senha" : "Exibir senha"}
+              >
+                <UiIcon name="olho" size={19} />
+              </button>
             </div>
           </label>
 
@@ -1110,7 +1128,8 @@ function Login({ onLogin }) {
             className="glass-button full login-submit"
             disabled={carregando}
           >
-            <span>{carregando ? "Autenticando..." : "Entrar"}</span>
+            {carregando && <span className="login-spinner" aria-hidden="true" />}
+            <span>{carregando ? "Entrando..." : "Entrar"}</span>
           </button>
 
         </form>
@@ -5865,6 +5884,34 @@ export default function App() {
 
         .login-page-liquid .login-footer-minimal span + span { padding-left: 18px !important; border-left: 1px solid #cbd5e1 !important; }
         .login-page-liquid .login-footer-minimal strong { color: #356fd3 !important; }
+
+        /* Login enxuto: marca, credenciais e ação principal. */
+        .login-page-liquid .login-card { width: min(100%, 420px) !important; padding: 36px 36px 34px !important; border-radius: 18px !important; background: rgba(255,255,255,.92) !important; box-shadow: 0 20px 40px rgba(15,42,85,.08) !important; }
+        .login-page-liquid .login-brand { margin-bottom: 30px !important; }
+        .login-page-liquid .login-brand div { display: flex; align-items: center; gap: 10px; }
+        .login-page-liquid .login-brand div strong { font-size: 23px !important; letter-spacing: .06em !important; }
+        .login-page-liquid .login-brand .login-workspace-badge { display: inline-flex !important; width: auto; margin: 0 !important; padding: 4px 8px; color: #356fd3 !important; background: #edf5ff; border: 1px solid #d9e9ff; border-radius: 999px; font-size: 9px !important; letter-spacing: .06em !important; line-height: 1; text-transform: uppercase; }
+        .login-heading { margin-bottom: 24px !important; }
+        .login-heading > span { display: none !important; }
+        .login-page-liquid .login-heading h1 { margin: 0 0 7px !important; font-size: 29px !important; letter-spacing: -.035em !important; }
+        .login-page-liquid .login-heading h1 span { display: inline; font-size: .8em; }
+        .login-page-liquid .login-form { gap: 14px !important; }
+        .login-page-liquid .floating-field { gap: 0 !important; }
+        .login-page-liquid .floating-field .glass-input { height: 56px !important; min-height: 56px !important; }
+        .floating-input-wrap { position: relative; display: flex; flex: 1; align-items: stretch; min-width: 0; height: 100%; }
+        .login-page-liquid .floating-input-wrap input { width: 100%; height: 100% !important; padding: 14px 0 0 !important; }
+        .floating-input-wrap > span { position: absolute; top: 50%; left: 0; color: #718096; font-size: 13px; font-weight: 600; pointer-events: none; transform: translateY(-50%); transition: .16s ease; }
+        .floating-input-wrap input:focus + span, .floating-input-wrap input:not(:placeholder-shown) + span { top: 13px; color: #356fd3; font-size: 9px; font-weight: 800; letter-spacing: .02em; transform: translateY(-50%); }
+        .password-visibility { display: grid; width: 34px; height: 34px; padding: 0; place-items: center; color: #7186a2; background: transparent; border: 0; border-radius: 9px; cursor: pointer; transition: .18s ease; }
+        .password-visibility:hover { color: #2563eb; background: #edf5ff; }
+        .password-visibility:focus-visible { outline: 3px solid rgba(59,130,246,.22); outline-offset: 1px; }
+        .login-page-liquid .forgot-password { margin: -3px 0 3px !important; text-decoration: none; }
+        .login-page-liquid .forgot-password:hover:not(:disabled) { color: #174fa8 !important; text-decoration: underline; }
+        .login-page-liquid .login-submit { min-height: 54px !important; height: 54px !important; margin-top: 3px !important; border-radius: 10px !important; gap: 8px !important; transition: transform .18s ease, box-shadow .18s ease !important; }
+        .login-page-liquid .login-submit:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 14px 28px rgba(37,99,201,.28) !important; }
+        .login-page-liquid .login-submit:disabled { cursor: wait; opacity: .78; transform: none; }
+        .login-spinner { width: 16px; height: 16px; border: 2px solid rgba(255,255,255,.45); border-top-color: #fff; border-radius: 50%; animation: loginSpin .7s linear infinite; }
+        @keyframes loginSpin { to { transform: rotate(360deg); } }
 
         /* Gamificação semanal, devolução obrigatória e check-in documental */
         .sr-only { position: absolute !important; width: 1px !important; height: 1px !important; padding: 0 !important; margin: -1px !important; overflow: hidden !important; clip: rect(0, 0, 0, 0) !important; white-space: nowrap !important; border: 0 !important; }
