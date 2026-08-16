@@ -521,14 +521,58 @@ const AVATARES_EQUIPE = {
   "tafa@adm.com": "50% 100%",
 };
 
+const FOTOS_FIXAS_EQUIPE = {
+  "janaina@platino.com": "/assets/equipe/janaina.jpeg",
+};
+
+const GRUPOS_EQUIPE_GESTOR = [
+  {
+    id: "administrativo",
+    titulo: "Perfil usuários ADM",
+    descricao: "Gestão e operação administrativa",
+    ordem: [["tafarel"], ["yasmim", "yasmin"], ["thayla"]],
+  },
+  {
+    id: "juridico",
+    titulo: "Perfil usuários Jurídico",
+    descricao: "Supervisão e operação jurídica",
+    ordem: [["nicolas"], ["tabata"], ["giullian"], ["janaina"], ["elaine"]],
+  },
+];
+
+function identificarGrupoEquipe(funcionario) {
+  const nome = normalizarTexto(funcionario?.nome || "");
+  const grupoExplicito = GRUPOS_EQUIPE_GESTOR.find((grupo) =>
+    grupo.ordem.some((apelidos) => apelidos.some((apelido) => nome.includes(apelido))),
+  );
+  if (grupoExplicito) return grupoExplicito.id;
+  return normalizarTexto(funcionario?.setor || funcionario?.cargo || "").includes("jurid")
+    ? "juridico"
+    : "administrativo";
+}
+
+function ordenarEquipe(membros, ordem) {
+  const posicao = (funcionario) => {
+    const nome = normalizarTexto(funcionario?.nome || "");
+    const indice = ordem.findIndex((apelidos) =>
+      apelidos.some((apelido) => nome.includes(apelido)),
+    );
+    return indice === -1 ? ordem.length : indice;
+  };
+  return membros.slice().sort((a, b) =>
+    posicao(a) - posicao(b) || (a.nome || "").localeCompare(b.nome || "", "pt-BR"),
+  );
+}
+
 function AvatarMembro({ funcionario, performance, compacto = false }) {
   const email = funcionario?.email?.trim().toLowerCase();
   const posicaoSprite = AVATARES_EQUIPE[email];
+  const fotoUrl = funcionario?.foto_url || FOTOS_FIXAS_EQUIPE[email];
   return (
     <div className={`member-avatar-wrap ${compacto ? "compact" : ""}`}>
       <div className="member-avatar">
-        {funcionario?.foto_url ? (
-          <img src={funcionario.foto_url} alt={`Foto de ${funcionario.nome}`} />
+        {fotoUrl ? (
+          <img src={fotoUrl} alt={`Foto de ${funcionario.nome}`} />
         ) : posicaoSprite ? (
           <span
             aria-label={`Foto de ${funcionario.nome}`}
@@ -1007,6 +1051,62 @@ function RedefinirSenha({ onConcluida }) {
   );
 }
 
+function CartaoGestaoMembro({
+  funcionario,
+  performance,
+  gestorPrincipal,
+  onEditar,
+  onAlterarPontos,
+  onTransferir,
+  onAlterarAtivacao,
+}) {
+  return (
+    <div className={`team-member ${funcionario.ativo === false ? "member-inactive" : ""} ${performance?.altaPerformance ? "member-high-performance" : ""}`}>
+      <AvatarMembro funcionario={funcionario} performance={performance} />
+      <div className="member-details">
+        <div className="member-name-row">
+          <strong>{funcionario.nome}</strong>
+          <PerformanceBadge performance={performance} mostrarRotulo />
+        </div>
+        <p>{funcionario.cargo || "Cargo não informado"} · {funcionario.setor || "Setor não informado"}</p>
+        <span className={`member-status ${funcionario.ativo === false ? "inactive" : "active"}`}>
+          {funcionario.ativo === false ? "Inativa" : "Ativa"}
+        </span>
+        {gestorPrincipal ? (
+          <span className="manager-primary-badge">Gestor principal</span>
+        ) : (
+          <span className="points-badge">{funcionario.pontos || 0} pontos acumulados</span>
+        )}
+        {!gestorPrincipal && (
+          <div className={`weekly-performance ${performance?.perdas ? "has-loss" : ""}`}>
+            <strong>
+              {performance?.percentualPerda === null
+                ? "Semana ainda sem prazos avaliados"
+                : `${performance.percentualPerda}% de perda de prazos`}
+            </strong>
+            {performance?.avaliadas > 0 && (
+              <small>{performance.avaliadas} prazo(s) avaliado(s) · {performance.perdas} atraso(s)</small>
+            )}
+          </div>
+        )}
+      </div>
+      {gestorPrincipal ? (
+        <small className="manager-primary-note">Acesso principal configurado na Vercel e no Supabase.</small>
+      ) : (
+        <div className="member-actions">
+          <button className="btn-secondary compact" onClick={() => onEditar(funcionario)}>Editar</button>
+          <button className="btn-success compact" onClick={() => onAlterarPontos(funcionario.id, 10)}>+10</button>
+          <button className="btn-danger compact" onClick={() => onAlterarPontos(funcionario.id, -10)}>-10</button>
+          <button className="btn-secondary compact" onClick={() => onTransferir(funcionario)}>Transferir</button>
+          <button className="btn-danger compact" onClick={() => onAlterarAtivacao(funcionario)}>
+            {funcionario.ativo === false ? "Reativar" : "Inativar"}
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ==========================================
 // 4. PAINEL DO ADMINISTRADOR
 // ==========================================
@@ -1094,6 +1194,27 @@ function AdminDashboard({ usuario, onLogout, state }) {
       calcularPerformanceSemanal(funcionario.id, listaTarefas),
     ]),
   );
+  const gestorPrincipalCadastrado = funcionarios.find(
+    (funcionario) => funcionario.email?.trim().toLowerCase() === ADMIN_EMAIL,
+  );
+  const gestorPrincipal = gestorPrincipalCadastrado || {
+    id: "gestor-principal",
+    nome: usuario.nome || "Tafarel",
+    email: ADMIN_EMAIL,
+    cargo: "Gestor",
+    setor: "Administrativo",
+    ativo: true,
+  };
+  const membrosGestaoEquipe = gestorPrincipalCadastrado
+    ? funcionarios
+    : [gestorPrincipal, ...funcionarios];
+  const equipesGestor = GRUPOS_EQUIPE_GESTOR.map((grupo) => ({
+    ...grupo,
+    membros: ordenarEquipe(
+      membrosGestaoEquipe.filter((funcionario) => identificarGrupoEquipe(funcionario) === grupo.id),
+      grupo.ordem,
+    ),
+  }));
   const tarefasPendentes = listaTarefas.filter((t) => STATUS_ABERTOS.has(t.status));
   const tarefasUrgentes = tarefasPendentes.filter(
     (tarefa) => tarefa.prioridade === "urgente",
@@ -2614,50 +2735,41 @@ function AdminDashboard({ usuario, onLogout, state }) {
               </div>
             </div>
 
-            {modoEquipe === "membros" && <div className="content-grid" style={{ gridTemplateColumns: "1fr 1fr" }}>
-            <div className="panel">
-              <h2>Gestão de membros da equipe</h2>
-              <div className="team-list">
-                {equipeCompleta.map((f) => {
-                  const performance = performanceEquipe.get(String(f.id));
-                  return (
-                    <div className={`team-member ${f.ativo === false ? "member-inactive" : ""} ${performance?.altaPerformance ? "member-high-performance" : ""}`} key={f.id}>
-                      <AvatarMembro funcionario={f} performance={performance} />
-                      <div className="member-details">
-                        <div className="member-name-row">
-                          <strong>{f.nome}</strong>
-                          <PerformanceBadge performance={performance} mostrarRotulo />
-                        </div>
-                        <p>{f.cargo || "Cargo não informado"} · {f.setor || "Setor não informado"}</p>
-                        <span className={`member-status ${f.ativo === false ? "inactive" : "active"}`}>
-                          {f.ativo === false ? "Inativa" : "Ativa"}
-                        </span>
-                        <span className="points-badge">{f.pontos || 0} pontos acumulados</span>
-                        <div className={`weekly-performance ${performance?.perdas ? "has-loss" : ""}`}>
-                          <strong>
-                            {performance?.percentualPerda === null
-                              ? "Semana ainda sem prazos avaliados"
-                              : `${performance.percentualPerda}% de perda de prazos`}
-                          </strong>
-                          {performance?.avaliadas > 0 && (
-                            <small>
-                              {performance.avaliadas} prazo(s) avaliado(s) · {performance.perdas} atraso(s)
-                            </small>
-                          )}
-                        </div>
+            {modoEquipe === "membros" && <div className="content-grid team-management-grid">
+            <div className="panel team-directory-panel">
+              <div className="panel-title-row">
+                <div>
+                  <span className="eyebrow">Visão por área</span>
+                  <h2>Gestão de membros da equipe</h2>
+                </div>
+                <strong>{membrosGestaoEquipe.filter((membro) => membro.ativo !== false).length} ativos</strong>
+              </div>
+              <div className="team-groups">
+                {equipesGestor.map((grupo) => (
+                  <section className={`team-group team-group-${grupo.id}`} key={grupo.id}>
+                    <div className="team-group-heading">
+                      <div>
+                        <span>{grupo.descricao}</span>
+                        <h3>{grupo.titulo}</h3>
                       </div>
-                      <div className="member-actions">
-                        <button className="btn-secondary compact" onClick={() => iniciarCadastroIntegrante(f)}>Editar</button>
-                        <button className="btn-success compact" onClick={() => alterarPontosFuncionario(f.id, 10)}>+10</button>
-                        <button className="btn-danger compact" onClick={() => alterarPontosFuncionario(f.id, -10)}>-10</button>
-                        <button className="btn-secondary compact" onClick={() => transferirTarefasFuncionario(f)}>Transferir</button>
-                        <button className="btn-danger compact" onClick={() => f.ativo === false ? reativarIntegrante(f) : iniciarDesligamento(f)}>
-                          {f.ativo === false ? "Reativar" : "Inativar"}
-                        </button>
-                      </div>
+                      <strong>{grupo.membros.filter((membro) => membro.ativo !== false).length}</strong>
                     </div>
-                  );
-                })}
+                    <div className="team-list">
+                      {grupo.membros.map((f) => (
+                        <CartaoGestaoMembro
+                          funcionario={f}
+                          gestorPrincipal={f.email?.trim().toLowerCase() === ADMIN_EMAIL}
+                          key={f.id}
+                          onAlterarAtivacao={(funcionario) => funcionario.ativo === false ? reativarIntegrante(funcionario) : iniciarDesligamento(funcionario)}
+                          onAlterarPontos={alterarPontosFuncionario}
+                          onEditar={iniciarCadastroIntegrante}
+                          onTransferir={transferirTarefasFuncionario}
+                          performance={performanceEquipe.get(String(f.id))}
+                        />
+                      ))}
+                    </div>
+                  </section>
+                ))}
               </div>
             </div>
 
@@ -4060,6 +4172,20 @@ export default function App() {
         .team-management-header { display: flex; align-items: center; justify-content: space-between; gap: 24px; }
         .team-management-header h2 { margin: 5px 0; font-size: 24px; text-transform: none; }
         .team-management-header p { font-size: 12px; }
+        .team-management-grid { grid-template-columns: minmax(0, 1.35fr) minmax(320px, .65fr); }
+        .team-directory-panel > .panel-title-row strong { color: #315f91; font-size: 12px; }
+        .team-groups { display: grid; gap: 18px; }
+        .team-group { position: relative; display: grid; gap: 13px; padding: 17px; overflow: hidden; background: rgba(244,249,255,.74); border: 1px solid rgba(104,148,201,.16); border-radius: 19px; }
+        .team-group::before { content: ''; position: absolute; inset: 0 auto 0 0; width: 4px; background: #5b96e6; }
+        .team-group-juridico::before { background: #7d72d8; }
+        .team-group-heading { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding-left: 3px; }
+        .team-group-heading span { display: block; margin-bottom: 3px; color: #7084a1; font-size: 9px; font-weight: 800; letter-spacing: .8px; text-transform: uppercase; }
+        .team-group-heading h3 { color: #18365f; font-size: 15px; }
+        .team-group-heading > strong { min-width: 31px; height: 31px; display: grid; place-items: center; color: #315f91; background: rgba(221,237,255,.88); border-radius: 10px; font-size: 12px; }
+        .team-group-juridico .team-group-heading > strong { color: #6254b3; background: rgba(234,230,255,.9); }
+        .team-group .team-list { gap: 10px; }
+        .manager-primary-badge { display: inline-flex; margin: 3px 8px 3px 0; padding: 4px 7px; color: #315f91; background: #e2f0ff; border-radius: 999px; font-size: 8px; font-weight: 900; text-transform: uppercase; }
+        .manager-primary-note { max-width: 190px; color: #607896; font-size: 9px; line-height: 1.45; text-align: right; }
         .team-tabs { display: flex; gap: 7px; padding: 5px; background: rgba(232,242,254,.78); border-radius: 14px; }
         .team-tabs button { padding: 10px 14px; color: var(--muted); background: transparent; border: 0; border-radius: 10px; cursor: pointer; font-size: 11px; font-weight: 800; }
         .team-tabs button.active { color: #fff; background: linear-gradient(135deg, #4f8ff7, #3d78db); }
@@ -4343,7 +4469,8 @@ export default function App() {
           .task-form-row { grid-template-columns: 1fr; }
           .employee-monthly-list { grid-template-columns: 1fr; }
           .team-member { grid-template-columns: 43px 1fr; }
-          .member-actions { grid-column: span 2; }
+          .member-actions, .manager-primary-note { grid-column: span 2; }
+          .manager-primary-note { max-width: none; text-align: left; }
           .team-management-header { align-items: stretch; flex-direction: column; }
           .team-tabs { flex-direction: column; }
           .employee-profile-grid { grid-template-columns: 1fr; }
