@@ -3686,13 +3686,36 @@ function FormularioDelegacaoUsuario({ usuario, funcionarios, onCriada, showToast
   const [enviada, setEnviada] = useState(false);
   const [maisOpcoes, setMaisOpcoes] = useState(false);
   const [destinatarios, setDestinatarios] = useState(funcionarios || []);
+  const [responsaveisPorFuncao, setResponsaveisPorFuncao] = useState(() => {
+    const chave = "platino-responsaveis-por-funcao-v1";
+    const padrao = Object.fromEntries(
+      CATEGORIAS_TAREFA.map((categoria) => [categoria, ""]),
+    );
+
+    try {
+      const salvo = JSON.parse(window.localStorage.getItem(chave) || "{}") || {};
+      return { ...padrao, ...salvo };
+    } catch (error) {
+      return padrao;
+    }
+  });
   useEffect(() => {
     supabase.rpc("listar_destinatarios_tarefa").then(({ data, error }) => {
       if (!error && data) setDestinatarios(data);
     });
   }, []);
   const equipeDisponivel = destinatarios.filter((item) => item.ativo !== false && String(item.id) !== String(usuario.id));
+  const responsavelIndicativo = responsaveisPorFuncao[form.tipo];
+  const responsavelSugerido = responsavelIndicativo ? destinatarios.find((item) => String(item.id) === String(responsavelIndicativo)) : null;
   const alterar = (campo, valor) => setForm((atual) => ({ ...atual, [campo]: valor }));
+
+  useEffect(() => {
+    if (!form.tipo || !responsaveisPorFuncao[form.tipo]) return;
+    const responsavelIdSugerido = String(responsaveisPorFuncao[form.tipo]);
+    if (!form.responsavelId || String(form.responsavelId) !== responsavelIdSugerido) {
+      setForm((atual) => ({ ...atual, responsavelId: responsavelIdSugerido }));
+    }
+  }, [form.tipo, responsaveisPorFuncao]);
 
   function dataLocalInput(data) {
     const deslocamento = data.getTimezoneOffset() * 60_000;
@@ -3761,6 +3784,16 @@ function FormularioDelegacaoUsuario({ usuario, funcionarios, onCriada, showToast
       <SeletorAcaoVisual valor={form.tipo} onChange={(valor) => alterar("tipo", valor)} />
       {form.tipo === "OUTROS" && <label>Descreva a ação<input required value={form.outraAcao} onChange={(e) => alterar("outraAcao", e.target.value)} placeholder="Informe exatamente o que deverá ser executado" /></label>}
       <div className="task-auto-title"><span>Título gerado automaticamente</span><strong>{tituloAutomaticoDaTarefa(form.tipo, form.outraAcao) || "Descreva a ação para definir o título"}</strong></div>
+      <div className="role-indicator-panel">
+        <div className="role-indicator-header">
+          <span>Indicativo da função</span>
+          <strong>{form.tipo}</strong>
+        </div>
+        <div className="role-indicator-card">
+          <small>Responsável sugerido:</small>
+          <strong>{responsavelSugerido ? responsavelSugerido.nome : "Sem responsável definido"}</strong>
+        </div>
+      </div>
       <label>Solicitação<textarea required rows="4" value={form.solicitacao} onChange={(e) => alterar("solicitacao", e.target.value)} placeholder="Descreva com objetividade o que precisa ser feito." /></label>
       <div className="task-form-details">
         <div className="task-form-row">
