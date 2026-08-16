@@ -3981,7 +3981,6 @@ function EmployeeDashboard({ usuario, onLogout, state }) {
       <main className="main-content">
         <header className="topbar">
           <div>
-            <h1>Olá, {usuario.nome}</h1>
             <p>Acompanhe sua pauta diária na esteira operacional.</p>
           </div>
           <div className="topbar-actions">
