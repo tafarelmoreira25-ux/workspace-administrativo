@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import MeuHistorico from "./MeuHistorico";
 
 const ENCERRADOS = new Set(["concluida", "cancelada", "arquivada"]);
 const ITENS_POR_PAGINA = 15;
@@ -45,10 +46,11 @@ function situacao(tarefa) {
   return "Em aberto";
 }
 
-export default function AcompanhamentoEquipe({ tarefas = [], funcionarios = [], onAtualizar }) {
+export default function AcompanhamentoEquipe({ tarefas = [], funcionarios = [], historicoPessoal = [], onAtualizar }) {
   const [filtro, setFiltro] = useState("todas");
   const [busca, setBusca] = useState("");
   const [pagina, setPagina] = useState(1);
+  const [visualizacao, setVisualizacao] = useState("equipe");
   const nomes = useMemo(() => new Map(funcionarios.map((p) => [String(p.id), p.nome])), [funcionarios]);
   const calculadas = useMemo(() => tarefas.map((t) => ({ ...t, situacaoCalculada: situacao(t) })), [tarefas]);
   const registros = calculadas.filter((tarefa) => {
@@ -75,6 +77,10 @@ export default function AcompanhamentoEquipe({ tarefas = [], funcionarios = [], 
     setPagina(1);
   }
 
+  if (visualizacao === "historico") {
+    return <MeuHistorico tarefas={historicoPessoal} onVoltar={() => setVisualizacao("equipe")} />;
+  }
+
   return <section className="panel large">
     <div className="panel-title-row"><div><span className="eyebrow">Consulta compartilhada</span><h2>Acompanhamento da equipe</h2><p>Todos podem verificar o andamento. A execução continua restrita ao responsável.</p></div><button className="btn-secondary compact" onClick={onAtualizar} type="button">Atualizar</button></div>
     <div className="dashboard-grid central-metrics">
@@ -82,6 +88,7 @@ export default function AcompanhamentoEquipe({ tarefas = [], funcionarios = [], 
       <button className="card central-metric warning" onClick={() => selecionarFiltro("vencem_hoje")} type="button"><span>Vencem hoje</span><strong>{total("Vence hoje")}</strong></button>
       <button className="card central-metric danger" onClick={() => selecionarFiltro("atrasadas")} type="button"><span>Atrasadas</span><strong>{total("Atrasada")}</strong></button>
       <button className="card central-metric success" onClick={() => selecionarFiltro("concluidas")} type="button"><span>Concluídas</span><strong>{total("concluidas")}</strong></button>
+      <button className="card central-metric normal" onClick={() => setVisualizacao("historico")} type="button"><span>Meu histórico</span><strong>{historicoPessoal.length}</strong><small>Ver tarefas concluídas</small></button>
     </div>
     <div className="task-filters"><input aria-label="Buscar tarefas da equipe" onChange={alterarBusca} placeholder="Buscar por ID, cliente, tarefa ou responsável" value={busca} /><div className="task-kind-switch">{[["todas", "Todas"], ["abertas", "Em aberto"], ["vencem_hoje", "Vencem hoje"], ["atrasadas", "Atrasadas"], ["concluidas", "Concluídas"]].map(([valor, rotulo]) => <button className={filtro === valor ? "active" : ""} key={valor} onClick={() => selecionarFiltro(valor)} type="button">{rotulo}</button>)}</div></div>
     {registros.length === 0 ? <p>Nenhuma tarefa encontrada neste filtro.</p> : <><div className="central-table">{registrosVisiveis.map((tarefa) => <div className="central-table-row" key={tarefa.id}><div><strong>{tarefa.id_externo || `#${tarefa.id}`} · {tarefa.titulo}</strong><small>{tarefa.nome_cliente || "Cliente não informado"}</small></div><span>{nomes.get(String(tarefa.funcionaria_id)) || `Responsável #${tarefa.funcionaria_id}`}</span><span className={`status ${tarefa.status}`}>{tarefa.situacaoCalculada}</span><small>Prazo: {formatar(tarefa.prazo_limite || tarefa.data_limite)}{tarefa.concluida_em ? ` · Feita: ${formatar(tarefa.concluida_em)}` : ""}</small></div>)}</div>

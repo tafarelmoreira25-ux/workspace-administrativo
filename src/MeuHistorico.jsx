@@ -13,7 +13,7 @@ function linkGoogleDrive(url) {
   return /^https:\/\/(drive|docs)\.google\.com\//i.test(String(url || "").trim());
 }
 
-export default function MeuHistorico({ tarefas = [] }) {
+export default function MeuHistorico({ tarefas = [], onVoltar }) {
   const [pagina, setPagina] = useState(1);
   const totalPaginas = Math.max(1, Math.ceil(tarefas.length / 15));
   const tarefasVisiveis = tarefas.slice((pagina - 1) * 15, pagina * 15);
@@ -22,7 +22,10 @@ export default function MeuHistorico({ tarefas = [] }) {
     <div className="panel large">
       <div className="panel-title-row">
         <h2>Meu Histórico de Atividades</h2>
-        <small>{tarefas.length} concluída(s)</small>
+        <div className="task-history-actions">
+          <small>{tarefas.length} concluída(s)</small>
+          {onVoltar && <button className="btn-secondary compact" onClick={onVoltar} type="button">Voltar para tarefas da equipe</button>}
+        </div>
       </div>
       {tarefas.length === 0 ? (
         <p>Você ainda não possui tarefas concluídas.</p>

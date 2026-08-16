@@ -1,4 +1,3 @@
-import MeuHistorico from './MeuHistorico';
 import AcompanhamentoEquipe from './AcompanhamentoEquipe';
 import MeuPlanner from './MeuPlanner';
 import PainelEquipeTV from './PainelEquipeTV';
@@ -540,6 +539,7 @@ function UiIcon({ name, size = 20 }) {
     tv: <><rect x="2" y="5" width="20" height="14" rx="2" /><path d="m8 2 4 3 4-3" /><path d="M8 22h8" /></>,
     ranking: <><path d="M8 21h8" /><path d="M12 17v4" /><path d="M7 4h10v5a5 5 0 0 1-10 0Z" /><path d="M7 6H4v2a4 4 0 0 0 4 4" /><path d="M17 6h3v2a4 4 0 0 1-4 4" /></>,
     feedback: <><path d="M21 15a4 4 0 0 1-4 4H8l-5 3V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4Z" /><path d="M8 9h8" /><path d="M8 13h5" /></>,
+    notificacao: <><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9" /><path d="M10 21h4" /></>,
     logout: <><path d="M10 17l5-5-5-5" /><path d="M15 12H3" /><path d="M21 19V5a2 2 0 0 0-2-2h-6" /></>,
     spark: <><path d="m12 3-1.8 4.5L6 9l4.2 1.5L12 15l1.8-4.5L18 9l-4.2-1.5Z" /><path d="m5 15-.8 2L2 18l2.2.8L5 21l.8-2.2L8 18l-2.2-1Z" /></>,
   };
@@ -2050,7 +2050,6 @@ function AdminDashboard({ usuario, onLogout, state }) {
           <NavItem active={abaAtiva === "tarefas"} icon="tarefas" onClick={() => setAbaAtiva("tarefas")} options={["Criar tarefa", "Apontamentos", "Filtros rápidos"]}>Tarefas</NavItem>
           <NavItem active={abaAtiva === "clientes"} icon="equipe" onClick={() => setAbaAtiva("clientes")}>Clientes</NavItem>
           <NavItem active={abaAtiva === "urgencias"} icon="feedback" onClick={() => setAbaAtiva("urgencias")}>Urgências</NavItem>
-          <NavItem active={abaAtiva === "notificacoes"} icon="feedback" onClick={() => setAbaAtiva("notificacoes")}>Notificações</NavItem>
           <NavItem active={abaAtiva === "historico"} icon="planner" onClick={() => setAbaAtiva("historico")}>Histórico de tarefas</NavItem>
           <NavItem active={false} icon="tv" onClick={() => setModoTv(true)} options={["Modo painel", "Operação ao vivo"]}>Painel TV</NavItem>
           <NavItem active={abaAtiva === "equipe"} icon="equipe" onClick={() => setAbaAtiva("equipe")} options={["Equipe", "Feedbacks", "Pontuação"]}>Equipe</NavItem>
@@ -2066,9 +2065,12 @@ function AdminDashboard({ usuario, onLogout, state }) {
             <h1>Painel de Supervisão</h1>
             <p>Controle centralizado da esteira operacional.</p>
           </div>
-          <div className="profile-pill">
-            <span className="online-dot" />
-            <div><small>Supervisor online</small><span>{usuario.nome}</span></div>
+          <div className="topbar-actions">
+            <CentralNotificacoesBell />
+            <div className="profile-pill">
+              <span className="online-dot" />
+              <div><small>Supervisor online</small><span>{usuario.nome}</span></div>
+            </div>
           </div>
         </header>
 
@@ -2112,7 +2114,6 @@ function AdminDashboard({ usuario, onLogout, state }) {
 
         {abaAtiva === "clientes" && <ModuloClientes />}
         {abaAtiva === "urgencias" && <ModuloUrgencias usuario={usuario} funcionarios={funcionarios} showToast={showToast} />}
-        {abaAtiva === "notificacoes" && <CentroNotificacoes />}
 
         {abaAtiva === "tarefas" && (
           <div className="task-management">
@@ -3023,7 +3024,7 @@ function CentralInicio({ tarefas, usuario, onNavigate }) {
     ["Devolvidas", abertas.filter((t) => ["devolvida", "devolvida_correcao"].includes(t.status)).length, "warning", "tarefas", "devolvidas"],
     ["Recém-delegadas", abertas.filter((t) => t.status === "delegada").length, "normal", "tarefas", "recem_delegadas"],
     ["Em andamento", abertas.filter((t) => t.status === "em_execucao").length, "normal", "tarefas", "em_andamento"],
-    ["Concluídas", minhas.filter((t) => t.status === "concluida").length, "success", "historico", null],
+    ["Concluídas", minhas.filter((t) => t.status === "concluida").length, "success", "acompanhamento", null],
   ];
   const atencao = abertas.filter((t) => tarefaAtrasada(t) || ["urgente", "critica"].includes(t.prioridade) || ["devolvida", "devolvida_correcao"].includes(t.status)).slice(0, 8);
   const resumoBoasVindas = criarResumoBoasVindas({
@@ -3033,6 +3034,38 @@ function CentralInicio({ tarefas, usuario, onNavigate }) {
     hoje,
   });
   return <div className="central-home"><section className={`welcome-summary ${resumoBoasVindas.tom}`} role="status"><div><span className="eyebrow">Resumo da sua pauta</span><h2>{resumoBoasVindas.titulo}</h2><p>{resumoBoasVindas.mensagem}</p></div>{resumoBoasVindas.filtro ? <button type="button" className="btn-primary compact" onClick={() => onNavigate("tarefas", resumoBoasVindas.filtro)}>Ver prioridades</button> : <span className="welcome-summary-ok">Tudo certo</span>}</section><section className="dashboard-grid central-metrics">{metricas.map(([rotulo, valor, tom, destino, filtro]) => <button type="button" className={`card central-metric ${tom}`} key={rotulo} onClick={() => onNavigate(destino, filtro)}><span>{rotulo}</span><strong>{valor}</strong></button>)}</section><section className="panel large"><div className="panel-title-row"><div><span className="eyebrow">Prioridade operacional</span><h2>Atenção imediata</h2></div><button className="btn-primary compact" onClick={() => onNavigate("delegar")}>Delegar tarefa</button></div>{atencao.length === 0 ? <p>Nenhuma ocorrência crítica neste momento.</p> : <div className="central-table">{atencao.map((t) => <div className="central-table-row" key={t.id}><strong>{t.id_externo || `#${t.id}`}</strong><span>{t.nome_cliente || "Cliente não informado"}</span><span>{t.titulo}</span><span className={`status ${t.status}`}>{rotuloStatusTarefa(t.status)}</span><small>{formatarData(t.data_limite)}</small></div>)}</div>}</section></div>;
+}
+
+function InicioColaborador({ tarefas, usuario, onNavigate, feedbacks, onAtualizarFeedbacks }) {
+  const [mostrarFeedbacks, setMostrarFeedbacks] = useState(false);
+
+  return <>
+    <CentralInicio tarefas={tarefas} usuario={usuario} onNavigate={onNavigate} />
+    <section className="panel feedback-home-card">
+      <div className="panel-title-row">
+        <div>
+          <span className="eyebrow">Desenvolvimento profissional</span>
+          <h2>Meus feedbacks</h2>
+          <p>Consulte os reconhecimentos e alinhamentos recebidos.</p>
+        </div>
+        <button className="btn-primary compact" type="button" onClick={() => setMostrarFeedbacks((atual) => !atual)}>
+          {mostrarFeedbacks ? "Ocultar feedbacks" : "Ver feedbacks"}
+        </button>
+      </div>
+      <button className="card central-metric normal feedback-home-trigger" type="button" onClick={() => setMostrarFeedbacks(true)}>
+        <span>Feedbacks recebidos</span>
+        <strong>{feedbacks.length}</strong>
+        <small>Toque para consultar</small>
+      </button>
+      {mostrarFeedbacks && <div className="feedback-home-content">
+        <div className="task-history-actions">
+          <strong>Feedbacks recebidos</strong>
+          <button className="btn-secondary compact" type="button" onClick={onAtualizarFeedbacks}>Atualizar</button>
+        </div>
+        <ListaFeedbacks feedbacks={feedbacks} vazio="Você ainda não recebeu nenhum feedback profissional." />
+      </div>}
+    </section>
+  </>;
 }
 
 function ModuloClientes() {
@@ -3066,21 +3099,84 @@ function ModuloUrgencias({ funcionarios, showToast }) {
   return <div className="urgency-layout"><section className="panel"><span className="eyebrow">Quadro independente</span><h2>Registrar urgência</h2><form className="stack-form" onSubmit={criar}><div className="task-form-row"><label>Cliente<input required value={form.cliente} onChange={(e) => alterar("cliente", e.target.value)} /></label><label>CPF ou ID<input value={form.cpf} onChange={(e) => alterar("cpf", e.target.value)} /></label></div><div className="task-form-row"><label>Setor<select value={form.setor} onChange={(e) => alterar("setor", e.target.value)}><option>Administrativo</option><option>Jurídico</option><option>Comercial</option><option>Processual</option></select></label><label>Responsável<select value={form.responsavel} onChange={(e) => alterar("responsavel", e.target.value)}><option value="">Ainda não definido</option>{destinatarios.map((p) => <option value={p.id} key={p.id}>{p.nome}</option>)}</select></label></div><label>Tarefa necessária<input required value={form.tarefa} onChange={(e) => alterar("tarefa", e.target.value)} /></label><label>Motivo da urgência<textarea required rows="3" value={form.motivo} onChange={(e) => alterar("motivo", e.target.value)} /></label><div className="task-form-row"><label>Prazo limite<input required type="datetime-local" value={form.prazo} onChange={(e) => alterar("prazo", e.target.value)} /></label><label>Prioridade<select value={form.prioridade} onChange={(e) => alterar("prioridade", e.target.value)}><option value="alta">Alta</option><option value="urgente">Urgente</option><option value="critica">Crítica</option></select></label></div><label>Link do Drive<input type="url" value={form.drive} onChange={(e) => alterar("drive", e.target.value)} placeholder="https://drive.google.com/..." /></label><label>Observação<textarea rows="2" value={form.observacao} onChange={(e) => alterar("observacao", e.target.value)} /></label><button className="btn-primary" disabled={salvando}>{salvando ? "Registrando..." : "Registrar urgência"}</button></form></section><section className="panel large"><div className="panel-title-row"><h2>Urgências abertas</h2><strong>{lista.filter((u) => !["resolvida","cancelada"].includes(u.status)).length}</strong></div><div className="central-table">{lista.slice(0, 15).map((u) => <div className={`urgency-row priority-${u.prioridade}`} key={u.id}><div><strong>{u.codigo} · {u.nome_cliente}</strong><p>{u.tarefa_necessaria}</p><small>{u.motivo} · Prazo {formatarDataHora(u.prazo_limite)}</small></div><span className={`status ${u.status}`}>{u.status.replaceAll("_", " ")}</span><div className="task-history-actions">{u.status === "aberta" && <button className="btn-secondary compact" onClick={() => mover(u,"visualizada")}>Visualizar</button>}{["aberta","visualizada"].includes(u.status) && <button className="btn-primary compact" onClick={() => mover(u,"em_atendimento")}>Atender</button>}{u.status === "em_atendimento" && <button className="btn-success compact" onClick={() => mover(u,"resolvida")}>Resolver</button>}</div></div>)}</div></section></div>;
 }
 
-function CentroNotificacoes() {
+function CentralNotificacoesBell() {
   const [notificacoes, setNotificacoes] = useState([]);
+  const [aberto, setAberto] = useState(false);
+  const [carregando, setCarregando] = useState(true);
   useEffect(() => {
     let ativo = true;
     const carregar = () => {
-      supabase.from("notificacoes_operacionais").select("*").order("created_at", { ascending: false }).limit(50).then(({ data }) => {
-        if (ativo) setNotificacoes(data || []);
-      });
+      supabase
+        .from("notificacoes_operacionais")
+        .select("*")
+        .order("created_at", { ascending: false })
+        .limit(50)
+        .then(({ data }) => {
+          if (!ativo) return;
+          setNotificacoes(data || []);
+          setCarregando(false);
+        });
     };
     carregar();
-    const canal = supabase.channel("central-notificacoes").on("postgres_changes", { event: "INSERT", schema: "public", table: "notificacoes_operacionais" }, carregar).subscribe();
+    const canal = supabase
+      .channel("central-notificacoes-global")
+      .on("postgres_changes", { event: "*", schema: "public", table: "notificacoes_operacionais" }, carregar)
+      .subscribe();
     return () => { ativo = false; supabase.removeChannel(canal); };
   }, []);
-  async function ler(item) { await supabase.rpc("marcar_notificacao_lida", { p_notificacao_id: Number(item.id) }); setNotificacoes((a) => a.map((n) => n.id === item.id ? { ...n, lida_em: new Date().toISOString() } : n)); }
-  return <section className="panel large"><div className="panel-title-row"><div><span className="eyebrow">Atualizações operacionais</span><h2>Notificações</h2></div><strong>{notificacoes.filter((n) => !n.lida_em).length} não lidas</strong></div><div className="notification-list">{notificacoes.length === 0 ? <p>Nenhuma notificação.</p> : notificacoes.map((n) => <button type="button" onClick={() => ler(n)} className={`notification-item ${n.lida_em ? "read" : "unread"}`} key={n.id}><span>●</span><div><strong>{n.titulo}</strong><p>{n.mensagem}</p><small>{formatarDataHora(n.created_at)}</small></div></button>)}</div></section>;
+  async function ler(item) {
+    if (item.lida_em) return;
+    const { error } = await supabase.rpc("marcar_notificacao_lida", { p_notificacao_id: Number(item.id) });
+    if (!error) setNotificacoes((atual) => atual.map((n) => n.id === item.id ? { ...n, lida_em: new Date().toISOString() } : n));
+  }
+
+  const naoLidas = notificacoes.filter((notificacao) => !notificacao.lida_em).length;
+  const textoContador = naoLidas > 99 ? "99+" : String(naoLidas);
+
+  return (
+    <div className="notification-bell-wrap">
+      <button
+        type="button"
+        className={`notification-bell ${aberto ? "is-open" : ""}`}
+        onClick={() => setAberto((atual) => !atual)}
+        aria-label={naoLidas ? `Abrir notificações: ${naoLidas} não lidas` : "Abrir notificações"}
+        aria-expanded={aberto}
+        aria-controls="notification-popover"
+      >
+        <UiIcon name="notificacao" size={21} />
+        {naoLidas > 0 && <span className="notification-badge" aria-hidden="true">{textoContador}</span>}
+      </button>
+
+      {aberto && (
+        <section id="notification-popover" className="notification-popover" aria-label="Notificações">
+          <div className="notification-popover-header">
+            <div>
+              <span className="eyebrow">Atualizações operacionais</span>
+              <h2>Notificações</h2>
+            </div>
+            <strong>{naoLidas} não lida{naoLidas === 1 ? "" : "s"}</strong>
+          </div>
+          <div className="notification-popover-list">
+            {carregando ? <p className="notification-empty">Carregando notificações...</p> : notificacoes.length === 0 ? <p className="notification-empty">Nenhuma notificação por enquanto.</p> : notificacoes.slice(0, 12).map((notificacao) => (
+              <button
+                type="button"
+                onClick={() => ler(notificacao)}
+                className={`notification-item ${notificacao.lida_em ? "read" : "unread"}`}
+                key={notificacao.id}
+              >
+                <span aria-hidden="true">•</span>
+                <div>
+                  <strong>{notificacao.titulo}</strong>
+                  <p>{notificacao.mensagem}</p>
+                  <small>{formatarDataHora(notificacao.created_at)}</small>
+                </div>
+              </button>
+            ))}
+          </div>
+        </section>
+      )}
+    </div>
+  );
 }
 
 function FormularioDelegacaoUsuario({ usuario, funcionarios, onCriada, showToast }) {
@@ -3437,11 +3533,6 @@ function EmployeeDashboard({ usuario, onLogout, state }) {
           <NavItem active={abaAtiva === "delegar"} icon="tarefas" onClick={() => setAbaAtiva("delegar")}>Delegar tarefa</NavItem>
           <NavItem active={abaAtiva === "acompanhamento"} icon="dashboard" onClick={() => setAbaAtiva("acompanhamento")}>Tarefas da equipe</NavItem>
           <NavItem active={abaAtiva === "clientes"} icon="equipe" onClick={() => setAbaAtiva("clientes")}>Clientes</NavItem>
-          <NavItem active={abaAtiva === "notificacoes"} icon="feedback" onClick={() => setAbaAtiva("notificacoes")}>Notificações</NavItem>
-          <NavItem active={abaAtiva === "historico"} icon="planner" onClick={() => setAbaAtiva("historico")}>Meu Histórico</NavItem>
-          <NavItem active={abaAtiva === "feedbacks"} icon="feedback" onClick={() => setAbaAtiva("feedbacks")}>
-            Meus Feedbacks ({meusFeedbacks.length})
-          </NavItem>
           <NavItem active={abaAtiva === "documentos"} icon="documentos" onClick={() => setAbaAtiva("documentos")}>Documentos PDF</NavItem>
         </nav>
         <button className="sidebar-logout" onClick={onLogout}><UiIcon name="logout" /> Sair</button>
@@ -3453,25 +3544,28 @@ function EmployeeDashboard({ usuario, onLogout, state }) {
             <h1>Olá, {usuario.nome}</h1>
             <p>Acompanhe sua pauta diária na esteira operacional.</p>
           </div>
-          <div className={`profile-pill ${minhaPerformance.altaPerformance ? "profile-high-performance" : ""}`}>
-            <AvatarMembro
-              compacto
-              funcionario={usuario}
-              performance={minhaPerformance}
-            />
-            <span className="online-dot" />
-            <div>
-              <small>Colaboradora online</small>
-              <span>{usuario.cargo}</span>
-              <PerformanceBadge
-                mostrarRotulo
+          <div className="topbar-actions">
+            <CentralNotificacoesBell />
+            <div className={`profile-pill ${minhaPerformance.altaPerformance ? "profile-high-performance" : ""}`}>
+              <AvatarMembro
+                compacto
+                funcionario={usuario}
                 performance={minhaPerformance}
               />
+              <span className="online-dot" />
+              <div>
+                <small>Colaboradora online</small>
+                <span>{usuario.cargo}</span>
+                <PerformanceBadge
+                  mostrarRotulo
+                  performance={minhaPerformance}
+                />
+              </div>
             </div>
           </div>
         </header>
 
-        {abaAtiva === "inicio" && <><CentralInicio tarefas={listaTarefas} usuario={usuario} onNavigate={navegarDaTelaInicial} /><section className="dashboard-planner-section"><MeuPlanner funcionariaLogadaId={usuario.id} /></section></>}
+        {abaAtiva === "inicio" && <><InicioColaborador tarefas={listaTarefas} usuario={usuario} onNavigate={navegarDaTelaInicial} feedbacks={meusFeedbacks} onAtualizarFeedbacks={atualizarMeusFeedbacks} /><section className="dashboard-planner-section"><MeuPlanner funcionariaLogadaId={usuario.id} /></section></>}
 
         {abaAtiva === "tarefas" && (
           <div className="employee-tasks-workspace">
@@ -3665,10 +3759,8 @@ function EmployeeDashboard({ usuario, onLogout, state }) {
 
         {abaAtiva === "delegar" && <FormularioDelegacaoUsuario usuario={usuario} funcionarios={funcionarios} showToast={showToast} onCriada={(tarefa) => setListaTarefas((atuais) => [tarefa, ...atuais])} />}
         {abaAtiva === "clientes" && <ModuloClientes />}
-        {abaAtiva === "notificacoes" && <CentroNotificacoes />}
 
-        {abaAtiva === "historico" && <MeuHistorico tarefas={tarefasConcluidas} />}
-        {abaAtiva === "acompanhamento" && <AcompanhamentoEquipe tarefas={listaTarefas} funcionarios={funcionarios} onAtualizar={recarregarTarefas} />}
+        {abaAtiva === "acompanhamento" && <AcompanhamentoEquipe tarefas={listaTarefas} funcionarios={funcionarios} historicoPessoal={tarefasConcluidas} onAtualizar={recarregarTarefas} />}
 
         {abaAtiva === "feedbacks" && (
           <section className="panel large feedback-workspace">
@@ -4114,6 +4206,20 @@ export default function App() {
         .main-content { min-width: 0; padding: 28px clamp(24px, 3.2vw, 48px) 48px; }
         .topbar { min-height: 94px; display: flex; align-items: center; justify-content: space-between; gap: 24px; margin-bottom: 28px; padding: 22px 26px; background: rgba(255,255,255,.55); border: 1px solid rgba(255,255,255,.8); border-radius: 24px; box-shadow: 0 15px 45px rgba(57, 100, 157, .08); backdrop-filter: blur(22px); }
         .topbar p { font-size: 13px; }
+        .topbar-actions { display: flex; align-items: center; justify-content: flex-end; gap: 12px; }
+        .notification-bell-wrap { position: relative; }
+        .notification-bell { position: relative; display: grid; width: 46px; height: 46px; place-items: center; color: #275383; background: rgba(255,255,255,.92); border: 1px solid rgba(84,133,194,.18); border-radius: 15px; box-shadow: 0 8px 22px rgba(54,94,148,.09); cursor: pointer; transition: .2s ease; }
+        .notification-bell:hover, .notification-bell.is-open { color: #fff; background: linear-gradient(135deg, #2d83e6, #2562cf); border-color: transparent; box-shadow: 0 10px 25px rgba(37,98,207,.25); transform: translateY(-1px); }
+        .notification-bell:focus-visible { outline: 3px solid rgba(52,132,234,.3); outline-offset: 3px; }
+        .notification-badge { position: absolute; top: -6px; right: -7px; display: grid; min-width: 20px; height: 20px; padding: 0 5px; place-items: center; color: #fff; background: #d95061; border: 2px solid #fff; border-radius: 999px; box-shadow: 0 3px 9px rgba(183,49,68,.26); font-size: 9px; font-weight: 900; line-height: 1; }
+        .notification-popover { position: absolute; z-index: 80; top: calc(100% + 11px); right: 0; width: min(390px, calc(100vw - 36px)); overflow: hidden; background: rgba(255,255,255,.98); border: 1px solid rgba(88,133,191,.2); border-radius: 18px; box-shadow: 0 22px 50px rgba(29,65,111,.2); animation: notificationPopover .18s ease both; }
+        .notification-popover-header { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 17px 18px 14px; border-bottom: 1px solid rgba(77,121,178,.12); }
+        .notification-popover-header .eyebrow { display: block; margin-bottom: 3px; font-size: 8px; }
+        .notification-popover-header h2 { margin: 0; color: var(--dark); font-size: 17px; }
+        .notification-popover-header strong { flex: 0 0 auto; color: #286bc7; font-size: 10px; }
+        .notification-popover-list { display: grid; max-height: min(520px, calc(100vh - 180px)); gap: 8px; padding: 10px; overflow-y: auto; }
+        .notification-empty { margin: 14px 8px; color: var(--muted); font-size: 12px; text-align: center; }
+        @keyframes notificationPopover { from { opacity: 0; transform: translateY(-5px) scale(.98); } to { opacity: 1; transform: translateY(0) scale(1); } }
         .profile-pill { display: flex; align-items: center; gap: 11px; padding: 10px 15px; color: var(--text); background: rgba(238, 247, 255, .9); border: 1px solid rgba(113, 165, 224, .18); border-radius: 16px; }
         .profile-pill small, .profile-pill span { display: block; }
         .profile-pill small { color: var(--muted); font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: .7px; }
@@ -4443,6 +4549,11 @@ export default function App() {
         .feedback-workspace .panel-title-row { align-items: flex-end; }
         .feedback-workspace .panel-title-row h2 { margin: 5px 0 0; }
         .feedback-intro { margin: -8px 0 20px; font-size: 13px; }
+        .feedback-home-card { margin-top: 22px; }
+        .feedback-home-trigger { width: 100%; min-height: 110px; }
+        .feedback-home-trigger small { display: block; margin-top: 6px; color: var(--muted); font-size: 11px; }
+        .feedback-home-content { display: grid; gap: 14px; margin-top: 16px; padding-top: 16px; border-top: 1px solid rgba(77,121,178,.12); }
+        .feedback-home-content .task-history-actions { justify-content: space-between; }
         .monthly-admin-grid { display: grid; grid-template-columns: minmax(320px, .8fr) minmax(0, 1.2fr); gap: 22px; align-items: start; }
         .monthly-editor h2 { margin: 6px 0 8px; font-size: 24px; letter-spacing: -.7px; text-transform: none; }
         .monthly-intro { margin-bottom: 22px; font-size: 13px; line-height: 1.65; }
@@ -4609,7 +4720,8 @@ export default function App() {
           .nav-item { justify-content: flex-start; }
           .sidebar-logout { position: static; }
           .topbar { align-items: flex-start; flex-direction: column; padding: 20px; }
-          .profile-pill { width: 100%; }
+          .topbar-actions { width: 100%; justify-content: space-between; }
+          .profile-pill { flex: 1; width: auto; }
           .cards-grid { grid-template-columns: 1fr; }
           .card { min-height: 145px; }
           .task-actions, .member-actions { width: 100%; }
@@ -5922,7 +6034,8 @@ export default function App() {
           .sidebar { position: relative; top: auto; grid-template-columns: minmax(0,1fr) auto; grid-template-areas: "brand logout" "navigation navigation"; padding: 12px; }
           .sidebar nav { grid-template-columns: repeat(3,minmax(0,1fr)); }
           .topbar { flex-direction: column; align-items: stretch; gap: 14px; }
-          .profile-pill { width: 100%; }
+          .topbar-actions { width: 100%; justify-content: space-between; }
+          .profile-pill { flex: 1; width: auto; }
           .content-grid, .urgency-layout { grid-template-columns: minmax(0,1fr); }
           .task-form-row, .advanced-fields { grid-template-columns: minmax(0,1fr); }
         }
