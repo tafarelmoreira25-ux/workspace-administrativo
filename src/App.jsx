@@ -4009,54 +4009,6 @@ function EmployeeDashboard({ usuario, onLogout, state }) {
 
         {abaAtiva === "tarefas" && (
           <div className="employee-tasks-workspace">
-            <section className="panel monthly-employee-panel">
-              <div className="panel-title-row">
-                <div>
-                  <span className="eyebrow">Responsabilidades recorrentes</span>
-                  <h2>Tarefas de {formatarMes(mesAtual)}</h2>
-                </div>
-                <div className="task-history-actions">
-                  {minhasResponsabilidadesDoMes.length > 4 && (
-                    <button
-                      className="btn-secondary compact"
-                      type="button"
-                      onClick={() =>
-                        setResponsabilidadeUsuarioExpandida((atual) => !atual)
-                      }
-                    >
-                      {responsabilidadeUsuarioExpandida ? "Recolher" : "Ver tudo"}
-                    </button>
-                  )}
-                  <button
-                    className="btn-secondary compact"
-                    onClick={recarregarResponsabilidadesMensais}
-                    type="button"
-                  >
-                    Atualizar
-                  </button>
-                </div>
-              </div>
-
-              {minhasResponsabilidadesDoMes.length === 0 ? (
-                <div className="monthly-empty">
-                  O supervisor ainda não cadastrou suas responsabilidades para
-                  este mês.
-                </div>
-              ) : (
-                <ol className="monthly-list employee-monthly-list">
-                  {(responsabilidadeUsuarioExpandida
-                    ? minhasResponsabilidadesDoMes
-                    : minhasResponsabilidadesDoMes.slice(0, 4)
-                  ).map((item, indice) => (
-                    <li key={item.id}>
-                      <span>{indice + 1}</span>
-                      <strong>{item.titulo}</strong>
-                    </li>
-                  ))}
-                </ol>
-              )}
-            </section>
-
             <section className="content-grid">
               <div className="panel large">
               <div className="panel-title-row">
