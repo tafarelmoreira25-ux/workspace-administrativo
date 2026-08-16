@@ -3,8 +3,8 @@ import { supabase } from "../lib/supabase";
 
 function mensagemConsultaDrive(error) {
   if (!error) return "";
-  if (error.code === "PGRST202" || /listar_clientes_drive_ativos|schema cache/i.test(error.message || "")) {
-    return "A integração de clientes do Google Drive ainda não foi instalada no Supabase.";
+  if (error.code === "PGRST202" || /listar_clientes_drive_disponiveis|schema cache/i.test(error.message || "")) {
+    return "A atualização para incluir os clientes históricos ainda não foi instalada no Supabase.";
   }
   return error.message || "Não foi possível consultar os clientes do Google Drive.";
 }
@@ -28,14 +28,21 @@ export default function ClienteDriveSelector({
     let ativo = true;
     const timer = window.setTimeout(async () => {
       setCarregando(true);
-      const { data, error } = await supabase.rpc("listar_clientes_drive_ativos", {
+      let consulta = await supabase.rpc("listar_clientes_drive_disponiveis", {
         p_busca: busca.trim() || null,
         p_limite: 30,
       });
+      // Mantém a tela utilizável durante a publicação coordenada do novo SQL.
+      if (consulta.error?.code === "PGRST202") {
+        consulta = await supabase.rpc("listar_clientes_drive_ativos", {
+          p_busca: busca.trim() || null,
+          p_limite: 30,
+        });
+      }
       if (!ativo) return;
       setCarregando(false);
-      setErro(mensagemConsultaDrive(error));
-      setResultados(error ? [] : data || []);
+      setErro(mensagemConsultaDrive(consulta.error));
+      setResultados(consulta.error ? [] : consulta.data || []);
     }, 220);
     return () => {
       ativo = false;
@@ -68,7 +75,7 @@ export default function ClienteDriveSelector({
           disabled={disabled}
           required={required && !selecionado}
           value={valorVisivel}
-          placeholder="Pesquisar uma pasta de cliente ativo..."
+          placeholder="Pesquisar cliente ativo ou antigo..."
           onFocus={() => {
             setBusca(selecionado?.nome || "");
             setAberto(true);
@@ -105,7 +112,7 @@ export default function ClienteDriveSelector({
             ) : erro ? (
               <p className="drive-client-error">{erro}</p>
             ) : resultados.length === 0 ? (
-              <p>Nenhuma pasta de cliente ativo encontrada.</p>
+              <p>Nenhuma pasta de cliente encontrada.</p>
             ) : resultados.map((cliente) => (
               <button
                 key={cliente.id}
@@ -118,7 +125,10 @@ export default function ClienteDriveSelector({
                 <span aria-hidden="true">📁</span>
                 <span>
                   <strong>{cliente.nome}</strong>
-                  <small>{cliente.pasta_drive_nome || "Pasta sincronizada do Google Drive"}</small>
+                  <small>{cliente.drive_path || cliente.pasta_drive_nome || "Pasta sincronizada do Google Drive"}</small>
+                  <em className={`drive-client-kind ${cliente.drive_status === "arquivado" ? "is-archived" : "is-active"}`}>
+                    {cliente.drive_status === "arquivado" ? "Arquivo histórico" : "Cliente ativo"}
+                  </em>
                 </span>
               </button>
             ))}
@@ -126,8 +136,11 @@ export default function ClienteDriveSelector({
         )}
       </div>
       {selecionado && (
-        <div className="drive-client-selected">
-          <span><strong>Pasta vinculada</strong><small>Esta tarefa ficará relacionada ao cliente do Drive.</small></span>
+        <div className={`drive-client-selected ${selecionado.drive_status === "arquivado" ? "is-archived" : ""}`}>
+          <span>
+            <strong>{selecionado.drive_status === "arquivado" ? "Pasta histórica vinculada" : "Pasta ativa vinculada"}</strong>
+            <small>{selecionado.drive_path || "Esta tarefa ficará relacionada ao cliente do Drive."}</small>
+          </span>
           <a href={selecionado.pasta_drive_url} target="_blank" rel="noreferrer">Abrir pasta</a>
         </div>
       )}

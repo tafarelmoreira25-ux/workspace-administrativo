@@ -3,6 +3,7 @@ import MeuPlanner from './MeuPlanner';
 import PainelEquipeTV from './PainelEquipeTV';
 import ClienteDriveSelector from './components/ClienteDriveSelector';
 import { GOOGLE_DRIVE_CLIENTES_ROOT_URL } from './lib/googleDriveClients';
+import { tarefaExigeComprovacao } from './lib/taskCompletionRules';
 import { lazy, Suspense, useCallback, useEffect, useState } from "react";
 import { supabase } from "./lib/supabase";
 import { criarResumoBoasVindas } from "./homeGreeting";
@@ -171,10 +172,6 @@ function urlGoogleDriveValida(url) {
   return /^https:\/\/(drive|docs)\.google\.com\//i.test(url?.trim() || "");
 }
 
-function tarefaExigeComprovacao(tarefa) {
-  return tarefa?.requer_comprovacao !== false;
-}
-
 function parteNomeComprovante(valor, padrao) {
   const normalizado = String(valor || "")
     .normalize("NFD")
@@ -193,6 +190,9 @@ function validarEntregaPop(entrega, tarefa) {
   if (!entrega.observacoes?.trim()) return "Informe a devolutiva do que foi executado.";
   if (tarefaExigeComprovacao(tarefa) && !urlGoogleDriveValida(entrega.driveUrl)) {
     return "Cole um link válido do Google Drive para comprovar o arquivamento.";
+  }
+  if (entrega.driveUrl?.trim() && !urlGoogleDriveValida(entrega.driveUrl)) {
+    return "O link opcional informado precisa ser do Google Drive.";
   }
   if (!entrega.crmAtualizado) return "Confirme a atualização do CRM.";
   if (!entrega.planilhaAtualizada) return "Confirme a atualização da Planilha Geral.";
@@ -428,6 +428,64 @@ function normalizarTexto(texto = "") {
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
     .toLowerCase();
+}
+
+async function vincularPastasClientesNasTarefas(tarefas = []) {
+  const clienteIds = [...new Set(
+    tarefas
+      .map((tarefa) => Number(tarefa.cliente_id))
+      .filter((id) => Number.isSafeInteger(id) && id > 0),
+  )];
+  if (clienteIds.length === 0) return tarefas;
+
+  const { data, error } = await supabase.rpc("listar_pastas_clientes_tarefas", {
+    p_cliente_ids: clienteIds,
+  });
+  if (error) {
+    // Compatibilidade enquanto o SQL desta melhoria ainda não foi publicado.
+    console.warn("Não foi possível carregar as pastas vinculadas às tarefas:", error.message);
+    return tarefas;
+  }
+
+  const pastasPorCliente = new Map(
+    (data || []).map((cliente) => [String(cliente.cliente_id), cliente]),
+  );
+  return tarefas.map((tarefa) => ({
+    ...tarefa,
+    cliente_drive: pastasPorCliente.get(String(tarefa.cliente_id)) || null,
+  }));
+}
+
+function PastaClienteTarefa({ tarefa, destaque = false }) {
+  const cliente = tarefa?.cliente_drive;
+  const nome = cliente?.nome || tarefa?.nome_cliente;
+  if (!nome) return null;
+
+  const arquivada = cliente?.drive_status === "arquivado";
+  return (
+    <section className={`task-client-folder ${destaque ? "is-highlighted" : ""} ${arquivada ? "is-archived" : ""}`}>
+      <span className="task-client-folder-icon" aria-hidden="true">📁</span>
+      <div>
+        <small>Cliente e pasta vinculada</small>
+        <strong>{nome}</strong>
+        {cliente?.drive_path || cliente?.pasta_drive_nome ? (
+          <span>{cliente.drive_path || cliente.pasta_drive_nome}</span>
+        ) : (
+          <span>Os dados da pasta ainda não foram carregados.</span>
+        )}
+      </div>
+      {cliente?.drive_status && (
+        <em className={`task-client-folder-status ${arquivada ? "is-archived" : ""}`}>
+          {arquivada ? "Arquivo histórico" : "Cliente ativo"}
+        </em>
+      )}
+      {cliente?.pasta_drive_url && (
+        <a href={cliente.pasta_drive_url} target="_blank" rel="noreferrer">
+          Abrir pasta no Drive
+        </a>
+      )}
+    </section>
+  );
 }
 
 function ResumoFluxoTarefa({ tarefa, compacto = false }) {
@@ -857,11 +915,11 @@ function EntregaPop({ tarefa, valor, onChange }) {
   return (
     <section className="document-checklist pop-delivery-checklist">
       <div className="document-checklist-heading">
-        <div><span className="eyebrow">POP 1.0 · prestação de contas</span><h4>Checklist de conclusão</h4><p>Documentos são comprovados por link do Drive. Imagens de apoio podem ser anexadas abaixo.</p></div>
+        <div><span className="eyebrow">POP 1.0 · prestação de contas</span><h4>Checklist de conclusão</h4><p>{comprovacaoObrigatoria ? "Esta tarefa entrega um documento; informe o link do arquivo no Drive." : "Registre a execução. O link do Drive é opcional para esta tarefa."}</p></div>
       </div>
       <label>Observações / devolutiva<textarea rows="3" value={valor.observacoes || ""} onChange={(e) => atualizar("observacoes", e.target.value)} placeholder="Descreva objetivamente o que foi executado e eventuais pendências." /></label>
       <label className="drive-link-field"><span>Link do Documento no Google Drive {comprovacaoObrigatoria ? "*" : "(opcional)"}</span><input type="url" value={valor.driveUrl || ""} onChange={(e) => atualizar("driveUrl", e.target.value)} placeholder="https://drive.google.com/file/d/..." aria-describedby={`drive-link-help-${tarefa.id}`} required={comprovacaoObrigatoria} /><small id={`drive-link-help-${tarefa.id}`}>Insira o link do arquivo salvo na pasta do cliente no Google Drive para comprovação da tarefa.</small></label>
-      <small className="drive-link-filename">Nome técnico registrado automaticamente: {nomeComprovanteDrive(tarefa)}</small>
+      {comprovacaoObrigatoria && <small className="drive-link-filename">Nome técnico registrado automaticamente: {nomeComprovanteDrive(tarefa)}</small>}
       <div className="document-checklist-grid">
         {criterios.map((criterio) => <label className={valor.checklist?.[criterio] ? "checked" : ""} key={criterio}><input type="checkbox" checked={valor.checklist?.[criterio] || false} onChange={(e) => atualizar("checklist", { ...(valor.checklist || {}), [criterio]: e.target.checked })} /><span>{criterio}</span></label>)}
         <label className={valor.crmAtualizado ? "checked" : ""}><input type="checkbox" checked={valor.crmAtualizado || false} onChange={(e) => atualizar("crmAtualizado", e.target.checked)} /><span>CRM atualizado</span></label>
@@ -900,6 +958,7 @@ function ModalConclusaoTarefa({ tarefa, entrega, enviando, onChange, onClose, on
         <button aria-label="Fechar conclusão" className="modal-close" disabled={enviando} onClick={onClose} type="button">×</button>
       </div>
       <form className="stack-form completion-form" onSubmit={confirmar}>
+        <PastaClienteTarefa tarefa={tarefa} destaque />
         <div className="completion-intro"><strong>Registre o que foi realizado.</strong><span>As observações e comprovações ficam no histórico da tarefa.</span></div>
         <EntregaPop tarefa={tarefa} valor={entrega} onChange={onChange} />
         <label className="completion-image-field">
@@ -920,10 +979,9 @@ function ModalConclusaoTarefa({ tarefa, entrega, enviando, onChange, onClose, on
 }
 
 function LinhaTempoTarefa({ tarefa }) {
-  const etapas = [
-    ["delegada", "Delegada"], ["recebida", "Aceita"], ["em_execucao", "Executada"],
-    ["devolvida_conferencia", "Em conferência"], ["concluida", "Concluída"],
-  ];
+  const etapas = tarefa.status === "devolvida_conferencia"
+    ? [["delegada", "Delegada"], ["recebida", "Aceita"], ["em_execucao", "Executada"], ["devolvida_conferencia", "Em conferência"]]
+    : [["delegada", "Delegada"], ["recebida", "Aceita"], ["em_execucao", "Em execução"], ["concluida", "Concluída"]];
   const indiceAtual = etapas.findIndex(([status]) => status === tarefa.status);
   return <div className="task-timeline" aria-label="Linha do tempo da tarefa">
     {etapas.map(([status, rotulo], indice) => <div className={`task-timeline-step ${indice <= indiceAtual ? "done" : ""}`} key={status}><span>●</span><small>{rotulo}</small></div>)}
@@ -1592,7 +1650,10 @@ function AdminDashboard({ usuario, onLogout, state }) {
     if (error) {
       alert("Erro ao salvar tarefa: " + mensagemErroOperacional(error));
     } else {
-      setListaTarefas((anteriores) => [data, ...anteriores]);
+      setListaTarefas((anteriores) => [{
+        ...data,
+        cliente_drive: tarefaManual ? null : clienteDriveTarefa,
+      }, ...anteriores]);
       showToast(
         tarefaManual
           ? "Tarefa manual adicionada ao painel."
@@ -2801,6 +2862,7 @@ function AdminDashboard({ usuario, onLogout, state }) {
                         </div>
                         <ResumoFluxoTarefa tarefa={tarefa} compacto />
                         <h3>{tarefa.titulo}</h3>
+                        <PastaClienteTarefa tarefa={tarefa} />
                         {tarefa.descricao && <p>{tarefa.descricao}</p>}
                         {tarefa.apontamento && (
                           <div className="admin-task-note">
@@ -3268,7 +3330,9 @@ function ModuloClientes({ podeSincronizar = false }) {
     return () => { ativo = false; };
   }, []);
   const termo = normalizarTexto(busca);
-  const clientesDrive = clientes.filter((cliente) => cliente.drive_folder_id && cliente.drive_status === "ativo");
+  const clientesDrive = clientes.filter((cliente) => cliente.drive_folder_id && ["ativo", "arquivado"].includes(cliente.drive_status));
+  const clientesAtivos = clientesDrive.filter((cliente) => cliente.drive_status === "ativo");
+  const clientesArquivados = clientesDrive.filter((cliente) => cliente.drive_status === "arquivado");
   const filtrados = clientesDrive.filter((cliente) => !termo || normalizarTexto(`${cliente.nome} ${cliente.pasta_drive_nome || ""}`).includes(termo));
   const ultimaSincronizacao = clientesDrive.reduce((maisRecente, cliente) => {
     if (!cliente.drive_last_synced_at) return maisRecente;
@@ -3295,7 +3359,7 @@ function ModuloClientes({ podeSincronizar = false }) {
     }
     setClientes(consulta.data || []);
     const resumo = data?.resumo || {};
-    setAviso(`Drive atualizado: ${resumo.total_recebido || 0} pastas verificadas, ${resumo.inseridos || 0} novas e ${resumo.atualizados || 0} atualizadas.`);
+    setAviso(`Drive atualizado: ${resumo.ativos || 0} clientes ativos e ${resumo.arquivados || 0} clientes históricos. ${resumo.inseridos || 0} novas pastas e ${resumo.atualizados || 0} atualizadas.`);
   }
 
   return (
@@ -3304,7 +3368,7 @@ function ModuloClientes({ podeSincronizar = false }) {
         <div>
           <span className="eyebrow">Base corporativa sincronizada</span>
           <h2>Clientes do Google Drive</h2>
-          <p>As pastas de <strong>01_CLIENTES_ATIVOS</strong> são a fonte oficial para delegação de tarefas.</p>
+          <p>Clientes ativos e antigos do Google Drive estão disponíveis para delegação de tarefas.</p>
         </div>
         <div className="task-history-actions">
           <a className="btn-secondary compact" href={GOOGLE_DRIVE_CLIENTES_ROOT_URL} target="_blank" rel="noreferrer">Abrir pasta geral</a>
@@ -3313,18 +3377,19 @@ function ModuloClientes({ podeSincronizar = false }) {
       </div>
 
       <div className="drive-sync-summary">
-        <div><span>Clientes ativos</span><strong>{clientesDrive.length}</strong></div>
+        <div><span>Clientes ativos</span><strong>{clientesAtivos.length}</strong></div>
+        <div><span>Arquivo histórico</span><strong>{clientesArquivados.length}</strong></div>
         <div><span>Última sincronização</span><strong>{ultimaSincronizacao ? formatarDataHora(ultimaSincronizacao) : "Pendente"}</strong></div>
         <div><span>Origem</span><strong>Google Drive da empresa</strong></div>
       </div>
       {aviso && <div className="drive-sync-success" role="status">{aviso}</div>}
       {erro && <div className="return-alert">{erro}</div>}
-      <input className="central-search" value={busca} onChange={(evento) => setBusca(evento.target.value)} placeholder="Buscar uma pasta de cliente ativo" />
+      <input className="central-search" value={busca} onChange={(evento) => setBusca(evento.target.value)} placeholder="Buscar cliente ativo ou antigo" />
       {filtrados.length === 0 ? (
         <div className="drive-clients-empty">
           <span aria-hidden="true">📁</span>
           <strong>Nenhum cliente sincronizado</strong>
-          <p>{podeSincronizar ? "Configure a integração e clique em Atualizar do Google Drive." : "Solicite ao gestor a sincronização da pasta de clientes ativos."}</p>
+          <p>{podeSincronizar ? "Clique em Atualizar do Google Drive para carregar clientes ativos e históricos." : "Solicite ao gestor a sincronização das pastas de clientes."}</p>
         </div>
       ) : (
         <div className="central-table">
@@ -3332,7 +3397,9 @@ function ModuloClientes({ podeSincronizar = false }) {
             <div className="central-table-row client-row" key={cliente.id}>
               <div><strong>{cliente.nome}</strong><small>{cliente.pasta_drive_nome}</small></div>
               <span>Google Drive</span>
-              <span className="drive-client-status">Sincronizado</span>
+              <span className={`drive-client-status ${cliente.drive_status === "arquivado" ? "is-archived" : ""}`}>
+                {cliente.drive_status === "arquivado" ? "Arquivo histórico" : "Ativo"}
+              </span>
               <span>{cliente.drive_modified_time ? formatarDataHora(cliente.drive_modified_time) : "Data não informada"}</span>
               <div className="client-row-actions">
                 <a href={cliente.pasta_drive_url} target="_blank" rel="noreferrer">Abrir pasta</a>
@@ -3498,7 +3565,7 @@ function FormularioDelegacaoUsuario({ usuario, funcionarios, onCriada, showToast
       });
       if (error) throw error;
       const criada = Array.isArray(data) ? data[0] : data;
-      onCriada(criada);
+      onCriada({ ...criada, cliente_drive: form.clienteDrive });
       setEnviada(true);
       window.setTimeout(() => setEnviada(false), 1800);
       showToast(`Tarefa ${criada.id_externo || criada.id} delegada com sucesso.`);
@@ -3748,7 +3815,7 @@ function EmployeeDashboard({ usuario, onLogout, state }) {
 
     if (tarefa.origem === "operacional") {
       const resposta = await supabase.rpc("movimentar_tarefa_operacional", {
-        p_tarefa_id: Number(tarefa.id), p_acao: "devolver_conferencia", p_motivo: null,
+        p_tarefa_id: Number(tarefa.id), p_acao: "concluir", p_motivo: null,
         p_checklist: entrega.checklist || {}, p_observacoes: entrega.observacoes.trim(),
         p_nome_arquivo: nomeComprovanteDrive(tarefa), p_drive_url: entrega.driveUrl.trim(),
         p_crm_atualizado: entrega.crmAtualizado, p_planilha_atualizada: entrega.planilhaAtualizada,
@@ -3782,7 +3849,7 @@ function EmployeeDashboard({ usuario, onLogout, state }) {
       return;
     }
 
-    const statusEsperado = tarefa.origem === "operacional" ? "devolvida_conferencia" : "concluida";
+    const statusEsperado = "concluida";
     if (!tarefaAtualizada || tarefaAtualizada.status !== statusEsperado) {
       alert(
         "O banco não confirmou a conclusão. Execute a configuração do Supabase indicada no README.",
@@ -3806,7 +3873,7 @@ function EmployeeDashboard({ usuario, onLogout, state }) {
 
     try {
       await recarregarTarefas();
-      showToast(tarefa.origem === "operacional" ? "Tarefa devolvida para conferência." : "Parabéns! Tarefa concluída com sucesso.");
+      showToast("Parabéns! Tarefa concluída com sucesso.");
     } catch (erroRecarregamento) {
       console.error("Erro ao recarregar tarefas:", erroRecarregamento);
       showToast("Tarefa concluída no banco.");
@@ -3927,6 +3994,7 @@ function EmployeeDashboard({ usuario, onLogout, state }) {
                   <div>
                     <h3>{tarefa.titulo}</h3>
                     <ResumoFluxoTarefa tarefa={tarefa} />
+                    <PastaClienteTarefa tarefa={tarefa} />
                     {tarefa.origem === "operacional" && <LinhaTempoTarefa tarefa={tarefa} />}
                     <p>{tarefa.descricao}</p>
                     {tarefa.apontamento && (
@@ -4007,7 +4075,7 @@ function EmployeeDashboard({ usuario, onLogout, state }) {
                               : undefined
                           }
                         >
-                          {tarefaConcluindoId === tarefa.id ? "Enviando..." : tarefa.origem === "operacional" ? "Enviar para validação" : "Marcar como concluída"}
+                          {tarefaConcluindoId === tarefa.id ? "Concluindo..." : "Concluir tarefa"}
                         </button>
                       </>
                     )}
@@ -4146,8 +4214,9 @@ export default function App() {
     const tarefasOperacionais = (data || []).filter(
       (tarefa) => !tarefaEhResponsabilidadeMensal(tarefa),
     );
-    setListaTarefas(tarefasOperacionais);
-    return tarefasOperacionais;
+    const tarefasComPastas = await vincularPastasClientesNasTarefas(tarefasOperacionais);
+    setListaTarefas(tarefasComPastas);
+    return tarefasComPastas;
   }, []);
 
   const recarregarFuncionarios = useCallback(async () => {
@@ -4592,6 +4661,18 @@ export default function App() {
         .priority-badge.priority-urgente { color: #b73350; background: #ffe2e9; box-shadow: 0 0 0 3px rgba(223,109,135,.08); }
         .category-badge { color: #315f91; background: #e2f0ff; border: 1px solid rgba(79,143,247,.12); }
         .employee-task-note { margin: 10px 0; padding: 10px 12px; color: #516987; background: rgba(231,242,255,.74); border-left: 3px solid #5c9bf0; border-radius: 8px; font-size: 11px; line-height: 1.55; }
+        .task-client-folder { display: grid; grid-template-columns: auto minmax(0,1fr) auto auto; align-items: center; gap: 10px; margin: 10px 0; padding: 11px 12px; background: #f1f7ff; border: 1px solid rgba(70,126,199,.18); border-radius: 12px; }
+        .task-client-folder.is-highlighted { margin: 0; padding: 14px; background: linear-gradient(135deg,#e9f4ff,#f8fbff); border-color: rgba(49,112,205,.28); box-shadow: 0 10px 24px rgba(46,92,155,.08); }
+        .task-client-folder.is-archived { background: #fff9eb; border-color: rgba(190,139,35,.22); }
+        .task-client-folder-icon { display: grid; place-items: center; width: 38px; height: 38px; background: rgba(255,255,255,.82); border-radius: 10px; font-size: 18px; box-shadow: 0 5px 14px rgba(47,86,139,.08); }
+        .task-client-folder > div { display: grid; gap: 2px; min-width: 0; }
+        .task-client-folder > div small { color: #6681a5; font-size: 8px; font-weight: 900; letter-spacing: .65px; text-transform: uppercase; }
+        .task-client-folder > div strong { overflow: hidden; color: #153968; font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
+        .task-client-folder > div span { overflow: hidden; color: #6d809b; font-size: 9px; text-overflow: ellipsis; white-space: nowrap; }
+        .task-client-folder-status { width: max-content; padding: 5px 8px; color: #24725f; background: #e4f6ef; border-radius: 999px; font-size: 8px; font-style: normal; font-weight: 900; }
+        .task-client-folder-status.is-archived { color: #805f1d; background: #ffefc5; }
+        .task-client-folder > a { min-height: 34px; display: inline-flex; align-items: center; justify-content: center; padding: 0 11px; color: #fff; background: #2f73dc; border-radius: 9px; font-size: 9px; font-weight: 900; text-decoration: none; white-space: nowrap; transition: .18s ease; }
+        .task-client-folder > a:hover { background: #1e5fc7; transform: translateY(-1px); box-shadow: 0 7px 15px rgba(40,101,196,.2); }
 
         .task-management { display: flex; flex-direction: column; gap: 22px; }
         .task-management-header { display: flex; align-items: center; justify-content: space-between; gap: 24px; }
@@ -6352,12 +6433,17 @@ export default function App() {
         .drive-client-options strong, .drive-client-options small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
         .drive-client-options strong { color: #173962; font-size: 11px; }
         .drive-client-options small { color: #7182a0; font-size: 9px; }
+        .drive-client-kind { width: max-content; margin-top: 3px; padding: 3px 7px; border-radius: 999px; font-size: 8px; font-style: normal; font-weight: 900; letter-spacing: .25px; }
+        .drive-client-kind.is-active { color: #24725f; background: #e8f8f2; }
+        .drive-client-kind.is-archived { color: #805f1d; background: #fff5d9; }
         .drive-client-selected { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 12px; background: #eff8f5; border: 1px solid rgba(50,165,137,.18); border-radius: 11px; }
+        .drive-client-selected.is-archived { background: #fff9ea; border-color: rgba(190,139,35,.22); }
+        .drive-client-selected.is-archived strong { color: #805f1d; }
         .drive-client-selected > span { display: grid; gap: 2px; }
         .drive-client-selected strong { color: #267563; font-size: 10px; }
         .drive-client-selected small { color: #66857d; font-size: 9px; }
         .drive-client-selected a { flex: 0 0 auto; color: #2f6fd0; font-size: 10px; font-weight: 800; }
-        .drive-sync-summary { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 10px; margin: 18px 0 6px; }
+        .drive-sync-summary { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap: 10px; margin: 18px 0 6px; }
         .drive-sync-summary > div { display: grid; gap: 5px; padding: 14px; background: #f6faff; border: 1px solid rgba(69,119,183,.12); border-radius: 13px; }
         .drive-sync-summary span { color: #7182a0; font-size: 9px; font-weight: 800; text-transform: uppercase; letter-spacing: .7px; }
         .drive-sync-summary strong { color: #173962; font-size: 12px; }
@@ -6367,6 +6453,7 @@ export default function App() {
         .drive-clients-empty strong { color: #173962; }
         .drive-clients-empty p { max-width: 460px; font-size: 11px; }
         .drive-client-status { width: max-content; padding: 5px 8px; color: #257963; background: #eaf8f3; border-radius: 999px; font-size: 9px; font-weight: 800; }
+        .drive-client-status.is-archived { color: #805f1d; background: #fff5d9; }
         .central-table { display: grid; gap: 8px; }
         .central-table-row { display: grid; grid-template-columns: 130px 1.1fr 1.5fr 150px 120px; align-items: center; gap: 12px; padding: 12px 14px; background: rgba(247,250,254,.9); border: 1px solid rgba(79,126,184,.1); border-radius: 12px; }
         .central-table-row a { color: #2f6fd0; font-weight: 800; }
@@ -6429,6 +6516,9 @@ export default function App() {
           .priority-picker { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); }
           .priority-choice { justify-content: center; }
           .advanced-fields { grid-template-columns: 1fr; }
+          .task-client-folder { grid-template-columns: auto minmax(0,1fr); align-items: start; }
+          .task-client-folder-status { grid-column: 2; }
+          .task-client-folder > a { grid-column: 1 / -1; width: 100%; min-height: 42px; }
           .return-modal { padding: 21px 17px; border-radius: 18px; }
           .return-modal-actions { flex-direction: column-reverse; }
           .return-modal-actions button { width: 100%; }
