@@ -3433,17 +3433,15 @@ function EmployeeDashboard({ usuario, onLogout, state }) {
         <nav>
           <span className="nav-label">Central de Tarefas</span>
           <NavItem active={abaAtiva === "inicio"} icon="dashboard" onClick={() => setAbaAtiva("inicio")}>Início</NavItem>
-          <NavItem active={abaAtiva === "tarefas"} icon="tarefas" onClick={() => setAbaAtiva("tarefas")}>Minhas Tarefas</NavItem>
+          <NavItem active={abaAtiva === "tarefas"} icon="tarefas" onClick={() => setAbaAtiva("tarefas")}>Tarefas e urgências</NavItem>
           <NavItem active={abaAtiva === "delegar"} icon="tarefas" onClick={() => setAbaAtiva("delegar")}>Delegar tarefa</NavItem>
           <NavItem active={abaAtiva === "acompanhamento"} icon="dashboard" onClick={() => setAbaAtiva("acompanhamento")}>Tarefas da equipe</NavItem>
           <NavItem active={abaAtiva === "clientes"} icon="equipe" onClick={() => setAbaAtiva("clientes")}>Clientes</NavItem>
-          <NavItem active={abaAtiva === "urgencias"} icon="feedback" onClick={() => setAbaAtiva("urgencias")}>Urgências</NavItem>
           <NavItem active={abaAtiva === "notificacoes"} icon="feedback" onClick={() => setAbaAtiva("notificacoes")}>Notificações</NavItem>
           <NavItem active={abaAtiva === "historico"} icon="planner" onClick={() => setAbaAtiva("historico")}>Meu Histórico</NavItem>
           <NavItem active={abaAtiva === "feedbacks"} icon="feedback" onClick={() => setAbaAtiva("feedbacks")}>
             Meus Feedbacks ({meusFeedbacks.length})
           </NavItem>
-          <NavItem active={abaAtiva === "planner"} icon="planner" onClick={() => setAbaAtiva("planner")}>Meu Planner</NavItem>
           <NavItem active={abaAtiva === "documentos"} icon="documentos" onClick={() => setAbaAtiva("documentos")}>Documentos PDF</NavItem>
         </nav>
         <button className="sidebar-logout" onClick={onLogout}><UiIcon name="logout" /> Sair</button>
@@ -3473,7 +3471,7 @@ function EmployeeDashboard({ usuario, onLogout, state }) {
           </div>
         </header>
 
-        {abaAtiva === "inicio" && <CentralInicio tarefas={listaTarefas} usuario={usuario} onNavigate={navegarDaTelaInicial} />}
+        {abaAtiva === "inicio" && <><CentralInicio tarefas={listaTarefas} usuario={usuario} onNavigate={navegarDaTelaInicial} /><section className="dashboard-planner-section"><MeuPlanner funcionariaLogadaId={usuario.id} /></section></>}
 
         {abaAtiva === "tarefas" && (
           <div className="employee-tasks-workspace">
@@ -3651,12 +3649,22 @@ function EmployeeDashboard({ usuario, onLogout, state }) {
                 </div>
               </div>
             </section>
+            <section className="unified-workspace-section">
+              <div className="unified-workspace-divider">
+                <div>
+                  <span className="eyebrow">Seção de acompanhamento</span>
+                  <h2>Urgências operacionais</h2>
+                  <p>Registre, acompanhe e atualize atendimentos urgentes sem sair das suas tarefas.</p>
+                </div>
+                <span>Urgências</span>
+              </div>
+              <ModuloUrgencias usuario={usuario} funcionarios={funcionarios} showToast={showToast} />
+            </section>
           </div>
         )}
 
         {abaAtiva === "delegar" && <FormularioDelegacaoUsuario usuario={usuario} funcionarios={funcionarios} showToast={showToast} onCriada={(tarefa) => setListaTarefas((atuais) => [tarefa, ...atuais])} />}
         {abaAtiva === "clientes" && <ModuloClientes />}
-        {abaAtiva === "urgencias" && <ModuloUrgencias usuario={usuario} funcionarios={funcionarios} showToast={showToast} />}
         {abaAtiva === "notificacoes" && <CentroNotificacoes />}
 
         {abaAtiva === "historico" && <MeuHistorico tarefas={tarefasConcluidas} />}
@@ -3685,10 +3693,6 @@ function EmployeeDashboard({ usuario, onLogout, state }) {
               vazio="Você ainda não recebeu nenhum feedback profissional."
             />
           </section>
-        )}
-
-        {abaAtiva === "planner" && (
-          <MeuPlanner funcionariaLogadaId={usuario.id} />
         )}
 
         {abaAtiva === "documentos" && (
@@ -4456,6 +4460,13 @@ export default function App() {
         .monthly-list strong { color: var(--dark); font-size: 12px; line-height: 1.45; }
         .monthly-empty { padding: 34px 22px; color: var(--muted); background: rgba(241,248,255,.62); border: 1px dashed rgba(104,148,201,.25); border-radius: 16px; font-size: 12px; line-height: 1.6; text-align: center; }
         .employee-tasks-workspace { display: flex; flex-direction: column; gap: 22px; }
+        .dashboard-planner-section { margin-top: 24px; padding-top: 24px; border-top: 1px solid rgba(104,148,201,.16); }
+        .dashboard-planner-section::before { content: 'Planejamento pessoal'; display: block; margin-bottom: 12px; color: #4e7ec1; font-size: 10px; font-weight: 850; letter-spacing: .11em; text-transform: uppercase; }
+        .unified-workspace-section { display: grid; gap: 14px; padding-top: 28px; border-top: 1px solid rgba(104,148,201,.18); }
+        .unified-workspace-divider { display: flex; align-items: end; justify-content: space-between; gap: 20px; padding: 0 4px; }
+        .unified-workspace-divider h2 { margin: 4px 0 5px; color: var(--dark); font-size: 22px; letter-spacing: -.5px; text-transform: none; }
+        .unified-workspace-divider p { max-width: 610px; margin: 0; color: var(--muted); font-size: 12px; }
+        .unified-workspace-divider > span { flex: 0 0 auto; padding: 7px 11px; color: #2b68c3; background: rgba(222,237,255,.78); border: 1px solid rgba(65,125,216,.17); border-radius: 999px; font-size: 9px; font-weight: 850; letter-spacing: .07em; text-transform: uppercase; }
         .monthly-employee-panel { position: relative; overflow: hidden; }
         .employee-monthly-list { grid-template-columns: repeat(2, minmax(0, 1fr)); position: relative; z-index: 1; }
         .resource-panel { overflow: hidden; position: relative; }
@@ -5903,6 +5914,7 @@ export default function App() {
           .sidebar nav { grid-template-columns: repeat(5,minmax(86px,1fr)); }
           .main-content { padding-inline: 18px; }
           .employee-tasks-workspace .content-grid { grid-template-columns: minmax(0,1fr); }
+          .unified-workspace-divider { align-items: flex-start; flex-direction: column; }
           .side-stack { width: 100%; }
         }
 
