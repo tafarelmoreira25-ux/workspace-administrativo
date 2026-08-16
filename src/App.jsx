@@ -3091,10 +3091,134 @@ function ModuloClientes() {
   const [clientes, setClientes] = useState([]);
   const [busca, setBusca] = useState("");
   const [erro, setErro] = useState("");
-  useEffect(() => { supabase.rpc("listar_clientes_central").then(({ data, error }) => { if (error) setErro(mensagemErroOperacional(error)); else setClientes(data || []); }); }, []);
+  const [editando, setEditando] = useState(null);
+  const [formCliente, setFormCliente] = useState(null);
+  const [salvando, setSalvando] = useState(false);
+
+  useEffect(() => {
+    let ativo = true;
+    supabase.rpc("listar_clientes_central").then(({ data, error: erroConsulta }) => {
+      if (!ativo) return;
+      if (erroConsulta) setErro(mensagemErroOperacional(erroConsulta));
+      else { setClientes(data || []); setErro(""); }
+    });
+    return () => { ativo = false; };
+  }, []);
   const termo = normalizarTexto(busca);
   const filtrados = clientes.filter((c) => !termo || normalizarTexto(`${c.nome} ${c.cpf || ""} ${c.codigo_interno || ""} ${c.crm_referencia || ""}`).includes(termo));
-  return <section className="panel large"><div className="panel-title-row"><div><span className="eyebrow">Jornada centralizada</span><h2>Clientes</h2><p>Cliente → tratativas → tarefas e histórico operacional.</p></div><strong>{filtrados.length}</strong></div><input className="central-search" value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar por nome, CPF, código ou CRM" />{erro ? <div className="return-alert">{erro}</div> : <div className="central-table">{filtrados.slice(0, 15).map((c) => <div className="central-table-row client-row" key={c.id}><strong>{c.nome}</strong><span>{c.cpf || "CPF não informado"}</span><span>{c.departamento_atual || "Sem departamento"}</span><span>{c.status_geral || c.status_operacional}</span>{c.pasta_drive_url ? <a href={c.pasta_drive_url} target="_blank" rel="noreferrer">Abrir Drive</a> : <small>Drive pendente</small>}</div>)}</div>}</section>;
+
+  function abrirEditor(cliente = null) {
+    setEditando(cliente?.id || "novo");
+    setFormCliente({
+      id: cliente?.id || null,
+      nome: cliente?.nome || "",
+      cpf: cliente?.cpf || "",
+      numeroContrato: cliente?.numero_contrato || "",
+      numeroProcesso: cliente?.numero_processo || "",
+      departamento: cliente?.departamento_atual || "",
+      crm: cliente?.crm_referencia || "",
+      pastaDriveUrl: cliente?.pasta_drive_url || "",
+      pastaDriveNome: cliente?.pasta_drive_nome || "",
+    });
+  }
+
+  function alterarCliente(campo, valor) {
+    setFormCliente((atual) => ({ ...atual, [campo]: valor }));
+  }
+
+  async function salvarCliente(evento) {
+    evento.preventDefault();
+    const nome = formCliente.nome.trim();
+    const linkDrive = formCliente.pastaDriveUrl.trim();
+    if (!nome) { setErro("Informe o nome do cliente."); return; }
+    if (linkDrive && !/^https:\/\/(drive|docs)\.google\.com\//i.test(linkDrive)) {
+      setErro("Informe um link válido do Google Drive.");
+      return;
+    }
+
+    setSalvando(true);
+    const { data, error: erroSalvar } = await supabase.rpc("salvar_cliente_central", {
+      p_cliente_id: formCliente.id ? Number(formCliente.id) : null,
+      p_nome: nome,
+      p_cpf: formCliente.cpf.trim() || null,
+      p_numero_contrato: formCliente.numeroContrato.trim() || null,
+      p_numero_processo: formCliente.numeroProcesso.trim() || null,
+      p_departamento_atual: formCliente.departamento.trim() || null,
+      p_crm_referencia: formCliente.crm.trim() || null,
+      p_pasta_drive_url: linkDrive || null,
+      p_pasta_drive_nome: formCliente.pastaDriveNome.trim() || null,
+    });
+    setSalvando(false);
+    if (erroSalvar) { setErro(mensagemErroOperacional(erroSalvar)); return; }
+    const clienteSalvo = Array.isArray(data) ? data[0] : data;
+    setClientes((atuais) => {
+      const semAnterior = atuais.filter((cliente) => String(cliente.id) !== String(clienteSalvo.id));
+      return [clienteSalvo, ...semAnterior];
+    });
+    setEditando(null);
+    setFormCliente(null);
+    setErro("");
+  }
+  return (
+    <section className="panel large client-management-panel">
+      <div className="panel-title-row">
+        <div>
+          <span className="eyebrow">Jornada centralizada</span>
+          <h2>Clientes</h2>
+          <p>Cadastre os dados do cliente e mantenha o link da pasta no Google Drive sempre acessível.</p>
+        </div>
+        <div className="task-history-actions">
+          <strong>{filtrados.length}</strong>
+          <button type="button" className="btn-primary compact" onClick={() => abrirEditor()}>Novo cliente</button>
+        </div>
+      </div>
+
+      {editando && formCliente && (
+        <form className="client-editor" onSubmit={salvarCliente}>
+          <div className="client-editor-heading">
+            <div>
+              <span className="eyebrow">{formCliente.id ? "Edição do cadastro" : "Novo cadastro"}</span>
+              <h3>{formCliente.id ? "Atualizar cliente" : "Cadastrar cliente"}</h3>
+            </div>
+            <button type="button" className="model-library-close" onClick={() => { setEditando(null); setFormCliente(null); }} aria-label="Fechar edição">×</button>
+          </div>
+          <div className="client-editor-grid">
+            <label>Nome completo *<input required value={formCliente.nome} onChange={(evento) => alterarCliente("nome", evento.target.value)} placeholder="Nome completo do cliente" /></label>
+            <label>CPF ou CNPJ<input value={formCliente.cpf} onChange={(evento) => alterarCliente("cpf", evento.target.value)} placeholder="000.000.000-00" /></label>
+            <label>Número do contrato<input value={formCliente.numeroContrato} onChange={(evento) => alterarCliente("numeroContrato", evento.target.value)} /></label>
+            <label>Número do processo<input value={formCliente.numeroProcesso} onChange={(evento) => alterarCliente("numeroProcesso", evento.target.value)} /></label>
+            <label>Departamento atual<input value={formCliente.departamento} onChange={(evento) => alterarCliente("departamento", evento.target.value)} placeholder="Ex.: Jurídico" /></label>
+            <label>Referência no CRM<input value={formCliente.crm} onChange={(evento) => alterarCliente("crm", evento.target.value)} /></label>
+            <label className="wide">Link da pasta do cliente no Google Drive<input type="url" value={formCliente.pastaDriveUrl} onChange={(evento) => alterarCliente("pastaDriveUrl", evento.target.value)} placeholder="https://drive.google.com/drive/folders/..." /></label>
+            <label>Nome da pasta no Drive<input value={formCliente.pastaDriveNome} onChange={(evento) => alterarCliente("pastaDriveNome", evento.target.value)} placeholder="Ex.: Cliente - João da Silva" /></label>
+          </div>
+          <p className="client-editor-help">Cole o link da pasta do cliente no Google Drive. A equipe poderá abri-la diretamente pela lista.</p>
+          <div className="client-editor-actions">
+            <button type="button" className="btn-secondary" onClick={() => { setEditando(null); setFormCliente(null); }}>Cancelar</button>
+            <button type="submit" className="btn-primary" disabled={salvando}>{salvando ? "Salvando..." : "Salvar cliente"}</button>
+          </div>
+        </form>
+      )}
+
+      <input className="central-search" value={busca} onChange={(evento) => setBusca(evento.target.value)} placeholder="Buscar por nome, CPF, código ou CRM" />
+      {erro ? <div className="return-alert">{erro}</div> : (
+        <div className="central-table">
+          {filtrados.slice(0, 15).map((cliente) => (
+            <div className="central-table-row client-row" key={cliente.id}>
+              <div><strong>{cliente.nome}</strong><small>{cliente.codigo_interno || "Sem código"}</small></div>
+              <span>{cliente.cpf || "CPF não informado"}</span>
+              <span>{cliente.departamento_atual || "Sem departamento"}</span>
+              <span>{cliente.status_geral || cliente.status_operacional}</span>
+              <div className="client-row-actions">
+                {cliente.pasta_drive_url ? <a href={cliente.pasta_drive_url} target="_blank" rel="noreferrer">Abrir Drive</a> : <small>Drive pendente</small>}
+                <button type="button" className="btn-secondary compact" onClick={() => abrirEditor(cliente)}>Editar</button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </section>
+  );
 }
 
 function ModuloUrgencias({ funcionarios, showToast }) {
@@ -6004,6 +6128,21 @@ export default function App() {
         .central-table { display: grid; gap: 8px; }
         .central-table-row { display: grid; grid-template-columns: 130px 1.1fr 1.5fr 150px 120px; align-items: center; gap: 12px; padding: 12px 14px; background: rgba(247,250,254,.9); border: 1px solid rgba(79,126,184,.1); border-radius: 12px; }
         .central-table-row a { color: #2f6fd0; font-weight: 800; }
+        .client-management-panel .panel-title-row { align-items: flex-start; }
+        .client-row > div:first-child { display: grid; gap: 3px; }
+        .client-row > div:first-child small { color: var(--muted); font-size: 9px; }
+        .client-row-actions { display: flex; align-items: center; justify-content: flex-end; gap: 9px; }
+        .client-row-actions small { color: #8a6a26; font-size: 10px; }
+        .client-editor { display: grid; gap: 16px; margin: 4px 0 22px; padding: 20px; background: linear-gradient(135deg, #f5f9ff, #fff); border: 1px solid rgba(66,123,200,.2); border-radius: 16px; box-shadow: 0 10px 24px rgba(34,76,128,.07); }
+        .client-editor-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
+        .client-editor-heading h3 { margin: 4px 0 0; color: var(--dark); }
+        .client-editor-heading .model-library-close { color: #52677e; border-color: #dce4ed; }
+        .client-editor-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 13px; }
+        .client-editor-grid label { display: grid; gap: 6px; color: #284568; font-size: 11px; font-weight: 800; }
+        .client-editor-grid .wide { grid-column: 1 / -1; }
+        .client-editor-grid input { min-height: 42px; margin: 0; }
+        .client-editor-help { margin: -4px 0 0; color: #617896; font-size: 11px; }
+        .client-editor-actions { display: flex; justify-content: flex-end; gap: 9px; }
         .urgency-layout { display: grid; grid-template-columns: minmax(320px,.8fr) minmax(480px,1.5fr); gap: 18px; align-items: start; }
         .urgency-row { display: grid; grid-template-columns: 1fr auto; gap: 10px 16px; padding: 15px; border: 1px solid rgba(79,126,184,.13); border-left: 4px solid #ed8b36; border-radius: 13px; background: #fff; }
         .urgency-row.priority-critica { border-left-color: #d94b55; background: #fff8f8; }
@@ -6035,6 +6174,9 @@ export default function App() {
           .welcome-summary { align-items: flex-start; flex-direction: column; min-height: 0; padding: 21px 19px; gap: 15px; }
           .welcome-summary .btn-primary { width: 100%; }
           .central-table-row { grid-template-columns: 1fr; }
+          .client-editor-grid { grid-template-columns: 1fr; }
+          .client-editor-grid .wide { grid-column: auto; }
+          .client-row-actions { justify-content: flex-start; }
           .urgency-layout { grid-template-columns: 1fr; }
           .task-action-picker { grid-template-columns: repeat(2, minmax(0,1fr)); }
           .task-action-chip { min-height: 62px; padding: 10px; }

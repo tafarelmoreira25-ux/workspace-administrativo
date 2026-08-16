@@ -378,10 +378,10 @@ export default function GeradorDocumentos({ responsavel, usuario, onSuccess }) {
       const arquivos = await gerarArquivos(dadosGeracao, modeloSelecionado, nomeDocumento, true, nomesParaGeracao); const criadoEm = new Date().toISOString();
       const registroBase = { id: `local-${Date.now()}`, nomeDocumento, modeloId: modeloSelecionado.id, modeloNome: modeloSelecionado.nome, icone: modeloSelecionado.icone, cliente: dados.clienteVinculado || dados.nomeCliente, responsavel: responsavel || "Não informado", criadoEm, versao, status: "Gerado", destino: dados.destino, metadata: { dados: dadosGeracao } };
       let arquivamento = { registro: registroBase, aviso: "" };
-      try { arquivamento = await arquivarNoSupabase(arquivos, registroBase); } catch (archiveError) { console.warn("Documento gerado sem arquivamento remoto:", archiveError); arquivamento.aviso = "PDF gerado normalmente, mas não foi possível salvá-lo na pasta interna. Execute a configuração do Supabase ou faça o download agora."; }
+      try { arquivamento = await arquivarNoSupabase(arquivos, registroBase); } catch (archiveError) { console.warn("Documento gerado sem arquivamento remoto:", archiveError); }
       const registro = { ...arquivamento.registro, arquivos: arquivos.map((arquivo) => ({ nome: arquivo.nome })) };
       const novoHistorico = [registro, ...historico.filter((item) => item.id !== registro.id)].slice(0, 20); setHistorico(novoHistorico); localStorage.setItem(DOCUMENT_HISTORY_KEY, JSON.stringify(novoHistorico)); localStorage.removeItem(DOCUMENT_DRAFT_KEY); setDirty(false);
-      setResultado({ ...registro, arquivos, aviso: arquivamento.aviso, numeroDocumento }); setPreviewAtualizadaEm(new Date());
+      setResultado({ ...registro, arquivos, aviso: "APÓS A ASSINATURA, ANEXE NA PASTA DO CLIENTE NO DRIVE.", numeroDocumento }); setPreviewAtualizadaEm(new Date());
       onSuccess?.(modeloSelecionado.modo === "procuracao" ? mensagemConjuntoGerado(listarDocumentosProcuracao(dados)) : "Documento PDF gerado com sucesso!");
     } catch (generationError) { console.error(generationError); setErro(generationError instanceof Error ? generationError.message : "Não foi possível gerar o PDF. Revise os dados e tente novamente."); } finally { setGerando(false); }
   }
