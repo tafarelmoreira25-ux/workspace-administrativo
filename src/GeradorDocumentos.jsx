@@ -9,6 +9,8 @@ import {
 import { criarOpcoesIniciaisProcuracao, listarDocumentosProcuracao, mensagemConjuntoGerado } from "./lib/procuracaoConjunto";
 import { supabase } from "./lib/supabase";
 import { DOCUMENT_TEMPLATES, valorInicialCampo } from "./config/documentTemplates";
+import { gerarProcuracaoPdf } from "./lib/procuracaoPdf";
+import { gerarDeclaracaoHipossuficienciaPdf, gerarDeclaracaoIsencaoIrpfPdf } from "./lib/declaracoesPdf";
 import "./documentWorkspace.css";
 
 const MODELOS = enriquecerModelos(DOCUMENT_TEMPLATES);
@@ -62,9 +64,22 @@ function lerJsonLocal(chave, fallback) {
   try { return JSON.parse(localStorage.getItem(chave)) ?? fallback; } catch { return fallback; }
 }
 
+function persistirRascunho(dados) {
+  localStorage.setItem(DOCUMENT_DRAFT_KEY, JSON.stringify({
+    schema: DOCUMENT_WORKSPACE_SCHEMA,
+    dados,
+    salvoEm: new Date().toISOString(),
+  }));
+}
+
 function carregarRascunho(responsavel, departamento) {
   const salvo = lerJsonLocal(DOCUMENT_DRAFT_KEY, null);
-  return salvo?.schema === DOCUMENT_WORKSPACE_SCHEMA && salvo.dados?.modeloId ? salvo.dados : criarFormularioInicial(responsavel, MODELOS[0], departamento);
+  if (salvo?.schema !== DOCUMENT_WORKSPACE_SCHEMA || !salvo.dados?.modeloId) return criarFormularioInicial(responsavel, MODELOS[0], departamento);
+  const dadosSalvos = { ...salvo.dados };
+  if (!dadosSalvos.nacionalidadePreenchidaManualmente && String(dadosSalvos.nacionalidade || "").trim().toLocaleLowerCase("pt-BR") === "brasileira") {
+    dadosSalvos.nacionalidade = "";
+  }
+  return dadosSalvos;
 }
 
 function formatarDataHora(data) {
@@ -79,8 +94,6 @@ function criarArquivo(tipo, nome, bytes, criarUrl = true) {
 async function gerarArquivos(dados, modelo, nomeDocumento, criarUrls = true, nomesDoConjunto = {}) {
   const base = normalizarNomeArquivo(nomeDocumento || modelo.nome).replace(/\.pdf$/i, "");
   if (modelo.modo === "procuracao") {
-    const { gerarProcuracaoPdf } = await import("./lib/procuracaoPdf");
-    const { gerarDeclaracaoHipossuficienciaPdf, gerarDeclaracaoIsencaoIrpfPdf } = await import("./lib/declaracoesPdf");
     const documentos = listarDocumentosProcuracao(dados);
     const geradores = { procuracao: () => gerarProcuracaoPdf(dados), hipossuficiencia: () => gerarDeclaracaoHipossuficienciaPdf(dados), "isencao-irpf": () => gerarDeclaracaoIsencaoIrpfPdf(dados) };
     const nomes = Object.fromEntries(documentos.map((tipo) => [tipo, `${normalizarNomeArquivo(nomesDoConjunto[tipo] || nomeDocumento || modelo.nome).replace(/\.pdf$/i, "")}.pdf`]));
@@ -108,7 +121,6 @@ async function gerarArquivos(dados, modelo, nomeDocumento, criarUrls = true, nom
   } else if (["certidao-diligencia", "recibo-prestacao-servicos", "relatorio-negociacao-homologacao", "termo-recompra"].includes(modelo.modo)) {
     const { gerarModeloComplementarPdf } = await import("./lib/modelosComplementaresPdf"); bytes = await gerarModeloComplementarPdf(dados, modelo);
   } else {
-    const { gerarDeclaracaoHipossuficienciaPdf, gerarDeclaracaoIsencaoIrpfPdf } = await import("./lib/declaracoesPdf");
     bytes = modelo.modo === "declaracao-hipossuficiencia" ? await gerarDeclaracaoHipossuficienciaPdf(dados) : await gerarDeclaracaoIsencaoIrpfPdf(dados);
   }
   return [criarArquivo(modelo.modo, `${base}.pdf`, bytes, criarUrls)];
@@ -197,6 +209,7 @@ export default function GeradorDocumentos({ responsavel, usuario, onSuccess }) {
   const [previewPdfUrl, setPreviewPdfUrl] = useState("");
   const [previewPdfErro, setPreviewPdfErro] = useState("");
   const [previewPdfGerando, setPreviewPdfGerando] = useState(true);
+  const [previewVersao, setPreviewVersao] = useState(0);
   const [resultado, setResultado] = useState(null);
   const [historico, setHistorico] = useState(() => lerJsonLocal(DOCUMENT_HISTORY_KEY, []));
   const [buscaHistorico, setBuscaHistorico] = useState("");
@@ -257,8 +270,16 @@ export default function GeradorDocumentos({ responsavel, usuario, onSuccess }) {
 
   useEffect(() => {
     if (!dirty) return undefined;
-    const temporizador = window.setTimeout(() => { localStorage.setItem(DOCUMENT_DRAFT_KEY, JSON.stringify({ schema: DOCUMENT_WORKSPACE_SCHEMA, dados, salvoEm: new Date().toISOString() })); setSalvoEm(new Date()); setDirty(false); }, 700);
+    const temporizador = window.setTimeout(() => { persistirRascunho(dados); setSalvoEm(new Date()); setDirty(false); }, 350);
     return () => window.clearTimeout(temporizador);
+  }, [dados, dirty]);
+
+  useEffect(() => {
+    const preservarAntesDeRecarregar = () => {
+      if (dirty) persistirRascunho(dados);
+    };
+    window.addEventListener("beforeunload", preservarAntesDeRecarregar);
+    return () => window.removeEventListener("beforeunload", preservarAntesDeRecarregar);
   }, [dados, dirty]);
 
   useEffect(() => () => { resultado?.arquivos?.forEach((arquivo) => URL.revokeObjectURL(arquivo.url)); }, [resultado]);
@@ -279,24 +300,25 @@ export default function GeradorDocumentos({ responsavel, usuario, onSuccess }) {
         previewPdfUrlRef.current = url;
         setPreviewPdfUrl(url);
         setPreviewAtualizadaEm(new Date());
-      } catch {
-        if (ativo) setPreviewPdfErro("Complete os dados essenciais para visualizar o PDF final.");
+      } catch (previewError) {
+        console.warn("Não foi possível atualizar a prévia do documento:", previewError);
+        if (ativo) setPreviewPdfErro(previewError instanceof Error ? `Não foi possível atualizar a prévia: ${previewError.message}` : "Não foi possível atualizar a prévia do PDF.");
       } finally {
         if (ativo) setPreviewPdfGerando(false);
       }
     }, 450);
     return () => { ativo = false; window.clearTimeout(temporizador); };
-  }, [dados, modeloSelecionado, nomeSugerido, nomesDoConjunto]);
+  }, [dados, modeloSelecionado, nomeSugerido, nomesDoConjunto, previewVersao]);
 
   function atualizarDados(parcial, importados = []) { setDados((atual) => ({ ...atual, ...parcial })); if (importados.length) setCamposImportados(new Set(importados)); setDirty(true); setErro(""); setPreviewAtualizadaEm(new Date()); }
-  function atualizarCampo(evento) { const { name, type, value, checked } = evento.target; atualizarDados({ [name]: type === "checkbox" ? checked : formatarValorCampo(name, value) }); setTocados((atuais) => new Set([...atuais, name])); }
+  function atualizarCampo(evento) { const { name, type, value, checked } = evento.target; const parcial = { [name]: type === "checkbox" ? checked : formatarValorCampo(name, value) }; if (name === "nacionalidade") parcial.nacionalidadePreenchidaManualmente = true; atualizarDados(parcial); setTocados((atuais) => new Set([...atuais, name])); }
   function marcarTocado(evento) { setTocados((atuais) => new Set([...atuais, evento.target.name])); }
 
   function selecionarModelo(modelo) {
     if (modelo.id !== modeloSelecionado.id && dirty && !window.confirm("Trocar o modelo? Os campos específicos do documento atual serão substituídos, mas os dados comuns serão preservados.")) return;
     const inicial = criarFormularioInicial(responsavel, modelo, departamentoUsuario);
     modelo.campos.forEach((campo) => { if (dados[campo.nome]) inicial[campo.nome] = dados[campo.nome]; });
-    Object.assign(inicial, { clienteVinculadoId: dados.clienteVinculadoId || "", clienteVinculado: dados.clienteVinculado || "", observacaoInterna: dados.observacaoInterna || "" });
+    Object.assign(inicial, { clienteVinculadoId: dados.clienteVinculadoId || "", clienteVinculado: dados.clienteVinculado || "", observacaoInterna: dados.observacaoInterna || "", nacionalidadePreenchidaManualmente: Boolean(dados.nacionalidadePreenchidaManualmente) });
     atualizarDados(inicial); setTocados(new Set()); setCamposImportados(new Set());
     const novosRecentes = [modelo.id, ...modelosRecentes.filter((id) => id !== modelo.id)].slice(0, 6); setModelosRecentes(novosRecentes); localStorage.setItem(DOCUMENT_RECENT_MODELS_KEY, JSON.stringify(novosRecentes));
     setBibliotecaAberta(false); primeiraSecaoRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -330,7 +352,7 @@ export default function GeradorDocumentos({ responsavel, usuario, onSuccess }) {
     atualizarDados(parcial, importados); setBuscaCliente(cliente.nome); setClienteBuscaAberta(false);
   }
 
-  function salvarRascunho() { localStorage.setItem(DOCUMENT_DRAFT_KEY, JSON.stringify({ schema: DOCUMENT_WORKSPACE_SCHEMA, dados, salvoEm: new Date().toISOString() })); setSalvoEm(new Date()); setDirty(false); onSuccess?.("Rascunho salvo neste dispositivo."); }
+  function salvarRascunho() { persistirRascunho(dados); setSalvoEm(new Date()); setDirty(false); onSuccess?.("Rascunho salvo neste dispositivo."); }
   function cancelarEdicao() { if (!window.confirm("Descartar as alterações deste documento?")) return; localStorage.removeItem(DOCUMENT_DRAFT_KEY); setDados(criarFormularioInicial(responsavel, modeloSelecionado, departamentoUsuario)); setTocados(new Set()); setCamposImportados(new Set()); setDirty(false); }
 
   async function arquivarNoSupabase(arquivos, registro) {
@@ -393,10 +415,10 @@ export default function GeradorDocumentos({ responsavel, usuario, onSuccess }) {
         <div className="legal-doc-support-grid"><PainelProgresso total={obrigatorios.length} preenchidos={preenchidos} pendentes={pendentes} onVerPendentes={() => pendentes[0] && focarCampo(pendentes[0].nome)} /><AssistentePreenchimento dados={dados} pendentes={pendentes} errosVisiveis={errosVisiveis} onCorrigir={focarCampo} /></div>{erro ? <p className="legal-doc-form-error" role="alert">{erro}</p> : null}
         <div className="legal-doc-action-bar"><div><button type="button" className="btn-secondary" onClick={salvarRascunho}>Salvar como rascunho</button><button type="button" className="legal-doc-cancel" onClick={cancelarEdicao}>Cancelar</button><span className={online ? "saved" : "offline"}>{online ? `✓ Salvo automaticamente às ${salvoEm.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}` : "Rascunho local — sem conexão"}</span></div><div><button type="button" className="btn-secondary" onClick={() => setPreviewFullscreen(true)}>Revisar documento</button><span className="legal-doc-generate-wrap"><button type="button" className="btn-primary" disabled={!podeGerar} onClick={() => handleGerarPdf()}>{gerando ? "Gerando arquivos…" : `Gerar ${modeloSelecionado.modo === "procuracao" ? `${documentosProcuracao.length} ` : ""}PDF${modeloSelecionado.modo === "procuracao" && documentosProcuracao.length > 1 ? "s" : ""}`}</button>{razaoBloqueio ? <small>{razaoBloqueio}</small> : null}</span></div></div>
       </form>
-    </main><aside className="legal-doc-preview-column"><PainelPrevia modelo={modeloSelecionado} nomeDocumento={nomeSugerido} numeroDocumento={numeroDocumento} atualizadoEm={previewAtualizadaEm} gerando={gerando || previewPdfGerando} pdfUrl={previewPdfUrl} erroPrevia={previewPdfErro} onFullscreen={() => setPreviewFullscreen(true)} onRefresh={() => setPreviewAtualizadaEm(new Date())} /></aside></div>
+    </main><aside className="legal-doc-preview-column"><PainelPrevia modelo={modeloSelecionado} nomeDocumento={nomeSugerido} numeroDocumento={numeroDocumento} atualizadoEm={previewAtualizadaEm} gerando={gerando || previewPdfGerando} pdfUrl={previewPdfUrl} erroPrevia={previewPdfErro} onFullscreen={() => setPreviewFullscreen(true)} onRefresh={() => setPreviewVersao((versao) => versao + 1)} /></aside></div>
     <DocumentosRecentes documentos={historico} busca={buscaHistorico} onBusca={setBuscaHistorico} onOpen={abrirHistorico} onDuplicate={(item) => carregarRegistro(item, false)} onVersion={(item) => carregarRegistro(item, true)} />
     <ModelLibraryModal aberto={bibliotecaAberta} modelos={modelos} selecionadoId={modeloSelecionado.id} favoritos={favoritos} recentes={modelosRecentes} onClose={() => setBibliotecaAberta(false)} onSelect={selecionarModelo} onToggleFavorite={alternarFavorito} />
-    {previewFullscreen ? <div className="legal-doc-fullscreen-backdrop"><PainelPrevia fullscreen modelo={modeloSelecionado} nomeDocumento={nomeSugerido} numeroDocumento={numeroDocumento} atualizadoEm={previewAtualizadaEm} gerando={gerando || previewPdfGerando} pdfUrl={previewPdfUrl} erroPrevia={previewPdfErro} onFullscreen={() => setPreviewFullscreen(false)} onRefresh={() => setPreviewAtualizadaEm(new Date())} /></div> : null}
+    {previewFullscreen ? <div className="legal-doc-fullscreen-backdrop"><PainelPrevia fullscreen modelo={modeloSelecionado} nomeDocumento={nomeSugerido} numeroDocumento={numeroDocumento} atualizadoEm={previewAtualizadaEm} gerando={gerando || previewPdfGerando} pdfUrl={previewPdfUrl} erroPrevia={previewPdfErro} onFullscreen={() => setPreviewFullscreen(false)} onRefresh={() => setPreviewVersao((versao) => versao + 1)} /></div> : null}
     <ModalSucesso resultado={resultado} onClose={() => setResultado(null)} onDownload={() => baixarArquivos(resultado.arquivos)} onOpen={() => window.open(resultado.arquivos[0].url, "_blank", "noopener,noreferrer")} onCopy={copiarLink} onSignature={prepararAssinatura} onLibrary={() => { setResultado(null); setBibliotecaAberta(true); }} onAnother={() => { setResultado(null); setDados((atual) => ({ ...atual, versao: 1 })); setDirty(true); }} />
   </section>;
 }

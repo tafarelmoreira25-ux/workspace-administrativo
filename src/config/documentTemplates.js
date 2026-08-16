@@ -12,7 +12,6 @@ const campoGenero = {
 
 const valoresPadrao = {
   genero: "feminino",
-  nacionalidade: "brasileira",
   orgaoExpedidor: "SSP/SP",
   cidade: "São Paulo",
   uf: "SP",

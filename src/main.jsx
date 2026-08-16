@@ -3,17 +3,22 @@ import { createRoot } from 'react-dom/client'
 import App from './App.jsx'
 
 // Quando um novo deploy troca os nomes com hash dos arquivos carregados sob
-// demanda, uma aba antiga pode tentar buscar um arquivo que ja nao existe.
-// O Vite emite este evento antes de rejeitar o import dinamico. Recarregamos
-// uma unica vez para obter o HTML e o manifesto do deploy atual.
+// demanda, uma aba antiga pode tentar buscar um arquivo que já não existe.
+// Não recarregamos automaticamente: uma recarga no meio do preenchimento
+// descartava a tela ativa. O usuário decide após o rascunho ser preservado.
 window.addEventListener('vite:preloadError', (event) => {
   event.preventDefault()
-  const chave = 'platino-reload-chunk'
-  const ultimaTentativa = Number(sessionStorage.getItem(chave) || 0)
+  const chave = 'platino-aviso-atualizacao-chunk'
+  const ultimoAviso = Number(sessionStorage.getItem(chave) || 0)
 
-  if (Date.now() - ultimaTentativa > 30_000) {
+  if (Date.now() - ultimoAviso > 30_000) {
     sessionStorage.setItem(chave, String(Date.now()))
-    window.location.reload()
+    window.setTimeout(() => {
+      const atualizarAgora = window.confirm(
+        'Uma atualização do sistema está disponível. Seu rascunho foi preservado. Deseja atualizar a página agora?',
+      )
+      if (atualizarAgora) window.location.reload()
+    }, 0)
   }
 })
 

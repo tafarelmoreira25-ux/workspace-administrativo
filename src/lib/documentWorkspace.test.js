@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { DOCUMENT_TEMPLATES } from "../config/documentTemplates.js";
+import { DOCUMENT_TEMPLATES, valorInicialCampo } from "../config/documentTemplates.js";
 import {
   agruparCampos,
   enriquecerModelos,
@@ -45,6 +45,15 @@ test("agrupa os campos obrigatórios em seções reutilizáveis", () => {
   const grupos = agruparCampos(modelo.campos);
   assert.ok(grupos.some((grupo) => grupo.id === "pessoais"));
   assert.equal(grupos.flatMap((grupo) => grupo.campos).length, modelo.campos.length);
+});
+
+test("deixa a nacionalidade em branco e mantém o órgão expedidor junto do RG", () => {
+  const modelo = modelos.find((item) => item.modo === "procuracao");
+  const grupos = agruparCampos(modelo.campos);
+  const pessoais = grupos.find((grupo) => grupo.id === "pessoais");
+  assert.equal(valorInicialCampo({ nome: "nacionalidade" }), "");
+  assert.ok(pessoais.campos.some((campo) => campo.nome === "rg"));
+  assert.ok(pessoais.campos.some((campo) => campo.nome === "orgaoExpedidor"));
 });
 
 test("valida CPF incompleto com mensagem específica", () => {

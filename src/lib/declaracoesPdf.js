@@ -92,7 +92,7 @@ export async function gerarDeclaracaoHipossuficienciaPdf(dados) {
     segmentos: [
       {
         texto:
-          `${dados.cidade}-${dados.uf.toUpperCase()}, ` +
+          `${dados.cidade || ""}-${String(dados.uf || "").toUpperCase()}, ` +
           `${dataPorExtenso(dados.dataEmissao)}.`,
       },
     ],
@@ -125,7 +125,7 @@ export async function gerarDeclaracaoIsencaoIrpfPdf(dados) {
       {
         texto:
           `${dados.nacionalidade}, ${dados.estadoCivil}, ${dados.profissao}, ` +
-          `${genero.portador} da Cédula de Identidade R.G. nº ${dados.rg}, ` +
+          `${genero.portador} da Cédula de Identidade R.G. nº ${dados.rg}, ${dados.orgaoExpedidor}, ` +
           `${genero.inscrito} no C.P.F./M.F. sob nº ${dados.cpfCnpj}, com endereço ` +
           `eletrônico: ${dados.email}, residente e ${genero.domiciliado} na ` +
           `${dados.endereco}. Declaro ser isento(a) da apresentação da Declaração do ` +
@@ -150,7 +150,7 @@ export async function gerarDeclaracaoIsencaoIrpfPdf(dados) {
     segmentos: [
       {
         texto:
-          `${dados.cidade}-${dados.uf.toUpperCase()}, ` +
+          `${dados.cidade || ""}-${String(dados.uf || "").toUpperCase()}, ` +
           `${dataPorExtenso(dados.dataEmissao)}.`,
       },
     ],
