@@ -1478,13 +1478,9 @@ function AdminDashboard({ usuario, onLogout, state }) {
   const [enviandoFeedback, setEnviandoFeedback] = useState(false);
   const [responsaveisPorFuncao, setResponsaveisPorFuncao] = useState(() => {
     const chave = "platino-responsaveis-por-funcao-v1";
-    const padrao = {
-      "CITAÇÃO": "",
-      "LAUDO": "",
-      "PROCURAÇÕES": "",
-      "NOTIFICAÇÃO EXTRAJUDICIAL": "",
-      "GOV": "",
-    };
+    const padrao = Object.fromEntries(
+      CATEGORIAS_TAREFA.map((categoria) => [categoria, ""]),
+    );
 
     try {
       const salvo = JSON.parse(window.localStorage.getItem(chave) || "{}") || {};
@@ -3187,7 +3183,7 @@ function AdminDashboard({ usuario, onLogout, state }) {
                 </div>
               </div>
               <div className="role-mapping-list">
-                {ACOES_TAREFA_VISUAIS.filter((acao) => ["CITAÇÃO", "LAUDO", "PROCURAÇÕES", "NOTIFICAÇÃO EXTRAJUDICIAL", "GOV"].includes(acao.valor)).map((acao) => (
+                {ACOES_TAREFA_VISUAIS.filter((acao) => CATEGORIAS_TAREFA.includes(acao.valor)).map((acao) => (
                   <label className="role-mapping-item" key={acao.valor}>
                     <span>{acao.rotulo}</span>
                     <select
