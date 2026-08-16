@@ -1516,6 +1516,9 @@ function AdminDashboard({ usuario, onLogout, state }) {
   const destinatariosTarefa = funcionarios.filter(
     (funcionario) => funcionario.ativo !== false,
   );
+  const responsaveisDisponiveis = funcionarios.filter(
+    (funcionario) => funcionario.ativo !== false,
+  );
   const performanceEquipe = new Map(
     equipeCompleta.map((funcionario) => [
       String(funcionario.id),
@@ -1592,8 +1595,12 @@ function AdminDashboard({ usuario, onLogout, state }) {
       if (!funcId || String(funcId) !== responsavelSugerido) {
         setFuncId(responsavelSugerido);
       }
+    } else if (!tarefaManual && !responsaveisPorFuncao[categoria] && funcId) {
+      setFuncId("");
     }
   }, [categoria, tarefaManual, responsaveisPorFuncao, funcId]);
+  const responsavelSugeridoAtual = !tarefaManual ? responsaveisPorFuncao[categoria] || "" : "";
+  const valorResponsavelSelecionado = funcId || responsavelSugeridoAtual;
   const tarefasOperacionaisVisiveis = tarefasOperacionaisFiltradas.slice(
     (paginaTarefas - 1) * ITENS_POR_PAGINA,
     paginaTarefas * ITENS_POR_PAGINA,
@@ -1634,7 +1641,7 @@ function AdminDashboard({ usuario, onLogout, state }) {
   function nomeResponsavelIndicativo(categoria) {
     const funcionarioId = responsaveisPorFuncao[categoria];
     if (!funcionarioId) return null;
-    const funcionario = equipeCompleta.find(
+    const funcionario = funcionarios.find(
       (item) => String(item.id) === String(funcionarioId),
     );
     return funcionario?.nome || null;
@@ -2516,7 +2523,7 @@ function AdminDashboard({ usuario, onLogout, state }) {
                       <label>
                         Responsavel
                         <select
-                          value={funcId}
+                          value={valorResponsavelSelecionado}
                           onChange={(event) => setFuncId(event.target.value)}
                           required
                         >
