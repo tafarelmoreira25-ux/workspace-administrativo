@@ -154,7 +154,12 @@ begin
 end;
 $$;
 
-create or replace function public.concluir_tarefa_pop(
+-- As versoes anteriores usavam parametros com DEFAULT. O PostgreSQL exige
+-- remover as assinaturas antes de recria-las com a nova definicao.
+drop function if exists public.concluir_tarefa_pop(bigint,text,text,text,boolean,boolean,text);
+drop function if exists public.concluir_tarefa_pop(bigint,text,text,text,boolean,boolean,text,jsonb);
+
+create function public.concluir_tarefa_pop(
   p_tarefa_id bigint, p_observacoes text, p_nome_arquivo text,
   p_drive_url text, p_crm_atualizado boolean, p_planilha_atualizada boolean,
   p_resultado text, p_checklist jsonb
@@ -249,7 +254,5 @@ comment on function public.concluir_tarefa_pop(bigint,text,text,text,boolean,boo
 'Conclui a tarefa diretamente sem exigir checklist, observacao ou evidencia.';
 
 -- Faz o PostgREST reconhecer imediatamente as assinaturas e regras atualizadas.
-notify pgrst, 'reload schema';
-
 notify pgrst, 'reload schema';
 commit;
