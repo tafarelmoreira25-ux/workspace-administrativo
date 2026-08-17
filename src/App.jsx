@@ -1609,13 +1609,11 @@ function AdminDashboard({ usuario, onLogout, state }) {
   useEffect(() => {
     if (!tarefaManual && responsaveisPorFuncao[categoria]) {
       const responsavelSugerido = String(responsaveisPorFuncao[categoria]);
-      if (!funcId || String(funcId) !== responsavelSugerido) {
-        setFuncId(responsavelSugerido);
-      }
-    } else if (!tarefaManual && !responsaveisPorFuncao[categoria] && funcId) {
+      setFuncId(responsavelSugerido);
+    } else if (!tarefaManual && !responsaveisPorFuncao[categoria]) {
       setFuncId("");
     }
-  }, [categoria, tarefaManual, responsaveisPorFuncao, funcId]);
+  }, [categoria, tarefaManual, responsaveisPorFuncao]);
   const responsavelSugeridoAtual = !tarefaManual ? responsaveisPorFuncao[categoria] || "" : "";
   const valorResponsavelSelecionado = funcId || responsavelSugeridoAtual;
   const tarefasOperacionaisVisiveis = tarefasOperacionaisFiltradas.slice(
