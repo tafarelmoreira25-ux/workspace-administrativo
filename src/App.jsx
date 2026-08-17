@@ -2,7 +2,9 @@ import AcompanhamentoEquipe from './AcompanhamentoEquipe';
 import HunterClientes from './HunterClientes';
 import MeuPlanner from './MeuPlanner';
 import PainelEquipeTV from './PainelEquipeTV';
+import StatusProcessual from './StatusProcessual';
 import ClienteDriveSelector from './components/ClienteDriveSelector';
+import MuralAtualizacoesGerais from './components/MuralAtualizacoesGerais';
 import TreinamentosOperacionais, { AvisoTreinamentoTarefa } from './components/TreinamentosOperacionais';
 import { GOOGLE_DRIVE_CLIENTES_ROOT_URL } from './lib/googleDriveClients';
 import { tarefaExigeComprovacao } from './lib/taskCompletionRules';
@@ -504,6 +506,11 @@ function usuarioEhGestorSistema(usuario) {
   return EMAILS_GESTORES_SISTEMA.has(
     usuario?.email?.trim().toLowerCase() || "",
   );
+}
+
+function usuarioPodeEditarStatusProcessual(usuario) {
+  return usuarioEhGestorSistema(usuario) ||
+    normalizarSetorEquipe(usuario?.setor || usuario?.cargo) === "Administrativo";
 }
 
 function usuarioEhSupervisorJuridico(usuario) {
@@ -2717,6 +2724,7 @@ function AdminDashboard({ usuario, onLogout, state }) {
           <NavItem active={abaAtiva === "tarefas"} icon="tarefas" onClick={() => setAbaAtiva("tarefas")} options={["Criar tarefa", "Apontamentos", "Filtros rápidos"]}>Tarefas</NavItem>
           <NavItem active={abaAtiva === "treinamentos"} icon="treinamento" onClick={() => setAbaAtiva("treinamentos")}>Treinamentos</NavItem>
           <NavItem active={abaAtiva === "clientes"} icon="equipe" onClick={() => setAbaAtiva("clientes")}>Clientes</NavItem>
+          <NavItem active={abaAtiva === "status_processual"} icon="processual" onClick={() => setAbaAtiva("status_processual")}>Status Processual</NavItem>
           <NavItem active={abaAtiva === "urgencias"} icon="feedback" onClick={() => setAbaAtiva("urgencias")}>Urgências</NavItem>
           <NavItem active={abaAtiva === "historico"} icon="planner" onClick={() => setAbaAtiva("historico")}>Histórico de tarefas</NavItem>
           <NavItem active={false} icon="tv" onClick={() => setModoTv(true)} options={["Modo painel", "Operação ao vivo"]}>Painel TV</NavItem>
@@ -2729,10 +2737,11 @@ function AdminDashboard({ usuario, onLogout, state }) {
 
       <main className="main-content">
         <header className="topbar">
-          <div>
+          <div className="topbar-context">
             <h1>Painel de Supervisão</h1>
             <p>Controle centralizado da esteira operacional.</p>
           </div>
+          <MuralAtualizacoesGerais onNavigate={setAbaAtiva} />
           <div className="topbar-actions">
             <CentralNotificacoesBell gestor onNavigate={navegarPelaNotificacao} />
             <PerfilUsuarioTopo gestor usuario={usuario} />
@@ -2778,6 +2787,7 @@ function AdminDashboard({ usuario, onLogout, state }) {
         )}
 
         {abaAtiva === "clientes" && <ModuloClientes podeSincronizar />}
+        {abaAtiva === "status_processual" && <StatusProcessual usuario={usuario} podeEditar={usuarioPodeEditarStatusProcessual(usuario)} showToast={showToast} />}
         {abaAtiva === "urgencias" && <ModuloUrgencias usuario={usuario} funcionarios={destinatariosTarefa} showToast={showToast} />}
         {abaAtiva === "treinamentos" && <TreinamentosOperacionais usuario={usuario} />}
 
@@ -4597,6 +4607,7 @@ function EmployeeDashboard({ usuario, onLogout, state }) {
           {permissoes.acompanhar_equipe && <NavItem active={abaAtiva === "acompanhamento"} icon="dashboard" onClick={() => setAbaAtiva("acompanhamento")}>Tarefas da equipe</NavItem>}
           {podeAcessarCarteiraHunter && <NavItem active={abaAtiva === "hunter"} icon="equipe" onClick={() => setAbaAtiva("hunter")}>{ehHunter ? "Carteira Hunter" : "Clientes indicados"}</NavItem>}
           {permissoes.clientes && <NavItem active={abaAtiva === "clientes"} icon="equipe" onClick={() => setAbaAtiva("clientes")}>Clientes</NavItem>}
+          <NavItem active={abaAtiva === "status_processual"} icon="processual" onClick={() => setAbaAtiva("status_processual")}>Status Processual</NavItem>
           {permissoes.documentos && <NavItem active={abaAtiva === "documentos"} icon="documentos" onClick={() => setAbaAtiva("documentos")}>Documentos PDF</NavItem>}
         </nav>
         <button className="sidebar-logout" onClick={onLogout}><UiIcon name="logout" /> Sair</button>
@@ -4604,9 +4615,10 @@ function EmployeeDashboard({ usuario, onLogout, state }) {
 
       <main className="main-content">
         <header className="topbar">
-          <div>
+          <div className="topbar-context">
             <p>Acompanhe sua pauta diária na esteira operacional.</p>
           </div>
+          <MuralAtualizacoesGerais onNavigate={navegarDaTelaInicial} />
           <div className="topbar-actions">
             <CentralNotificacoesBell onNavigate={navegarPelaNotificacao} />
             <PerfilUsuarioTopo
@@ -4782,6 +4794,7 @@ function EmployeeDashboard({ usuario, onLogout, state }) {
         {abaAtiva === "delegar" && <FormularioDelegacaoUsuario usuario={usuario} funcionarios={funcionarios} showToast={showToast} onCriada={(tarefa) => setListaTarefas((atuais) => [tarefa, ...atuais])} />}
         {abaAtiva === "hunter" && podeAcessarCarteiraHunter && <HunterClientes usuario={usuario} funcionarios={funcionarios} showToast={showToast} />}
         {abaAtiva === "clientes" && <ModuloClientes />}
+        {abaAtiva === "status_processual" && <StatusProcessual usuario={usuario} podeEditar={usuarioPodeEditarStatusProcessual(usuario)} showToast={showToast} />}
 
         {abaAtiva === "acompanhamento" && <AcompanhamentoEquipe tarefas={listaTarefas} funcionarios={funcionarios} historicoPessoal={tarefasConcluidas} onAtualizar={recarregarTarefas} destinoNotificacao={destinoNotificacaoAtual} />}
 
@@ -5241,9 +5254,37 @@ export default function App() {
         .sidebar-logout:hover { color: #2563eb; transform: translateY(-2px); box-shadow: 0 14px 34px rgba(37,99,235,.12); }
 
         .main-content { min-width: 0; padding: 28px clamp(24px, 3.2vw, 48px) 48px; }
-        .topbar { position: relative; z-index: 100; min-height: 94px; display: flex; align-items: center; justify-content: space-between; gap: 24px; margin-bottom: 28px; padding: 22px 26px; background: rgba(255,255,255,.55); border: 1px solid rgba(255,255,255,.8); border-radius: 24px; box-shadow: 0 15px 45px rgba(57, 100, 157, .08); backdrop-filter: blur(22px); }
+        .topbar { position: relative; z-index: 100; min-height: 146px; display: flex; align-items: center; justify-content: space-between; gap: 20px; margin-bottom: 28px; padding: 20px 24px; background: rgba(255,255,255,.55); border: 1px solid rgba(255,255,255,.8); border-radius: 24px; box-shadow: 0 15px 45px rgba(57, 100, 157, .08); backdrop-filter: blur(22px); }
         .topbar p { font-size: 13px; }
+        .topbar-context { flex: 0 1 220px; min-width: 150px; }
         .topbar-actions { display: flex; align-items: center; justify-content: flex-end; gap: 12px; }
+        .general-updates-board { min-width: 0; flex: 1 1 620px; display: grid; gap: 8px; }
+        .general-updates-heading { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding-inline: 5px; }
+        .general-updates-heading > div { display: flex; align-items: center; gap: 6px; }
+        .general-updates-heading strong { color: #4d6280; font-size: 10px; font-weight: 900; letter-spacing: .08em; text-transform: uppercase; }
+        .general-updates-heading small { color: #8797ad; font-size: 8px; font-weight: 750; }
+        .general-updates-notes { min-width: 0; display: grid; grid-template-columns: repeat(3,minmax(130px,1fr)); gap: 10px; }
+        .general-update-note { position: relative; min-width: 0; min-height: 86px; overflow: hidden; padding: 19px 13px 10px; color: #544a28; background: linear-gradient(145deg,#fff9ba,#ffec7e); border: 0; border-radius: 2px 8px 8px 3px; box-shadow: 0 10px 20px rgba(77,68,31,.13), inset 0 1px rgba(255,255,255,.7); cursor: pointer; text-align: left; transform: rotate(-.7deg); transition: transform .2s ease, box-shadow .2s ease; }
+        .general-update-note:nth-child(2) { transform: rotate(.65deg); }
+        .general-update-note:nth-child(3) { transform: rotate(-.35deg); }
+        .general-update-note:hover { z-index: 2; transform: translateY(-3px) rotate(0); box-shadow: 0 15px 27px rgba(52,68,92,.2); }
+        .general-update-note strong { display: block; overflow: hidden; color: #51451f; font-size: 11px; font-weight: 900; line-height: 1.25; text-overflow: ellipsis; white-space: nowrap; }
+        .general-update-note p { display: -webkit-box; margin-top: 4px; overflow: hidden; color: #665b36; font-size: 9px; line-height: 1.35; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
+        .general-update-note small { position: absolute; right: 9px; bottom: 6px; color: rgba(70,61,31,.63); font-size: 7px; font-weight: 800; }
+        .general-update-pin { position: absolute; z-index: 1; top: 5px; left: 50%; width: 10px; height: 10px; display: block; margin: 0 !important; background: radial-gradient(circle at 35% 30%,#ff8d8d,#b5192b 70%); border: 1px solid rgba(119,13,28,.24); border-radius: 50%; box-shadow: 0 3px 4px rgba(75,23,23,.3); transform: translateX(-50%); }
+        .general-update-pin::after { position: absolute; top: 8px; left: 4px; width: 1px; height: 8px; content: ''; background: rgba(74,48,39,.5); transform: rotate(7deg); transform-origin: top; }
+        .general-update-note.tone-success { color: #234e39; background: linear-gradient(145deg,#c8f4d9,#9ce7bb); }
+        .general-update-note.tone-success strong { color: #174d31; }
+        .general-update-note.tone-success p { color: #35654a; }
+        .general-update-note.tone-warning { background: linear-gradient(145deg,#fff0a8,#ffd26b); }
+        .general-update-note.tone-danger { background: linear-gradient(145deg,#ffd1d5,#f5a5ad); }
+        .general-update-note.tone-danger strong { color: #7b2632; }
+        .general-update-note.tone-danger p { color: #81414a; }
+        .general-update-note.tone-info { background: linear-gradient(145deg,#d8ecff,#aecaef); }
+        .general-update-note.tone-info strong { color: #244e7c; }
+        .general-update-note.tone-info p { color: #456787; }
+        .general-update-note.is-empty { grid-column: 1 / -1; min-height: 76px; cursor: default; transform: none; }
+        .general-update-note.is-empty:hover { transform: none; }
         .notification-bell-wrap { position: relative; z-index: 101; }
         .notification-bell { position: relative; display: grid; width: 46px; height: 46px; place-items: center; color: #275383; background: rgba(255,255,255,.92); border: 1px solid rgba(84,133,194,.18); border-radius: 15px; box-shadow: 0 8px 22px rgba(54,94,148,.09); cursor: pointer; transition: .2s ease; }
         .notification-bell:hover, .notification-bell.is-open { color: #fff; background: linear-gradient(135deg, #2d83e6, #2562cf); border-color: transparent; box-shadow: 0 10px 25px rgba(37,98,207,.25); transform: translateY(-1px); }
@@ -5257,7 +5298,7 @@ export default function App() {
         .notification-popover-list { display: grid; max-height: min(520px, calc(100vh - 180px)); gap: 8px; padding: 10px; overflow-y: auto; }
         .notification-empty { margin: 14px 8px; color: var(--muted); font-size: 12px; text-align: center; }
         @keyframes notificationPopover { from { opacity: 0; transform: translateY(-5px) scale(.98); } to { opacity: 1; transform: translateY(0) scale(1); } }
-        .profile-pill { display: flex; align-items: center; gap: 13px; min-width: 250px; padding: 10px 15px; color: var(--text); background: rgba(238, 247, 255, .9); border: 1px solid rgba(113, 165, 224, .18); border-radius: 18px; }
+        .profile-pill { display: flex; align-items: center; gap: 15px; min-width: 290px; padding: 12px 17px; color: var(--text); background: rgba(238, 247, 255, .9); border: 1px solid rgba(113, 165, 224, .18); border-radius: 20px; }
         .profile-pill small, .profile-pill span { display: block; }
         .profile-pill small { color: var(--muted); font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: .7px; }
         .profile-pill span { color: var(--dark); font-size: 12px; font-weight: 800; margin-top: 1px; }
@@ -5266,8 +5307,8 @@ export default function App() {
         .profile-online-status { display: inline-flex !important; align-items: center; gap: 8px; margin-bottom: 3px; white-space: nowrap; }
         .profile-online-status .online-dot { display: inline-block; flex: 0 0 9px; margin: 0; }
         .profile-user-name-row { max-width: 100%; display: flex; align-items: center; gap: 5px; }
-        .profile-user-name { min-width: 0; overflow: hidden; color: var(--dark); font-size: 14px; font-weight: 900; line-height: 1.2; text-overflow: ellipsis; white-space: nowrap; }
-        .profile-user-role { color: #526b88 !important; font-size: 10px !important; font-weight: 750 !important; }
+        .profile-user-name { min-width: 0; overflow: hidden; color: var(--dark); font-size: 17px; font-weight: 900; line-height: 1.2; text-overflow: ellipsis; white-space: nowrap; }
+        .profile-user-role { color: #526b88 !important; font-size: 11px !important; font-weight: 750 !important; }
         .verified-profile-badge { width: 18px; height: 18px; display: inline-grid !important; flex: 0 0 18px; place-items: center; margin: 0 !important; filter: drop-shadow(0 3px 6px rgba(39,134,224,.22)); }
         .verified-profile-badge svg { width: 100%; height: 100%; overflow: visible; }
         .verified-profile-badge path:first-child { fill: #3897f0; }
@@ -7042,8 +7083,8 @@ export default function App() {
         .member-avatar-wrap.compact { width: 64px; height: 64px; }
         .member-avatar-wrap.compact .member-avatar { width: 64px; height: 64px; border-radius: 50%; }
         .member-avatar-wrap.compact > .performance-badge { right: -7px; bottom: -8px; }
-        .verified-user-profile { min-width: 300px; gap: 16px; padding: 12px 17px; }
-        .verified-user-profile .member-avatar-wrap.compact { width: clamp(76px, 6vw, 88px); height: clamp(76px, 6vw, 88px); flex-basis: clamp(76px, 6vw, 88px); }
+        .verified-user-profile { min-width: 330px; gap: 18px; padding: 14px 18px; }
+        .verified-user-profile .member-avatar-wrap.compact { width: clamp(92px, 7vw, 108px); height: clamp(92px, 7vw, 108px); flex-basis: clamp(92px, 7vw, 108px); }
         .verified-user-profile .member-avatar-wrap.compact .member-avatar { width: 100%; height: 100%; border-width: 3px; box-shadow: 0 10px 28px rgba(49,94,154,.25); }
         .member-name-row { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
         .member-name-row > strong { display: inline-block; }
@@ -7287,12 +7328,17 @@ export default function App() {
           .employee-tasks-workspace .content-grid { grid-template-columns: minmax(0,1fr); }
           .unified-workspace-divider { align-items: flex-start; flex-direction: column; }
           .side-stack { width: 100%; }
+          .topbar { flex-wrap: wrap; }
+          .topbar-context { flex: 1 1 180px; }
+          .general-updates-board { flex: 1 1 520px; order: 3; width: 100%; }
         }
 
         @media (max-width: 900px) {
           .sidebar { position: relative; top: auto; grid-template-columns: minmax(0,1fr) auto; grid-template-areas: "brand logout" "navigation navigation"; padding: 12px; }
           .sidebar nav { grid-template-columns: repeat(3,minmax(0,1fr)); }
           .topbar { flex-direction: column; align-items: stretch; gap: 14px; }
+          .topbar-context { flex: 0 0 auto; }
+          .general-updates-board { order: 2; }
           .topbar-actions { width: 100%; justify-content: space-between; }
           .profile-pill { flex: 1; width: auto; }
           .content-grid, .urgency-layout { grid-template-columns: minmax(0,1fr); }
@@ -7308,8 +7354,10 @@ export default function App() {
           .main-content { padding: 12px 8px 32px; }
           .topbar, .panel { padding: 16px; border-radius: 18px; }
           .topbar-actions { align-items: stretch; }
+          .general-updates-notes { grid-template-columns: 1fr; }
+          .general-update-note { min-height: 82px; transform: none !important; }
           .verified-user-profile { min-width: 0; gap: 12px; padding: 10px 12px; }
-          .verified-user-profile .member-avatar-wrap.compact { width: 68px; height: 68px; flex-basis: 68px; }
+          .verified-user-profile .member-avatar-wrap.compact { width: 82px; height: 82px; flex-basis: 82px; }
           .profile-user-name { max-width: min(46vw, 220px); font-size: 13px; }
           .profile-online-status { white-space: normal; }
           .task-item { padding: 14px; }

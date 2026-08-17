@@ -3,6 +3,9 @@
 .hunter-hero h2 { margin: 5px 0 7px; color: #fff; font-size: clamp(24px, 3vw, 34px); text-shadow: 0 2px 12px rgba(0,0,0,.24); }
 .hunter-hero p { max-width: 760px; margin: 0; color: #dce5f1; line-height: 1.6; }
 .hunter-eyebrow { color: #e9cd86; font-size: 10px; font-weight: 900; letter-spacing: .13em; text-transform: uppercase; }
+.hunter-hero-actions { display: flex; align-items: center; justify-content: flex-end; flex-wrap: wrap; gap: 10px; }
+.hunter-sheet-link { display: inline-flex; align-items: center; gap: 8px; padding: 11px 15px; color: #1d3554; background: #f7e7a9; border: 1px solid rgba(255,255,255,.34); border-radius: 11px; box-shadow: 0 8px 20px rgba(9,24,43,.2); font-size: 12px; font-weight: 850; text-decoration: none; }
+.hunter-sheet-link:hover { color: #102743; background: #fff0b9; transform: translateY(-1px); }
 .hunter-refresh, .hunter-primary, .hunter-secondary { border: 0; border-radius: 11px; cursor: pointer; font: inherit; font-size: 12px; font-weight: 850; }
 .hunter-refresh { padding: 11px 15px; color: #233a59; background: #fff; }
 .hunter-primary { padding: 11px 15px; color: #fff; background: #315f9e; }
@@ -56,4 +59,4 @@
 .hunter-consultant-action { display: grid; gap: 13px; padding-top: 14px; border-top: 1px solid #dfe7f0; }
 .hunter-empty { margin: 0; padding: 28px; color: #77889c; background: #f7f9fc; border-radius: 13px; text-align: center; }
 @media (max-width: 900px) { .hunter-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); } .hunter-profile-preview { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
-@media (max-width: 620px) { .hunter-hero, .hunter-section-heading, .hunter-lead-heading, .hunter-assignment { align-items: stretch; flex-direction: column; } .hunter-form-grid, .hunter-profile-preview, .hunter-metrics { grid-template-columns: 1fr; } .hunter-editor, .hunter-list-section { padding: 17px; } .hunter-editor-actions { flex-direction: column; } }
+@media (max-width: 620px) { .hunter-hero, .hunter-section-heading, .hunter-lead-heading, .hunter-assignment { align-items: stretch; flex-direction: column; } .hunter-hero-actions { align-items: stretch; flex-direction: column; } .hunter-sheet-link { justify-content: center; } .hunter-form-grid, .hunter-profile-preview, .hunter-metrics { grid-template-columns: 1fr; } .hunter-editor, .hunter-list-section { padding: 17px; } .hunter-editor-actions { flex-direction: column; } }

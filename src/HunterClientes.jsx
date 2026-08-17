@@ -10,6 +10,7 @@ import {
 import "./hunterClientes.css";
 
 const EMAIL_HUNTER = "giullian@platino.com";
+const PLANILHA_HUNTER_URL = "https://docs.google.com/spreadsheets/d/1CfFR1wjF74xXea4bYrjkea8qaQxsjwoQ13KsiWh2cIE/edit?usp=sharing";
 const FORMULARIO_VAZIO = {
   id: null,
   nomeCliente: "",
@@ -68,6 +69,14 @@ function PerfilCliente({ registro }) {
     </>}
     <div className="hunter-profile-analysis"><span>Análise breve</span><p>{registro.analise_breve}</p></div>
   </div>;
+}
+
+function nomeConsultorHistorico(registro) {
+  if (registro.consultor_nome) return registro.consultor_nome;
+  const encontrado = registro.analise_breve?.match(
+    /Consultora? informada? na planilha:\s*([^.]+)/i,
+  );
+  return encontrado?.[1]?.trim() || "Não informado";
 }
 
 export default function HunterClientes({ usuario, funcionarios = [], showToast }) {
@@ -191,9 +200,12 @@ export default function HunterClientes({ usuario, funcionarios = [], showToast }
           ? "Organize clientes potenciais, encaminhe o perfil aos consultores e acompanhe os resultados comerciais."
           : "Analise o perfil, entre em contato com o cliente e devolva o resultado da tratativa."}</p>
       </div>
-      <button className="hunter-refresh" type="button" onClick={carregar} disabled={carregando}>
-        {carregando ? "Atualizando..." : "Atualizar carteira"}
-      </button>
+      <div className="hunter-hero-actions">
+        {ehHunter && <a className="hunter-sheet-link" href={PLANILHA_HUNTER_URL} target="_blank" rel="noreferrer"><span aria-hidden="true">🗒️</span> Abrir planilha Hunter</a>}
+        <button className="hunter-refresh" type="button" onClick={carregar} disabled={carregando}>
+          {carregando ? "Atualizando..." : "Atualizar carteira"}
+        </button>
+      </div>
     </header>
 
     {erro && <div className="hunter-error">{erro}</div>}
@@ -244,7 +256,7 @@ export default function HunterClientes({ usuario, funcionarios = [], showToast }
               <span className="hunter-status-badge">{STATUS_PROSPECCAO_HUNTER[registro.status] || registro.status}</span>
             </div>
             <PerfilCliente registro={registro} />
-            <div className="hunter-assignment"><span>Consultor responsável</span><strong>{registro.consultor_nome || "Ainda não delegado"}</strong></div>
+            <div className="hunter-assignment"><span>Consultor responsável</span><strong>{registro.status === "em_organizacao" ? "Ainda não delegado" : nomeConsultorHistorico(registro)}</strong></div>
 
             {registro.status === "concluida" && <div className={`hunter-result hunter-result-${registro.resultado}`}>
               <strong>{RESULTADOS_PROSPECCAO_HUNTER[registro.resultado] || "Resultado registrado"}</strong>
