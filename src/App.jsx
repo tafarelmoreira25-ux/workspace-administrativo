@@ -3,6 +3,7 @@ import HunterClientes from './HunterClientes';
 import MeuPlanner from './MeuPlanner';
 import PainelEquipeTV from './PainelEquipeTV';
 import ClienteDriveSelector from './components/ClienteDriveSelector';
+import TreinamentosOperacionais, { AvisoTreinamentoTarefa } from './components/TreinamentosOperacionais';
 import { GOOGLE_DRIVE_CLIENTES_ROOT_URL } from './lib/googleDriveClients';
 import { tarefaExigeComprovacao } from './lib/taskCompletionRules';
 import { destinoDaNotificacao } from './lib/notificationRouting';
@@ -35,9 +36,15 @@ const ProcessualGerador = lazy(() => import("./ProcessualGerador"));
 const ADMIN_EMAIL = (
   import.meta.env.VITE_ADMIN_EMAIL || "tafarel@platino.com"
 ).toLowerCase();
+const EMAILS_GESTORES_SISTEMA = new Set([
+  ADMIN_EMAIL,
+  "tafa@adm.com",
+]);
+const EMAIL_SUPERVISOR_JURIDICO = "nicolas@platino.com";
 const CATEGORIA_GRUPO_WHATSAPP = "ABRIR GRUPO NO WHATSAPP";
 const DELEGADORES_GRUPO_WHATSAPP = new Set([
   ADMIN_EMAIL,
+  "tafa@adm.com",
   "nicolas@platino.com",
 ]);
 const EMAILS_EQUIPE_JURIDICA = new Set([
@@ -46,6 +53,13 @@ const EMAILS_EQUIPE_JURIDICA = new Set([
   "elaine@platino.com",
   "janaina@platino.com",
   "giullian@platino.com",
+]);
+const NOMES_EQUIPE_JURIDICA = new Set([
+  "nicolas",
+  "tabata",
+  "elaine",
+  "janaina",
+  "giullian",
 ]);
 const MENSAGEM_EQUIPE_JURIDICA =
   "O melhor departamento Jurídico que a Platino já teve, além de quebrar recordes em vendas, são campeões em organização.";
@@ -486,6 +500,16 @@ function normalizarTexto(texto = "") {
     .toLowerCase();
 }
 
+function usuarioEhGestorSistema(usuario) {
+  return EMAILS_GESTORES_SISTEMA.has(
+    usuario?.email?.trim().toLowerCase() || "",
+  );
+}
+
+function usuarioEhSupervisorJuridico(usuario) {
+  return usuario?.email?.trim().toLowerCase() === EMAIL_SUPERVISOR_JURIDICO;
+}
+
 function usuarioPodeDelegarGrupoWhatsapp(usuario) {
   return DELEGADORES_GRUPO_WHATSAPP.has(
     usuario?.email?.trim().toLowerCase() || "",
@@ -507,7 +531,13 @@ function acoesDisponiveisParaDelegacao(usuario) {
 
 function usuarioDaEquipeJuridica(usuario) {
   const email = usuario?.email?.trim().toLowerCase() || "";
+  const primeiroNome = normalizarTexto(usuario?.nome || "").split(" ")[0];
+  const descricaoEquipe = normalizarTexto(
+    `${usuario?.setor || ""} ${usuario?.cargo || ""} ${usuario?.observacao_interna || ""}`,
+  );
   return EMAILS_EQUIPE_JURIDICA.has(email) ||
+    NOMES_EQUIPE_JURIDICA.has(primeiroNome) ||
+    descricaoEquipe.includes("jurid") ||
     normalizarSetorEquipe(usuario?.setor || usuario?.cargo) === "Jurídico";
 }
 
@@ -739,6 +769,7 @@ function UiIcon({ name, size = 20 }) {
     tv: <><rect x="2" y="5" width="20" height="14" rx="2" /><path d="m8 2 4 3 4-3" /><path d="M8 22h8" /></>,
     ranking: <><path d="M8 21h8" /><path d="M12 17v4" /><path d="M7 4h10v5a5 5 0 0 1-10 0Z" /><path d="M7 6H4v2a4 4 0 0 0 4 4" /><path d="M17 6h3v2a4 4 0 0 1-4 4" /></>,
     feedback: <><path d="M21 15a4 4 0 0 1-4 4H8l-5 3V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4Z" /><path d="M8 9h8" /><path d="M8 13h5" /></>,
+    treinamento: <><path d="m3 9 9-5 9 5-9 5-9-5Z" /><path d="M7 11.5V16c3 2 7 2 10 0v-4.5" /><path d="M21 9v6" /></>,
     notificacao: <><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9" /><path d="M10 21h4" /></>,
     olho: <><path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6S2 12 2 12Z" /><circle cx="12" cy="12" r="2.5" /></>,
     logout: <><path d="M10 17l5-5-5-5" /><path d="M15 12H3" /><path d="M21 19V5a2 2 0 0 0-2-2h-6" /></>,
@@ -1162,6 +1193,7 @@ function ModalConclusaoTarefa({ tarefa, entrega, enviando, onChange, onClose, on
       <form className="stack-form completion-form" onSubmit={confirmar}>
         <PastaClienteTarefa tarefa={tarefa} destaque />
         <div className="completion-intro"><strong>Registre o que foi realizado.</strong><span>As observações e comprovações ficam no histórico da tarefa.</span></div>
+        <AvisoTreinamentoTarefa tarefa={tarefa} />
         <EntregaPop tarefa={tarefa} valor={entrega} onChange={onChange} />
         <label className="completion-image-field">
           <span>Imagem de comprovação <em>(opcional)</em></span>
@@ -1704,18 +1736,43 @@ function AdminDashboard({ usuario, onLogout, state }) {
   const [paginaTarefas, setPaginaTarefas] = useState(1);
   const [paginaHistorico, setPaginaHistorico] = useState(1);
 
+  const ehGestorSistema = usuarioEhGestorSistema(usuario);
+  const ehSupervisorJuridico = usuarioEhSupervisorJuridico(usuario);
+
   const funcionarioDoUsuario = funcionarios.find(
     (funcionario) =>
       funcionario.email?.trim().toLowerCase() ===
       usuario.email?.trim().toLowerCase(),
   );
-  const equipeCompleta = funcionarios.filter(
+  const equipeCompletaGlobal = funcionarios.filter(
     (funcionario) => funcionario.email?.toLowerCase() !== ADMIN_EMAIL,
   );
+  const equipeCompleta = ehSupervisorJuridico
+    ? equipeCompletaGlobal.filter(
+        (funcionario) => identificarGrupoEquipe(funcionario) === "juridico",
+      )
+    : equipeCompletaGlobal;
   const equipe = equipeCompleta.filter((funcionario) => funcionario.ativo !== false);
   const destinatariosTarefa = funcionarios.filter(
     (funcionario) => funcionario.ativo !== false,
   );
+  const idsEquipeVisivel = new Set(
+    equipeCompleta.map((funcionario) => String(funcionario.id)),
+  );
+  const tarefasDoEscopo = ehSupervisorJuridico
+    ? listaTarefas.filter(
+        (tarefa) =>
+          idsEquipeVisivel.has(String(tarefa.funcionaria_id)) ||
+          normalizarSetorEquipe(tarefa.setor_executor) === "Jurídico" ||
+          tarefa.solicitante_email?.trim().toLowerCase() ===
+            usuario.email?.trim().toLowerCase(),
+      )
+    : listaTarefas;
+  const feedbacksDoEscopo = ehSupervisorJuridico
+    ? feedbacks.filter((feedback) =>
+        idsEquipeVisivel.has(String(feedback.funcionaria_id)),
+      )
+    : feedbacks;
   const performanceEquipe = new Map(
     equipeCompleta.map((funcionario) => [
       String(funcionario.id),
@@ -1736,18 +1793,21 @@ function AdminDashboard({ usuario, onLogout, state }) {
   const membrosGestaoEquipe = gestorPrincipalCadastrado
     ? funcionarios
     : [gestorPrincipal, ...funcionarios];
-  const equipesGestor = GRUPOS_EQUIPE_GESTOR.map((grupo) => ({
+  const gruposVisiveisGestor = ehSupervisorJuridico
+    ? GRUPOS_EQUIPE_GESTOR.filter((grupo) => grupo.id === "juridico")
+    : GRUPOS_EQUIPE_GESTOR;
+  const equipesGestor = gruposVisiveisGestor.map((grupo) => ({
     ...grupo,
     membros: ordenarEquipe(
       membrosGestaoEquipe.filter((funcionario) => identificarGrupoEquipe(funcionario) === grupo.id),
       grupo.ordem,
     ),
   }));
-  const tarefasPendentes = listaTarefas.filter((t) => STATUS_ABERTOS.has(t.status));
+  const tarefasPendentes = tarefasDoEscopo.filter((t) => STATUS_ABERTOS.has(t.status));
   const tarefasUrgentes = tarefasPendentes.filter(
     (tarefa) => tarefa.prioridade === "urgente",
   );
-  const tarefasFiltradas = listaTarefas.filter((tarefa) => {
+  const tarefasFiltradas = tarefasDoEscopo.filter((tarefa) => {
     const correspondeCategoria =
       filtroCategoria === "todas" || tarefa.categoria === filtroCategoria;
     if (!correspondeCategoria) return false;
@@ -1774,11 +1834,14 @@ function AdminDashboard({ usuario, onLogout, state }) {
   const tarefasOperacionaisFiltradas = tarefasFiltradas.filter((tarefa) =>
     STATUS_ABERTOS.has(tarefa.status),
   );
-  const tarefasHistoricoFiltradas = listaTarefas.filter(
+  const tarefasHistoricoFiltradas = tarefasDoEscopo.filter(
     (tarefa) => !STATUS_ABERTOS.has(tarefa.status),
   );
 
   useEffect(() => {
+    if (!ehGestorSistema) {
+      return undefined;
+    }
     async function carregarResponsaveisSupabase() {
       try {
         setCarregandoResponsaveis(true);
@@ -1805,7 +1868,8 @@ function AdminDashboard({ usuario, onLogout, state }) {
       }
     }
     carregarResponsaveisSupabase();
-  }, []);
+    return undefined;
+  }, [ehGestorSistema]);
 
   const responsavelSugeridoAtual = !tarefaManual
     ? obterResponsavelSugerido(
@@ -2632,7 +2696,7 @@ function AdminDashboard({ usuario, onLogout, state }) {
         funcionarios={equipe}
         onAtualizar={recarregarTarefas}
         onSair={sairDoModoTv}
-        tarefas={listaTarefas}
+        tarefas={tarefasDoEscopo}
       />
     );
   }
@@ -2651,12 +2715,13 @@ function AdminDashboard({ usuario, onLogout, state }) {
           <span className="nav-label">Navegação</span>
           <NavItem active={abaAtiva === "dashboard"} icon="dashboard" onClick={() => setAbaAtiva("dashboard")} options={["Indicadores", "Urgências", "Ranking"]}>Dashboard</NavItem>
           <NavItem active={abaAtiva === "tarefas"} icon="tarefas" onClick={() => setAbaAtiva("tarefas")} options={["Criar tarefa", "Apontamentos", "Filtros rápidos"]}>Tarefas</NavItem>
+          <NavItem active={abaAtiva === "treinamentos"} icon="treinamento" onClick={() => setAbaAtiva("treinamentos")}>Treinamentos</NavItem>
           <NavItem active={abaAtiva === "clientes"} icon="equipe" onClick={() => setAbaAtiva("clientes")}>Clientes</NavItem>
           <NavItem active={abaAtiva === "urgencias"} icon="feedback" onClick={() => setAbaAtiva("urgencias")}>Urgências</NavItem>
           <NavItem active={abaAtiva === "historico"} icon="planner" onClick={() => setAbaAtiva("historico")}>Histórico de tarefas</NavItem>
           <NavItem active={false} icon="tv" onClick={() => setModoTv(true)} options={["Modo painel", "Operação ao vivo"]}>Painel TV</NavItem>
           <NavItem active={abaAtiva === "equipe"} icon="equipe" onClick={() => setAbaAtiva("equipe")} options={["Equipe", "Feedbacks", "Pontuação"]}>Equipe</NavItem>
-          <NavItem active={abaAtiva === "processual"} icon="processual" onClick={() => setAbaAtiva("processual")} options={["Organizar resumo", "Prévia", "Gerar PDF"]}>Processual</NavItem>
+          {ehGestorSistema && <NavItem active={abaAtiva === "processual"} icon="processual" onClick={() => setAbaAtiva("processual")} options={["Organizar resumo", "Prévia", "Gerar PDF"]}>Processual</NavItem>}
           <NavItem active={abaAtiva === "documentos"} icon="documentos" onClick={() => setAbaAtiva("documentos")} options={["Gerador PDF", "Prévia viva", "Assistente IA"]}>Documentos</NavItem>
         </nav>
         <button className="sidebar-logout" onClick={onLogout}><UiIcon name="logout" /> Sair do Sistema</button>
@@ -2676,7 +2741,7 @@ function AdminDashboard({ usuario, onLogout, state }) {
 
         {abaAtiva === "dashboard" && (
           <>
-            <CentralInicio tarefas={listaTarefas} usuario={usuario} onNavigate={setAbaAtiva} />
+            <CentralInicio tarefas={tarefasDoEscopo} usuario={usuario} onNavigate={setAbaAtiva} />
             <section className="cards-grid">
               <div className="card" onClick={() => { setFiltroTarefas("abertas"); setAbaAtiva("tarefas"); }} style={{ cursor: 'pointer' }}>
                 <MetricIcon type="tarefas" />
@@ -2691,7 +2756,7 @@ function AdminDashboard({ usuario, onLogout, state }) {
               <div className="card" onClick={() => setAbaAtiva("equipe")} style={{ cursor: 'pointer' }}>
                 <MetricIcon type="feedback" />
                 <span>Feedbacks</span>
-                <strong>{feedbacks.length} registrados</strong>
+                <strong>{feedbacksDoEscopo.length} registrados</strong>
               </div>
               <div className="card" onClick={() => setAbaAtiva("equipe")} style={{ cursor: 'pointer' }}>
                 <MetricIcon type="equipe" />
@@ -2713,7 +2778,8 @@ function AdminDashboard({ usuario, onLogout, state }) {
         )}
 
         {abaAtiva === "clientes" && <ModuloClientes podeSincronizar />}
-        {abaAtiva === "urgencias" && <ModuloUrgencias usuario={usuario} funcionarios={funcionarios} showToast={showToast} />}
+        {abaAtiva === "urgencias" && <ModuloUrgencias usuario={usuario} funcionarios={destinatariosTarefa} showToast={showToast} />}
+        {abaAtiva === "treinamentos" && <TreinamentosOperacionais usuario={usuario} />}
 
         {abaAtiva === "tarefas" && (
           <div className="task-management">
@@ -2813,7 +2879,7 @@ function AdminDashboard({ usuario, onLogout, state }) {
                   {!tarefaManual && <div className="task-auto-title"><span>Título gerado automaticamente</span><strong>{tituloAutomaticoDaTarefa(categoria, acaoOutra) || "Descreva a ação para definir o título"}</strong></div>}
                   <div className="task-form-details">
                   <div className="task-form-row">
-                    {!tarefaManual && <label>Equipe executora<select disabled={tarefaGrupoWhatsapp} required value={setorExecutorEfetivo} onChange={(event) => selecionarSetorExecutor(event.target.value)}>{EQUIPES_OPERACIONAIS.map((equipeOperacional) => <option key={equipeOperacional}>{equipeOperacional}</option>)}</select></label>}
+                    {!tarefaManual && <label>Setor executor<select disabled={tarefaGrupoWhatsapp} required value={setorExecutorEfetivo} onChange={(event) => selecionarSetorExecutor(event.target.value)}>{EQUIPES_OPERACIONAIS.map((equipeOperacional) => <option key={equipeOperacional}>{equipeOperacional}</option>)}</select><small className="form-helper">O campo Responsável mostra somente usuários do setor selecionado.</small></label>}
                     {tarefaManual ? (
                       <label>
                         Responsavel ou setor
@@ -3497,7 +3563,7 @@ function AdminDashboard({ usuario, onLogout, state }) {
             </div>
 
             {modoEquipe === "membros" && <div className="content-grid team-management-grid">
-            <div className="panel role-mapping-panel">
+            {ehGestorSistema && <div className="panel role-mapping-panel">
               <div className="panel-title-row">
                 <div>
                   <span className="eyebrow">Indicativo operacional</span>
@@ -3541,14 +3607,14 @@ function AdminDashboard({ usuario, onLogout, state }) {
                   ))}
                 </div>
               )}
-            </div>
+            </div>}
             <div className="panel team-directory-panel">
               <div className="panel-title-row">
                 <div>
                   <span className="eyebrow">Visão por área</span>
                   <h2>Gestão de membros da equipe</h2>
                 </div>
-                <strong>{membrosGestaoEquipe.filter((membro) => membro.ativo !== false).length} ativos</strong>
+                <strong>{equipe.length} ativos</strong>
               </div>
               <div className="team-groups">
                 {equipesGestor.map((grupo) => (
@@ -3626,8 +3692,8 @@ function AdminDashboard({ usuario, onLogout, state }) {
                 </button>
               </div>
               <ListaFeedbacks
-                feedbacks={feedbacks}
-                funcionarios={funcionarios}
+                feedbacks={feedbacksDoEscopo}
+                funcionarios={equipeCompleta}
                 mostrarDestinataria
                 vazio="Nenhum feedback profissional foi enviado ainda."
               />
@@ -3692,7 +3758,7 @@ function AdminDashboard({ usuario, onLogout, state }) {
           </Suspense>
         )}
 
-        {abaAtiva === "processual" && (
+        {ehGestorSistema && abaAtiva === "processual" && (
           <Suspense fallback={<section className="panel"><p>Carregando módulo processual...</p></section>}>
             <ProcessualGerador responsavel={usuario.nome} onSuccess={showToast} />
           </Suspense>
@@ -4221,7 +4287,7 @@ function FormularioDelegacaoUsuario({ usuario, funcionarios, onCriada, showToast
       <label>{tarefaGrupoWhatsapp ? "Orientações adicionais (opcional)" : "Solicitação"}<textarea required={!tarefaGrupoWhatsapp} rows="4" value={form.solicitacao} onChange={(e) => alterar("solicitacao", e.target.value)} placeholder={tarefaGrupoWhatsapp ? "Ex.: Nome do grupo ou mensagem inicial." : "Descreva com objetividade o que precisa ser feito."} /></label>
       <div className="task-form-details">
         <div className="task-form-row">
-          <label>Equipe executora<select disabled={tarefaGrupoWhatsapp} value={form.setorExecutor} onChange={(e) => selecionarEquipeExecutora(e.target.value)}>{EQUIPES_OPERACIONAIS.map((equipeOperacional) => <option key={equipeOperacional}>{equipeOperacional}</option>)}</select></label>
+          <label>Setor executor<select disabled={tarefaGrupoWhatsapp} required value={form.setorExecutor} onChange={(e) => selecionarEquipeExecutora(e.target.value)}>{EQUIPES_OPERACIONAIS.map((equipeOperacional) => <option key={equipeOperacional}>{equipeOperacional}</option>)}</select><small className="form-helper">O campo Responsável mostra somente usuários do setor selecionado.</small></label>
           <label>Responsável<select required value={form.responsavelId} onChange={(e) => alterar("responsavelId", e.target.value)}><option value="">Quem vai executar?</option>{equipeDisponivel.map((pessoa) => <option key={pessoa.id} value={pessoa.id}>{pessoa.nome}{String(pessoa.id) === String(usuario.id) ? " (você)" : ""} — {normalizarSetorEquipe(pessoa.setor || pessoa.cargo) || "Equipe não definida"}</option>)}</select></label>
         </div>
         <div className="task-form-row">
@@ -4526,7 +4592,8 @@ function EmployeeDashboard({ usuario, onLogout, state }) {
           <span className="nav-label">Central de Tarefas</span>
           <NavItem active={abaAtiva === "inicio"} icon="dashboard" onClick={() => setAbaAtiva("inicio")}>Início</NavItem>
           {permissoes.tarefas && <NavItem active={abaAtiva === "tarefas"} icon="tarefas" onClick={() => setAbaAtiva("tarefas")}>Tarefas e urgências</NavItem>}
-          {permissoes.delegar && <NavItem active={abaAtiva === "delegar"} icon="tarefas" onClick={() => setAbaAtiva("delegar")}>Delegar tarefa</NavItem>}
+          <NavItem active={abaAtiva === "delegar"} icon="tarefas" onClick={() => setAbaAtiva("delegar")}>Delegar tarefa</NavItem>
+          <NavItem active={abaAtiva === "treinamentos"} icon="treinamento" onClick={() => setAbaAtiva("treinamentos")}>Treinamentos</NavItem>
           {permissoes.acompanhar_equipe && <NavItem active={abaAtiva === "acompanhamento"} icon="dashboard" onClick={() => setAbaAtiva("acompanhamento")}>Tarefas da equipe</NavItem>}
           {podeAcessarCarteiraHunter && <NavItem active={abaAtiva === "hunter"} icon="equipe" onClick={() => setAbaAtiva("hunter")}>{ehHunter ? "Carteira Hunter" : "Clientes indicados"}</NavItem>}
           {permissoes.clientes && <NavItem active={abaAtiva === "clientes"} icon="equipe" onClick={() => setAbaAtiva("clientes")}>Clientes</NavItem>}
@@ -4584,6 +4651,7 @@ function EmployeeDashboard({ usuario, onLogout, state }) {
                     <PastaClienteTarefa tarefa={tarefa} />
                     {tarefa.origem === "operacional" && <LinhaTempoTarefa tarefa={tarefa} />}
                     <p>{tarefa.descricao}</p>
+                    <AvisoTreinamentoTarefa compacto tarefa={tarefa} />
                     {tarefa.apontamento && (
                       <div className="employee-task-note">
                         <strong>Apontamento:</strong> {tarefa.apontamento}
@@ -4747,6 +4815,8 @@ function EmployeeDashboard({ usuario, onLogout, state }) {
             <GeradorDocumentos usuario={usuario} responsavel={usuario.nome} onSuccess={showToast} />
           </Suspense>
         )}
+
+        {abaAtiva === "treinamentos" && <TreinamentosOperacionais usuario={usuario} />}
 
       </main>
       {tarefaEmDevolucao && (
@@ -5487,6 +5557,9 @@ export default function App() {
         .processual-input-grid { display: grid; grid-template-columns: minmax(340px,.85fr) minmax(400px,1.15fr); gap: 22px; align-items: start; }
         .processual-source { display: flex; flex-direction: column; gap: 10px; color: var(--dark); font-size: 13px; font-weight: 800; }
         .processual-source textarea { min-height: 430px; }
+        .processual-interpreter-note { display: flex; flex-direction: column; gap: 4px; margin: 14px 0 18px; padding: 13px 15px; color: #173b70; background: #eef6ff; border: 1px solid #cfe3fb; border-radius: 13px; }
+        .processual-interpreter-note strong { font-size: 11px; }
+        .processual-interpreter-note span { color: #506783; font-size: 10px; line-height: 1.45; }
         .processual-preview-page { min-height: 640px; padding: 32px; color: #253a5c; background: #fff; border: 1px solid #dfe7f1; border-radius: 8px; box-shadow: 0 20px 55px rgba(25,65,120,.12); }
         .processual-preview-page header { padding-bottom: 20px; border-bottom: 2px solid #153c75; }
         .processual-preview-page header > span { color: var(--accent-strong); font-size: 10px; font-weight: 900; letter-spacing: 1.5px; }
@@ -5505,6 +5578,24 @@ export default function App() {
         .preview-process-block p { margin-top: 5px; color: #415674; font-size: 10px; line-height: 1.6; white-space: pre-wrap; }
         .processual-preview-page footer { margin-top: 18px; padding-top: 12px; border-top: 1px solid #dfe7f1; }
         .processual-preview-page footer p { margin-bottom: 6px; font-size: 7px; line-height: 1.4; }
+        .processual-preview-modelo header { display: flex; align-items: baseline; justify-content: space-between; gap: 16px; padding-bottom: 10px; }
+        .processual-preview-modelo header h2 { margin: 0; font-size: 11px; }
+        .processual-preview-identification { display: grid; gap: 4px; }
+        .processual-preview-identification p { margin: 0; }
+        .processual-parties-preview { display: grid; grid-template-columns: 1fr 1fr; border: 1px solid #a8b8cb; }
+        .processual-parties-preview > div { display: grid; min-height: 82px; align-content: space-between; gap: 9px; padding: 9px 12px; text-align: center; }
+        .processual-parties-preview > div + div { border-left: 1px solid #a8b8cb; }
+        .processual-parties-preview strong { margin: -9px -12px 2px; padding: 6px; color: #153c75; background: #eff4fa; font-size: 8px; text-transform: uppercase; }
+        .processual-parties-preview b { color: #111827; font-size: 9px; }
+        .processual-parties-preview span { color: #66758b; font-size: 7px; }
+        .processual-preview-subject { margin: 6px 0 0; color: #111827; font-size: 9px; }
+        .processual-preview-section { margin-top: 11px !important; }
+        .processual-preview-section h3 { margin: 0 0 5px !important; padding-bottom: 3px; color: #153c75; border-bottom: 1px solid #153c75; font-size: 8px !important; }
+        .processual-preview-section p { margin: 0; color: #111827; line-height: 1.4; white-space: pre-wrap; }
+        .processual-preview-modelo footer { display: grid; gap: 4px; text-align: center; }
+        .processual-preview-modelo footer p { text-align: left; }
+        .processual-preview-modelo footer > strong { color: #111827; font-size: 8px; }
+        .processual-preview-modelo footer > span { color: #66758b; font-size: 6px; }
         .processual-form-sections { display: grid; gap: 24px; }
         .processual-form-sections fieldset { padding: 18px; border: 1px solid rgba(104,148,201,.18); border-radius: 16px; }
         .processual-form-sections legend { padding: 0 8px; color: var(--dark); font-size: 12px; font-weight: 900; text-transform: uppercase; }
@@ -5515,6 +5606,10 @@ export default function App() {
         .attachment-picker { cursor: pointer; }
         .attachment-picker input { display: none; }
         .processual-attachments > small { color: var(--muted); }
+        .processual-capture-selected { display: flex; align-items: center; gap: 9px; margin-top: 15px; padding: 13px 15px; background: rgba(247,251,255,.9); border: 1px solid rgba(104,148,201,.18); border-radius: 14px; }
+        .processual-capture-selected > div { display: grid; flex: 1; gap: 3px; min-width: 0; }
+        .processual-capture-selected strong { overflow: hidden; color: var(--dark); font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
+        .processual-capture-selected small { color: var(--muted); font-size: 9px; }
         .attachment-list { display: grid; gap: 10px; margin-top: 16px; }
         .attachment-list article { display: grid; grid-template-columns: auto minmax(220px,1fr) 190px auto auto; gap: 10px; align-items: center; padding: 12px; background: rgba(247,251,255,.8); border-radius: 14px; }
         .attachment-list article > div:nth-child(2) { display: grid; gap: 7px; }
@@ -6947,7 +7042,8 @@ export default function App() {
         .member-avatar-wrap.compact { width: 64px; height: 64px; }
         .member-avatar-wrap.compact .member-avatar { width: 64px; height: 64px; border-radius: 50%; }
         .member-avatar-wrap.compact > .performance-badge { right: -7px; bottom: -8px; }
-        .verified-user-profile .member-avatar-wrap.compact { width: clamp(58px, 5vw, 70px); height: clamp(58px, 5vw, 70px); }
+        .verified-user-profile { min-width: 300px; gap: 16px; padding: 12px 17px; }
+        .verified-user-profile .member-avatar-wrap.compact { width: clamp(76px, 6vw, 88px); height: clamp(76px, 6vw, 88px); flex-basis: clamp(76px, 6vw, 88px); }
         .verified-user-profile .member-avatar-wrap.compact .member-avatar { width: 100%; height: 100%; border-width: 3px; box-shadow: 0 10px 28px rgba(49,94,154,.25); }
         .member-name-row { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
         .member-name-row > strong { display: inline-block; }
@@ -7038,7 +7134,14 @@ export default function App() {
         .legal-team-motto small { color: #e9cf8d; font-size: 9px; font-weight: 900; letter-spacing: .12em; text-transform: uppercase; }
         .legal-team-motto strong { max-width: 920px; font-family: Georgia, serif; font-size: clamp(15px, 1.5vw, 19px); line-height: 1.45; }
         .central-metrics { grid-template-columns: repeat(4, minmax(0, 1fr)); }
-        .central-metric { text-align: left; cursor: pointer; border: 1px solid rgba(67,105,152,.12); }
+        .central-metrics .central-metric { --pin-color: #db5362; position: relative; overflow: visible; padding-top: 38px; text-align: left; cursor: pointer; border: 1px solid rgba(67,105,152,.12); transform: rotate(-.28deg); transform-origin: 50% 12px; }
+        .central-metrics .central-metric:nth-child(even) { transform: rotate(.28deg); }
+        .central-metrics .central-metric:hover { transform: translateY(-6px) rotate(0); }
+        .central-metrics .central-metric::before { content: ""; position: absolute; z-index: 2; top: 10px; left: 50%; width: 15px; height: 15px; transform: translateX(-50%); background: radial-gradient(circle at 34% 28%, #fff 0 9%, var(--pin-color) 22% 67%, #862b39 100%); border: 1px solid rgba(96,31,42,.28); border-radius: 50%; box-shadow: 0 3px 7px rgba(72,31,40,.3), inset 0 1px 1px rgba(255,255,255,.72); }
+        .central-metrics .central-metric::after { content: ""; position: absolute; z-index: 1; top: 22px; left: calc(50% + 1px); width: 2px; height: 13px; background: linear-gradient(#8b4650, #cbd2da 72%, #73808f); border-radius: 2px; transform: rotate(8deg); transform-origin: top; box-shadow: 1px 1px 2px rgba(35,52,72,.2); }
+        .central-metrics .central-metric.urgent { --pin-color: #f39843; }
+        .central-metrics .central-metric.warning { --pin-color: #e6bc36; }
+        .central-metrics .central-metric.success { --pin-color: #39b296; }
         .central-metric strong { display: block; margin-top: 8px; font-size: 30px; color: #173962; }
         .central-metric.critical { border-left: 4px solid #d94b55; }
         .central-metric.urgent { border-left: 4px solid #ed8b36; }
@@ -7048,7 +7151,8 @@ export default function App() {
         .drive-client-field { position: relative; display: grid; gap: 7px; min-width: 0; }
         .drive-client-field > label { color: #284568; font-size: 11px; font-weight: 800; }
         .drive-client-combobox { position: relative; min-width: 0; }
-        .drive-client-combobox .drive-folder-icon { position: absolute; z-index: 2; left: 14px; top: 50%; transform: translateY(-50%); font-size: 16px; pointer-events: none; }
+        .google-drive-icon { display: block; flex: 0 0 auto; }
+        .drive-client-combobox .drive-search-icon { position: absolute; z-index: 2; left: 13px; top: 50%; width: 21px; height: 21px; transform: translateY(-50%); pointer-events: none; filter: drop-shadow(0 2px 2px rgba(34,80,131,.12)); }
         .drive-client-combobox input { width: 100%; min-height: 44px; margin: 0; padding-left: 42px; padding-right: 42px; }
         .drive-client-combobox.is-open input { border-color: #4c8ef7; box-shadow: 0 0 0 3px rgba(76,142,247,.12); }
         .drive-client-clear { position: absolute; z-index: 3; right: 8px; top: 50%; width: 32px; height: 32px; transform: translateY(-50%); border: 0; border-radius: 9px; background: transparent; color: #637b9a; font-size: 22px; cursor: pointer; }
@@ -7056,6 +7160,7 @@ export default function App() {
         .drive-client-options > p { padding: 14px; font-size: 11px; }
         .drive-client-options .drive-client-error { color: #b63e4a; }
         .drive-client-options button { display: flex; align-items: center; gap: 10px; min-height: 50px; padding: 9px 11px; text-align: left; background: transparent; border: 0; border-radius: 10px; cursor: pointer; }
+        .drive-client-options .drive-option-icon { width: 24px; height: 24px; filter: drop-shadow(0 2px 3px rgba(34,80,131,.12)); }
         .drive-client-options button:hover, .drive-client-options button[aria-selected="true"] { background: #edf5ff; }
         .drive-client-options button > span:last-child { display: grid; gap: 2px; min-width: 0; }
         .drive-client-options strong, .drive-client-options small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -7065,6 +7170,7 @@ export default function App() {
         .drive-client-kind.is-active { color: #24725f; background: #e8f8f2; }
         .drive-client-kind.is-archived { color: #805f1d; background: #fff5d9; }
         .drive-client-selected { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 12px; background: #eff8f5; border: 1px solid rgba(50,165,137,.18); border-radius: 11px; }
+        .drive-client-selected .drive-selected-icon { width: 25px; height: 25px; }
         .drive-client-selected.is-archived { background: #fff9ea; border-color: rgba(190,139,35,.22); }
         .drive-client-selected.is-archived strong { color: #805f1d; }
         .drive-client-selected > span { display: grid; gap: 2px; }
@@ -7202,8 +7308,8 @@ export default function App() {
           .main-content { padding: 12px 8px 32px; }
           .topbar, .panel { padding: 16px; border-radius: 18px; }
           .topbar-actions { align-items: stretch; }
-          .verified-user-profile { min-width: 0; padding: 9px 11px; }
-          .verified-user-profile .member-avatar-wrap.compact { width: 58px; height: 58px; }
+          .verified-user-profile { min-width: 0; gap: 12px; padding: 10px 12px; }
+          .verified-user-profile .member-avatar-wrap.compact { width: 68px; height: 68px; flex-basis: 68px; }
           .profile-user-name { max-width: min(46vw, 220px); font-size: 13px; }
           .profile-online-status { white-space: normal; }
           .task-item { padding: 14px; }
@@ -7212,6 +7318,7 @@ export default function App() {
           .document-checklist { padding: 12px; }
           .central-metrics { grid-template-columns: repeat(2,minmax(0,1fr)); gap: 8px; }
           .central-metric { padding: 12px; }
+          .central-metrics .central-metric { padding-top: 36px; }
           .central-metric strong { font-size: 24px; }
         }
 

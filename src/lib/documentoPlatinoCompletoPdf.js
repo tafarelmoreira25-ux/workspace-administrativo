@@ -80,7 +80,7 @@ function desenharIdentidadeVisual(pagina, fontes, titulo) {
     color: AZUL_PLATINO,
   });
 
-  const marca = "PLATINO SOLUÇÕES FINANCEIRAS";
+  const marca = "PLATINO   SOLUÇÕES FINANCEIRAS";
   const larguraMarca = fontes.normal.widthOfTextAtSize(marca, 8);
   pagina.drawText(marca, {
     x: (A4[0] - larguraMarca) / 2,

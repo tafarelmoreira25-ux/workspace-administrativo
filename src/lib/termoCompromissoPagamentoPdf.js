@@ -13,6 +13,13 @@ function valorMonetario(valor) {
   return texto(valor).replace(/^R\$\s*/i, "");
 }
 
+function dataNumerica(valor) {
+  const informada = texto(valor);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(informada)) return informada;
+  const [ano, mes, dia] = informada.split("-");
+  return `${dia}/${mes}/${ano}`;
+}
+
 export async function gerarTermoCompromissoPagamentoPdf(dados) {
   const { pdf, pagina, fontes, yInicial } =
     await criarDocumentoPlatinoCompleto(
@@ -46,11 +53,13 @@ export async function gerarTermoCompromissoPagamentoPdf(dados) {
               "1.1. O presente termo tem por objeto o reconhecimento, pelo CLIENTE, da responsabilidade pelo pagamento do valor total de R$",
           },
           {
-            texto: `${valorMonetario(dados.valorTotal)} (${texto(dados.valorTotalExtenso)}),`,
+            texto: `${valorMonetario(dados.valorTotal)}`,
             negrito: true,
           },
+          { texto: " na data " },
+          { texto: `${dataNumerica(dados.dataCompromisso)},`, negrito: true },
           { texto: " referente aos custos de " },
-          { texto: `${texto(dados.servico)},`, negrito: true },
+          { texto: `${texto(dados.produto)},`, negrito: true },
           {
             texto:
               "relacionados ao procedimento de revisão do contrato de financiamento.",

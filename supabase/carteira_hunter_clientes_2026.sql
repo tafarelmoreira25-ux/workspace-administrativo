@@ -369,6 +369,9 @@ where lower(trim(email)) = 'giullian@platino.com';
 
 commit;
 
+-- Solicita ao PostgREST a leitura imediata das novas funções RPC.
+notify pgrst, 'reload schema';
+
 select id, nome, email, cargo, setor, foto_url, permissoes
 from public.funcionarios
 where lower(trim(email)) = 'giullian@platino.com';

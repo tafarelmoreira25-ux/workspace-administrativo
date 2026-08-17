@@ -169,7 +169,7 @@ const FIELD_GROUPS = [
   { id: "contato", titulo: "Dados de contato", campos: ["email", "telefone"] },
   { id: "profissionais", titulo: "Informações profissionais", campos: ["profissao", "responsavelDocumento"] },
   { id: "endereco", titulo: "Endereço", campos: ["endereco", "cep", "cidade", "uf", "localEmissao"] },
-  { id: "contratuais", titulo: "Dados contratuais e financeiros", prefixos: ["banco", "cnpjBanco", "enderecoBanco", "numeroContrato", "dataContrato", "valor", "quantidadeParcelas", "produto", "servico", "modalidade", "bandeira", "tipoVenda", "codigoAutorizacao", "horario"] },
+  { id: "contratuais", titulo: "Dados contratuais e financeiros", prefixos: ["banco", "cnpjBanco", "enderecoBanco", "numeroContrato", "dataContrato", "dataCompromisso", "valor", "quantidadeParcelas", "produto", "servico", "modalidade", "bandeira", "tipoVenda", "codigoAutorizacao", "horario"] },
   { id: "processuais", titulo: "Informações processuais", prefixos: ["numeroProcesso", "vara", "comarca", "protocolo", "numeroProtocolo", "dataContato", "dataProposta", "validadeProposta", "manifestacaoCliente", "observacoes", "dataInicioRepresentacao", "dataAberturaReclamacao", "exercicios"] },
 ];
 

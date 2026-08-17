@@ -38,6 +38,19 @@ export function DocumentCategoryIcon({ name, size = 22 }) {
   );
 }
 
+export function DocumentModelIcon({ size = 44 }) {
+  return (
+    <img
+      alt=""
+      aria-hidden="true"
+      className="document-model-image"
+      height={size}
+      src="/assets/document-model-icon.svg"
+      width={size}
+    />
+  );
+}
+
 export default function ModelLibraryModal({
   aberto,
   modelos,
@@ -91,7 +104,9 @@ export default function ModelLibraryModal({
       <section className="model-library-modal" role="dialog" aria-modal="true" aria-labelledby="model-library-title">
         <header className="model-library-header">
           <div className="model-library-heading">
-            <span className="model-library-mark"><DocumentCategoryIcon name="library" size={25} /></span>
+            <span className="model-library-mark">
+              <img alt="" aria-hidden="true" src="/assets/pdf-document-icon.png" />
+            </span>
             <div>
               <span className="eyebrow">Central de documentos</span>
               <h2 id="model-library-title">Biblioteca de modelos jurídicos</h2>
@@ -146,7 +161,7 @@ export default function ModelLibraryModal({
 
         {resultados.length === 0 ? (
           <div className="model-library-empty">
-            <span><DocumentCategoryIcon name="library" size={30} /></span>
+            <span><DocumentModelIcon size={38} /></span>
             <h3>Nenhum modelo encontrado</h3>
             <p>Tente pesquisar por outro termo ou remova os filtros selecionados.</p>
             <button type="button" className="btn-secondary" onClick={limparFiltros}>Limpar filtros</button>
@@ -159,7 +174,7 @@ export default function ModelLibraryModal({
               return (
                 <article className={`model-card ${selecionado ? "selected" : ""}`} key={modelo.id}>
                   <div className="model-card-topline">
-                    <span className="model-card-icon"><DocumentCategoryIcon name={modelo.icone} size={24} /></span>
+                    <span className="model-card-icon"><DocumentModelIcon size={38} /></span>
                     <div className="model-card-badges">
                       {modelo.selo ? <span>{modelo.selo}</span> : null}
                       {selecionado ? <span className="selected-badge">✓ Modelo selecionado</span> : null}
@@ -197,7 +212,7 @@ export default function ModelLibraryModal({
           <div className="model-detail-backdrop" onMouseDown={(evento) => evento.target === evento.currentTarget && setModeloVisualizado(null)}>
             <section className="model-detail-panel" role="dialog" aria-modal="true" aria-labelledby="model-detail-title">
               <button type="button" className="model-library-close" onClick={() => setModeloVisualizado(null)} aria-label="Fechar visualização">×</button>
-              <span className="model-card-icon large"><DocumentCategoryIcon name={modeloVisualizado.icone} size={30} /></span>
+              <span className="model-card-icon large"><DocumentModelIcon size={46} /></span>
               <span className="eyebrow">{modeloVisualizado.categoriaNome}</span>
               <h2 id="model-detail-title">{modeloVisualizado.nome}</h2>
               <p>{modeloVisualizado.descricao}</p>

@@ -1,11 +1,84 @@
 const GRUPOS = [
-  ["Dados do processo", [["tribunal","Tribunal"],["forum_comarca","Fórum ou comarca"],["vara","Vara"],["cidade_estado","Cidade/estado"],["cliente_autor","Cliente/autor"],["instituicao_reu","Instituição financeira/réu"],["numero_processo","Número do processo"],["data_distribuicao","Data da distribuição"],["juiz_responsavel","Juiz responsável"],["advogado","Advogado"],["data_consulta","Data da consulta"],["responsavel","Responsável pela atualização"]]],
-  ["Andamento processual", [["status_atual","Status atual"],["ultima_movimentacao","Última movimentação"],["proximos_passos","Próximos passos"],["observacao_cliente","Observação complementar para o cliente"],["observacao_interna","Observação interna (não aparece no PDF)"]]],
+  ["Identificação do processo", [
+    ["numero_processo", "Número do processo / protocolo"],
+    ["origem", "Origem / Tribunal / Vara", "longo"],
+    ["segredo_sigilo", "Segredo ou sigilo", "sim-nao"],
+    ["justica_gratuita", "Justiça gratuita", "sim-nao"],
+    ["data_distribuicao", "Data da distribuição", "data"],
+    ["nome_cliente", "Nome do cliente"],
+    ["reu", "Réu / Instituição financeira"],
+    ["advogado_cliente", "Advogado(a) do cliente"],
+    ["advogado_reu", "Advogado(a) do réu / Instituição financeira"],
+    ["assunto", "Assunto / Natureza da ação", "longo"],
+  ]],
+  ["Andamento processual", [
+    ["status_atual", "Status atual", "longo"],
+    ["data_ultima_movimentacao", "Data da última movimentação", "data"],
+    ["descricao_ultima_movimentacao", "Descrição da última movimentação", "longo"],
+    ["proximos_passos", "Próximos passos", "longo"],
+  ]],
+  ["Consulta e acompanhamento", [
+    ["data_consulta", "Data da última consulta", "data"],
+    ["hora_consulta", "Hora da consulta", "hora"],
+    ["link_anexos_documentos", "Link dos anexos/documentos do processo", "url"],
+    ["representante_responsavel", "Representante responsável pelo acompanhamento"],
+    ["link_movimentacoes", "Link para consulta das movimentações", "url"],
+  ]],
 ];
 
+function Campo({ nome, rotulo, tipo, valor, pendente, onChange }) {
+  const classeLonga = tipo === "longo" || tipo === "url";
+  const propriedades = {
+    value: valor || "",
+    onChange: (event) => onChange(nome, event.target.value),
+  };
+
+  let controle;
+  if (tipo === "longo") {
+    controle = <textarea rows="4" {...propriedades} />;
+  } else if (tipo === "sim-nao") {
+    controle = <select {...propriedades}>
+      <option value="">Selecione...</option>
+      <option value="Sim">Sim</option>
+      <option value="Não">Não</option>
+      <option value="Não informado">Não informado</option>
+    </select>;
+  } else {
+    const inputType = tipo === "data" ? "date" : tipo === "hora" ? "time" : tipo === "url" ? "url" : "text";
+    controle = <input type={inputType} placeholder={tipo === "url" ? "https://..." : ""} {...propriedades} />;
+  }
+
+  return (
+    <label className={`${classeLonga ? "span-2" : ""} ${pendente ? "field-review" : ""}`}>
+      {rotulo}
+      {controle}
+      {pendente && <small>Não identificado pelo interpretador — complete ou revise.</small>}
+    </label>
+  );
+}
+
 export default function ProcessualFormulario({ dados, onChange, naoIdentificados }) {
-  return <div className="processual-form-sections">{GRUPOS.map(([titulo, campos]) => <fieldset key={titulo}><legend>{titulo}</legend><div className="employee-profile-grid">{campos.map(([nome, rotulo]) => {
-    const longo = ["status_atual","ultima_movimentacao","proximos_passos","observacao_cliente","observacao_interna"].includes(nome);
-    return <label className={`${longo ? "span-2" : ""} ${naoIdentificados.includes(nome) ? "field-review" : ""}`} key={nome}>{rotulo}{longo ? <textarea rows="4" value={dados[nome]} onChange={(e) => onChange(nome,e.target.value)} /> : <input value={dados[nome]} onChange={(e) => onChange(nome,e.target.value)} />}{naoIdentificados.includes(nome) && <small>Não identificado — revise este campo.</small>}</label>;
-  })}</div></fieldset>)}</div>;
+  return (
+    <div className="processual-form-sections">
+      {GRUPOS.map(([titulo, campos]) => (
+        <fieldset key={titulo}>
+          <legend>{titulo}</legend>
+          <div className="employee-profile-grid">
+            {campos.map(([nome, rotulo, tipo]) => (
+              <Campo
+                dados={dados}
+                key={nome}
+                nome={nome}
+                onChange={onChange}
+                pendente={naoIdentificados.includes(nome)}
+                rotulo={rotulo}
+                tipo={tipo}
+                valor={dados[nome]}
+              />
+            ))}
+          </div>
+        </fieldset>
+      ))}
+    </div>
+  );
 }

@@ -1,10 +1,57 @@
-const TIPOS = ["Captura da movimentação","Despacho","Decisão","Sentença","Certidão","Contestação","Outro"];
-const MAX = 15 * 1024 * 1024;
+const TAMANHO_MAXIMO = 15 * 1024 * 1024;
+const TIPOS_ACEITOS = ["image/png", "image/jpeg", "application/pdf"];
 
 export default function ProcessualAnexos({ anexos, onChange }) {
-  function adicionar(event) { const novos = [...event.target.files].filter((f) => ["image/png","image/jpeg","application/pdf"].includes(f.type) && f.size <= MAX).map((arquivo,i) => ({ id: `${Date.now()}-${i}`, arquivo, nome: arquivo.name.replace(/\.[^.]+$/, ""), descricao: "", tipo: arquivo.type === "application/pdf" ? "Outro" : "Captura da movimentação", incluir: true, ordem: anexos.length+i+1 })); onChange([...anexos,...novos]); event.target.value=""; }
-  function atualizar(id,campo,valor) { onChange(anexos.map((a) => a.id===id ? {...a,[campo]:valor}:a)); }
-  function mover(indice,direcao) { const destino=indice+direcao; if(destino<0||destino>=anexos.length)return; const copia=[...anexos]; [copia[indice],copia[destino]]=[copia[destino],copia[indice]]; onChange(copia.map((a,i)=>({...a,ordem:i+1}))); }
-  function visualizar(arquivo) { const url=URL.createObjectURL(arquivo); window.open(url,"_blank","noopener,noreferrer"); setTimeout(()=>URL.revokeObjectURL(url),60000); }
-  return <section className="panel processual-attachments"><div className="panel-title-row"><div><span className="eyebrow">Documentos posteriores</span><h2>Anexos</h2></div><label className="btn-secondary compact attachment-picker">Adicionar anexos<input multiple accept=".png,.jpg,.jpeg,.pdf" type="file" onChange={adicionar} /></label></div><small>PNG, JPG ou PDF, até 15 MB por arquivo.</small><div className="attachment-list">{anexos.map((a,i)=><article key={a.id}><div className="attachment-order"><button onClick={()=>mover(i,-1)}>↑</button><strong>{i+1}</strong><button onClick={()=>mover(i,1)}>↓</button></div><div><input value={a.nome} onChange={(e)=>atualizar(a.id,"nome",e.target.value)} /><input placeholder="Descrição do documento" value={a.descricao} onChange={(e)=>atualizar(a.id,"descricao",e.target.value)} /></div><select value={a.tipo} onChange={(e)=>atualizar(a.id,"tipo",e.target.value)}>{TIPOS.map(t=><option key={t}>{t}</option>)}</select><label><input type="checkbox" checked={a.incluir} onChange={(e)=>atualizar(a.id,"incluir",e.target.checked)} />Incluir</label><div className="attachment-buttons"><button className="btn-secondary compact" onClick={()=>visualizar(a.arquivo)}>Visualizar</button><button className="btn-danger compact" onClick={()=>onChange(anexos.filter(x=>x.id!==a.id))}>Excluir</button></div></article>)}</div></section>;
+  const captura = anexos[0];
+
+  function selecionar(event) {
+    const arquivo = event.target.files?.[0];
+    event.target.value = "";
+    if (!arquivo) return;
+    if (!TIPOS_ACEITOS.includes(arquivo.type)) {
+      alert("Selecione uma imagem PNG/JPG ou um arquivo PDF.");
+      return;
+    }
+    if (arquivo.size > TAMANHO_MAXIMO) {
+      alert("A captura deve ter no máximo 15 MB.");
+      return;
+    }
+    onChange([{
+      id: `${Date.now()}-captura`,
+      arquivo,
+      nome: arquivo.name.replace(/\.[^.]+$/, ""),
+      incluir: true,
+      ordem: 1,
+    }]);
+  }
+
+  function visualizar() {
+    if (!captura?.arquivo) return;
+    const url = URL.createObjectURL(captura.arquivo);
+    window.open(url, "_blank", "noopener,noreferrer");
+    window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
+  }
+
+  return (
+    <section className="panel processual-attachments">
+      <div className="panel-title-row">
+        <div>
+          <span className="eyebrow">Campo opcional do modelo</span>
+          <h2>Captura de tela do processo</h2>
+        </div>
+        <label className="btn-secondary compact attachment-picker">
+          {captura ? "Substituir captura" : "Escolher arquivo"}
+          <input accept=".png,.jpg,.jpeg,.pdf" type="file" onChange={selecionar} />
+        </label>
+      </div>
+      <small>PNG, JPG ou PDF, até 15 MB. A captura será adicionada depois do relatório.</small>
+      {captura && (
+        <article className="processual-capture-selected">
+          <div><strong>{captura.arquivo.name}</strong><small>{Math.ceil(captura.arquivo.size / 1024)} KB</small></div>
+          <button className="btn-secondary compact" type="button" onClick={visualizar}>Visualizar</button>
+          <button className="btn-danger compact" type="button" onClick={() => onChange([])}>Remover</button>
+        </article>
+      )}
+    </section>
+  );
 }

@@ -1,151 +1,242 @@
 import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
-import { AVISO_PROCESSUAL, FINALIDADE_PROCESSUAL } from "./processualConstants.js";
 
 const A4 = [595.28, 841.89];
-const M = 42;
-const AZUL = rgb(15 / 255, 42 / 255, 85 / 255);
-const CINZA = rgb(0.35, 0.42, 0.52);
+const MARGEM = 54;
+const AZUL = rgb(22 / 255, 56 / 255, 97 / 255);
+const AZUL_CLARO = rgb(241 / 255, 246 / 255, 252 / 255);
+const CINZA = rgb(91 / 255, 105 / 255, 125 / 255);
+const BORDA = rgb(165 / 255, 177 / 255, 194 / 255);
+const PRETO = rgb(0.04, 0.04, 0.04);
+
+function texto(valor, padrao = "Não informado") {
+  return String(valor || "").trim() || padrao;
+}
 
 function nomeSeguro(valor) {
   return String(valor || "documento").normalize("NFD").replace(/[\u0300-\u036f]/g, "")
-    .replace(/[^a-zA-Z0-9._-]+/g, "-").replace(/-+/g, "-").replace(/^-|-$/g, "");
+    .replace(/[^a-zA-Z0-9._-]+/g, "-").replace(/-+/g, "-").replace(/^-|-$/g, "").toLowerCase();
 }
 
-function linhas(texto, fonte, tamanho, largura) {
+function dataBrasileira(valor) {
+  const data = String(valor || "");
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(data)) return texto(data);
+  const [ano, mes, dia] = data.split("-");
+  return `${dia}/${mes}/${ano}`;
+}
+
+function quebrarLinhas(valor, fonte, tamanho, largura) {
   const saida = [];
-  for (const paragrafo of String(texto || "").split("\n")) {
+  String(valor || "").split(/\n/).forEach((paragrafo) => {
     let atual = "";
-    for (const palavra of paragrafo.split(/\s+/)) {
+    paragrafo.trim().split(/\s+/).filter(Boolean).forEach((palavra) => {
       const teste = atual ? `${atual} ${palavra}` : palavra;
-      if (fonte.widthOfTextAtSize(teste, tamanho) > largura && atual) {
+      if (atual && fonte.widthOfTextAtSize(teste, tamanho) > largura) {
         saida.push(atual);
         atual = palavra;
-      } else atual = teste;
-    }
+      } else {
+        atual = teste;
+      }
+    });
     saida.push(atual || " ");
-  }
+  });
   return saida;
 }
 
-export async function gerarRelatorioProcessualPDF({ dados, codigo, anexos }) {
-  const pdf = await PDFDocument.create();
-  const normal = await pdf.embedFont(StandardFonts.Helvetica);
-  const bold = await pdf.embedFont(StandardFonts.HelveticaBold);
-  let page = pdf.addPage(A4);
-  let y = 798;
+function desenharLinhas(pagina, valor, { x, y, largura, fonte, tamanho = 8.5, altura = 11, cor = PRETO, maximo = Infinity }) {
+  const linhas = quebrarLinhas(valor, fonte, tamanho, largura).slice(0, maximo);
+  linhas.forEach((linha, indice) => pagina.drawText(linha, {
+    x, y: y - indice * altura, size: tamanho, font: fonte, color: cor,
+  }));
+  return y - linhas.length * altura;
+}
 
-  function nova() { page = pdf.addPage(A4); y = 798; }
-  function garantir(altura = 36) { if (y - altura < 54) nova(); }
-  function texto(valor, { size = 8.5, font = normal, color = AZUL, gap = 8, indent = 0 } = {}) {
-    const ls = linhas(valor, font, size, A4[0] - M * 2 - indent);
-    garantir(ls.length * (size + 3) + gap);
-    for (const linha of ls) {
-      page.drawText(linha, { x: M + indent, y, size, font, color });
-      y -= size + 3;
-    }
-    y -= gap;
-  }
-  function campoResumo(rotulo, valor, x, largura, topo) {
-    page.drawText(`${rotulo}:`, { x, y: topo, size: 7.2, font: bold, color: CINZA });
-    const valorLinhas = linhas(valor || "Não informado", normal, 8.2, largura);
-    valorLinhas.slice(0, 2).forEach((linha, indice) => {
-      page.drawText(linha, { x, y: topo - 11 - indice * 10, size: 8.2, font: normal, color: AZUL });
+function desenharCentralizado(pagina, valor, { x, y, largura, fonte, tamanho = 8.5, altura = 11, cor = PRETO, maximo = 2 }) {
+  const linhas = quebrarLinhas(valor, fonte, tamanho, largura - 20).slice(0, maximo);
+  linhas.forEach((linha, indice) => {
+    const larguraLinha = fonte.widthOfTextAtSize(linha, tamanho);
+    pagina.drawText(linha, {
+      x: x + (largura - larguraLinha) / 2,
+      y: y - indice * altura,
+      size: tamanho,
+      font: fonte,
+      color: cor,
     });
-  }
-
-  try {
-    const bytesLogo = await fetch("/assets/platino-icon.png").then((resposta) => resposta.arrayBuffer());
-    const logo = await pdf.embedPng(bytesLogo);
-    page.drawImage(logo, { x: M, y: 767, width: 30, height: 30 });
-  } catch { /* O relatório continua válido sem a imagem. */ }
-
-  page.drawText("PLATINO", { x: 80, y: 785, size: 12, font: bold, color: AZUL });
-  page.drawText("RELATÓRIO DE ATUALIZAÇÃO PROCESSUAL", { x: M, y: 743, size: 14, font: bold, color: AZUL });
-  page.drawText(`Código: ${codigo}`, { x: M, y: 724, size: 8, font: bold, color: AZUL });
-  page.drawText(`Consulta: ${dados.data_consulta || "Não informada"}`, { x: 370, y: 724, size: 8, font: bold, color: AZUL });
-
-  y = 700;
-  const local = [dados.tribunal, dados.vara, dados.forum_comarca, dados.cidade_estado].filter(Boolean).join(" – ");
-  texto(local || "Tribunal não informado", { font: bold, size: 10, gap: 12 });
-
-  const resumo = [
-    ["Cliente (Autor)", dados.cliente_autor],
-    ["Instituição Financeira (Réu)", dados.instituicao_reu],
-    ["Número do Processo", dados.numero_processo],
-    ["Data de distribuição", dados.data_distribuicao],
-    ["Juiz responsável", dados.juiz_responsavel],
-    ["Advogado", dados.advogado],
-  ];
-  const colunaLargura = 238;
-  for (let indice = 0; indice < resumo.length; indice += 2) {
-    campoResumo(resumo[indice][0], resumo[indice][1], M, colunaLargura, y);
-    campoResumo(resumo[indice + 1][0], resumo[indice + 1][1], 315, colunaLargura, y);
-    y -= 38;
-  }
-
-  if (dados.link_processo) {
-    campoResumo("Link oficial do processo", dados.link_processo, M, A4[0] - M * 2, y);
-    y -= 38;
-  }
-
-  y -= 2;
-  texto("ANDAMENTO PROCESSUAL", { font: bold, size: 10.5, gap: 9 });
-  for (const [rotulo, valor] of [
-    ["Status atual", dados.status_atual],
-    ["Última movimentação", dados.ultima_movimentacao],
-    ["Próximos passos", dados.proximos_passos],
-  ]) {
-    texto(`${rotulo}:`, { font: bold, size: 8, gap: 2 });
-    texto(valor || "Não informado", { size: 8.5, gap: 9 });
-  }
-  if (dados.observacao_cliente) {
-    texto("Observação ao cliente:", { font: bold, size: 8, gap: 2 });
-    texto(dados.observacao_cliente, { size: 8.5, gap: 9 });
-  }
-  texto(`Responsável pela atualização: ${dados.responsavel || "Não informado"}`, { font: bold, size: 8, gap: 9 });
-  texto(AVISO_PROCESSUAL, { size: 7, color: CINZA, gap: 5 });
-  texto(FINALIDADE_PROCESSUAL, { size: 7, font: bold, color: CINZA });
-
-  const incluidos = [...anexos].filter((anexo) => anexo.incluir && anexo.arquivo).sort((a, b) => {
-    const grupoA = a.arquivo.type === "application/pdf" ? 1 : 0;
-    const grupoB = b.arquivo.type === "application/pdf" ? 1 : 0;
-    return grupoA - grupoB || a.ordem - b.ordem;
   });
-  for (let indice = 0; indice < incluidos.length; indice += 1) {
-    const anexo = incluidos[indice];
-    nova();
-    page.drawText(`ANEXO ${romano(indice + 1)}`, { x: M, y: 680, size: 24, font: bold, color: AZUL });
-    page.drawText(anexo.tipo || "Outro", { x: M, y: 640, size: 15, font: bold, color: AZUL });
-    textoNa(page, anexo.nome, 600, bold, 12);
-    textoNa(page, anexo.descricao || "Documento anexado ao relatório processual.", 570, normal, 10);
+}
+
+function desenharCabecalho(pagina, fontes, continuacao = false) {
+  pagina.drawText("PLATINO", { x: MARGEM, y: 806, size: 9, font: fontes.bold, color: AZUL });
+  const fimPlatino = MARGEM + fontes.bold.widthOfTextAtSize("PLATINO", 9);
+  pagina.drawText("SOLUÇÕES FINANCEIRAS", { x: fimPlatino + 5, y: 806, size: 7.2, font: fontes.normal, color: AZUL });
+  const titulo = continuacao ? "RELATÓRIO PROCESSUAL - CONTINUAÇÃO" : "RELATÓRIO DE ATUALIZAÇÃO DO PROCESSO JUDICIAL";
+  const larguraTitulo = fontes.bold.widthOfTextAtSize(titulo, 8.2);
+  pagina.drawText(titulo, { x: A4[0] - MARGEM - larguraTitulo, y: 806, size: 8.2, font: fontes.bold, color: AZUL });
+  pagina.drawLine({ start: { x: MARGEM, y: 792 }, end: { x: A4[0] - MARGEM, y: 792 }, thickness: 1.2, color: AZUL });
+}
+
+function desenharRodape(pagina, fontes) {
+  pagina.drawLine({ start: { x: MARGEM, y: 48 }, end: { x: A4[0] - MARGEM, y: 48 }, thickness: 0.6, color: BORDA });
+  const endereco = "Rua Fontoura Xavier, nº 1308 - Itaquera - São Paulo/SP - CEP: 08295-300";
+  const email = "E-mail: platinoassessoriafinanceira@gmail.com";
+  [endereco, email].forEach((linha, indice) => {
+    const tamanho = 6.8;
+    const largura = fontes.normal.widthOfTextAtSize(linha, tamanho);
+    pagina.drawText(linha, { x: (A4[0] - largura) / 2, y: 33 - indice * 10, size: tamanho, font: fontes.normal, color: CINZA });
+  });
+}
+
+function desenharCampo(pagina, fontes, rotulo, valor, y) {
+  const tamanho = 8.5;
+  pagina.drawText(`${rotulo}:`, { x: MARGEM, y, size: tamanho, font: fontes.bold, color: PRETO });
+  const xValor = MARGEM + fontes.bold.widthOfTextAtSize(`${rotulo}: `, tamanho);
+  const linhas = quebrarLinhas(texto(valor), fontes.normal, tamanho, A4[0] - MARGEM - xValor);
+  linhas.forEach((linha, indice) => pagina.drawText(linha, {
+    x: indice === 0 ? xValor : MARGEM,
+    y: y - indice * 11,
+    size: tamanho,
+    font: fontes.normal,
+    color: PRETO,
+  }));
+  return y - Math.max(15, linhas.length * 11 + 4);
+}
+
+function desenharSecao(pagina, fontes, rotulo, valor, y) {
+  pagina.drawText(rotulo.toUpperCase(), { x: MARGEM, y, size: 8.8, font: fontes.bold, color: AZUL });
+  pagina.drawLine({ start: { x: MARGEM, y: y - 5 }, end: { x: A4[0] - MARGEM, y: y - 5 }, thickness: 0.65, color: AZUL });
+  return desenharLinhas(pagina, texto(valor), {
+    x: MARGEM,
+    y: y - 17,
+    largura: A4[0] - MARGEM * 2,
+    fonte: fontes.normal,
+    tamanho: 8.5,
+    altura: 11,
+    cor: PRETO,
+  }) - 8;
+}
+
+function desenharPartes(pagina, fontes, dados, y) {
+  const largura = (A4[0] - MARGEM * 2) / 2;
+  const alturaCabecalho = 21;
+  const alturaCorpo = 65;
+  pagina.drawRectangle({ x: MARGEM, y: y - alturaCabecalho, width: largura * 2, height: alturaCabecalho, color: AZUL_CLARO, borderColor: BORDA, borderWidth: 0.6 });
+  pagina.drawRectangle({ x: MARGEM, y: y - alturaCabecalho - alturaCorpo, width: largura * 2, height: alturaCorpo, borderColor: BORDA, borderWidth: 0.6 });
+  pagina.drawLine({ start: { x: MARGEM + largura, y: y - alturaCabecalho }, end: { x: MARGEM + largura, y: y - alturaCabecalho - alturaCorpo }, thickness: 0.6, color: BORDA });
+  desenharCentralizado(pagina, "POLO ATIVO", { x: MARGEM, y: y - 14, largura, fonte: fontes.bold, tamanho: 8.3, cor: AZUL, maximo: 1 });
+  desenharCentralizado(pagina, "POLO PASSIVO", { x: MARGEM + largura, y: y - 14, largura, fonte: fontes.bold, tamanho: 8.3, cor: AZUL, maximo: 1 });
+  desenharCentralizado(pagina, texto(dados.nome_cliente), { x: MARGEM, y: y - 42, largura, fonte: fontes.bold, tamanho: 8.2 });
+  desenharCentralizado(pagina, texto(dados.reu), { x: MARGEM + largura, y: y - 42, largura, fonte: fontes.bold, tamanho: 8.2 });
+  desenharCentralizado(pagina, `ADV.: ${texto(dados.advogado_cliente)}`, { x: MARGEM, y: y - 70, largura, fonte: fontes.normal, tamanho: 7.2, cor: CINZA });
+  desenharCentralizado(pagina, `ADV.: ${texto(dados.advogado_reu)}`, { x: MARGEM + largura, y: y - 70, largura, fonte: fontes.normal, tamanho: 7.2, cor: CINZA });
+  return y - alturaCabecalho - alturaCorpo;
+}
+
+async function carregarAssinatura(pdf) {
+  try {
+    const resposta = await fetch("/modelos/processual-assinatura-rafael.png");
+    if (!resposta.ok) return null;
+    return pdf.embedPng(await resposta.arrayBuffer());
+  } catch {
+    return null;
+  }
+}
+
+export async function gerarRelatorioProcessualPDF({ dados, codigo, anexos = [] }) {
+  const pdf = await PDFDocument.create();
+  const fontes = {
+    normal: await pdf.embedFont(StandardFonts.Helvetica),
+    bold: await pdf.embedFont(StandardFonts.HelveticaBold),
+  };
+  const assinatura = await carregarAssinatura(pdf);
+  const paginasRelatorio = [];
+  let pagina = pdf.addPage(A4);
+  paginasRelatorio.push(pagina);
+  desenharCabecalho(pagina, fontes);
+  let y = 755;
+
+  function continuar() {
+    pagina = pdf.addPage(A4);
+    paginasRelatorio.push(pagina);
+    desenharCabecalho(pagina, fontes, true);
+    y = 758;
+  }
+
+  y = desenharCampo(pagina, fontes, "Número do Processo", dados.numero_processo, y);
+  y = desenharCampo(pagina, fontes, "Origem", dados.origem, y);
+  y = desenharCampo(pagina, fontes, "Segredo ou sigilo", dados.segredo_sigilo, y);
+  y = desenharCampo(pagina, fontes, "Justiça Gratuita", dados.justica_gratuita, y);
+  y = desenharCampo(pagina, fontes, "Data da distribuição", dataBrasileira(dados.data_distribuicao), y);
+  y -= 7;
+  y = desenharPartes(pagina, fontes, dados, y);
+  y -= 12;
+  y = desenharCampo(pagina, fontes, "Assunto", dados.assunto, y);
+  y -= 5;
+
+  const secoes = [
+    ["Status atual", dados.status_atual],
+    ["Última movimentação", `Data: ${dataBrasileira(dados.data_ultima_movimentacao)}\n${texto(dados.descricao_ultima_movimentacao)}`],
+    ["Consulta do processo", `Data da consulta: ${dataBrasileira(dados.data_consulta)} às ${texto(dados.hora_consulta)}`],
+    ["Próximos passos", dados.proximos_passos],
+    ["Anexos e documentos do processo", dados.link_anexos_documentos],
+    ["Consulta das movimentações", dados.link_movimentacoes],
+  ];
+  for (const [rotulo, valor] of secoes) {
+    const alturaEstimada = quebrarLinhas(texto(valor), fontes.normal, 8.5, A4[0] - MARGEM * 2).length * 11 + 38;
+    if (y - alturaEstimada < 245) continuar();
+    y = desenharSecao(pagina, fontes, rotulo, valor, y);
+  }
+
+  const representante = texto(dados.representante_responsavel, "o representante responsável pelo acompanhamento");
+  const mensagem = `Nossa equipe jurídica, juntamente com ${representante}, está acompanhando atentamente todas as movimentações processuais e adotará as medidas cabíveis dentro dos prazos estabelecidos pelo Juízo.`;
+  const alturaMensagem = quebrarLinhas(mensagem, fontes.normal, 8.5, A4[0] - MARGEM * 2).length * 11 + 125;
+  if (y - alturaMensagem < 65) continuar();
+  y = desenharLinhas(pagina, mensagem, { x: MARGEM, y, largura: A4[0] - MARGEM * 2, fonte: fontes.normal, tamanho: 8.5, altura: 11, cor: PRETO }) - 12;
+  pagina.drawText("Cordialmente,", { x: MARGEM, y, size: 8.5, font: fontes.normal, color: PRETO });
+  y -= 56;
+
+  if (assinatura) {
+    const largura = 230;
+    const altura = largura * assinatura.height / assinatura.width;
+    pagina.drawImage(assinatura, { x: (A4[0] - largura) / 2, y: y - 3, width: largura, height: altura });
+  }
+  pagina.drawLine({ start: { x: 196, y: y - 7 }, end: { x: A4[0] - 196, y: y - 7 }, thickness: 0.55, color: CINZA });
+  const nomeAssinatura = "RAFAEL MOREIRA";
+  const larguraNome = fontes.bold.widthOfTextAtSize(nomeAssinatura, 8.2);
+  pagina.drawText(nomeAssinatura, { x: (A4[0] - larguraNome) / 2, y: y - 20, size: 8.2, font: fontes.bold, color: PRETO });
+  const departamento = "Departamento Processual • PLATINO SOLUÇÕES FINANCEIRAS";
+  const larguraDepartamento = fontes.normal.widthOfTextAtSize(departamento, 6.7);
+  pagina.drawText(departamento, { x: (A4[0] - larguraDepartamento) / 2, y: y - 32, size: 6.7, font: fontes.normal, color: CINZA });
+  const registro = `Documento assinado digitalmente por RAFAEL MOREIRA • em ${dataBrasileira(dados.data_consulta)} às ${texto(dados.hora_consulta)} • Código de validação: ${codigo}`;
+  const larguraRegistro = fontes.normal.widthOfTextAtSize(registro, 5.5);
+  pagina.drawText(registro, { x: Math.max(MARGEM, (A4[0] - larguraRegistro) / 2), y: y - 46, size: 5.5, font: fontes.normal, color: CINZA });
+  paginasRelatorio.forEach((item) => desenharRodape(item, fontes));
+
+  const incluidos = [...anexos].filter((anexo) => anexo.incluir && anexo.arquivo)
+    .sort((a, b) => (a.ordem || 0) - (b.ordem || 0));
+  for (const anexo of incluidos) {
     const bytes = await anexo.arquivo.arrayBuffer();
     if (anexo.arquivo.type === "application/pdf") {
       const origem = await PDFDocument.load(bytes);
       const copiadas = await pdf.copyPages(origem, origem.getPageIndices());
-      copiadas.forEach((pagina) => pdf.addPage(pagina));
+      copiadas.forEach((paginaCopiada) => pdf.addPage(paginaCopiada));
     } else {
-      nova();
+      const paginaAnexo = pdf.addPage(A4);
       const imagem = anexo.arquivo.type === "image/png" ? await pdf.embedPng(bytes) : await pdf.embedJpg(bytes);
-      const escala = Math.min((A4[0] - M * 2) / imagem.width, (A4[1] - M * 2) / imagem.height);
-      page.drawImage(imagem, { x: (A4[0] - imagem.width * escala) / 2, y: (A4[1] - imagem.height * escala) / 2, width: imagem.width * escala, height: imagem.height * escala });
+      const escala = Math.min((A4[0] - MARGEM * 2) / imagem.width, (A4[1] - 130) / imagem.height);
+      paginaAnexo.drawText(anexo.nome || "Captura do processo", { x: MARGEM, y: 800, size: 11, font: fontes.bold, color: AZUL });
+      paginaAnexo.drawImage(imagem, {
+        x: (A4[0] - imagem.width * escala) / 2,
+        y: 60 + (A4[1] - 150 - imagem.height * escala) / 2,
+        width: imagem.width * escala,
+        height: imagem.height * escala,
+      });
     }
   }
 
-  const total = pdf.getPageCount();
-  pdf.getPages().forEach((pagina, indice) => pagina.drawText(`Página ${indice + 1} de ${total}`, { x: 490, y: 26, size: 7, font: normal, color: CINZA }));
   const bytes = await pdf.save();
-  return { blob: new Blob([bytes], { type: "application/pdf" }), nome: `${codigo}_${nomeSeguro(dados.cliente_autor)}_${nomeSeguro(dados.numero_processo)}.pdf` };
-}
-
-function textoNa(page, texto, y, font, size) {
-  linhas(texto, font, size, A4[0] - M * 2).forEach((linha, indice) => page.drawText(linha, { x: M, y: y - indice * (size + 4), size, font, color: AZUL }));
-}
-
-function romano(numero) {
-  const mapa = [[10, "X"], [9, "IX"], [5, "V"], [4, "IV"], [1, "I"]];
-  let resultado = "";
-  for (const [valor, letra] of mapa) while (numero >= valor) { resultado += letra; numero -= valor; }
-  return resultado;
+  return {
+    blob: new Blob([bytes], { type: "application/pdf" }),
+    nome: `relatorio-de-atualizacao-do-processo-judicial-${nomeSeguro(dados.nome_cliente)}-${codigo}.pdf`,
+  };
 }
 
 export function baixarPDF({ blob, nome }) {
@@ -154,5 +245,5 @@ export function baixarPDF({ blob, nome }) {
   link.href = url;
   link.download = nome;
   link.click();
-  setTimeout(() => URL.revokeObjectURL(url), 1_000);
+  window.setTimeout(() => URL.revokeObjectURL(url), 1_000);
 }

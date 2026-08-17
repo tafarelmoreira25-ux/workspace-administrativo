@@ -29,6 +29,18 @@ function normalizar(valor = "") {
     .toLowerCase();
 }
 
+function mensagemErroHunter(error) {
+  const mensagem = error?.message || "Erro desconhecido.";
+  if (
+    error?.code === "PGRST202" ||
+    mensagem.includes("listar_prospeccoes_hunter") ||
+    mensagem.includes("schema cache")
+  ) {
+    return "A Carteira Hunter ainda não foi instalada neste Supabase. Execute o arquivo supabase/carteira_hunter_clientes_2026.sql no SQL Editor e atualize a página.";
+  }
+  return `Não foi possível carregar a Carteira Hunter: ${mensagem}`;
+}
+
 function formatarDataHora(valor) {
   if (!valor) return "Data não informada";
   return new Intl.DateTimeFormat("pt-BR", {
@@ -73,7 +85,7 @@ export default function HunterClientes({ usuario, funcionarios = [], showToast }
     const { data, error } = await supabase.rpc("listar_prospeccoes_hunter");
     setCarregando(false);
     if (error) {
-      setErro(`Não foi possível carregar a carteira Hunter: ${error.message}`);
+      setErro(mensagemErroHunter(error));
       return;
     }
     setRegistros(data || []);
@@ -86,7 +98,7 @@ export default function HunterClientes({ usuario, funcionarios = [], showToast }
       if (!ativo) return;
       setCarregando(false);
       if (error) {
-        setErro(`Não foi possível carregar a carteira Hunter: ${error.message}`);
+        setErro(mensagemErroHunter(error));
         return;
       }
       setRegistros(data || []);
