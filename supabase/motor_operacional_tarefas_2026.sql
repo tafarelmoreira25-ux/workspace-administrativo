@@ -55,6 +55,7 @@ insert into public.tipos_tarefa_sla(codigo,nome,sla_minutos,checklist_padrao) va
 ('CERTIDAO','CERTIDÃO',240,'["Certidão elaborada","Documento conferido","Drive atualizado"]'),
 ('HOMOLOGACAO','HOMOLOGAÇÃO',480,'["Termo conferido","Drive atualizado","CRM atualizado","Cliente informado"]'),
 ('CLIENTE_RETORNO','CLIENTE SOLICITA RETORNO',60,'["Cliente contatado","Retorno registrado","Próxima ação definida"]'),
+('ABRIR_GRUPO_WHATSAPP','ABRIR GRUPO NO WHATSAPP',60,'["Grupo criado","Cliente adicionado","Consultor responsável adicionado","Mensagem inicial enviada"]'),
 ('OUTROS','OUTROS',240,'[]')
 on conflict(codigo) do update set nome=excluded.nome,checklist_padrao=excluded.checklist_padrao;
 

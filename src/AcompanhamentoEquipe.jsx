@@ -69,16 +69,19 @@ export default function AcompanhamentoEquipe({ tarefas = [], funcionarios = [], 
 
   useEffect(() => {
     if (!destinoNotificacao) return;
-    if (destinoNotificacao.secao === "historico") {
-      setVisualizacao("historico");
-      return;
-    }
-    setVisualizacao("equipe");
-    if (destinoNotificacao.tarefaId) {
-      setBusca(String(destinoNotificacao.tarefaId));
-      setFiltro("todas");
-      setPagina(1);
-    }
+    const temporizador = window.setTimeout(() => {
+      if (destinoNotificacao.secao === "historico") {
+        setVisualizacao("historico");
+        return;
+      }
+      setVisualizacao("equipe");
+      if (destinoNotificacao.tarefaId) {
+        setBusca(String(destinoNotificacao.tarefaId));
+        setFiltro("todas");
+        setPagina(1);
+      }
+    }, 0);
+    return () => window.clearTimeout(temporizador);
   }, [destinoNotificacao]);
 
   function selecionarFiltro(valor) {

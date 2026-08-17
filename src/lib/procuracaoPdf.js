@@ -123,7 +123,7 @@ export async function gerarProcuracaoPdf(dados) {
           "Os poderes ora concedidos destinam-se exclusivamente ao ingresso de Ação " +
           "de Revisão de Contrato, contra o",
       },
-      { texto: `BANCO ${dados.banco},`, negrito: true },
+      { texto: `Banco ${dados.banco},`, negrito: true },
       { texto: "e nº de contrato" },
       { texto: `${dados.numeroContrato},`, negrito: true },
       { texto: "bem como na defesa de seus interesses." },

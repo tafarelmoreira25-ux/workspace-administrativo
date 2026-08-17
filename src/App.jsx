@@ -1,10 +1,21 @@
 import AcompanhamentoEquipe from './AcompanhamentoEquipe';
+import HunterClientes from './HunterClientes';
 import MeuPlanner from './MeuPlanner';
 import PainelEquipeTV from './PainelEquipeTV';
 import ClienteDriveSelector from './components/ClienteDriveSelector';
 import { GOOGLE_DRIVE_CLIENTES_ROOT_URL } from './lib/googleDriveClients';
 import { tarefaExigeComprovacao } from './lib/taskCompletionRules';
 import { destinoDaNotificacao } from './lib/notificationRouting';
+import {
+  aplicarSugestaoAoFormulario,
+  criarMapaResponsaveis,
+  EQUIPES_OPERACIONAIS,
+  filtrarFuncionariosPorEquipe,
+  normalizarSetorEquipe,
+  obterResponsavelSugerido,
+  permissoesDoUsuario,
+  resolverTipoAcesso,
+} from './lib/teamAccess';
 import { lazy, Suspense, useCallback, useEffect, useState } from "react";
 import { supabase } from "./lib/supabase";
 import { criarResumoBoasVindas } from "./homeGreeting";
@@ -24,7 +35,21 @@ const ProcessualGerador = lazy(() => import("./ProcessualGerador"));
 const ADMIN_EMAIL = (
   import.meta.env.VITE_ADMIN_EMAIL || "tafarel@platino.com"
 ).toLowerCase();
-const NOMES_SUPERVISORES = ["tafarel", "nicolas"];
+const CATEGORIA_GRUPO_WHATSAPP = "ABRIR GRUPO NO WHATSAPP";
+const DELEGADORES_GRUPO_WHATSAPP = new Set([
+  ADMIN_EMAIL,
+  "nicolas@platino.com",
+]);
+const EMAILS_EQUIPE_JURIDICA = new Set([
+  "nicolas@platino.com",
+  "tabata@platino.com",
+  "elaine@platino.com",
+  "janaina@platino.com",
+  "giullian@platino.com",
+]);
+const MENSAGEM_EQUIPE_JURIDICA =
+  "O melhor departamento Jurídico que a Platino já teve, além de quebrar recordes em vendas, são campeões em organização.";
+const EMAIL_HUNTER = "giullian@platino.com";
 const ITENS_POR_PAGINA = 15;
 const TEMPO_LIMITE_INICIALIZACAO_MS = 8_000;
 const RESPONSABILIDADE_MENSAL_PREFIXO = "__RESPONSABILIDADE_MENSAL__";
@@ -47,6 +72,7 @@ const CATEGORIAS_TAREFA = [
   "CERTIDÃO",
   "HOMOLOGAÇÃO",
   "CLIENTE SOLICITA RETORNO",
+  CATEGORIA_GRUPO_WHATSAPP,
   "OUTROS",
 ];
 const ACOES_TAREFA_VISUAIS = [
@@ -68,6 +94,7 @@ const ACOES_TAREFA_VISUAIS = [
   { valor: "CERTIDÃO", icone: "📜", rotulo: "Certidão" },
   { valor: "HOMOLOGAÇÃO", icone: "✅", rotulo: "Homologação" },
   { valor: "CLIENTE SOLICITA RETORNO", icone: "📞", rotulo: "Cliente solicita retorno" },
+  { valor: CATEGORIA_GRUPO_WHATSAPP, icone: "💬", rotulo: "Abrir grupo no WhatsApp" },
   { valor: "OUTROS", icone: "📌", rotulo: "Outros" },
 ];
 const PRIORIDADES_VISUAIS = [
@@ -85,7 +112,8 @@ const CODIGOS_TIPO_TAREFA = {
   "ENCAMINHAR PROCESSUAL": "ENCAMINHAR_PROCESSUAL", "ATUALIZAÇÃO PROCESSUAL": "ATUALIZACAO_PROCESSUAL",
   "CITAÇÃO": "CITACAO", "LAUDO": "LAUDO", "TERMOS": "TERMOS",
   "AGENDAR AUDIÊNCIA": "AGENDAR_AUDIENCIA", "DISTRATO": "DISTRATO", "CERTIDÃO": "CERTIDAO",
-  "HOMOLOGAÇÃO": "HOMOLOGACAO", "CLIENTE SOLICITA RETORNO": "CLIENTE_RETORNO", "OUTROS": "OUTROS",
+  "HOMOLOGAÇÃO": "HOMOLOGACAO", "CLIENTE SOLICITA RETORNO": "CLIENTE_RETORNO",
+  [CATEGORIA_GRUPO_WHATSAPP]: "ABRIR_GRUPO_WHATSAPP", "OUTROS": "OUTROS",
 };
 const STATUS_TAREFA = [
   { valor: "nova", rotulo: "Nova" },
@@ -189,6 +217,17 @@ function nomeComprovanteDrive(tarefa) {
 
 function validarEntregaPop(entrega, tarefa) {
   if (!entrega.observacoes?.trim()) return "Informe a devolutiva do que foi executado.";
+  if (tarefaEhGrupoWhatsapp(tarefa)) {
+    const criterios = Array.isArray(tarefa?.criterios_conclusao)
+      ? tarefa.criterios_conclusao
+      : [];
+    const criterioPendente = criterios.find(
+      (criterio) => entrega.checklist?.[criterio] !== true,
+    );
+    if (criterioPendente) {
+      return `Confirme a etapa "${criterioPendente}" antes de concluir.`;
+    }
+  }
   if (tarefaExigeComprovacao(tarefa) && !urlGoogleDriveValida(entrega.driveUrl)) {
     return "Cole um link válido do Google Drive para comprovar o arquivamento.";
   }
@@ -235,6 +274,9 @@ async function registrarImagemComprovacao(tarefa, caminho) {
 }
 
 function gerarResultadoEsperadoTarefa(acao) {
+  if (acao === CATEGORIA_GRUPO_WHATSAPP) {
+    return "Criar o grupo no WhatsApp, adicionar o cliente e o consultor responsável, registrar a confirmação e concluir a tarefa.";
+  }
   const acaoFormatada = String(acao || "a solicitação")
     .trim()
     .toLocaleLowerCase("pt-BR");
@@ -246,11 +288,11 @@ function tituloAutomaticoDaTarefa(categoria, outraAcao = "") {
   return ACOES_TAREFA_VISUAIS.find((acao) => acao.valor === categoria)?.rotulo || categoria;
 }
 
-function SeletorAcaoVisual({ valor, onChange }) {
+function SeletorAcaoVisual({ valor, onChange, acoes = ACOES_TAREFA_VISUAIS }) {
   return <fieldset className="task-choice-fieldset">
     <legend>Ação a ser executada</legend>
     <div className="task-action-picker" role="radiogroup" aria-label="Ação a ser executada">
-      {ACOES_TAREFA_VISUAIS.map((acao) => {
+      {acoes.map((acao) => {
         const selecionada = valor === acao.valor;
         return <button
           type="button"
@@ -301,7 +343,14 @@ function criarPerfilIntegranteVazio() {
     data_admissao: "",
     foto_url: "",
     observacao_interna: "",
-    permissoes: { tarefas: true, planner: true, documentos: true },
+    permissoes: {
+      tarefas: true,
+      delegar: true,
+      acompanhar_equipe: true,
+      clientes: true,
+      planner: true,
+      documentos: true,
+    },
   };
 }
 
@@ -322,16 +371,6 @@ async function buscarPerfilUsuario(usuarioAuth) {
     throw new Error("A conta autenticada não possui um e-mail válido.");
   }
 
-  if (email === ADMIN_EMAIL) {
-    return {
-      id: usuarioAuth.id,
-      nome: "Tafarel Moreira",
-      email,
-      tipo: "admin",
-      cargo: "Supervisor",
-    };
-  }
-
   const { data, error } = await supabase
     .from("funcionarios")
     .select("*")
@@ -339,16 +378,32 @@ async function buscarPerfilUsuario(usuarioAuth) {
     .maybeSingle();
 
   if (error) throw error;
+  if (!data && email === ADMIN_EMAIL) {
+    return {
+      id: usuarioAuth.id,
+      auth_id: usuarioAuth.id,
+      nome: "Tafarel Moreira",
+      email,
+      tipo: "admin",
+      perfil: "supervisor",
+      cargo: "Supervisor",
+      setor: "Administrativo",
+      permissoes: permissoesDoUsuario({ tipo: "admin" }),
+    };
+  }
   if (!data) throw new Error("Usuário não encontrado no cadastro da equipe.");
   if (data.ativo === false) {
     throw new Error("Este perfil está inativo. Procure o supervisor responsável.");
   }
 
-  const nomeNormalizado = normalizarTexto(data.nome || "");
-  const supervisor =
-    /supervisor/i.test(data.cargo || "") ||
-    NOMES_SUPERVISORES.some((nome) => nomeNormalizado.includes(nome));
-  return { ...data, tipo: supervisor ? "admin" : "funcionaria" };
+  const tipo = resolverTipoAcesso(data, ADMIN_EMAIL);
+  return {
+    ...data,
+    auth_id: usuarioAuth.id,
+    tipo,
+    setor: normalizarSetorEquipe(data.setor || data.cargo) || data.setor,
+    permissoes: permissoesDoUsuario({ ...data, tipo }),
+  };
 }
 
 function formatarData(data) {
@@ -429,6 +484,49 @@ function normalizarTexto(texto = "") {
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
     .toLowerCase();
+}
+
+function usuarioPodeDelegarGrupoWhatsapp(usuario) {
+  return DELEGADORES_GRUPO_WHATSAPP.has(
+    usuario?.email?.trim().toLowerCase() || "",
+  );
+}
+
+function tarefaEhGrupoWhatsapp(tarefa) {
+  return tarefa?.tipo_tarefa_codigo === "ABRIR_GRUPO_WHATSAPP" ||
+    tarefa?.categoria === CATEGORIA_GRUPO_WHATSAPP;
+}
+
+function acoesDisponiveisParaDelegacao(usuario) {
+  return ACOES_TAREFA_VISUAIS.filter(
+    (acao) =>
+      acao.valor !== CATEGORIA_GRUPO_WHATSAPP ||
+      usuarioPodeDelegarGrupoWhatsapp(usuario),
+  );
+}
+
+function usuarioDaEquipeJuridica(usuario) {
+  const email = usuario?.email?.trim().toLowerCase() || "";
+  return EMAILS_EQUIPE_JURIDICA.has(email) ||
+    normalizarSetorEquipe(usuario?.setor || usuario?.cargo) === "Jurídico";
+}
+
+function montarSolicitacaoGrupoWhatsapp({
+  nomeCliente,
+  numeroWhatsapp,
+  prazo,
+  responsavel,
+  orientacoes,
+}) {
+  const linhas = [
+    `Abrir grupo no WhatsApp do cliente ${nomeCliente}.`,
+    `Número do WhatsApp: ${numeroWhatsapp}.`,
+    `Prazo: ${formatarDataHora(prazo)}.`,
+    `Usuário/consultor responsável: ${responsavel}.`,
+    "Após abrir o grupo, confirmar a inclusão do cliente e concluir a tarefa no sistema.",
+  ];
+  if (orientacoes?.trim()) linhas.push(`Orientações adicionais: ${orientacoes.trim()}`);
+  return linhas.join("\n");
 }
 
 async function vincularPastasClientesNasTarefas(tarefas = []) {
@@ -736,12 +834,49 @@ const AVATARES_EQUIPE = {
 };
 
 const FOTOS_FIXAS_EQUIPE = {
-  "janaina@platino.com": "/assets/equipe/janaina.jpeg",
+  "yasmin@adm.com": "/assets/equipe/yasmin-oficial.png",
+  "thayla@adm.com": "/assets/equipe/thayla-oficial.png",
+  "tafa@adm.com": "/assets/equipe/tafa-oficial.png",
+  "nicolas@platino.com": "/assets/equipe/nicolas-oficial.png",
+  "tabata@platino.com": "/assets/equipe/tabata-oficial.png",
+  "elaine@platino.com": "/assets/equipe/elaine-oficial.png",
+  "janaina@platino.com": "/assets/equipe/janaina-oficial.png",
+  [EMAIL_HUNTER]: "/assets/equipe/giullian-oficial.png",
 };
 
 const FOTOS_FIXAS_EQUIPE_POR_NOME = {
-  thayla: "/assets/equipe/thayla-venturini.jpeg",
-  "thayla venturini": "/assets/equipe/thayla-venturini.jpeg",
+  yasmin: "/assets/equipe/yasmin-oficial.png",
+  yasmim: "/assets/equipe/yasmin-oficial.png",
+  thayla: "/assets/equipe/thayla-oficial.png",
+  "thayla venturini": "/assets/equipe/thayla-oficial.png",
+  tafa: "/assets/equipe/tafa-oficial.png",
+  tafarel: "/assets/equipe/tafa-oficial.png",
+  "tafarel moreira": "/assets/equipe/tafa-oficial.png",
+  nicolas: "/assets/equipe/nicolas-oficial.png",
+  tabata: "/assets/equipe/tabata-oficial.png",
+  janaina: "/assets/equipe/janaina-oficial.png",
+  elaine: "/assets/equipe/elaine-oficial.png",
+  giullian: "/assets/equipe/giullian-oficial.png",
+};
+
+const POSICOES_FOTOS_EQUIPE = {
+  "yasmin@adm.com": "50% 31%",
+  "thayla@adm.com": "50% 31%",
+  "tafa@adm.com": "50% 32%",
+  "nicolas@platino.com": "50% 29%",
+  "tabata@platino.com": "50% 29%",
+  "elaine@platino.com": "50% 29%",
+  "janaina@platino.com": "50% 29%",
+  [EMAIL_HUNTER]: "50% 29%",
+};
+
+const AVATARES_EQUIPE_POR_NOME = {
+  tabata: "0% 0%",
+  nicolas: "50% 0%",
+  giullian: "100% 0%",
+  yasmin: "0% 100%",
+  yasmim: "0% 100%",
+  tafarel: "50% 100%",
 };
 
 const GRUPOS_EQUIPE_GESTOR = [
@@ -786,17 +921,17 @@ function ordenarEquipe(membros, ordem) {
 function AvatarMembro({ funcionario, performance, compacto = false }) {
   const email = funcionario?.email?.trim().toLowerCase();
   const nome = normalizarTexto(funcionario?.nome || "");
-  const posicaoSprite = AVATARES_EQUIPE[email];
+  const nomeCurto = nome.split(" ")[0];
+  const posicaoSprite =
+    AVATARES_EQUIPE[email] || AVATARES_EQUIPE_POR_NOME[nomeCurto];
   const fotoUrl =
-    funcionario?.foto_url ||
     FOTOS_FIXAS_EQUIPE[email] ||
+    funcionario?.foto_url ||
     FOTOS_FIXAS_EQUIPE_POR_NOME[nome];
   return (
     <div className={`member-avatar-wrap ${compacto ? "compact" : ""}`}>
       <div className="member-avatar">
-        {fotoUrl ? (
-          <img src={fotoUrl} alt={`Foto de ${funcionario.nome}`} />
-        ) : posicaoSprite ? (
+        {posicaoSprite ? (
           <span
             aria-label={`Foto de ${funcionario.nome}`}
             className="employee-avatar-sprite"
@@ -806,9 +941,75 @@ function AvatarMembro({ funcionario, performance, compacto = false }) {
         ) : (
           funcionario?.nome?.charAt(0) || "?"
         )}
+        {fotoUrl && (
+          <img
+            src={fotoUrl}
+            alt={`Foto de ${funcionario.nome}`}
+            style={{ objectPosition: POSICOES_FOTOS_EQUIPE[email] || "50% 30%" }}
+            onError={(evento) => { evento.currentTarget.style.display = "none"; }}
+          />
+        )}
       </div>
       <PerformanceBadge performance={performance} />
     </div>
+  );
+}
+
+function SeloPerfilVerificado() {
+  return (
+    <span
+      aria-label="Perfil corporativo verificado"
+      className="verified-profile-badge"
+      role="img"
+      title="Perfil corporativo verificado"
+    >
+      <svg aria-hidden="true" viewBox="0 0 24 24">
+        <path d="M12 1.8l2.25 1.82 2.87-.28 1.08 2.68 2.63 1.2-.33 2.86L22.2 12l-1.7 1.92.33 2.86-2.63 1.2-1.08 2.68-2.87-.28L12 22.2l-2.25-1.82-2.87.28-1.08-2.68-2.63-1.2.33-2.86L1.8 12l1.7-1.92-.33-2.86 2.63-1.2 1.08-2.68 2.87.28L12 1.8z" />
+        <path className="verified-profile-check" d="m7.6 12.1 2.75 2.7 6.05-6" />
+      </svg>
+    </span>
+  );
+}
+
+function PerfilUsuarioTopo({ usuario, performance, gestor = false }) {
+  const email = usuario?.email?.trim().toLowerCase() || "";
+  const perfilMasculino = new Set([
+    ADMIN_EMAIL,
+    "tafa@adm.com",
+    "nicolas@platino.com",
+  ]).has(email);
+
+  return (
+    <section
+      aria-label={`Perfil de ${usuario?.nome || "usuário"}`}
+      className={`profile-pill verified-user-profile ${performance?.altaPerformance ? "profile-high-performance" : ""}`}
+    >
+      <AvatarMembro
+        compacto
+        funcionario={usuario}
+        performance={performance}
+      />
+      <div className="profile-user-content">
+        <small className="profile-online-status">
+          <span className="online-dot" aria-hidden="true" />
+          {perfilMasculino ? "Colaborador online" : "Colaboradora online"}
+        </small>
+        <div className="profile-user-name-row">
+          <strong className="profile-user-name">{usuario?.nome || "Usuário"}</strong>
+          <SeloPerfilVerificado />
+        </div>
+        <span className="profile-user-role">
+          {usuario?.cargo || (gestor ? "Supervisor" : "Cargo não informado")}
+        </span>
+        {usuarioDaEquipeJuridica(usuario) && (
+          <strong className="profile-team-label">Equipe Jurídico</strong>
+        )}
+        <PerformanceBadge
+          mostrarRotulo
+          performance={performance}
+        />
+      </div>
+    </section>
   );
 }
 
@@ -1366,18 +1567,23 @@ function CartaoGestaoMembro({
   onTransferir,
   onAlterarAtivacao,
 }) {
+  const equipeJuridica = usuarioDaEquipeJuridica(funcionario);
   return (
     <div className={`team-member ${funcionario.ativo === false ? "member-inactive" : ""} ${performance?.altaPerformance ? "member-high-performance" : ""}`}>
       <AvatarMembro funcionario={funcionario} performance={performance} />
       <div className="member-details">
         <div className="member-name-row">
           <strong>{funcionario.nome}</strong>
+          <SeloPerfilVerificado />
           <PerformanceBadge performance={performance} mostrarRotulo />
         </div>
         <p>{funcionario.cargo || "Cargo não informado"} · {funcionario.setor || "Setor não informado"}</p>
         <span className={`member-status ${funcionario.ativo === false ? "inactive" : "active"}`}>
           {funcionario.ativo === false ? "Inativa" : "Ativa"}
         </span>
+        {equipeJuridica && (
+          <span className="team-profile-badge team-profile-legal">Equipe Jurídico</span>
+        )}
         {gestorPrincipal ? (
           <span className="manager-primary-badge">Gestor principal</span>
         ) : (
@@ -1468,9 +1674,11 @@ function AdminDashboard({ usuario, onLogout, state }) {
   const [responsavelManual, setResponsavelManual] = useState("");
   const [nomeClienteTarefa, setNomeClienteTarefa] = useState("");
   const [clienteDriveTarefa, setClienteDriveTarefa] = useState(null);
+  const [whatsappClienteTarefa, setWhatsappClienteTarefa] = useState("");
   const [setorSolicitante, setSetorSolicitante] = useState("Supervisão");
   const [acaoOutra, setAcaoOutra] = useState("");
   const [setorExecutor, setSetorExecutor] = useState("Administrativo");
+  const [setorExecutorManual, setSetorExecutorManual] = useState(false);
 
   const [feedbackFuncId, setFeedbackFuncId] = useState("");
   const [feedbackMsg, setFeedbackMsg] = useState("");
@@ -1490,8 +1698,6 @@ function AdminDashboard({ usuario, onLogout, state }) {
     useState(false);
   const [responsabilidadeMensalExpandida, setResponsabilidadeMensalExpandida] =
     useState(false);
-  const [responsabilidadeUsuarioExpandida, setResponsabilidadeUsuarioExpandida] =
-    useState(false);
   const [indicativoOperacionalExpandido, setIndicativoOperacionalExpandido] =
     useState(true);
   const [mostrarTarefasMes, setMostrarTarefasMes] = useState(false);
@@ -1508,9 +1714,6 @@ function AdminDashboard({ usuario, onLogout, state }) {
   );
   const equipe = equipeCompleta.filter((funcionario) => funcionario.ativo !== false);
   const destinatariosTarefa = funcionarios.filter(
-    (funcionario) => funcionario.ativo !== false,
-  );
-  const responsaveisDisponiveis = funcionarios.filter(
     (funcionario) => funcionario.ativo !== false,
   );
   const performanceEquipe = new Map(
@@ -1587,9 +1790,7 @@ function AdminDashboard({ usuario, onLogout, state }) {
         }
         if (data && data.length > 0) {
           console.log("Responsáveis carregados:", data);
-          const mapeamento = Object.fromEntries(
-            data.map((item) => [item.categoria_tarefa, item.funcionaria_id || ""])
-          );
+          const mapeamento = criarMapaResponsaveis(data);
           setResponsaveisPorFuncao((atual) => ({
             ...atual,
             ...mapeamento,
@@ -1606,16 +1807,29 @@ function AdminDashboard({ usuario, onLogout, state }) {
     carregarResponsaveisSupabase();
   }, []);
 
-  useEffect(() => {
-    if (!tarefaManual && responsaveisPorFuncao[categoria]) {
-      const responsavelSugerido = String(responsaveisPorFuncao[categoria]);
-      setFuncId(responsavelSugerido);
-    } else if (!tarefaManual && !responsaveisPorFuncao[categoria]) {
-      setFuncId("");
-    }
-  }, [categoria, tarefaManual, responsaveisPorFuncao]);
-  const responsavelSugeridoAtual = !tarefaManual ? responsaveisPorFuncao[categoria] || "" : "";
-  const valorResponsavelSelecionado = funcId || responsavelSugeridoAtual;
+  const responsavelSugeridoAtual = !tarefaManual
+    ? obterResponsavelSugerido(
+        categoria,
+        responsaveisPorFuncao,
+        destinatariosTarefa,
+      )
+    : null;
+  const tarefaGrupoWhatsapp = categoria === CATEGORIA_GRUPO_WHATSAPP;
+  const acoesDelegacao = acoesDisponiveisParaDelegacao(usuario);
+  const setorExecutorEfetivo =
+    tarefaGrupoWhatsapp
+      ? "Jurídico"
+      : ((!setorExecutorManual && responsavelSugeridoAtual?.equipe) || setorExecutor);
+  const sugestaoPertenceAEquipeSelecionada =
+    responsavelSugeridoAtual?.equipe === setorExecutorEfetivo;
+  const valorResponsavelSelecionado =
+    funcId ||
+    (sugestaoPertenceAEquipeSelecionada ? responsavelSugeridoAtual?.id : "") ||
+    "";
+  const destinatariosDaEquipeExecutora = filtrarFuncionariosPorEquipe(
+    destinatariosTarefa,
+    setorExecutorEfetivo,
+  );
   const tarefasOperacionaisVisiveis = tarefasOperacionaisFiltradas.slice(
     (paginaTarefas - 1) * ITENS_POR_PAGINA,
     paginaTarefas * ITENS_POR_PAGINA,
@@ -1653,20 +1867,41 @@ function AdminDashboard({ usuario, onLogout, state }) {
       .join("\n");
   }
 
-  function nomeResponsavelIndicativo(categoria) {
-    const funcionarioId = responsaveisPorFuncao[categoria];
-    if (!funcionarioId) return null;
-    const funcionario = funcionarios.find(
-      (item) => String(item.id) === String(funcionarioId),
-    );
-    return funcionario?.nome || null;
-  }
-
   function atualizarIndicativoResponsavel(categoria, funcionarioId) {
     setResponsaveisPorFuncao((atual) => ({
       ...atual,
       [categoria]: funcionarioId || "",
     }));
+  }
+
+  function selecionarCategoriaDelegacao(novaCategoria) {
+    const sugestao = obterResponsavelSugerido(
+      novaCategoria,
+      responsaveisPorFuncao,
+      destinatariosTarefa,
+    );
+    setCategoria(novaCategoria);
+    setFuncId("");
+    setSetorExecutorManual(false);
+    if (novaCategoria === CATEGORIA_GRUPO_WHATSAPP) {
+      setSetorExecutor("Jurídico");
+    } else if (sugestao?.equipe) {
+      setSetorExecutor(sugestao.equipe);
+    }
+  }
+
+  function selecionarSetorExecutor(novoSetor) {
+    setSetorExecutor(novoSetor);
+    setSetorExecutorManual(true);
+    const selecionado = destinatariosTarefa.find(
+      (funcionario) => String(funcionario.id) === String(funcId),
+    );
+    if (
+      selecionado &&
+      normalizarSetorEquipe(selecionado.setor || selecionado.cargo) !== novoSetor
+    ) {
+      setFuncId("");
+    }
   }
 
   async function salvarIndicativoOperacional() {
@@ -1678,6 +1913,10 @@ function AdminDashboard({ usuario, onLogout, state }) {
         console.error("Erro RPC ao salvar indicativo operacional:", error);
         console.log("Dados enviados:", responsaveisPorFuncao);
         showToast(`Erro ao salvar: ${error.message || error}`);
+        return;
+      }
+      if (data !== true) {
+        showToast("O Supabase não autorizou a alteração do indicativo.");
         return;
       }
       console.log("Indicativo operacional salvo com sucesso.");
@@ -1705,11 +1944,19 @@ function AdminDashboard({ usuario, onLogout, state }) {
   async function handleCriarTarefa(e) {
     e.preventDefault();
     const tituloDelegado = tituloAutomaticoDaTarefa(categoria, acaoOutra);
-    if ((tarefaManual && !titulo.trim()) || (!tarefaManual && (!funcId || !dataLimite || !clienteDriveTarefa?.id || !nomeClienteTarefa || !setorSolicitante || !setorExecutor || !descricao.trim() || !tituloDelegado))) {
+    const dadosComunsInvalidos = !valorResponsavelSelecionado || !dataLimite ||
+      !clienteDriveTarefa?.id || !nomeClienteTarefa || !setorSolicitante ||
+      !setorExecutorEfetivo || !tituloDelegado;
+    const conteudoInvalido = tarefaGrupoWhatsapp
+      ? !whatsappClienteTarefa.trim()
+      : !descricao.trim();
+    if ((tarefaManual && !titulo.trim()) || (!tarefaManual && (dadosComunsInvalidos || conteudoInvalido))) {
       return alert(
         tarefaManual
           ? "Preencha o titulo da tarefa manual."
-          : "Preencha cliente, ação, solicitação, setor solicitante, responsável e prazo.",
+          : tarefaGrupoWhatsapp
+            ? "Preencha cliente, número do WhatsApp, responsável e prazo."
+            : "Preencha cliente, ação, solicitação, setor solicitante, responsável e prazo.",
       );
     }
     setSalvandoTarefa(true);
@@ -1733,14 +1980,29 @@ function AdminDashboard({ usuario, onLogout, state }) {
       data = Array.isArray(resposta.data) ? resposta.data[0] : resposta.data;
       error = resposta.error;
     } else {
+      const prazoIso = new Date(dataLimite).toISOString();
+      const responsavelSelecionado = destinatariosTarefa.find(
+        (funcionario) => String(funcionario.id) === String(valorResponsavelSelecionado),
+      );
+      const solicitacaoFinal = tarefaGrupoWhatsapp
+        ? montarSolicitacaoGrupoWhatsapp({
+            nomeCliente: nomeClienteTarefa.trim(),
+            numeroWhatsapp: whatsappClienteTarefa.trim(),
+            prazo: prazoIso,
+            responsavel: responsavelSelecionado?.nome || "Consultor responsável",
+            orientacoes: descricao,
+          })
+        : descricao.trim();
       const resposta = await supabase.rpc("delegar_tarefa_operacional", {
         p_cliente_id: Number(clienteDriveTarefa.id), p_tratativa_id: null, p_nome_cliente: nomeClienteTarefa.trim(),
         p_tipo_codigo: CODIGOS_TIPO_TAREFA[categoria], p_titulo: tituloDelegado,
-        p_solicitacao: descricao.trim(), p_resultado_esperado: gerarResultadoEsperadoTarefa(categoria === "OUTROS" ? acaoOutra : categoria),
-        p_setor_solicitante: setorSolicitante, p_setor_executor: setorExecutor,
-        p_funcionaria_id: Number(funcId), p_prazo_limite: new Date(dataLimite).toISOString(),
+        p_solicitacao: solicitacaoFinal, p_resultado_esperado: gerarResultadoEsperadoTarefa(categoria === "OUTROS" ? acaoOutra : categoria),
+        p_setor_solicitante: setorSolicitante, p_setor_executor: setorExecutorEfetivo,
+        p_funcionaria_id: Number(valorResponsavelSelecionado), p_prazo_limite: prazoIso,
         p_prioridade: prioridade,
-        p_criterios: apontamento.trim() ? { apontamento_inicial: apontamento.trim() } : null,
+        p_criterios: tarefaGrupoWhatsapp
+          ? null
+          : (apontamento.trim() ? { apontamento_inicial: apontamento.trim() } : null),
       });
       data = resposta.data;
       error = resposta.error;
@@ -1764,10 +2026,12 @@ function AdminDashboard({ usuario, onLogout, state }) {
       setResponsavelManual("");
       setNomeClienteTarefa("");
       setClienteDriveTarefa(null);
+      setWhatsappClienteTarefa("");
       setAcaoOutra("");
       setDataLimite("");
       setPrioridade("normal");
       setCategoria(CATEGORIAS_TAREFA[0]);
+      setSetorExecutorManual(false);
       setApontamento("");
       setExibirTv(true);
     }
@@ -2406,10 +2670,7 @@ function AdminDashboard({ usuario, onLogout, state }) {
           </div>
           <div className="topbar-actions">
             <CentralNotificacoesBell gestor onNavigate={navegarPelaNotificacao} />
-            <div className="profile-pill">
-              <span className="online-dot" />
-              <div><small>Supervisor online</small><span>{usuario.nome}</span></div>
-            </div>
+            <PerfilUsuarioTopo gestor usuario={usuario} />
           </div>
         </header>
 
@@ -2527,21 +2788,32 @@ function AdminDashboard({ usuario, onLogout, state }) {
                     <label>Setor solicitante<select required value={setorSolicitante} onChange={(event) => setSetorSolicitante(event.target.value)}><option>Supervisão</option><option>Administrativo</option><option>Jurídico</option><option>Comercial</option><option>Processual</option></select></label>
                   </div>}
                   <label>
-                    Solicitação
+                    {tarefaGrupoWhatsapp ? "Orientações adicionais (opcional)" : "Solicitação"}
                     <textarea
-                      placeholder="Descreva exatamente o que precisa ser executado."
+                      placeholder={tarefaGrupoWhatsapp
+                        ? "Ex.: Nome que deverá ser usado no grupo ou mensagem inicial."
+                        : "Descreva exatamente o que precisa ser executado."}
                       value={descricao}
                       onChange={(event) => setDescricao(event.target.value)}
                       rows="4"
-                      required={!tarefaManual}
+                      required={!tarefaManual && !tarefaGrupoWhatsapp}
                     />
                   </label>
-                  <SeletorAcaoVisual valor={categoria} onChange={setCategoria} />
+                  <SeletorAcaoVisual valor={categoria} onChange={selecionarCategoriaDelegacao} acoes={acoesDelegacao} />
                   {categoria === "OUTROS" && !tarefaManual && <label>Descreva a outra ação<input required value={acaoOutra} onChange={(event) => setAcaoOutra(event.target.value)} placeholder="Informe exatamente o que deverá ser executado" /></label>}
+                  {tarefaGrupoWhatsapp && !tarefaManual && (
+                    <section className="whatsapp-task-fields">
+                      <div>
+                        <span aria-hidden="true">💬</span>
+                        <div><strong>Abrir grupo no WhatsApp do cliente</strong><small>Disponível exclusivamente para Nicolas e Tafarel.</small></div>
+                      </div>
+                      <label>Número do WhatsApp do cliente<input autoComplete="tel" inputMode="tel" required type="tel" value={whatsappClienteTarefa} onChange={(event) => setWhatsappClienteTarefa(event.target.value)} placeholder="Ex.: (11) 99999-9999" /></label>
+                    </section>
+                  )}
                   {!tarefaManual && <div className="task-auto-title"><span>Título gerado automaticamente</span><strong>{tituloAutomaticoDaTarefa(categoria, acaoOutra) || "Descreva a ação para definir o título"}</strong></div>}
                   <div className="task-form-details">
                   <div className="task-form-row">
-                    {!tarefaManual && <label>Setor executor<select required value={setorExecutor} onChange={(event) => setSetorExecutor(event.target.value)}><option>Administrativo</option><option>Jurídico</option><option>Comercial</option><option>Processual</option></select></label>}
+                    {!tarefaManual && <label>Equipe executora<select disabled={tarefaGrupoWhatsapp} required value={setorExecutorEfetivo} onChange={(event) => selecionarSetorExecutor(event.target.value)}>{EQUIPES_OPERACIONAIS.map((equipeOperacional) => <option key={equipeOperacional}>{equipeOperacional}</option>)}</select></label>}
                     {tarefaManual ? (
                       <label>
                         Responsavel ou setor
@@ -2562,7 +2834,7 @@ function AdminDashboard({ usuario, onLogout, state }) {
                           required
                         >
                           <option value="">Selecione...</option>
-                          {destinatariosTarefa.map((funcionario) => (
+                          {destinatariosDaEquipeExecutora.map((funcionario) => (
                             <option key={funcionario.id} value={funcionario.id}>
                               {funcionario.nome} ({funcionario.cargo})
                             </option>
@@ -2593,8 +2865,15 @@ function AdminDashboard({ usuario, onLogout, state }) {
                       <div className="role-indicator-card">
                         <small>Responsável sugerido:</small>
                         <strong>
-                          {nomeResponsavelIndicativo(categoria) || "Sem responsável definido"}
+                          {responsavelSugeridoAtual?.nome || "Sem responsável definido"}
                         </strong>
+                        <small>
+                          {tarefaGrupoWhatsapp
+                            ? "Escolha quem abrirá o grupo dentro da Equipe Jurídico. A tarefa será concluída depois que o cliente e o consultor forem adicionados."
+                            : responsavelSugeridoAtual?.equipe
+                            ? `Equipe ${responsavelSugeridoAtual.equipe}. Você pode escolher outra pessoa somente dentro desta equipe.`
+                            : "Defina a equipe executora e escolha um responsável."}
+                        </small>
                       </div>
                     </div>
                   )}
@@ -3244,7 +3523,7 @@ function AdminDashboard({ usuario, onLogout, state }) {
               </div>
               {indicativoOperacionalExpandido && (
                 <div className="role-mapping-list">
-                  {ACOES_TAREFA_VISUAIS.filter((acao) => CATEGORIAS_TAREFA.includes(acao.valor)).map((acao) => (
+                  {acoesDelegacao.filter((acao) => CATEGORIAS_TAREFA.includes(acao.valor)).map((acao) => (
                     <label className="role-mapping-item" key={acao.valor}>
                       <span>{acao.rotulo}</span>
                       <select
@@ -3376,7 +3655,7 @@ function AdminDashboard({ usuario, onLogout, state }) {
                   <fieldset className="permission-fieldset">
                     <legend>Permissões do workspace</legend>
                     <div className="permission-grid">
-                      {[["tarefas", "Tarefas"], ["planner", "Planner"], ["documentos", "Documentos PDF"]].map(([chave, rotulo]) => (
+                      {[["tarefas", "Executar tarefas"], ["delegar", "Delegar tarefas"], ["acompanhar_equipe", "Acompanhar equipe"], ["clientes", "Consultar clientes"], ["planner", "Planner"], ["documentos", "Documentos PDF"]].map(([chave, rotulo]) => (
                         <label key={chave}><input type="checkbox" checked={perfilIntegrante.permissoes[chave] !== false} onChange={(e) => atualizarPerfilIntegrante("permissoes", { ...perfilIntegrante.permissoes, [chave]: e.target.checked })} />{rotulo}</label>
                       ))}
                     </div>
@@ -3467,7 +3746,15 @@ function CentralInicio({ tarefas, usuario, onNavigate }) {
     tarefasConcluidas: minhas.filter((t) => t.status === "concluida").length,
     hoje,
   });
-  return <div className="central-home"><section className={`welcome-summary ${resumoBoasVindas.tom}`} role="status"><div><span className="eyebrow">Resumo da sua pauta</span><h2>{resumoBoasVindas.titulo}</h2><p>{resumoBoasVindas.mensagem}</p></div>{resumoBoasVindas.filtro ? <button type="button" className="btn-primary compact" onClick={() => onNavigate("tarefas", resumoBoasVindas.filtro)}>Ver prioridades</button> : <span className="welcome-summary-ok">Tudo certo</span>}</section><section className="dashboard-grid central-metrics">{metricas.map(([rotulo, valor, tom, destino, filtro]) => <button type="button" className={`card central-metric ${tom}`} key={rotulo} onClick={() => onNavigate(destino, filtro)}><span>{rotulo}</span><strong>{valor}</strong></button>)}</section><section className="panel large"><div className="panel-title-row"><div><span className="eyebrow">Prioridade operacional</span><h2>Atenção imediata</h2></div><button className="btn-primary compact" onClick={() => onNavigate("delegar")}>Delegar tarefa</button></div>{atencao.length === 0 ? <p>Nenhuma ocorrência crítica neste momento.</p> : <div className="central-table">{atencao.map((t) => <div className="central-table-row" key={t.id}><strong>{t.id_externo || `#${t.id}`}</strong><span>{t.nome_cliente || "Cliente não informado"}</span><span>{t.titulo}</span><span className={`status ${t.status}`}>{rotuloStatusTarefa(t.status)}</span><small>{formatarData(t.data_limite)}</small></div>)}</div>}</section></div>;
+  return <div className="central-home">
+    {usuarioDaEquipeJuridica(usuario) && (
+      <section className="legal-team-motto" role="note">
+        <span aria-hidden="true">⚖️</span>
+        <div><small>Equipe Jurídico</small><strong>{MENSAGEM_EQUIPE_JURIDICA}</strong></div>
+      </section>
+    )}
+    <section className={`welcome-summary ${resumoBoasVindas.tom}`} role="status"><div><span className="eyebrow">Resumo da sua pauta</span><h2>{resumoBoasVindas.titulo}</h2><p>{resumoBoasVindas.mensagem}</p></div>{resumoBoasVindas.filtro ? <button type="button" className="btn-primary compact" onClick={() => onNavigate("tarefas", resumoBoasVindas.filtro)}>Ver prioridades</button> : <span className="welcome-summary-ok">Tudo certo</span>}</section><section className="dashboard-grid central-metrics">{metricas.map(([rotulo, valor, tom, destino, filtro]) => <button type="button" className={`card central-metric ${tom}`} key={rotulo} onClick={() => onNavigate(destino, filtro)}><span>{rotulo}</span><strong>{valor}</strong></button>)}</section><section className="panel large"><div className="panel-title-row"><div><span className="eyebrow">Prioridade operacional</span><h2>Atenção imediata</h2></div><button className="btn-primary compact" onClick={() => onNavigate("delegar")}>Delegar tarefa</button></div>{atencao.length === 0 ? <p>Nenhuma ocorrência crítica neste momento.</p> : <div className="central-table">{atencao.map((t) => <div className="central-table-row" key={t.id}><strong>{t.id_externo || `#${t.id}`}</strong><span>{t.nome_cliente || "Cliente não informado"}</span><span>{t.titulo}</span><span className={`status ${t.status}`}>{rotuloStatusTarefa(t.status)}</span><small>{formatarData(t.data_limite)}</small></div>)}</div>}</section>
+  </div>;
 }
 
 function InicioColaborador({ tarefas, usuario, onNavigate, feedbacks, onAtualizarFeedbacks }) {
@@ -3630,6 +3917,12 @@ function realcarDestinoNotificacao(destino) {
     }
     if (!elemento && destino?.secao === "urgencias") elemento = document.querySelector(".unified-workspace-section, .urgency-layout");
     if (!elemento && destino?.secao === "feedbacks") elemento = document.querySelector(".feedback-workspace, .feedback-home-card");
+    if (!elemento && destino?.secao === "hunter") {
+      elemento = destino?.referenciaId
+        ? document.querySelector(`[data-hunter-id="${Number(destino.referenciaId)}"]`) ||
+          document.querySelector(".hunter-workspace")
+        : document.querySelector(".hunter-workspace");
+    }
     if (!elemento) return;
     elemento.scrollIntoView({ behavior: "smooth", block: "center" });
     elemento.classList.add("notification-navigation-target");
@@ -3724,7 +4017,7 @@ function CentralNotificacoesBell({ gestor = false, onNavigate }) {
 }
 
 function FormularioDelegacaoUsuario({ usuario, funcionarios, onCriada, showToast }) {
-  const formularioVazio = { cliente: "", clienteDrive: null, tipo: CATEGORIAS_TAREFA[0], outraAcao: "", solicitacao: "", setorExecutor: "Administrativo", responsavelId: "", prazo: "", prioridade: "normal", apontamento: "" };
+  const formularioVazio = { cliente: "", clienteDrive: null, tipo: CATEGORIAS_TAREFA[0], outraAcao: "", solicitacao: "", whatsappCliente: "", setorExecutor: "Administrativo", responsavelId: "", prazo: "", prioridade: "normal", apontamento: "" };
   const [form, setForm] = useState(formularioVazio);
   const [salvando, setSalvando] = useState(false);
   const [enviada, setEnviada] = useState(false);
@@ -3736,115 +4029,84 @@ function FormularioDelegacaoUsuario({ usuario, funcionarios, onCriada, showToast
     );
     return padrao;
   });
-  const [responsavelSugerido, setResponsavelSugerido] = useState({
-    id: null,
-    nome: "Sem responsável definido",
-  });
-  useEffect(() => {
-    async function carregarResponsaveisSupabase() {
-      try {
-        const { data, error } = await supabase.rpc("carregar_responsaveis_por_funcao");
-        if (error) {
-          console.error("Erro RPC na delegação:", error);
-          console.warn("Verifique se o RPC está habilitado no Supabase.");
-          return;
-        }
-        if (data && data.length > 0) {
-          console.log("Responsáveis carregados na delegação:", data);
-          const mapeamento = Object.fromEntries(
-            data.map((item) => [item.categoria_tarefa, item.funcionaria_id || ""]),
-          );
-          setResponsaveisPorFuncao((atual) => ({
-            ...atual,
-            ...mapeamento,
-          }));
-        } else {
-          console.log("Nenhum responsável mapeado na delegação.");
-        }
-      } catch (error) {
-        console.error("Exceção ao carregar responsáveis na delegação:", error);
-      }
-    }
-    carregarResponsaveisSupabase();
-  }, []);
-  useEffect(() => {
-    supabase.rpc("listar_destinatarios_tarefa").then(({ data, error }) => {
-      if (!error && data) setDestinatarios(data);
-    });
-  }, []);
-  const equipeDisponivel = destinatarios.filter((item) => item.ativo !== false && String(item.id) !== String(usuario.id));
-  const responsavelIndicativo = responsaveisPorFuncao[form.tipo];
-  const responsavelSugeridoMapeado = responsavelIndicativo ? destinatarios.find((item) => String(item.id) === String(responsavelIndicativo)) : null;
-  const alterar = (campo, valor) => setForm((atual) => ({ ...atual, [campo]: valor }));
-
   useEffect(() => {
     let ativo = true;
-
-    async function buscarResponsavelSugerido() {
-      if (!form.tipo) {
-        setResponsavelSugerido({ id: null, nome: "Sem responsável definido" });
-        return;
-      }
-
+    async function carregarDadosDelegacao() {
       try {
-        const { data, error } = await supabase.rpc("obter_responsavel_por_categoria", {
-          p_categoria: form.tipo,
-        });
-
+        const [respostaDestinatarios, respostaMapeamento] = await Promise.all([
+          supabase.rpc("listar_destinatarios_tarefa"),
+          supabase.rpc("carregar_responsaveis_por_funcao"),
+        ]);
         if (!ativo) return;
+        if (respostaDestinatarios.error) throw respostaDestinatarios.error;
+        if (respostaMapeamento.error) throw respostaMapeamento.error;
 
-        if (error) {
-          console.error("Erro ao buscar responsável sugerido:", error);
-          setResponsavelSugerido(
-            responsavelSugeridoMapeado
-              ? { id: responsavelSugeridoMapeado.id, nome: responsavelSugeridoMapeado.nome }
-              : { id: null, nome: "Sem responsável definido" },
-          );
-          return;
-        }
-
-        if (data && data.length > 0 && data[0].funcionaria_id) {
-          setResponsavelSugerido({
-            id: data[0].funcionaria_id,
-            nome: data[0].nome_funcionario,
-          });
-          return;
-        }
-
-        setResponsavelSugerido({
-          id: null,
-          nome: "Sem responsável definido",
-        });
-      } catch (error) {
-        if (!ativo) return;
-        console.error("Exceção ao buscar responsável sugerido:", error);
-        setResponsavelSugerido(
-          responsavelSugeridoMapeado
-            ? { id: responsavelSugeridoMapeado.id, nome: responsavelSugeridoMapeado.nome }
-            : { id: null, nome: "Sem responsável definido" },
+        const pessoas = respostaDestinatarios.data || [];
+        const mapeamento = criarMapaResponsaveis(respostaMapeamento.data || []);
+        setDestinatarios(pessoas);
+        setResponsaveisPorFuncao((atual) => ({ ...atual, ...mapeamento }));
+        setForm((atual) =>
+          aplicarSugestaoAoFormulario(
+            atual,
+            atual.tipo,
+            mapeamento,
+            pessoas,
+          ),
         );
+      } catch (error) {
+        console.error("Erro ao preparar a delegação:", error);
       }
     }
+    carregarDadosDelegacao();
+    return () => { ativo = false; };
+  }, []);
+  const responsavelSugerido = obterResponsavelSugerido(
+    form.tipo,
+    responsaveisPorFuncao,
+    destinatarios,
+  );
+  const tarefaGrupoWhatsapp = form.tipo === CATEGORIA_GRUPO_WHATSAPP;
+  const acoesDelegacao = acoesDisponiveisParaDelegacao(usuario);
+  const equipeDisponivel = filtrarFuncionariosPorEquipe(
+    destinatarios,
+    form.setorExecutor,
+  );
+  const responsavelSelecionado = destinatarios.find(
+    (item) => String(item.id) === String(form.responsavelId),
+  );
+  const escolhaDiferenteDaSugestao = Boolean(
+    responsavelSugerido &&
+    responsavelSelecionado &&
+    String(responsavelSugerido.id) !== String(responsavelSelecionado.id),
+  );
+  const alterar = (campo, valor) => setForm((atual) => ({ ...atual, [campo]: valor }));
 
-    buscarResponsavelSugerido();
-    return () => {
-      ativo = false;
-    };
-  }, [form.tipo, responsavelIndicativo, responsavelSugeridoMapeado]);
-
-  useEffect(() => {
-    const responsavelIdSugerido = responsaveisPorFuncao[form.tipo];
-    if (!responsavelIdSugerido) return;
+  function selecionarAcaoDelegacao(tipo) {
     setForm((atual) => {
-      if (atual.responsavelId && String(atual.responsavelId) !== String(responsavelIdSugerido)) {
-        return atual;
-      }
-      return {
-        ...atual,
-        responsavelId: String(responsavelIdSugerido),
-      };
+      const formularioSugerido = aplicarSugestaoAoFormulario(
+        atual,
+        tipo,
+        responsaveisPorFuncao,
+        destinatarios,
+      );
+      return tipo === CATEGORIA_GRUPO_WHATSAPP
+        ? { ...formularioSugerido, setorExecutor: "Jurídico", responsavelId: "" }
+        : formularioSugerido;
     });
-  }, [form.tipo, responsaveisPorFuncao]);
+  }
+
+  function selecionarEquipeExecutora(equipe) {
+    setForm((atual) => ({
+      ...atual,
+      setorExecutor: equipe,
+      responsavelId:
+        normalizarSetorEquipe(
+          responsavelSelecionado?.setor || responsavelSelecionado?.cargo,
+        ) === equipe
+          ? atual.responsavelId
+          : "",
+    }));
+  }
 
   function dataLocalInput(data) {
     const deslocamento = data.getTimezoneOffset() * 60_000;
@@ -3867,22 +4129,38 @@ function FormularioDelegacaoUsuario({ usuario, funcionarios, onCriada, showToast
     event.preventDefault();
     if (!form.clienteDrive?.id) return alert("Selecione uma pasta de cliente sincronizada com o Google Drive.");
     if (form.tipo === "OUTROS" && !form.outraAcao.trim()) return alert("Descreva a ação solicitada.");
+    if (tarefaGrupoWhatsapp && !form.whatsappCliente.trim()) return alert("Informe o número do WhatsApp do cliente.");
+    if (!tarefaGrupoWhatsapp && !form.solicitacao.trim()) return alert("Descreva a solicitação.");
     if (!form.prazo) return alert("Selecione um prazo rápido ou escolha uma data em Mais opções.");
-    const responsavelAutomatico = responsaveisPorFuncao[form.tipo];
-    const idResponsavel = responsavelAutomatico || form.responsavelId;
-    if (!idResponsavel) return alert("Não há responsável definido para esta ação. Solicite ao supervisor configurar o indicativo da função.");
+    const idResponsavel = form.responsavelId;
+    if (!idResponsavel) return alert("Selecione quem executará a tarefa dentro da equipe indicada.");
     const tituloDelegado = tituloAutomaticoDaTarefa(form.tipo, form.outraAcao);
+    const responsavelDaTarefa = destinatarios.find(
+      (pessoa) => String(pessoa.id) === String(idResponsavel),
+    );
+    const prazoIso = new Date(form.prazo).toISOString();
+    const solicitacaoFinal = tarefaGrupoWhatsapp
+      ? montarSolicitacaoGrupoWhatsapp({
+          nomeCliente: form.cliente.trim(),
+          numeroWhatsapp: form.whatsappCliente.trim(),
+          prazo: prazoIso,
+          responsavel: responsavelDaTarefa?.nome || "Consultor responsável",
+          orientacoes: form.solicitacao,
+        })
+      : `${form.tipo === "OUTROS" ? `Ação: ${form.outraAcao.trim()}\n` : ""}${form.solicitacao.trim()}`;
     setSalvando(true);
     try {
       const { data, error } = await supabase.rpc("delegar_tarefa_operacional", {
         p_cliente_id: Number(form.clienteDrive.id), p_tratativa_id: null, p_nome_cliente: form.cliente.trim(),
         p_tipo_codigo: CODIGOS_TIPO_TAREFA[form.tipo], p_titulo: tituloDelegado,
-        p_solicitacao: `${form.tipo === "OUTROS" ? `Ação: ${form.outraAcao.trim()}\n` : ""}${form.solicitacao.trim()}`,
+        p_solicitacao: solicitacaoFinal,
         p_resultado_esperado: gerarResultadoEsperadoTarefa(form.tipo === "OUTROS" ? form.outraAcao : form.tipo),
         p_setor_solicitante: usuario.setor || usuario.cargo || "Equipe",
         p_setor_executor: form.setorExecutor, p_funcionaria_id: Number(idResponsavel),
-        p_prazo_limite: new Date(form.prazo).toISOString(), p_prioridade: form.prioridade,
-        p_criterios: form.apontamento.trim() ? { apontamento_inicial: form.apontamento.trim() } : null,
+        p_prazo_limite: prazoIso, p_prioridade: form.prioridade,
+        p_criterios: tarefaGrupoWhatsapp
+          ? null
+          : (form.apontamento.trim() ? { apontamento_inicial: form.apontamento.trim() } : null),
       });
       if (error) throw error;
       const criada = Array.isArray(data) ? data[0] : data;
@@ -3913,8 +4191,14 @@ function FormularioDelegacaoUsuario({ usuario, funcionarios, onCriada, showToast
         />
         <label>Setor solicitante<input readOnly value={usuario.setor || usuario.cargo || "Equipe"} aria-label="Setor solicitante" /></label>
       </div>
-      <SeletorAcaoVisual valor={form.tipo} onChange={(valor) => alterar("tipo", valor)} />
+      <SeletorAcaoVisual valor={form.tipo} onChange={selecionarAcaoDelegacao} acoes={acoesDelegacao} />
       {form.tipo === "OUTROS" && <label>Descreva a ação<input required value={form.outraAcao} onChange={(e) => alterar("outraAcao", e.target.value)} placeholder="Informe exatamente o que deverá ser executado" /></label>}
+      {tarefaGrupoWhatsapp && (
+        <section className="whatsapp-task-fields">
+          <div><span aria-hidden="true">💬</span><div><strong>Abrir grupo no WhatsApp do cliente</strong><small>Disponível exclusivamente para Nicolas e Tafarel.</small></div></div>
+          <label>Número do WhatsApp do cliente<input autoComplete="tel" inputMode="tel" required type="tel" value={form.whatsappCliente} onChange={(e) => alterar("whatsappCliente", e.target.value)} placeholder="Ex.: (11) 99999-9999" /></label>
+        </section>
+      )}
       <div className="task-auto-title"><span>Título gerado automaticamente</span><strong>{tituloAutomaticoDaTarefa(form.tipo, form.outraAcao) || "Descreva a ação para definir o título"}</strong></div>
       <div className="role-indicator-panel">
         <div className="role-indicator-header">
@@ -3923,14 +4207,22 @@ function FormularioDelegacaoUsuario({ usuario, funcionarios, onCriada, showToast
         </div>
         <div className="role-indicator-card">
           <small>Responsável sugerido:</small>
-          <strong>{responsavelSugerido.nome}</strong>
+          <strong>{responsavelSugerido?.nome || "Sem responsável definido"}</strong>
+          <small>
+            {responsavelSugerido?.equipe
+              ? `Equipe ${responsavelSugerido.equipe}. A sugestão foi pré-selecionada para evitar envio ao setor errado.`
+              : "Não existe padrão cadastrado. Escolha primeiro a equipe executora."}
+          </small>
+          {escolhaDiferenteDaSugestao && (
+            <em>Responsável alternativo selecionado dentro da mesma equipe.</em>
+          )}
         </div>
       </div>
-      <label>Solicitação<textarea required rows="4" value={form.solicitacao} onChange={(e) => alterar("solicitacao", e.target.value)} placeholder="Descreva com objetividade o que precisa ser feito." /></label>
+      <label>{tarefaGrupoWhatsapp ? "Orientações adicionais (opcional)" : "Solicitação"}<textarea required={!tarefaGrupoWhatsapp} rows="4" value={form.solicitacao} onChange={(e) => alterar("solicitacao", e.target.value)} placeholder={tarefaGrupoWhatsapp ? "Ex.: Nome do grupo ou mensagem inicial." : "Descreva com objetividade o que precisa ser feito."} /></label>
       <div className="task-form-details">
         <div className="task-form-row">
-          <label>Setor executor<select value={form.setorExecutor} onChange={(e) => alterar("setorExecutor", e.target.value)}><option>Administrativo</option><option>Jurídico</option><option>Comercial</option><option>Processual</option></select></label>
-          <label>Responsável<select required value={form.responsavelId || responsavelIndicativo || ""} onChange={(e) => { const id = e.target.value; const pessoa = destinatarios.find((item) => String(item.id) === id); setForm((atual) => ({ ...atual, responsavelId: id, setorExecutor: pessoa?.setor || atual.setorExecutor })); }}><option value="">Quem vai executar?</option>{equipeDisponivel.map((pessoa) => <option key={pessoa.id} value={pessoa.id}>{pessoa.nome} — {pessoa.setor || pessoa.cargo}</option>)}</select></label>
+          <label>Equipe executora<select disabled={tarefaGrupoWhatsapp} value={form.setorExecutor} onChange={(e) => selecionarEquipeExecutora(e.target.value)}>{EQUIPES_OPERACIONAIS.map((equipeOperacional) => <option key={equipeOperacional}>{equipeOperacional}</option>)}</select></label>
+          <label>Responsável<select required value={form.responsavelId} onChange={(e) => alterar("responsavelId", e.target.value)}><option value="">Quem vai executar?</option>{equipeDisponivel.map((pessoa) => <option key={pessoa.id} value={pessoa.id}>{pessoa.nome}{String(pessoa.id) === String(usuario.id) ? " (você)" : ""} — {normalizarSetorEquipe(pessoa.setor || pessoa.cargo) || "Equipe não definida"}</option>)}</select></label>
         </div>
         <div className="task-form-row">
           <div className="quick-deadline"><strong>Prazo obrigatório</strong><div>{[["duas_horas","Em 2 horas"],["hoje_18","Hoje às 18h"],["amanha_10","Amanhã às 10h"],["dois_dias","Em 2 dias"]].map(([valor, rotulo]) => <button className="btn-secondary compact" type="button" key={valor} onClick={() => definirPrazo(valor)}>{rotulo}</button>)}</div><small>{form.prazo ? `Prazo selecionado: ${formatarDataHora(new Date(form.prazo).toISOString())}` : "Selecione uma opção rápida ou informe uma data."}</small></div>
@@ -3950,10 +4242,8 @@ function EmployeeDashboard({ usuario, onLogout, state }) {
     setListaTarefas,
     funcionarios,
     feedbacks,
-    responsabilidadesMensais,
     recarregarTarefas,
     recarregarFeedbacks,
-    recarregarResponsabilidadesMensais,
     showToast,
   } = state;
   const [abaAtiva, setAbaAtiva] = useState("inicio");
@@ -3965,6 +4255,11 @@ function EmployeeDashboard({ usuario, onLogout, state }) {
   const [buscaTarefa, setBuscaTarefa] = useState("");
   const [entregasPop, setEntregasPop] = useState({});
   const [destinoNotificacaoAtual, setDestinoNotificacaoAtual] = useState(null);
+  const permissoes = permissoesDoUsuario(usuario);
+  const ehHunter = usuario.email?.trim().toLowerCase() === EMAIL_HUNTER;
+  const ehConsultorJuridico = usuarioDaEquipeJuridica(usuario) &&
+    normalizarTexto(usuario.cargo || "").includes("consultor");
+  const podeAcessarCarteiraHunter = ehHunter || ehConsultorJuridico;
 
   const minhasTarefas = listaTarefas.filter(
     (tarefa) => String(tarefa.funcionaria_id) === String(usuario.id),
@@ -3996,14 +4291,6 @@ function EmployeeDashboard({ usuario, onLogout, state }) {
     (feedback) =>
       String(feedback.funcionaria_id) === String(usuario.id),
   );
-  const mesAtual = obterMesAtual();
-  const minhasResponsabilidadesDoMes = responsabilidadesMensais
-    .filter(
-      (item) =>
-        String(item.funcionaria_id) === String(usuario.id) &&
-        item.mes_referencia?.slice(0, 7) === mesAtual,
-    )
-    .sort((a, b) => (a.ordem || 0) - (b.ordem || 0));
   const filtroIndicadorAtivo = ROTULOS_FILTRO_TAREFAS[filtroOperacional] || null;
 
   function navegarDaTelaInicial(destino, filtro = null) {
@@ -4238,11 +4525,12 @@ function EmployeeDashboard({ usuario, onLogout, state }) {
         <nav>
           <span className="nav-label">Central de Tarefas</span>
           <NavItem active={abaAtiva === "inicio"} icon="dashboard" onClick={() => setAbaAtiva("inicio")}>Início</NavItem>
-          <NavItem active={abaAtiva === "tarefas"} icon="tarefas" onClick={() => setAbaAtiva("tarefas")}>Tarefas e urgências</NavItem>
-          <NavItem active={abaAtiva === "delegar"} icon="tarefas" onClick={() => setAbaAtiva("delegar")}>Delegar tarefa</NavItem>
-          <NavItem active={abaAtiva === "acompanhamento"} icon="dashboard" onClick={() => setAbaAtiva("acompanhamento")}>Tarefas da equipe</NavItem>
-          <NavItem active={abaAtiva === "clientes"} icon="equipe" onClick={() => setAbaAtiva("clientes")}>Clientes</NavItem>
-          <NavItem active={abaAtiva === "documentos"} icon="documentos" onClick={() => setAbaAtiva("documentos")}>Documentos PDF</NavItem>
+          {permissoes.tarefas && <NavItem active={abaAtiva === "tarefas"} icon="tarefas" onClick={() => setAbaAtiva("tarefas")}>Tarefas e urgências</NavItem>}
+          {permissoes.delegar && <NavItem active={abaAtiva === "delegar"} icon="tarefas" onClick={() => setAbaAtiva("delegar")}>Delegar tarefa</NavItem>}
+          {permissoes.acompanhar_equipe && <NavItem active={abaAtiva === "acompanhamento"} icon="dashboard" onClick={() => setAbaAtiva("acompanhamento")}>Tarefas da equipe</NavItem>}
+          {podeAcessarCarteiraHunter && <NavItem active={abaAtiva === "hunter"} icon="equipe" onClick={() => setAbaAtiva("hunter")}>{ehHunter ? "Carteira Hunter" : "Clientes indicados"}</NavItem>}
+          {permissoes.clientes && <NavItem active={abaAtiva === "clientes"} icon="equipe" onClick={() => setAbaAtiva("clientes")}>Clientes</NavItem>}
+          {permissoes.documentos && <NavItem active={abaAtiva === "documentos"} icon="documentos" onClick={() => setAbaAtiva("documentos")}>Documentos PDF</NavItem>}
         </nav>
         <button className="sidebar-logout" onClick={onLogout}><UiIcon name="logout" /> Sair</button>
       </aside>
@@ -4254,26 +4542,14 @@ function EmployeeDashboard({ usuario, onLogout, state }) {
           </div>
           <div className="topbar-actions">
             <CentralNotificacoesBell onNavigate={navegarPelaNotificacao} />
-            <div className={`profile-pill ${minhaPerformance.altaPerformance ? "profile-high-performance" : ""}`}>
-              <AvatarMembro
-                compacto
-                funcionario={usuario}
-                performance={minhaPerformance}
-              />
-              <span className="online-dot" />
-              <div>
-                <small>Colaboradora online</small>
-                <span>{usuario.cargo}</span>
-                <PerformanceBadge
-                  mostrarRotulo
-                  performance={minhaPerformance}
-                />
-              </div>
-            </div>
+            <PerfilUsuarioTopo
+              performance={minhaPerformance}
+              usuario={usuario}
+            />
           </div>
         </header>
 
-        {abaAtiva === "inicio" && <><InicioColaborador tarefas={listaTarefas} usuario={usuario} onNavigate={navegarDaTelaInicial} feedbacks={meusFeedbacks} onAtualizarFeedbacks={atualizarMeusFeedbacks} /><section className="dashboard-planner-section"><MeuPlanner funcionariaLogadaId={usuario.id} /></section></>}
+        {abaAtiva === "inicio" && <><InicioColaborador tarefas={listaTarefas} usuario={usuario} onNavigate={navegarDaTelaInicial} feedbacks={meusFeedbacks} onAtualizarFeedbacks={atualizarMeusFeedbacks} />{permissoes.planner && <section className="dashboard-planner-section"><MeuPlanner funcionariaLogadaId={usuario.id} /></section>}</>}
 
         {abaAtiva === "tarefas" && (
           <div className="employee-tasks-workspace">
@@ -4436,6 +4712,7 @@ function EmployeeDashboard({ usuario, onLogout, state }) {
         )}
 
         {abaAtiva === "delegar" && <FormularioDelegacaoUsuario usuario={usuario} funcionarios={funcionarios} showToast={showToast} onCriada={(tarefa) => setListaTarefas((atuais) => [tarefa, ...atuais])} />}
+        {abaAtiva === "hunter" && podeAcessarCarteiraHunter && <HunterClientes usuario={usuario} funcionarios={funcionarios} showToast={showToast} />}
         {abaAtiva === "clientes" && <ModuloClientes />}
 
         {abaAtiva === "acompanhamento" && <AcompanhamentoEquipe tarefas={listaTarefas} funcionarios={funcionarios} historicoPessoal={tarefasConcluidas} onAtualizar={recarregarTarefas} destinoNotificacao={destinoNotificacaoAtual} />}
@@ -4910,11 +5187,21 @@ export default function App() {
         .notification-popover-list { display: grid; max-height: min(520px, calc(100vh - 180px)); gap: 8px; padding: 10px; overflow-y: auto; }
         .notification-empty { margin: 14px 8px; color: var(--muted); font-size: 12px; text-align: center; }
         @keyframes notificationPopover { from { opacity: 0; transform: translateY(-5px) scale(.98); } to { opacity: 1; transform: translateY(0) scale(1); } }
-        .profile-pill { display: flex; align-items: center; gap: 11px; padding: 10px 15px; color: var(--text); background: rgba(238, 247, 255, .9); border: 1px solid rgba(113, 165, 224, .18); border-radius: 16px; }
+        .profile-pill { display: flex; align-items: center; gap: 13px; min-width: 250px; padding: 10px 15px; color: var(--text); background: rgba(238, 247, 255, .9); border: 1px solid rgba(113, 165, 224, .18); border-radius: 18px; }
         .profile-pill small, .profile-pill span { display: block; }
         .profile-pill small { color: var(--muted); font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: .7px; }
         .profile-pill span { color: var(--dark); font-size: 12px; font-weight: 800; margin-top: 1px; }
         .online-dot { width: 9px; height: 9px; border-radius: 50%; background: #54d2ad; box-shadow: 0 0 0 4px rgba(84, 210, 173, .14), 0 0 12px rgba(84,210,173,.45); }
+        .profile-user-content { min-width: 0; display: flex; flex: 1; flex-direction: column; align-items: flex-start; }
+        .profile-online-status { display: inline-flex !important; align-items: center; gap: 8px; margin-bottom: 3px; white-space: nowrap; }
+        .profile-online-status .online-dot { display: inline-block; flex: 0 0 9px; margin: 0; }
+        .profile-user-name-row { max-width: 100%; display: flex; align-items: center; gap: 5px; }
+        .profile-user-name { min-width: 0; overflow: hidden; color: var(--dark); font-size: 14px; font-weight: 900; line-height: 1.2; text-overflow: ellipsis; white-space: nowrap; }
+        .profile-user-role { color: #526b88 !important; font-size: 10px !important; font-weight: 750 !important; }
+        .verified-profile-badge { width: 18px; height: 18px; display: inline-grid !important; flex: 0 0 18px; place-items: center; margin: 0 !important; filter: drop-shadow(0 3px 6px rgba(39,134,224,.22)); }
+        .verified-profile-badge svg { width: 100%; height: 100%; overflow: visible; }
+        .verified-profile-badge path:first-child { fill: #3897f0; }
+        .verified-profile-check { fill: none; stroke: #fff; stroke-linecap: round; stroke-linejoin: round; stroke-width: 2.35; }
 
         .cards-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 18px; margin-bottom: 24px; }
         .card, .panel { background: var(--glass); border: 1px solid rgba(255,255,255,.85); border-radius: 23px; box-shadow: var(--shadow); backdrop-filter: blur(22px); }
@@ -5123,6 +5410,8 @@ export default function App() {
         .member-status { display: inline-flex; margin: 3px 8px 3px 0; padding: 4px 7px; border-radius: 999px; font-size: 8px; font-weight: 900; text-transform: uppercase; }
         .member-status.active { color: #268c77; background: rgba(190,241,228,.6); }
         .member-status.inactive { color: #667085; background: #edf1f5; }
+        .team-profile-badge { display: inline-flex; align-items: center; margin: 3px 8px 3px 0; padding: 5px 9px; border-radius: 999px; font-size: 8px; font-weight: 900; letter-spacing: .05em; text-transform: uppercase; }
+        .team-profile-legal { color: #5b4216; background: linear-gradient(135deg, #fff5cc, #f5dda0); border: 1px solid rgba(156,111,27,.2); }
         .team-member.member-inactive { opacity: .68; }
         .member-actions { display: flex; gap: 6px; }
         .member-actions { flex-wrap: wrap; justify-content: flex-end; }
@@ -5277,6 +5566,12 @@ export default function App() {
         .role-indicator-card { display: flex; flex-direction: column; gap: 4px; padding: 12px 14px; background: rgba(255,255,255,.9); border: 1px solid rgba(61,118,233,.32); border-radius: 12px; box-shadow: inset 0 0 0 1px rgba(61,118,233,.05); }
         .role-indicator-card small { color: var(--muted); font-size: 10px; }
         .role-indicator-card strong { color: var(--dark); font-size: 13px; }
+        .whatsapp-task-fields { display: grid; gap: 13px; padding: 16px; background: linear-gradient(135deg, #f0fff7, #e8f8f0); border: 1px solid rgba(31,157,99,.28); border-left: 5px solid #25a66a; border-radius: 15px; }
+        .whatsapp-task-fields > div { display: flex; align-items: center; gap: 11px; }
+        .whatsapp-task-fields > div > span { display: grid; width: 38px; height: 38px; place-items: center; flex: 0 0 auto; background: #fff; border-radius: 12px; font-size: 19px; box-shadow: 0 6px 16px rgba(32,139,91,.12); }
+        .whatsapp-task-fields > div div { display: grid; gap: 2px; }
+        .whatsapp-task-fields > div strong { color: #155b3b; font-size: 13px; }
+        .whatsapp-task-fields > div small { color: #527364; font-size: 10px; }
         .role-mapping-panel { grid-column: 1 / -1; }
         .role-mapping-list { display: grid; gap: 12px; }
         .role-mapping-item { display: grid; grid-template-columns: minmax(180px, 1.2fr) minmax(180px, 1fr); align-items: center; gap: 12px; padding: 10px 12px; background: rgba(247,251,255,.78); border: 1px solid rgba(104,148,201,.18); border-radius: 12px; transition: border-color .2s ease, box-shadow .2s ease, transform .2s ease; }
@@ -6645,13 +6940,15 @@ export default function App() {
         .performance-badge.with-label { gap: 5px; height: 24px; padding: 0 8px; }
         .performance-badge.with-label strong { color: #79520a; font-size: 8px; font-weight: 900; letter-spacing: .55px; text-transform: uppercase; }
         .member-avatar-wrap { position: relative; width: 54px; height: 54px; flex: 0 0 auto; }
-        .member-avatar-wrap .member-avatar { overflow: hidden; }
-        .member-avatar-wrap .member-avatar img { width: 100%; height: 100%; object-fit: cover; image-rendering: auto; }
-        .employee-avatar-sprite { width: 100%; height: 100%; display: block; background-image: url('/assets/equipe/avatares-equipe-2026.png'); background-repeat: no-repeat; background-size: 300% 200%; image-rendering: auto; transform: scale(1.08); }
+        .member-avatar-wrap .member-avatar { position: relative; overflow: hidden; }
+        .member-avatar-wrap .member-avatar img { position: absolute; inset: 0; z-index: 1; width: 100%; height: 100%; object-fit: cover; image-rendering: auto; }
+        .employee-avatar-sprite { position: absolute; inset: 0; width: 100%; height: 100%; display: block; background-image: url('/assets/equipe/avatares-equipe-2026.png'); background-repeat: no-repeat; background-size: 300% 200%; image-rendering: auto; transform: scale(1.08); }
         .member-avatar-wrap > .performance-badge { position: absolute; right: -8px; bottom: -7px; z-index: 2; }
         .member-avatar-wrap.compact { width: 64px; height: 64px; }
         .member-avatar-wrap.compact .member-avatar { width: 64px; height: 64px; border-radius: 50%; }
         .member-avatar-wrap.compact > .performance-badge { right: -7px; bottom: -8px; }
+        .verified-user-profile .member-avatar-wrap.compact { width: clamp(58px, 5vw, 70px); height: clamp(58px, 5vw, 70px); }
+        .verified-user-profile .member-avatar-wrap.compact .member-avatar { width: 100%; height: 100%; border-width: 3px; box-shadow: 0 10px 28px rgba(49,94,154,.25); }
         .member-name-row { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
         .member-name-row > strong { display: inline-block; }
         .member-details { min-width: 0; }
@@ -6664,6 +6961,7 @@ export default function App() {
         .profile-pill .performance-badge { display: inline-flex; width: max-content; margin-top: 5px; }
         .profile-pill .performance-badge > span { display: inline; margin: 0; color: #79520a; font-size: 12px; }
         .profile-pill .performance-badge strong { display: inline; }
+        .profile-team-label { display: inline-flex; width: max-content; margin-top: 5px; padding: 4px 8px; color: #604719; background: #fff0bd; border: 1px solid rgba(156,111,27,.18); border-radius: 999px; font-size: 9px; font-weight: 900; letter-spacing: .04em; text-transform: uppercase; }
         .status.devolvida { color: #a64250; background: rgba(255,222,226,.74); border: 1px solid rgba(198,69,86,.2); }
         .btn-return { display: inline-flex; align-items: center; justify-content: center; gap: 8px; padding: 11px 16px; color: #fff; background: linear-gradient(135deg, #de6a77, #bd4657); border: 0; border-radius: 12px; box-shadow: 0 8px 20px rgba(189,70,87,.2); cursor: pointer; font-size: 11px; font-weight: 800; transition: .2s ease; }
         .btn-return:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 11px 24px rgba(189,70,87,.28); }
@@ -6734,6 +7032,11 @@ export default function App() {
         .welcome-summary.urgent, .welcome-summary.warning { background: linear-gradient(135deg, #fffaf3 0%, #fff5e6 100%); border-left-color: #ed8b36; }
         .welcome-summary.success { background: linear-gradient(135deg, #f3fcf9 0%, #eaf8f3 100%); border-left-color: #35aa91; }
         .welcome-summary-ok { flex: none; padding: 9px 13px; color: #247b67; background: rgba(255,255,255,.72); border: 1px solid rgba(53,170,145,.2); border-radius: 999px; font-size: 12px; font-weight: 850; }
+        .legal-team-motto { display: flex; align-items: center; gap: 16px; padding: 19px 23px; color: #f8f2df; background: linear-gradient(135deg, #17263d 0%, #243b5b 68%, #886a2d 145%); border: 1px solid rgba(214,179,97,.35); border-radius: 19px; box-shadow: 0 14px 30px rgba(22,40,65,.15); }
+        .legal-team-motto > span { display: grid; width: 48px; height: 48px; place-items: center; flex: 0 0 auto; background: rgba(255,255,255,.09); border: 1px solid rgba(255,255,255,.12); border-radius: 15px; font-size: 23px; }
+        .legal-team-motto div { display: grid; gap: 4px; }
+        .legal-team-motto small { color: #e9cf8d; font-size: 9px; font-weight: 900; letter-spacing: .12em; text-transform: uppercase; }
+        .legal-team-motto strong { max-width: 920px; font-family: Georgia, serif; font-size: clamp(15px, 1.5vw, 19px); line-height: 1.45; }
         .central-metrics { grid-template-columns: repeat(4, minmax(0, 1fr)); }
         .central-metric { text-align: left; cursor: pointer; border: 1px solid rgba(67,105,152,.12); }
         .central-metric strong { display: block; margin-top: 8px; font-size: 30px; color: #173962; }
@@ -6898,6 +7201,11 @@ export default function App() {
           .sidebar-logout { padding-inline: 11px; }
           .main-content { padding: 12px 8px 32px; }
           .topbar, .panel { padding: 16px; border-radius: 18px; }
+          .topbar-actions { align-items: stretch; }
+          .verified-user-profile { min-width: 0; padding: 9px 11px; }
+          .verified-user-profile .member-avatar-wrap.compact { width: 58px; height: 58px; }
+          .profile-user-name { max-width: min(46vw, 220px); font-size: 13px; }
+          .profile-online-status { white-space: normal; }
           .task-item { padding: 14px; }
           .task-actions { display: grid; grid-template-columns: minmax(0,1fr); }
           .task-actions button { width: 100%; }

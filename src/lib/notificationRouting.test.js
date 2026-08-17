@@ -28,3 +28,13 @@ test("abre feedback na área apropriada", () => {
   assert.equal(destinoDaNotificacao({ tipo: "novo_feedback" }, false).aba, "feedbacks");
   assert.equal(destinoDaNotificacao({ tipo: "novo_feedback" }, true).aba, "equipe");
 });
+
+test("abre o perfil indicado na carteira Hunter", () => {
+  assert.deepEqual(destinoDaNotificacao({
+    tipo: "perfil_hunter_delegado",
+    referencia_tipo: "prospeccao_hunter",
+    referencia_id: 31,
+  }), {
+    aba: "hunter", secao: "hunter", referenciaId: 31,
+  });
+});

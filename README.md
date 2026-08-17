@@ -68,16 +68,41 @@ Para ativar o POP e a Central de Tarefas, execute nesta ordem:
 
 `supabase/concluir_tarefa_propria_supervisor.sql`
 
+`supabase/evolucao_gestao_base.sql`
+
+`supabase/conclusao_direta_tarefas_2026.sql`
+
+`supabase/responsaveis_por_funcao_2026.sql`
+
+`supabase/cadastrar_equipe_juridico.sql`
+
+`supabase/organizar_equipes_gestor.sql`
+
+`supabase/fotos_equipe_administrativa_2026.sql`
+
+`supabase/grupo_whatsapp_cliente_2026.sql`
+
+`supabase/carteira_hunter_clientes_2026.sql`
+
 `supabase/taskmanager_v1_simplificacao.sql`
 
 Essa migração gera IDs no formato `TSK-AAAAMMDD-001` e impede a conclusão
 sem devolutiva, nome de arquivo padronizado, link do Google Drive e confirmação
 das atualizações no CRM e na Planilha Geral.
 
-O POP reconhece **Tafarel** e **Nicolas** como supervisores. Os demais membros
-continuam visualizando somente as tarefas atribuídas ao próprio cadastro e
-podem delegar tarefas para outro usuário, responder ou devolver uma demanda
-com justificativa registrada. O solicitante é identificado automaticamente.
+O poder de supervisão vem do campo `funcionarios.perfil`, sem depender do nome
+da pessoa. As permissões de navegação vêm de `funcionarios.permissoes`. Os
+colaboradores podem delegar tarefas para outro usuário da equipe executora,
+responder ou devolver uma demanda com justificativa registrada. O solicitante
+é identificado automaticamente.
+
+A ação `ABRIR GRUPO NO WHATSAPP` aparece somente para Nicolas e Tafarel. O
+banco também valida essa autorização e restringe o destinatário a uma pessoa
+ativa da Equipe Jurídico.
+
+A carteira Hunter permite que Giullian organize clientes potenciais, delegue
+uma prévia aos consultores jurídicos e acompanhe pagamentos, recusas e taxa de
+conversão. O motivo é obrigatório quando o cliente não realiza o pagamento.
 
 O motor operacional adiciona a relação **Cliente → Tratativa → Tarefas**, SLAs
 por tipo, aceite formal, execução, espera justificada, devolução para
@@ -109,12 +134,15 @@ Depois, no menu **Authentication > Users**, crie três usuários:
 Cadastre também as duas colaboradoras na tabela `funcionarios`. Exemplo:
 
 ```sql
-insert into public.funcionarios (nome, email, cargo)
+insert into public.funcionarios (nome, email, cargo, setor, perfil)
 values
-  ('NOME DA COLABORADORA 1', 'email1@empresa.com', 'Administrativo'),
-  ('NOME DA COLABORADORA 2', 'email2@empresa.com', 'Jurídico')
+  ('NOME DA COLABORADORA 1', 'email1@empresa.com', 'Analista', 'Administrativo', 'colaborador'),
+  ('NOME DA COLABORADORA 2', 'email2@empresa.com', 'Analista', 'Jurídico', 'colaborador')
 on conflict (email) do update
-set nome = excluded.nome, cargo = excluded.cargo;
+set nome = excluded.nome,
+    cargo = excluded.cargo,
+    setor = excluded.setor,
+    perfil = excluded.perfil;
 ```
 
 O script configura as permissões para o supervisor delegar tarefas e enviar

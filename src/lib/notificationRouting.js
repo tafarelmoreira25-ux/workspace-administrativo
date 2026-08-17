@@ -9,6 +9,13 @@ export function destinoDaNotificacao(notificacao = {}, gestor = false) {
   const tipo = normalizar(notificacao.tipo).replaceAll(" ", "_");
   const texto = normalizar(`${notificacao.titulo || ""} ${notificacao.mensagem || ""}`);
 
+  if (tipo.includes("hunter") || notificacao.referencia_tipo === "prospeccao_hunter") {
+    return {
+      aba: "hunter",
+      secao: "hunter",
+      referenciaId: notificacao.referencia_id || null,
+    };
+  }
   if (tipo.includes("urgencia") || texto.includes("urgencia")) {
     return { aba: gestor ? "urgencias" : "tarefas", secao: "urgencias" };
   }

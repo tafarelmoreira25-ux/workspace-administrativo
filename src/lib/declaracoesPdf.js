@@ -3,6 +3,7 @@ import {
   desenharAssinatura,
   desenharParagrafo,
 } from "./documentoVisualPdf.js";
+import { enderecoCompletoComCep } from "./documentWorkspace.js";
 
 function dataPorExtenso(data) {
   if (!data) return "";
@@ -44,6 +45,7 @@ export async function gerarDeclaracaoHipossuficienciaPdf(dados) {
   );
   const genero = formasGenero(dados.genero);
   const nome = dados.nomeCliente?.trim() || "";
+  const enderecoCompleto = enderecoCompletoComCep(dados);
   let y = yInicial;
 
   y = desenharParagrafo({
@@ -60,7 +62,7 @@ export async function gerarDeclaracaoHipossuficienciaPdf(dados) {
           `${genero.portador} da Cédula de Identidade RG nº ${dados.rg} ` +
           `${dados.orgaoExpedidor}, ${genero.inscrito} no CPF/MF sob nº ` +
           `${dados.cpfCnpj}, com endereço eletrônico: ${dados.email}, residente e ` +
-          `${genero.domiciliado} na ${dados.endereco}. Venho respeitosamente perante ` +
+          `${genero.domiciliado} na ${enderecoCompleto}. Venho respeitosamente perante ` +
           "Vossa Excelência, por meio deste instrumento, declarar que não tenho " +
           "condições financeiras para custear os encargos atinentes a qualquer processo " +
           "judicial, sem prejuízo da manutenção do meu próprio sustento, requerendo, por " +
@@ -110,6 +112,7 @@ export async function gerarDeclaracaoIsencaoIrpfPdf(dados) {
   );
   const genero = formasGenero(dados.genero);
   const nome = dados.nomeCliente?.trim() || "";
+  const enderecoCompleto = enderecoCompletoComCep(dados);
   let y = yInicial;
 
   y = desenharParagrafo({
@@ -128,7 +131,7 @@ export async function gerarDeclaracaoIsencaoIrpfPdf(dados) {
           `${genero.portador} da Cédula de Identidade R.G. nº ${dados.rg}, ${dados.orgaoExpedidor}, ` +
           `${genero.inscrito} no C.P.F./M.F. sob nº ${dados.cpfCnpj}, com endereço ` +
           `eletrônico: ${dados.email}, residente e ${genero.domiciliado} na ` +
-          `${dados.endereco}. Declaro ser isento(a) da apresentação da Declaração do ` +
+          `${enderecoCompleto}. Declaro ser isento(a) da apresentação da Declaração do ` +
           "Imposto de Renda Pessoa Física (DIRPF) no(s) exercício(s) de " +
           `${dados.exercicios}, por não incorrer em nenhuma das hipóteses de ` +
           "obrigatoriedade estabelecidas pelas Instruções Normativas (IN) da Receita " +

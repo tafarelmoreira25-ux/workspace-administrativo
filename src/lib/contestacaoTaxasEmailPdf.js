@@ -388,7 +388,7 @@ export async function gerarContestacaoTaxasEmailPdfComAssets(
     });
   }
 
-  contexto.y -= 51;
+  contexto.y -= 55;
   contexto.pagina.drawLine({
     start: { x: 145, y: contexto.y },
     end: { x: A4[0] - 145, y: contexto.y },
@@ -396,19 +396,21 @@ export async function gerarContestacaoTaxasEmailPdfComAssets(
     color: PRETO,
   });
 
-  desenharParagrafo(contexto, {
-    segmentos: [
-      { texto: "PLATINO SOLUÇÕES FINANCEIRAS\n", negrito: true },
-      { texto: "CNPJ nº 52.807.405/0001-30", negrito: true },
-    ],
-    x: 145,
-    largura: A4[0] - 290,
-    alinhamento: "center",
-    tamanho: 10.5,
-    alturaLinha: 12.5,
-    antes: 8,
-    depois: 0,
-    manterJunto: true,
+  const linhasAssinatura = [
+    "PLATINO SOLUÇÕES FINANCEIRAS",
+    "CNPJ nº 52.807.405/0001-30",
+  ];
+  contexto.y -= 18;
+  linhasAssinatura.forEach((linha) => {
+    const larguraLinha = contexto.fontes.negrito.widthOfTextAtSize(linha, 10.5);
+    contexto.pagina.drawText(linha, {
+      x: (A4[0] - larguraLinha) / 2,
+      y: contexto.y,
+      size: 10.5,
+      font: contexto.fontes.negrito,
+      color: PRETO,
+    });
+    contexto.y -= 12.5;
   });
 
   return pdf.save();

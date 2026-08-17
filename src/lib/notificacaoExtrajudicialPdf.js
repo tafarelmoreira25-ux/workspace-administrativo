@@ -260,6 +260,10 @@ export async function gerarNotificacaoExtrajudicialPdf(dados) {
   const quantidadeParcelas = valorInformado(dados.quantidadeParcelas);
   const valorParcela = valorInformado(dados.valorParcela);
   const valorParcelaExtenso = valorInformado(dados.valorParcelaExtenso);
+  const representanteAutorizado =
+    valorInformado(dados.representanteAutorizado) ||
+    valorInformado(dados.responsavel) ||
+    "Representante autorizado";
 
   desenharTexto(
     contexto,
@@ -488,17 +492,17 @@ export async function gerarNotificacaoExtrajudicialPdf(dados) {
   );
 
   contexto.y = Math.min(contexto.y, 170);
-  desenharTexto(contexto, "Cordialmente,", { depois: 5 });
+  desenharTexto(contexto, "Cordialmente,", { depois: 14 });
 
-  garantirEspaco(contexto, 70);
+  garantirEspaco(contexto, 65);
   desenharParagrafo(contexto, {
     segmentos: [
       { texto: "PLATINO ASSESSORIA FINANCEIRA\n", negrito: true },
       { texto: "CNPJ nº 52.807.405/0001-30\n", negrito: true },
-      { texto: "Representante autorizado" },
+      { texto: `${representanteAutorizado} - Representante autorizado` },
     ],
     alinhamento: "center",
-    antes: 1.5,
+    antes: 8,
     depois: 0,
     manterJunto: true,
   });

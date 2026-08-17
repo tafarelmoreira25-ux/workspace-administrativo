@@ -6,7 +6,9 @@ import {
   enriquecerModelos,
   erroCampo,
   filtrarModelos,
+  enderecoCompletoComCep,
   normalizarNomeArquivo,
+  rascunhoValido,
   sugerirNomeDocumento,
 } from "./documentWorkspace.js";
 
@@ -60,5 +62,32 @@ test("valida CPF incompleto com mensagem específica", () => {
   assert.equal(
     erroCampo({ nome: "cpfCnpj", rotulo: "CPF", obrigatorio: true }, "123"),
     "Informe um CPF com 11 dígitos ou CNPJ com 14 dígitos.",
+  );
+});
+
+test("mantém somente rascunhos com menos de 24 horas", () => {
+  const agora = new Date("2026-08-17T12:00:00.000Z").getTime();
+  const base = {
+    schema: 2,
+    dados: { modeloId: "procuracao-ad-judicia" },
+  };
+  assert.equal(
+    rascunhoValido({ ...base, salvoEm: "2026-08-16T12:00:01.000Z" }, agora),
+    true,
+  );
+  assert.equal(
+    rascunhoValido({ ...base, salvoEm: "2026-08-16T12:00:00.000Z" }, agora),
+    false,
+  );
+});
+
+test("reutiliza o CEP da procuração nas declarações sem duplicá-lo", () => {
+  assert.equal(
+    enderecoCompletoComCep({ endereco: "Rua das Flores, 100", cep: "01234-567" }),
+    "Rua das Flores, 100 - CEP: 01234-567",
+  );
+  assert.equal(
+    enderecoCompletoComCep({ endereco: "Rua das Flores, 100 - CEP: 01234-567", cep: "01234-567" }),
+    "Rua das Flores, 100 - CEP: 01234-567",
   );
 });

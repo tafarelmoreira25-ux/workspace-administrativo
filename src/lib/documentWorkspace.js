@@ -1,8 +1,33 @@
 export const DOCUMENT_WORKSPACE_SCHEMA = 2;
 export const DOCUMENT_DRAFT_KEY = "platino.documentos.rascunho.v2";
+export const DOCUMENT_DRAFT_TTL_MS = 24 * 60 * 60 * 1000;
 export const DOCUMENT_HISTORY_KEY = "platino.documentos.historico.v2";
 export const DOCUMENT_FAVORITES_KEY = "platino.documentos.favoritos.v2";
 export const DOCUMENT_RECENT_MODELS_KEY = "platino.documentos.modelos-recentes.v2";
+
+export function rascunhoValido(registro, agora = Date.now()) {
+  const salvoEm = new Date(registro?.salvoEm || "").getTime();
+  return Boolean(
+    registro?.schema === DOCUMENT_WORKSPACE_SCHEMA &&
+    registro?.dados?.modeloId &&
+    Number.isFinite(salvoEm) &&
+    agora - salvoEm >= 0 &&
+    agora - salvoEm < DOCUMENT_DRAFT_TTL_MS
+  );
+}
+
+export function enderecoCompletoComCep(dados = {}) {
+  const endereco = String(dados.endereco || "").trim().replace(/[.\s]+$/, "");
+  const cep = String(dados.cep || "").trim();
+  if (!endereco || !cep) return endereco;
+
+  const cepNumerico = cep.replace(/\D/g, "");
+  const enderecoNumerico = endereco.replace(/\D/g, "");
+  if (/\bcep\b/i.test(endereco) || (cepNumerico && enderecoNumerico.includes(cepNumerico))) {
+    return endereco;
+  }
+  return `${endereco} - CEP: ${cep}`;
+}
 
 export const DOCUMENT_CATEGORIES = [
   { id: "todos", nome: "Todos", icone: "library" },

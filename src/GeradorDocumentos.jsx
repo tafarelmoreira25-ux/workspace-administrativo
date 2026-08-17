@@ -4,7 +4,7 @@ import {
   DOCUMENT_DRAFT_KEY, DOCUMENT_FAVORITES_KEY, DOCUMENT_HISTORY_KEY,
   DOCUMENT_RECENT_MODELS_KEY, DOCUMENT_WORKSPACE_SCHEMA, agruparCampos,
   enriquecerModelos, erroCampo, formatarValorCampo, normalizarBusca,
-  normalizarNomeArquivo, proximaVersao,
+  normalizarNomeArquivo, proximaVersao, rascunhoValido,
 } from "./lib/documentWorkspace";
 import { criarOpcoesIniciaisProcuracao, listarDocumentosProcuracao, mensagemConjuntoGerado } from "./lib/procuracaoConjunto";
 import { supabase } from "./lib/supabase";
@@ -15,6 +15,7 @@ import "./documentWorkspace.css";
 
 const MODELOS = enriquecerModelos(DOCUMENT_TEMPLATES);
 const DOCUMENT_MODEL_NAMES_KEY = "platino.documentos.nomes-modelos.v1";
+const DOCUMENT_DRAFT_INACTIVITY_MS = 5 * 60 * 1000;
 
 function dataLocalIso() {
   const hoje = new Date();
@@ -65,21 +66,31 @@ function lerJsonLocal(chave, fallback) {
 }
 
 function persistirRascunho(dados) {
+  const salvoEm = new Date();
   localStorage.setItem(DOCUMENT_DRAFT_KEY, JSON.stringify({
     schema: DOCUMENT_WORKSPACE_SCHEMA,
     dados,
-    salvoEm: new Date().toISOString(),
+    salvoEm: salvoEm.toISOString(),
   }));
+  return salvoEm;
 }
 
 function carregarRascunho(responsavel, departamento) {
   const salvo = lerJsonLocal(DOCUMENT_DRAFT_KEY, null);
-  if (salvo?.schema !== DOCUMENT_WORKSPACE_SCHEMA || !salvo.dados?.modeloId) return criarFormularioInicial(responsavel, MODELOS[0], departamento);
+  if (!rascunhoValido(salvo)) {
+    localStorage.removeItem(DOCUMENT_DRAFT_KEY);
+    return criarFormularioInicial(responsavel, MODELOS[0], departamento);
+  }
   const dadosSalvos = { ...salvo.dados };
   if (!dadosSalvos.nacionalidadePreenchidaManualmente && String(dadosSalvos.nacionalidade || "").trim().toLocaleLowerCase("pt-BR") === "brasileira") {
     dadosSalvos.nacionalidade = "";
   }
   return dadosSalvos;
+}
+
+function dataDoRascunhoAtual() {
+  const salvo = lerJsonLocal(DOCUMENT_DRAFT_KEY, null);
+  return rascunhoValido(salvo) ? new Date(salvo.salvoEm) : null;
 }
 
 function formatarDataHora(data) {
@@ -185,7 +196,7 @@ function DocumentosRecentes({ documentos, busca, onBusca, onOpen, onDuplicate, o
 export default function GeradorDocumentos({ responsavel, usuario, onSuccess }) {
   const departamentoUsuario = usuario?.setor || usuario?.departamento || "Jurídico";
   const [dados, setDados] = useState(() => carregarRascunho(responsavel, departamentoUsuario));
-  const [bibliotecaAberta, setBibliotecaAberta] = useState(false);
+  const [bibliotecaAberta, setBibliotecaAberta] = useState(true);
   const [nomesModelos, setNomesModelos] = useState(() => lerJsonLocal(DOCUMENT_MODEL_NAMES_KEY, {}));
   const [editandoNomeModelo, setEditandoNomeModelo] = useState(false);
   const [nomeModeloEmEdicao, setNomeModeloEmEdicao] = useState("");
@@ -202,7 +213,7 @@ export default function GeradorDocumentos({ responsavel, usuario, onSuccess }) {
   const [gerando, setGerando] = useState(false);
   const [erro, setErro] = useState("");
   const [dirty, setDirty] = useState(false);
-  const [salvoEm, setSalvoEm] = useState(() => new Date());
+  const [salvoEm, setSalvoEm] = useState(dataDoRascunhoAtual);
   const [online, setOnline] = useState(() => navigator.onLine);
   const [previewAtualizadaEm, setPreviewAtualizadaEm] = useState(() => new Date());
   const [previewFullscreen, setPreviewFullscreen] = useState(false);
@@ -216,6 +227,8 @@ export default function GeradorDocumentos({ responsavel, usuario, onSuccess }) {
   const [sufixoDocumento] = useState(() => String(Date.now()).slice(-5));
   const primeiraSecaoRef = useRef(null);
   const previewPdfUrlRef = useRef("");
+  const dadosRef = useRef(dados);
+  const dirtyRef = useRef(false);
 
   const gestor = usuario?.tipo === "admin";
   const modelos = useMemo(() => MODELOS.map((modelo) => ({ ...modelo, nome: nomesModelos[modelo.id] || modelo.nome })), [nomesModelos]);
@@ -270,17 +283,30 @@ export default function GeradorDocumentos({ responsavel, usuario, onSuccess }) {
 
   useEffect(() => {
     if (!dirty) return undefined;
-    const temporizador = window.setTimeout(() => { persistirRascunho(dados); setSalvoEm(new Date()); setDirty(false); }, 350);
+    const temporizador = window.setTimeout(() => {
+      const dataSalvamento = persistirRascunho(dados);
+      setSalvoEm(dataSalvamento);
+      setDirty(false);
+    }, DOCUMENT_DRAFT_INACTIVITY_MS);
     return () => window.clearTimeout(temporizador);
   }, [dados, dirty]);
 
   useEffect(() => {
+    dadosRef.current = dados;
+    dirtyRef.current = dirty;
+  }, [dados, dirty]);
+
+  useEffect(() => {
     const preservarAntesDeRecarregar = () => {
-      if (dirty) persistirRascunho(dados);
+      if (dirtyRef.current) persistirRascunho(dadosRef.current);
     };
     window.addEventListener("beforeunload", preservarAntesDeRecarregar);
     return () => window.removeEventListener("beforeunload", preservarAntesDeRecarregar);
-  }, [dados, dirty]);
+  }, []);
+
+  useEffect(() => () => {
+    if (dirtyRef.current) persistirRascunho(dadosRef.current);
+  }, []);
 
   useEffect(() => () => { resultado?.arquivos?.forEach((arquivo) => URL.revokeObjectURL(arquivo.url)); }, [resultado]);
   useEffect(() => () => { if (previewPdfUrlRef.current) URL.revokeObjectURL(previewPdfUrlRef.current); }, []);
@@ -352,8 +378,38 @@ export default function GeradorDocumentos({ responsavel, usuario, onSuccess }) {
     atualizarDados(parcial, importados); setBuscaCliente(cliente.nome); setClienteBuscaAberta(false);
   }
 
-  function salvarRascunho() { persistirRascunho(dados); setSalvoEm(new Date()); setDirty(false); onSuccess?.("Rascunho salvo neste dispositivo."); }
-  function cancelarEdicao() { if (!window.confirm("Descartar as alterações deste documento?")) return; localStorage.removeItem(DOCUMENT_DRAFT_KEY); setDados(criarFormularioInicial(responsavel, modeloSelecionado, departamentoUsuario)); setTocados(new Set()); setCamposImportados(new Set()); setDirty(false); }
+  function salvarRascunho() {
+    const dataSalvamento = persistirRascunho(dados);
+    setSalvoEm(dataSalvamento);
+    setDirty(false);
+  }
+
+  function limparFormulario() {
+    const inicial = criarFormularioInicial(responsavel, modeloSelecionado, departamentoUsuario);
+    localStorage.removeItem(DOCUMENT_DRAFT_KEY);
+    dadosRef.current = inicial;
+    dirtyRef.current = false;
+    setDados(inicial);
+    setTocados(new Set());
+    setCamposImportados(new Set());
+    setBuscaCliente("");
+    setSalvoEm(null);
+    setDirty(false);
+  }
+
+  function cancelarEdicao() {
+    if (!window.confirm("Descartar as alterações deste documento?")) return;
+    limparFormulario();
+  }
+
+  function baixarResultadoELimpar() {
+    if (!resultado?.arquivos?.length) return;
+    baixarArquivos(resultado.arquivos);
+    window.setTimeout(() => {
+      limparFormulario();
+      setResultado(null);
+    }, resultado.arquivos.length * 140 + 350);
+  }
 
   async function arquivarNoSupabase(arquivos, registro) {
     if (!dados.salvarNaPasta) return { registro, aviso: "O salvamento automático foi desativado; os arquivos estão disponíveis apenas para download nesta sessão." };
@@ -380,7 +436,7 @@ export default function GeradorDocumentos({ responsavel, usuario, onSuccess }) {
       let arquivamento = { registro: registroBase, aviso: "" };
       try { arquivamento = await arquivarNoSupabase(arquivos, registroBase); } catch (archiveError) { console.warn("Documento gerado sem arquivamento remoto:", archiveError); }
       const registro = { ...arquivamento.registro, arquivos: arquivos.map((arquivo) => ({ nome: arquivo.nome })) };
-      const novoHistorico = [registro, ...historico.filter((item) => item.id !== registro.id)].slice(0, 20); setHistorico(novoHistorico); localStorage.setItem(DOCUMENT_HISTORY_KEY, JSON.stringify(novoHistorico)); localStorage.removeItem(DOCUMENT_DRAFT_KEY); setDirty(false);
+      const novoHistorico = [registro, ...historico.filter((item) => item.id !== registro.id)].slice(0, 20); setHistorico(novoHistorico); localStorage.setItem(DOCUMENT_HISTORY_KEY, JSON.stringify(novoHistorico)); localStorage.removeItem(DOCUMENT_DRAFT_KEY); dirtyRef.current = false; setDirty(false);
       setResultado({ ...registro, arquivos, aviso: "APÓS A ASSINATURA, ANEXE NA PASTA DO CLIENTE NO DRIVE.", numeroDocumento }); setPreviewAtualizadaEm(new Date());
       onSuccess?.(modeloSelecionado.modo === "procuracao" ? mensagemConjuntoGerado(listarDocumentosProcuracao(dados)) : "Documento PDF gerado com sucesso!");
     } catch (generationError) { console.error(generationError); setErro(generationError instanceof Error ? generationError.message : "Não foi possível gerar o PDF. Revise os dados e tente novamente."); } finally { setGerando(false); }
@@ -394,7 +450,7 @@ export default function GeradorDocumentos({ responsavel, usuario, onSuccess }) {
   const razaoBloqueio = pendentes.length ? `Preencha os ${pendentes.length} campos obrigatórios pendentes para gerar o PDF.` : declaracaoIrpfInvalida ? "Informe os exercícios da declaração de IRPF." : "";
 
   return <section className="legal-doc-workspace" ref={primeiraSecaoRef}>
-    {!online ? <div className="legal-doc-offline" role="alert">Sem conexão. Seu rascunho continua salvo neste dispositivo e será preservado até a conexão voltar.</div> : null}
+    {!online ? <div className="legal-doc-offline" role="alert">Sem conexão. O rascunho temporário permanece neste dispositivo por até 24 horas.</div> : null}
     <header className="legal-doc-hero"><div><span className="eyebrow">Platino Workspace Administrativo</span><h1>Gerador de Documentos Jurídicos</h1><p>Selecione um modelo, preencha as informações necessárias e revise o documento antes de gerar o arquivo final.</p></div><div className="legal-doc-hero-badge"><DocumentCategoryIcon name="shield" size={22} /><span><small>Ambiente controlado</small><strong>Documentos rastreáveis</strong></span></div></header>
     <EtapasDocumento etapaAtual={etapaAtual} />
     <div className="legal-doc-layout"><main className="legal-doc-main">
@@ -413,12 +469,12 @@ export default function GeradorDocumentos({ responsavel, usuario, onSuccess }) {
           {modeloSelecionado.modo === "procuracao" ? <section className="legal-doc-bundle"><div><span className="eyebrow">Conjunto documental</span><h3>Gerar declarações com a Procuração</h3><p>Os mesmos dados serão reutilizados nos arquivos selecionados.</p></div><label><input type="checkbox" name="gerarHipossuficiencia" checked={Boolean(dados.gerarHipossuficiencia)} onChange={atualizarCampo} /><span><strong>Declaração de Hipossuficiência</strong><small>Justiça gratuita</small></span></label><label><input type="checkbox" name="gerarIsencaoIrpf" checked={Boolean(dados.gerarIsencaoIrpf)} onChange={atualizarCampo} /><span><strong>Declaração de Isenção de IRPF</strong><small>Isenção de imposto de renda</small></span></label>{dados.gerarIsencaoIrpf ? <label className="legal-doc-field"><span>Exercícios da isenção *</span><input id="exercicios-conjunto" name="exercicios" value={dados.exercicios || ""} onChange={atualizarCampo} placeholder="2024, 2025 e 2026" /></label> : null}<p>{documentosProcuracao.length} {documentosProcuracao.length === 1 ? "PDF será gerado" : "PDFs serão gerados"}.</p></section> : null}
         </section>
         <div className="legal-doc-support-grid"><PainelProgresso total={obrigatorios.length} preenchidos={preenchidos} pendentes={pendentes} onVerPendentes={() => pendentes[0] && focarCampo(pendentes[0].nome)} /><AssistentePreenchimento dados={dados} pendentes={pendentes} errosVisiveis={errosVisiveis} onCorrigir={focarCampo} /></div>{erro ? <p className="legal-doc-form-error" role="alert">{erro}</p> : null}
-        <div className="legal-doc-action-bar"><div><button type="button" className="btn-secondary" onClick={salvarRascunho}>Salvar como rascunho</button><button type="button" className="legal-doc-cancel" onClick={cancelarEdicao}>Cancelar</button><span className={online ? "saved" : "offline"}>{online ? `✓ Salvo automaticamente às ${salvoEm.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}` : "Rascunho local — sem conexão"}</span></div><div><button type="button" className="btn-secondary" onClick={() => setPreviewFullscreen(true)}>Revisar documento</button><span className="legal-doc-generate-wrap"><button type="button" className="btn-primary" disabled={!podeGerar} onClick={() => handleGerarPdf()}>{gerando ? "Gerando arquivos…" : `Gerar ${modeloSelecionado.modo === "procuracao" ? `${documentosProcuracao.length} ` : ""}PDF${modeloSelecionado.modo === "procuracao" && documentosProcuracao.length > 1 ? "s" : ""}`}</button>{razaoBloqueio ? <small>{razaoBloqueio}</small> : null}</span></div></div>
+        <div className="legal-doc-action-bar"><div><button type="button" className="btn-secondary" onClick={salvarRascunho}>Salvar rascunho por 24h</button><button type="button" className="legal-doc-cancel" onClick={cancelarEdicao}>Cancelar</button>{salvoEm ? <span className={online ? "saved" : "offline"}>Rascunho temporário salvo às {salvoEm.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}</span> : null}</div><div><button type="button" className="btn-secondary" onClick={() => setPreviewFullscreen(true)}>Revisar documento</button><span className="legal-doc-generate-wrap"><button type="button" className="btn-primary" disabled={!podeGerar} onClick={() => handleGerarPdf()}>{gerando ? "Gerando arquivos…" : `Gerar ${modeloSelecionado.modo === "procuracao" ? `${documentosProcuracao.length} ` : ""}PDF${modeloSelecionado.modo === "procuracao" && documentosProcuracao.length > 1 ? "s" : ""}`}</button>{razaoBloqueio ? <small>{razaoBloqueio}</small> : null}</span></div></div>
       </form>
     </main><aside className="legal-doc-preview-column"><PainelPrevia modelo={modeloSelecionado} nomeDocumento={nomeSugerido} numeroDocumento={numeroDocumento} atualizadoEm={previewAtualizadaEm} gerando={gerando || previewPdfGerando} pdfUrl={previewPdfUrl} erroPrevia={previewPdfErro} onFullscreen={() => setPreviewFullscreen(true)} onRefresh={() => setPreviewVersao((versao) => versao + 1)} /></aside></div>
     <DocumentosRecentes documentos={historico} busca={buscaHistorico} onBusca={setBuscaHistorico} onOpen={abrirHistorico} onDuplicate={(item) => carregarRegistro(item, false)} onVersion={(item) => carregarRegistro(item, true)} />
     <ModelLibraryModal aberto={bibliotecaAberta} modelos={modelos} selecionadoId={modeloSelecionado.id} favoritos={favoritos} recentes={modelosRecentes} onClose={() => setBibliotecaAberta(false)} onSelect={selecionarModelo} onToggleFavorite={alternarFavorito} />
     {previewFullscreen ? <div className="legal-doc-fullscreen-backdrop"><PainelPrevia fullscreen modelo={modeloSelecionado} nomeDocumento={nomeSugerido} numeroDocumento={numeroDocumento} atualizadoEm={previewAtualizadaEm} gerando={gerando || previewPdfGerando} pdfUrl={previewPdfUrl} erroPrevia={previewPdfErro} onFullscreen={() => setPreviewFullscreen(false)} onRefresh={() => setPreviewVersao((versao) => versao + 1)} /></div> : null}
-    <ModalSucesso resultado={resultado} onClose={() => setResultado(null)} onDownload={() => baixarArquivos(resultado.arquivos)} onOpen={() => window.open(resultado.arquivos[0].url, "_blank", "noopener,noreferrer")} onCopy={copiarLink} onSignature={prepararAssinatura} onLibrary={() => { setResultado(null); setBibliotecaAberta(true); }} onAnother={() => { setResultado(null); setDados((atual) => ({ ...atual, versao: 1 })); setDirty(true); }} />
+    <ModalSucesso resultado={resultado} onClose={() => setResultado(null)} onDownload={baixarResultadoELimpar} onOpen={() => window.open(resultado.arquivos[0].url, "_blank", "noopener,noreferrer")} onCopy={copiarLink} onSignature={prepararAssinatura} onLibrary={() => { setResultado(null); setBibliotecaAberta(true); }} onAnother={() => { setResultado(null); setDados((atual) => ({ ...atual, versao: 1 })); setDirty(true); }} />
   </section>;
 }
