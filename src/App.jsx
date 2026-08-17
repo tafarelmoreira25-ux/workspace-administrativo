@@ -7,7 +7,6 @@ import ClienteDriveSelector from './components/ClienteDriveSelector';
 import MuralAtualizacoesGerais from './components/MuralAtualizacoesGerais';
 import TreinamentosOperacionais, { AvisoTreinamentoTarefa } from './components/TreinamentosOperacionais';
 import { GOOGLE_DRIVE_CLIENTES_ROOT_URL } from './lib/googleDriveClients';
-import { tarefaExigeComprovacao } from './lib/taskCompletionRules';
 import { destinoDaNotificacao } from './lib/notificationRouting';
 import {
   aplicarSugestaoAoFormulario,
@@ -232,26 +231,13 @@ function nomeComprovanteDrive(tarefa) {
 }
 
 function validarEntregaPop(entrega, tarefa) {
-  if (!entrega.observacoes?.trim()) return "Informe a devolutiva do que foi executado.";
-  if (tarefaEhGrupoWhatsapp(tarefa)) {
-    const criterios = Array.isArray(tarefa?.criterios_conclusao)
-      ? tarefa.criterios_conclusao
-      : [];
-    const criterioPendente = criterios.find(
-      (criterio) => entrega.checklist?.[criterio] !== true,
-    );
-    if (criterioPendente) {
-      return `Confirme a etapa "${criterioPendente}" antes de concluir.`;
-    }
-  }
-  if (tarefaExigeComprovacao(tarefa) && !urlGoogleDriveValida(entrega.driveUrl)) {
-    return "Cole um link válido do Google Drive para comprovar o arquivamento.";
-  }
   if (entrega.driveUrl?.trim() && !urlGoogleDriveValida(entrega.driveUrl)) {
     return "O link opcional informado precisa ser do Google Drive.";
   }
-  if (!entrega.crmAtualizado) return "Confirme a atualização do CRM.";
-  if (!entrega.planilhaAtualizada) return "Confirme a atualização da Planilha Geral.";
+  const algumaAcaoRealizada = Object.values(entrega.checklist || {}).some(Boolean)
+    || entrega.crmAtualizado === true
+    || entrega.planilhaAtualizada === true;
+  if (!algumaAcaoRealizada) return "Marque pelo menos uma opção do que foi realizado.";
   return null;
 }
 
@@ -1151,20 +1137,17 @@ function ModalDevolucao({ tarefa, onClose, onConfirmar }) {
 function EntregaPop({ tarefa, valor, onChange }) {
   const atualizar = (campo, novoValor) => onChange({ ...valor, [campo]: novoValor });
   const criterios = Array.isArray(tarefa.criterios_conclusao) ? tarefa.criterios_conclusao : [];
-  const comprovacaoObrigatoria = tarefaExigeComprovacao(tarefa);
   return (
     <section className="document-checklist pop-delivery-checklist">
       <div className="document-checklist-heading">
-        <div><span className="eyebrow">POP 1.0 · prestação de contas</span><h4>Checklist de conclusão</h4><p>{comprovacaoObrigatoria ? "Esta tarefa entrega um documento; informe o link do arquivo no Drive." : "Registre a execução. O link do Drive é opcional para esta tarefa."}</p></div>
+        <div><span className="eyebrow">Registro da execução</span><h4>O que foi realizado?</h4><p>Marque pelo menos uma opção. Não é necessário marcar todas.</p></div>
       </div>
-      <label>Observações / devolutiva<textarea rows="3" value={valor.observacoes || ""} onChange={(e) => atualizar("observacoes", e.target.value)} placeholder="Descreva objetivamente o que foi executado e eventuais pendências." /></label>
-      <label className="drive-link-field"><span>Link do Documento no Google Drive {comprovacaoObrigatoria ? "*" : "(opcional)"}</span><input type="url" value={valor.driveUrl || ""} onChange={(e) => atualizar("driveUrl", e.target.value)} placeholder="https://drive.google.com/file/d/..." aria-describedby={`drive-link-help-${tarefa.id}`} required={comprovacaoObrigatoria} /><small id={`drive-link-help-${tarefa.id}`}>Insira o link do arquivo salvo na pasta do cliente no Google Drive para comprovação da tarefa.</small></label>
-      {comprovacaoObrigatoria && <small className="drive-link-filename">Nome técnico registrado automaticamente: {nomeComprovanteDrive(tarefa)}</small>}
       <div className="document-checklist-grid">
         {criterios.map((criterio) => <label className={valor.checklist?.[criterio] ? "checked" : ""} key={criterio}><input type="checkbox" checked={valor.checklist?.[criterio] || false} onChange={(e) => atualizar("checklist", { ...(valor.checklist || {}), [criterio]: e.target.checked })} /><span>{criterio}</span></label>)}
         <label className={valor.crmAtualizado ? "checked" : ""}><input type="checkbox" checked={valor.crmAtualizado || false} onChange={(e) => atualizar("crmAtualizado", e.target.checked)} /><span>CRM atualizado</span></label>
         <label className={valor.planilhaAtualizada ? "checked" : ""}><input type="checkbox" checked={valor.planilhaAtualizada || false} onChange={(e) => atualizar("planilhaAtualizada", e.target.checked)} /><span>Planilha Geral atualizada</span></label>
       </div>
+      <label className="drive-link-field"><span>Link do documento no Google Drive (opcional)</span><input type="url" value={valor.driveUrl || ""} onChange={(e) => atualizar("driveUrl", e.target.value)} placeholder="https://drive.google.com/file/d/..." aria-describedby={`drive-link-help-${tarefa.id}`} /><small id={`drive-link-help-${tarefa.id}`}>Se houver um arquivo ou pasta de comprovação, você pode registrar o link.</small></label>
       {/(distrato|desist.ncia|fim de servi.o|encerramento)/i.test(normalizarTexto(`${tarefa.titulo} ${tarefa.descricao}`)) && <div className="return-alert"><strong>Arquivo morto:</strong> confirme o distrato assinado e as provas sociais; depois mova a pasta para 02_ARQUIVO_MORTO.</div>}
     </section>
   );
@@ -1199,7 +1182,7 @@ function ModalConclusaoTarefa({ tarefa, entrega, enviando, onChange, onClose, on
       </div>
       <form className="stack-form completion-form" onSubmit={confirmar}>
         <PastaClienteTarefa tarefa={tarefa} destaque />
-        <div className="completion-intro"><strong>Registre o que foi realizado.</strong><span>As observações e comprovações ficam no histórico da tarefa.</span></div>
+        <div className="completion-intro"><strong>Registre o que foi realizado.</strong><span>Se não foi possível cumprir, use “Devolver tarefa” e informe a devolutiva.</span></div>
         <AvisoTreinamentoTarefa tarefa={tarefa} />
         <EntregaPop tarefa={tarefa} valor={entrega} onChange={onChange} />
         <label className="completion-image-field">
@@ -4530,27 +4513,27 @@ function EmployeeDashboard({ usuario, onLogout, state }) {
     if (tarefa.origem === "operacional") {
       const resposta = await supabase.rpc("movimentar_tarefa_operacional", {
         p_tarefa_id: Number(tarefa.id), p_acao: "concluir", p_motivo: null,
-        p_checklist: entrega.checklist || {}, p_observacoes: entrega.observacoes.trim(),
-        p_nome_arquivo: nomeComprovanteDrive(tarefa), p_drive_url: entrega.driveUrl.trim(),
+        p_checklist: entrega.checklist || {}, p_observacoes: (entrega.observacoes || "").trim(),
+        p_nome_arquivo: nomeComprovanteDrive(tarefa), p_drive_url: (entrega.driveUrl || "").trim(),
         p_crm_atualizado: entrega.crmAtualizado, p_planilha_atualizada: entrega.planilhaAtualizada,
       });
       error = resposta.error;
       tarefaAtualizada = Array.isArray(resposta.data) ? resposta.data[0] : resposta.data;
     } else if (tarefa.origem === "esteira") {
       const resposta = await supabase.rpc("concluir_tarefa_pop", {
-        p_tarefa_id: Number(tarefa.id), p_observacoes: entrega.observacoes.trim(),
-        p_nome_arquivo: nomeComprovanteDrive(tarefa), p_drive_url: entrega.driveUrl.trim(),
+        p_tarefa_id: Number(tarefa.id), p_observacoes: (entrega.observacoes || "").trim(),
+        p_nome_arquivo: nomeComprovanteDrive(tarefa), p_drive_url: (entrega.driveUrl || "").trim(),
         p_crm_atualizado: entrega.crmAtualizado, p_planilha_atualizada: entrega.planilhaAtualizada,
-        p_resultado: tarefaExigeChecklistDocumentos(tarefa) ? "regular" : "nao_se_aplica",
+        p_resultado: tarefaExigeChecklistDocumentos(tarefa) ? "regular" : "nao_se_aplica", p_checklist: entrega.checklist || {},
       });
       error = resposta.error;
       tarefaAtualizada = resposta.data?.tarefa_concluida || resposta.data || null;
     } else {
       const resposta = await supabase.rpc("concluir_tarefa_pop", {
-        p_tarefa_id: Number(tarefa.id), p_observacoes: entrega.observacoes.trim(),
-        p_nome_arquivo: nomeComprovanteDrive(tarefa), p_drive_url: entrega.driveUrl.trim(),
+        p_tarefa_id: Number(tarefa.id), p_observacoes: (entrega.observacoes || "").trim(),
+        p_nome_arquivo: nomeComprovanteDrive(tarefa), p_drive_url: (entrega.driveUrl || "").trim(),
         p_crm_atualizado: entrega.crmAtualizado, p_planilha_atualizada: entrega.planilhaAtualizada,
-        p_resultado: "nao_se_aplica",
+        p_resultado: "nao_se_aplica", p_checklist: entrega.checklist || {},
       });
       error = resposta.error;
       tarefaAtualizada = resposta.data?.tarefa_concluida || resposta.data;

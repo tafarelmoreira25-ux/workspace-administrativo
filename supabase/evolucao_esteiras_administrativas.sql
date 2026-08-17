@@ -285,7 +285,7 @@ begin
   if not public.usuario_e_admin() and atual.funcionaria_id is distinct from usuario_id then raise exception 'Tarefa nao autorizada.'; end if;
   if atual.status not in ('nova','em_andamento','em_revisao') then raise exception 'A tarefa nao esta disponivel para conclusao.'; end if;
   select * into etapa from public.modelos_etapas where id=atual.etapa_modelo_id;
-  if etapa.evidencia_obrigatoria and nullif(trim(coalesce(p_evidencia_url,'')),'') is null then raise exception 'Evidencia obrigatoria.'; end if;
+  -- Evidencias (link ou imagem) sao opcionais na conclusao.
 
   if atual.codigo_etapa='ADM-007' and p_resultado='pendencia' then
     update public.tarefas set status='aguardando_cliente',motivo_bloqueio='Documentacao pendente',updated_at=now() where id=atual.id;

@@ -69,7 +69,6 @@ declare
   anterior text;
   uid bigint:=public.funcionario_id_autenticado();
   email_autor text:=lower(coalesce(auth.jwt()->>'email',''));
-  checklist_ok boolean := true;
   destino text;
   descricao_evento text;
   evento text;
@@ -99,28 +98,16 @@ begin
     if char_length(trim(coalesce(p_motivo,'')))<10 then raise exception 'Justificativa obrigatoria.'; end if;
     destino:='devolvida'; descricao_evento:='Tarefa devolvida ao solicitante: '||trim(p_motivo); evento:='devolver_solicitante';
   elsif p_acao in ('concluir','devolver_conferencia') and t.status='em_execucao' then
-    if jsonb_typeof(coalesce(t.criterios_conclusao, '[]'::jsonb)) = 'array' then
-      checklist_ok := not exists(
-        select 1 from jsonb_array_elements_text(coalesce(t.criterios_conclusao, '[]'::jsonb)) as criterio(valor)
-        where coalesce((coalesce(p_checklist, '{}'::jsonb)->>criterio.valor)::boolean,false)=false
-      );
+    if not coalesce(p_crm_atualizado,false)
+       and not coalesce(p_planilha_atualizada,false)
+       and not exists (
+         select 1 from jsonb_each(coalesce(p_checklist, '{}'::jsonb)) as item
+         where item.value = 'true'::jsonb
+       ) then
+      raise exception 'Marque pelo menos uma opcao do que foi realizado.';
     end if;
-    if not checklist_ok then raise exception 'Conclua todos os criterios da tarefa.'; end if;
-    if nullif(trim(coalesce(p_observacoes,'')),'') is null then raise exception 'Devolutiva obrigatoria.'; end if;
-
-    if t.requer_comprovacao then
-      if nome_arquivo is null or nome_arquivo !~* '^\d{4}-\d{2}-\d{2}(_[A-Z0-9]+(-[A-Z0-9]+)*){4}\.[A-Z0-9]{2,5}$' then
-        raise exception 'Nomenclatura invalida. Use DATA_CLIENTE_TIPO_STATUS_RESPONSAVEL.extensao.';
-      end if;
-      if link_drive is null or link_drive !~* '^https://(drive|docs)\.google\.com/' then
-        raise exception 'Link do documento no Google Drive obrigatorio para esta tarefa.';
-      end if;
-    elsif link_drive is not null and link_drive !~* '^https://(drive|docs)\.google\.com/' then
+    if link_drive is not null and link_drive !~* '^https://(drive|docs)\.google\.com/' then
       raise exception 'O link informado deve ser do Google Drive.';
-    end if;
-
-    if not coalesce(p_crm_atualizado,false) or not coalesce(p_planilha_atualizada,false) then
-      raise exception 'CRM e Planilha Geral devem estar atualizados.';
     end if;
 
     destino:='concluida';
@@ -131,8 +118,8 @@ begin
     t.nome_arquivo_evidencia:=case when link_drive is not null then nome_arquivo else null end;
     t.evidencia_url:=coalesce(link_drive,t.evidencia_url);
     t.drive_document_url:=coalesce(link_drive,t.drive_document_url);
-    t.crm_atualizado:=true;
-    t.planilha_atualizada:=true;
+    t.crm_atualizado:=coalesce(p_crm_atualizado,false);
+    t.planilha_atualizada:=coalesce(p_planilha_atualizada,false);
     t.drive_arquivado:=link_drive is not null;
     t.concluida_em:=now();
   elsif p_acao='aprovar' and t.status='devolvida_conferencia' then
@@ -178,7 +165,7 @@ $$;
 create or replace function public.concluir_tarefa_pop(
   p_tarefa_id bigint, p_observacoes text, p_nome_arquivo text,
   p_drive_url text, p_crm_atualizado boolean, p_planilha_atualizada boolean,
-  p_resultado text default 'nao_se_aplica'
+  p_resultado text default 'nao_se_aplica', p_checklist jsonb default null
 ) returns jsonb language plpgsql security definer set search_path=public as $$
 declare
   tarefa public.tarefas;
@@ -193,23 +180,17 @@ begin
   if not public.usuario_e_admin() and tarefa.funcionaria_id is distinct from public.funcionario_id_autenticado() then
     raise exception 'Tarefa nao autorizada.';
   end if;
-  if nullif(trim(coalesce(p_observacoes,'')),'') is null then
-    raise exception 'Tarefa nao pode ser concluida. Informe a devolutiva do que foi executado.';
-  end if;
-
-  if tarefa.requer_comprovacao then
-    if nome_normalizado is null or nome_normalizado !~* '^\d{4}-\d{2}-\d{2}(_[A-Z0-9]+(-[A-Z0-9]+)*){4}\.[A-Z0-9]{2,5}$' then
-      raise exception 'Tarefa nao pode ser concluida. Nomenclatura invalida.';
-    end if;
-    if link_drive is null or link_drive !~* '^https://(drive|docs)\.google\.com/' then
-      raise exception 'Tarefa nao pode ser concluida. Informe o link do documento no Google Drive.';
-    end if;
-  elsif link_drive is not null and link_drive !~* '^https://(drive|docs)\.google\.com/' then
+  if link_drive is not null and link_drive !~* '^https://(drive|docs)\.google\.com/' then
     raise exception 'O link informado deve ser do Google Drive.';
   end if;
 
-  if coalesce(p_crm_atualizado,false) is false or coalesce(p_planilha_atualizada,false) is false then
-    raise exception 'Tarefa nao pode ser concluida. Atualize o CRM e a Planilha Geral.';
+  if not coalesce(p_crm_atualizado,false)
+     and not coalesce(p_planilha_atualizada,false)
+     and not exists (
+       select 1 from jsonb_each(coalesce(p_checklist, '{}'::jsonb)) as item
+       where item.value = 'true'::jsonb
+     ) then
+    raise exception 'Marque pelo menos uma opcao do que foi realizado.';
   end if;
 
   update public.tarefas set
@@ -218,7 +199,8 @@ begin
     evidencia_url=coalesce(link_drive,evidencia_url),
     drive_document_url=coalesce(link_drive,drive_document_url),
     drive_arquivado=link_drive is not null,
-    crm_atualizado=true,planilha_atualizada=true,
+    crm_atualizado=coalesce(p_crm_atualizado,false),
+    planilha_atualizada=coalesce(p_planilha_atualizada,false),
     arquivar_cliente_alerta=lower(coalesce(titulo,'') || ' ' || coalesce(descricao,''))
       ~ '(distrato|desistência|desistencia|fim de serviço|fim de servico|encerramento)',updated_at=now()
   where id=p_tarefa_id returning * into tarefa;
@@ -263,8 +245,8 @@ revoke all on function public.tipo_tarefa_exige_documento(text) from public;
 grant execute on function public.tipo_tarefa_exige_documento(text) to authenticated, service_role;
 revoke all on function public.movimentar_tarefa_operacional(bigint,text,text,jsonb,text,text,text,boolean,boolean) from public;
 grant execute on function public.movimentar_tarefa_operacional(bigint,text,text,jsonb,text,text,text,boolean,boolean) to authenticated;
-revoke all on function public.concluir_tarefa_pop(bigint,text,text,text,boolean,boolean,text) from public;
-grant execute on function public.concluir_tarefa_pop(bigint,text,text,text,boolean,boolean,text) to authenticated;
+revoke all on function public.concluir_tarefa_pop(bigint,text,text,text,boolean,boolean,text,jsonb) from public;
+grant execute on function public.concluir_tarefa_pop(bigint,text,text,text,boolean,boolean,text,jsonb) to authenticated;
 
 comment on function public.concluir_tarefa_pop is
 'Conclui a tarefa diretamente; exige link do Drive somente quando requer_comprovacao=true.';

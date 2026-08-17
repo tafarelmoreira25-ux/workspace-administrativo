@@ -86,7 +86,7 @@ for each row execute function public.gerar_id_tarefa_pop();
 create or replace function public.concluir_tarefa_pop(
   p_tarefa_id bigint, p_observacoes text, p_nome_arquivo text,
   p_drive_url text, p_crm_atualizado boolean, p_planilha_atualizada boolean,
-  p_resultado text default 'nao_se_aplica'
+  p_resultado text default 'nao_se_aplica', p_checklist jsonb default null
 ) returns jsonb language plpgsql security definer set search_path=public as $$
 declare tarefa public.tarefas; retorno jsonb; nome_normalizado text;
 begin
@@ -95,23 +95,26 @@ begin
   if not public.usuario_e_admin() and tarefa.funcionaria_id is distinct from public.funcionario_id_autenticado() then
     raise exception 'Tarefa nao autorizada.';
   end if;
-  if nullif(trim(coalesce(p_observacoes,'')),'') is null then
-    raise exception 'Tarefa nao pode ser concluida. Informe a devolutiva do que foi executado.';
-  end if;
   nome_normalizado := trim(coalesce(p_nome_arquivo,''));
-  if nome_normalizado !~* '^\d{4}-\d{2}-\d{2}(_[A-Z0-9]+(-[A-Z0-9]+)*){4}\.[A-Z0-9]{2,5}$' then
-    raise exception 'Tarefa nao pode ser concluida. Nomenclatura invalida: use DATA_CLIENTE_TIPO-DE-DOCUMENTO_STATUS_RESPONSAVEL.extensao.';
+  if nullif(trim(coalesce(p_drive_url,'')), '') is not null
+     and trim(p_drive_url) !~* '^https://(drive|docs)\.google\.com/' then
+    raise exception 'O link informado deve ser do Google Drive.';
   end if;
-  if trim(coalesce(p_drive_url,'')) !~* '^https://(drive|docs)\.google\.com/' then
-    raise exception 'Tarefa nao pode ser concluida. Informe o link do arquivo no Google Drive.';
-  end if;
-  if coalesce(p_crm_atualizado,false) is false or coalesce(p_planilha_atualizada,false) is false then
-    raise exception 'Tarefa nao pode ser concluida. Atualize o CRM e a Planilha Geral.';
+  if not coalesce(p_crm_atualizado,false)
+     and not coalesce(p_planilha_atualizada,false)
+     and not exists (
+       select 1 from jsonb_each(coalesce(p_checklist, '{}'::jsonb)) as item
+       where item.value = 'true'::jsonb
+     ) then
+    raise exception 'Marque pelo menos uma opcao do que foi realizado.';
   end if;
 
   update public.tarefas set observacoes_devolutiva=trim(p_observacoes),
-    nome_arquivo_evidencia=nome_normalizado,evidencia_url=trim(p_drive_url),
-    drive_arquivado=true,crm_atualizado=true,planilha_atualizada=true,
+    nome_arquivo_evidencia=case when nullif(trim(coalesce(p_drive_url,'')), '') is not null then nome_normalizado else nome_arquivo_evidencia end,
+    evidencia_url=coalesce(nullif(trim(coalesce(p_drive_url,'')), ''),evidencia_url),
+    drive_arquivado=nullif(trim(coalesce(p_drive_url,'')), '') is not null,
+    crm_atualizado=coalesce(p_crm_atualizado,false),
+    planilha_atualizada=coalesce(p_planilha_atualizada,false),
     arquivar_cliente_alerta=lower(coalesce(titulo,'') || ' ' || coalesce(descricao,''))
       ~ '(distrato|desistência|desistencia|fim de serviço|fim de servico|encerramento)',updated_at=now()
   where id=p_tarefa_id returning * into tarefa;
@@ -125,8 +128,8 @@ begin
   return retorno;
 end $$;
 
-revoke all on function public.concluir_tarefa_pop(bigint,text,text,text,boolean,boolean,text) from public;
-grant execute on function public.concluir_tarefa_pop(bigint,text,text,text,boolean,boolean,text) to authenticated;
+revoke all on function public.concluir_tarefa_pop(bigint,text,text,text,boolean,boolean,text,jsonb) from public;
+grant execute on function public.concluir_tarefa_pop(bigint,text,text,text,boolean,boolean,text,jsonb) to authenticated;
 
 comment on function public.concluir_tarefa_pop is
 'Aplica as validacoes obrigatorias de nomenclatura, Drive, CRM, Planilha e devolutiva do POP 1.0.';
