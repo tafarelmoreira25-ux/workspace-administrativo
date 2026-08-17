@@ -2722,7 +2722,6 @@ function AdminDashboard({ usuario, onLogout, state }) {
           <span className="nav-label">Navegação</span>
           <NavItem active={abaAtiva === "dashboard"} icon="dashboard" onClick={() => setAbaAtiva("dashboard")} options={["Indicadores", "Urgências", "Ranking"]}>Dashboard</NavItem>
           <NavItem active={abaAtiva === "tarefas"} icon="tarefas" onClick={() => setAbaAtiva("tarefas")} options={["Criar tarefa", "Apontamentos", "Filtros rápidos"]}>Tarefas</NavItem>
-          <NavItem active={abaAtiva === "treinamentos"} icon="treinamento" onClick={() => setAbaAtiva("treinamentos")}>Treinamentos</NavItem>
           <NavItem active={abaAtiva === "clientes"} icon="equipe" onClick={() => setAbaAtiva("clientes")}>Clientes</NavItem>
           <NavItem active={abaAtiva === "status_processual"} icon="processual" onClick={() => setAbaAtiva("status_processual")}>Status Processual</NavItem>
           <NavItem active={abaAtiva === "urgencias"} icon="feedback" onClick={() => setAbaAtiva("urgencias")}>Urgências</NavItem>
@@ -2782,6 +2781,15 @@ function AdminDashboard({ usuario, onLogout, state }) {
                   <button className="btn-secondary" onClick={() => setAbaAtiva("historico")}>Ver histórico</button>
                 </div>
               </div>
+            </section>
+            <section className="panel training-home-access">
+              <img src="/assets/icons/pdf-treinamento.png" alt="" aria-hidden="true" />
+              <div>
+                <span className="eyebrow">Biblioteca operacional</span>
+                <h2>Documentos de treinamento</h2>
+                <p>Consulte manuais, apresentações e materiais indicados para as tarefas da equipe.</p>
+              </div>
+              <button className="btn-primary" type="button" onClick={() => setAbaAtiva("treinamentos")}>Acessar documentos</button>
             </section>
           </>
         )}
@@ -4603,7 +4611,6 @@ function EmployeeDashboard({ usuario, onLogout, state }) {
           <NavItem active={abaAtiva === "inicio"} icon="dashboard" onClick={() => setAbaAtiva("inicio")}>Início</NavItem>
           {permissoes.tarefas && <NavItem active={abaAtiva === "tarefas"} icon="tarefas" onClick={() => setAbaAtiva("tarefas")}>Tarefas e urgências</NavItem>}
           <NavItem active={abaAtiva === "delegar"} icon="tarefas" onClick={() => setAbaAtiva("delegar")}>Delegar tarefa</NavItem>
-          <NavItem active={abaAtiva === "treinamentos"} icon="treinamento" onClick={() => setAbaAtiva("treinamentos")}>Treinamentos</NavItem>
           {permissoes.acompanhar_equipe && <NavItem active={abaAtiva === "acompanhamento"} icon="dashboard" onClick={() => setAbaAtiva("acompanhamento")}>Tarefas da equipe</NavItem>}
           {podeAcessarCarteiraHunter && <NavItem active={abaAtiva === "hunter"} icon="equipe" onClick={() => setAbaAtiva("hunter")}>{ehHunter ? "Carteira Hunter" : "Clientes indicados"}</NavItem>}
           {permissoes.clientes && <NavItem active={abaAtiva === "clientes"} icon="equipe" onClick={() => setAbaAtiva("clientes")}>Clientes</NavItem>}
@@ -4628,7 +4635,19 @@ function EmployeeDashboard({ usuario, onLogout, state }) {
           </div>
         </header>
 
-        {abaAtiva === "inicio" && <><InicioColaborador tarefas={listaTarefas} usuario={usuario} onNavigate={navegarDaTelaInicial} feedbacks={meusFeedbacks} onAtualizarFeedbacks={atualizarMeusFeedbacks} />{permissoes.planner && <section className="dashboard-planner-section"><MeuPlanner funcionariaLogadaId={usuario.id} /></section>}</>}
+        {abaAtiva === "inicio" && <>
+          <InicioColaborador tarefas={listaTarefas} usuario={usuario} onNavigate={navegarDaTelaInicial} feedbacks={meusFeedbacks} onAtualizarFeedbacks={atualizarMeusFeedbacks} />
+          {permissoes.planner && <section className="dashboard-planner-section"><MeuPlanner funcionariaLogadaId={usuario.id} /></section>}
+          <section className="panel training-home-access">
+            <img src="/assets/icons/pdf-treinamento.png" alt="" aria-hidden="true" />
+            <div>
+              <span className="eyebrow">Biblioteca operacional</span>
+              <h2>Documentos de treinamento</h2>
+              <p>Consulte os materiais recomendados para executar cada atividade da esteira.</p>
+            </div>
+            <button className="btn-primary" type="button" onClick={() => setAbaAtiva("treinamentos")}>Acessar documentos</button>
+          </section>
+        </>}
 
         {abaAtiva === "tarefas" && (
           <div className="employee-tasks-workspace">
@@ -5740,6 +5759,11 @@ export default function App() {
         .resource-link { display: flex; align-items: center; gap: 10px; margin-bottom: 9px; padding: 12px 13px; color: #506b8e; background: rgba(247,251,255,.8); border: 1px solid rgba(104,148,201,.15); border-radius: 12px; cursor: pointer; font-size: 11px; font-weight: 700; text-align: left; transition: .2s; }
         .resource-link:hover { color: var(--accent-strong); background: #fff; transform: translateX(2px); }
         .resource-link.primary { color: #fff; background: linear-gradient(135deg, #5a97ee, #4c83dc); }
+        .training-home-access { display: grid; grid-template-columns: auto minmax(0,1fr) auto; align-items: center; gap: 18px; margin-top: 24px; overflow: hidden; background: linear-gradient(135deg,rgba(255,255,255,.92),rgba(238,246,255,.88)); border-color: rgba(78,124,181,.15); }
+        .training-home-access > img { width: 68px; height: 68px; object-fit: contain; filter: drop-shadow(0 7px 10px rgba(134,29,38,.15)); }
+        .training-home-access h2 { margin: 3px 0 4px; font-size: 18px; }
+        .training-home-access p { margin: 0; font-size: 11px; }
+        .training-home-access > button { min-width: 170px; }
 
         .toast-message { position: fixed; right: 28px; bottom: 28px; z-index: 1000; padding: 15px 20px; color: #fff; background: rgba(12,33,71,.94); border: 1px solid rgba(255,255,255,.12); border-radius: 14px; box-shadow: 0 18px 45px rgba(12,33,71,.3); font-size: 12px; font-weight: 700; backdrop-filter: blur(18px); animation: slideUp .3s ease-out; }
         @keyframes slideUp { from { transform: translateY(50px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
@@ -7193,8 +7217,8 @@ export default function App() {
         .drive-client-field > label { color: #284568; font-size: 11px; font-weight: 800; }
         .drive-client-combobox { position: relative; min-width: 0; }
         .google-drive-icon { display: block; flex: 0 0 auto; }
-        .drive-client-combobox .drive-search-icon { position: absolute; z-index: 2; left: 13px; top: 50%; width: 21px; height: 21px; transform: translateY(-50%); pointer-events: none; filter: drop-shadow(0 2px 2px rgba(34,80,131,.12)); }
-        .drive-client-combobox input { width: 100%; min-height: 44px; margin: 0; padding-left: 42px; padding-right: 42px; }
+        .drive-client-combobox .drive-search-icon { position: absolute; z-index: 2; left: 16px; top: 50%; width: 22px; height: 22px; transform: translateY(-50%); pointer-events: none; filter: drop-shadow(0 2px 2px rgba(34,80,131,.12)); }
+        .drive-client-combobox input { width: 100%; min-height: 44px; margin: 0; padding-left: 54px !important; padding-right: 42px !important; }
         .drive-client-combobox.is-open input { border-color: #4c8ef7; box-shadow: 0 0 0 3px rgba(76,142,247,.12); }
         .drive-client-clear { position: absolute; z-index: 3; right: 8px; top: 50%; width: 32px; height: 32px; transform: translateY(-50%); border: 0; border-radius: 9px; background: transparent; color: #637b9a; font-size: 22px; cursor: pointer; }
         .drive-client-options { position: absolute; z-index: 80; top: calc(100% + 7px); left: 0; right: 0; display: grid; max-height: 310px; overflow-y: auto; padding: 7px; background: #fff; border: 1px solid rgba(60,112,182,.22); border-radius: 14px; box-shadow: 0 22px 52px rgba(25,65,117,.2); }
@@ -7356,6 +7380,9 @@ export default function App() {
           .topbar-actions { align-items: stretch; }
           .general-updates-notes { grid-template-columns: 1fr; }
           .general-update-note { min-height: 82px; transform: none !important; }
+          .training-home-access { grid-template-columns: auto minmax(0,1fr); }
+          .training-home-access > img { width: 54px; height: 54px; }
+          .training-home-access > button { grid-column: 1 / -1; width: 100%; }
           .verified-user-profile { min-width: 0; gap: 12px; padding: 10px 12px; }
           .verified-user-profile .member-avatar-wrap.compact { width: 82px; height: 82px; flex-basis: 82px; }
           .profile-user-name { max-width: min(46vw, 220px); font-size: 13px; }

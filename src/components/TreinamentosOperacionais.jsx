@@ -7,7 +7,12 @@ import {
 import "../trainingResources.css";
 
 function IconeTreinamento({ tipo }) {
-  const icone = tipo === "PDF" ? "PDF" : tipo === "Apresentação" ? "▶" : tipo === "Google Docs" ? "G" : "DOC";
+  if (tipo === "PDF") {
+    return <span className="training-resource-icon training-resource-pdf has-image">
+      <img alt="" aria-hidden="true" src="/assets/icons/pdf-treinamento.png" />
+    </span>;
+  }
+  const icone = tipo === "Apresentação" ? "▶" : tipo === "Google Docs" ? "G" : "DOC";
   return <span className={`training-resource-icon training-resource-${tipo.toLowerCase().replaceAll(" ", "-")}`}>{icone}</span>;
 }
 
