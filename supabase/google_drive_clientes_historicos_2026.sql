@@ -164,16 +164,19 @@ as $$
     c.drive_folder_id, c.drive_status, c.drive_path,
     c.drive_modified_time, c.drive_last_synced_at
   from public.clientes c
-  where c.drive_status in ('ativo', 'arquivado')
-    and c.drive_folder_id is not null
-    and (
+  where (
       nullif(trim(coalesce(p_busca, '')), '') is null
       or c.nome ilike '%' || trim(p_busca) || '%'
       or c.pasta_drive_nome ilike '%' || trim(p_busca) || '%'
       or c.drive_path ilike '%' || trim(p_busca) || '%'
+      or c.codigo_interno ilike '%' || trim(p_busca) || '%'
     )
     and (public.usuario_e_admin() or public.funcionario_id_autenticado() is not null)
-  order by (c.drive_status = 'ativo') desc, c.nome, c.drive_path
+  order by
+    (c.drive_status = 'ativo' and c.drive_folder_id is not null) desc,
+    (c.drive_status = 'arquivado' and c.drive_folder_id is not null) desc,
+    c.nome,
+    c.drive_path
   limit greatest(1, least(coalesce(p_limite, 30), 100));
 $$;
 

@@ -72,6 +72,11 @@ export default function ClienteDriveSelector({
   }
 
   const valorVisivel = aberto ? busca : selecionado?.nome || busca;
+  const temPasta = (cliente) => Boolean(cliente?.pasta_drive_url || cliente?.drive_folder_id);
+  const tipoCliente = (cliente) => {
+    if (!temPasta(cliente)) return "Cadastro histórico · pasta ainda não sincronizada";
+    return cliente.drive_status === "arquivado" ? "Arquivo histórico" : "Cliente ativo";
+  };
 
   return (
     <div className="drive-client-field">
@@ -139,9 +144,9 @@ export default function ClienteDriveSelector({
                 <GoogleDriveIcon className="drive-option-icon" />
                 <span>
                   <strong>{cliente.nome}</strong>
-                  <small>{cliente.drive_path || cliente.pasta_drive_nome || "Pasta sincronizada do Google Drive"}</small>
-                  <em className={`drive-client-kind ${cliente.drive_status === "arquivado" ? "is-archived" : "is-active"}`}>
-                    {cliente.drive_status === "arquivado" ? "Arquivo histórico" : "Cliente ativo"}
+                  <small>{cliente.drive_path || cliente.pasta_drive_nome || "Cliente cadastrado no sistema"}</small>
+                  <em className={`drive-client-kind ${!temPasta(cliente) || cliente.drive_status === "arquivado" ? "is-archived" : "is-active"}`}>
+                    {tipoCliente(cliente)}
                   </em>
                 </span>
               </button>
@@ -153,10 +158,10 @@ export default function ClienteDriveSelector({
         <div className={`drive-client-selected ${selecionado.drive_status === "arquivado" ? "is-archived" : ""}`}>
           <GoogleDriveIcon className="drive-selected-icon" />
           <span>
-            <strong>{selecionado.drive_status === "arquivado" ? "Pasta histórica vinculada" : "Pasta ativa vinculada"}</strong>
-            <small>{selecionado.drive_path || "Esta tarefa ficará relacionada ao cliente do Drive."}</small>
+            <strong>{temPasta(selecionado) ? (selecionado.drive_status === "arquivado" ? "Pasta histórica vinculada" : "Pasta ativa vinculada") : "Cliente histórico selecionado"}</strong>
+            <small>{selecionado.drive_path || "O status pode ser registrado mesmo sem uma pasta sincronizada."}</small>
           </span>
-          <a href={selecionado.pasta_drive_url} target="_blank" rel="noreferrer">Abrir pasta</a>
+          {selecionado.pasta_drive_url && <a href={selecionado.pasta_drive_url} target="_blank" rel="noreferrer">Abrir pasta</a>}
         </div>
       )}
     </div>

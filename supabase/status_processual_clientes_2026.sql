@@ -184,7 +184,7 @@ begin
   if not exists (
     select 1 from public.clientes c where c.id = p_cliente_id
   ) then
-    raise exception 'Selecione um cliente válido do Google Drive.';
+    raise exception 'Selecione um cliente válido do cadastro.';
   end if;
 
   if p_status_documentos not in ('pendente_conferencia', 'corretos', 'incorretos', 'irregulares') then
