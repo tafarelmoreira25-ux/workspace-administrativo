@@ -1707,6 +1707,13 @@ function AdminDashboard({ usuario, onLogout, state }) {
   const [setorExecutor, setSetorExecutor] = useState("Administrativo");
   const [setorExecutorManual, setSetorExecutorManual] = useState(false);
 
+  function definirPrazoDelegacao(horas) {
+    const data = new Date(Date.now() + horas * 60 * 60 * 1000);
+    data.setSeconds(0, 0);
+    const deslocamento = data.getTimezoneOffset() * 60_000;
+    setDataLimite(new Date(data.getTime() - deslocamento).toISOString().slice(0, 16));
+  }
+
   const [feedbackFuncId, setFeedbackFuncId] = useState("");
   const [feedbackMsg, setFeedbackMsg] = useState("");
   const [feedbackTipo, setFeedbackTipo] = useState("positivo");
@@ -2923,15 +2930,7 @@ function AdminDashboard({ usuario, onLogout, state }) {
                     )}
                   </div>
                   <div className="task-form-row">
-                    <label>
-                      Prazo obrigatório
-                      <input
-                        type={tarefaManual ? "date" : "datetime-local"}
-                        value={dataLimite}
-                        onChange={(event) => setDataLimite(event.target.value)}
-                        required
-                      />
-                    </label>
+                    {tarefaManual ? <label>Prazo obrigatório<input type="date" value={dataLimite} onChange={(event) => setDataLimite(event.target.value)} required /></label> : <div className="quick-deadline"><strong>Escolha o prazo</strong><div>{[[2,"2 horas"],[24,"24 horas"],[48,"2 dias"],[168,"1 semana"]].map(([horas, rotulo]) => <button className="btn-secondary compact" type="button" key={horas} onClick={() => definirPrazoDelegacao(horas)}>{rotulo}</button>)}</div><small>{dataLimite ? `Prazo selecionado: ${formatarDataHora(new Date(dataLimite).toISOString())}` : "Selecione uma das opções acima."}</small><details className="custom-deadline"><summary>Escolher outra data e hora</summary><input type="datetime-local" value={dataLimite} onChange={(event) => setDataLimite(event.target.value)} /></details></div>}
                     <SeletorPrioridadeVisual valor={prioridade} onChange={setPrioridade} />
                   </div>
                   </div>
@@ -4193,14 +4192,9 @@ function FormularioDelegacaoUsuario({ usuario, funcionarios, onCriada, showToast
   }
 
   function definirPrazo(tipo) {
-    const data = new Date();
-    if (tipo === "duas_horas") data.setHours(data.getHours() + 2, 0, 0, 0);
-    if (tipo === "hoje_18") {
-      data.setHours(18, 0, 0, 0);
-      if (data <= new Date()) data.setDate(data.getDate() + 1);
-    }
-    if (tipo === "amanha_10") { data.setDate(data.getDate() + 1); data.setHours(10, 0, 0, 0); }
-    if (tipo === "dois_dias") { data.setDate(data.getDate() + 2); data.setHours(18, 0, 0, 0); }
+    const horas = { duas_horas: 2, vinte_quatro_horas: 24, dois_dias: 48, uma_semana: 168 }[tipo];
+    const data = new Date(Date.now() + horas * 60 * 60 * 1000);
+    data.setSeconds(0, 0);
     alterar("prazo", dataLocalInput(data));
   }
 
@@ -4304,7 +4298,7 @@ function FormularioDelegacaoUsuario({ usuario, funcionarios, onCriada, showToast
           <label>Responsável<select required value={form.responsavelId} onChange={(e) => alterar("responsavelId", e.target.value)}><option value="">Quem vai executar?</option>{equipeDisponivel.map((pessoa) => <option key={pessoa.id} value={pessoa.id}>{pessoa.nome}{String(pessoa.id) === String(usuario.id) ? " (você)" : ""} — {normalizarSetorEquipe(pessoa.setor || pessoa.cargo) || "Equipe não definida"}</option>)}</select></label>
         </div>
         <div className="task-form-row">
-          <div className="quick-deadline"><strong>Prazo obrigatório</strong><div>{[["duas_horas","Em 2 horas"],["hoje_18","Hoje às 18h"],["amanha_10","Amanhã às 10h"],["dois_dias","Em 2 dias"]].map(([valor, rotulo]) => <button className="btn-secondary compact" type="button" key={valor} onClick={() => definirPrazo(valor)}>{rotulo}</button>)}</div><small>{form.prazo ? `Prazo selecionado: ${formatarDataHora(new Date(form.prazo).toISOString())}` : "Selecione uma opção rápida ou informe uma data."}</small></div>
+          <div className="quick-deadline"><strong>Escolha o prazo</strong><div>{[["duas_horas","2 horas"],["vinte_quatro_horas","24 horas"],["dois_dias","2 dias"],["uma_semana","1 semana"]].map(([valor, rotulo]) => <button className="btn-secondary compact" type="button" key={valor} onClick={() => definirPrazo(valor)}>{rotulo}</button>)}</div><small>{form.prazo ? `Prazo selecionado: ${formatarDataHora(new Date(form.prazo).toISOString())}` : "Selecione uma das opções acima."}</small></div>
           <SeletorPrioridadeVisual valor={form.prioridade} onChange={(valor) => alterar("prioridade", valor)} />
         </div>
       </div>
@@ -7275,6 +7269,9 @@ export default function App() {
         .quick-deadline { display: grid; gap: 9px; padding: 14px; background: rgba(239,246,255,.78); border: 1px solid rgba(68,126,201,.14); border-radius: 14px; }
         .quick-deadline > div { display: flex; flex-wrap: wrap; gap: 8px; }
         .quick-deadline small { color: #607896; font-weight: 700; }
+        .custom-deadline { margin-top: 2px; color: #58708f; font-size: 10px; }
+        .custom-deadline summary { width: max-content; cursor: pointer; font-weight: 800; }
+        .custom-deadline input { width: min(100%,320px); margin-top: 9px; }
         .advanced-toggle { width: max-content; padding: 0; color: #3977c8; background: transparent; border: 0; font-weight: 800; cursor: pointer; }
         .advanced-fields { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 12px; padding: 14px; background: rgba(248,250,253,.86); border: 1px dashed rgba(81,125,181,.2); border-radius: 14px; }
         @keyframes sendLetter { 0% { transform: translate(-120px,45px) rotate(-16deg); opacity: 0; } 55% { opacity: 1; } 100% { transform: translate(0,0) rotate(0); } }
