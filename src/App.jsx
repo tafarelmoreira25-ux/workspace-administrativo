@@ -584,7 +584,7 @@ function PastaClienteTarefa({ tarefa, destaque = false }) {
     <section className={`task-client-folder ${destaque ? "is-highlighted" : ""} ${arquivada ? "is-archived" : ""}`}>
       <span className="task-client-folder-icon" aria-hidden="true">📁</span>
       <div>
-        <small>Cliente e pasta vinculada</small>
+        <small>Pasta do cliente</small>
         <strong>{nome}</strong>
         {cliente?.drive_path || cliente?.pasta_drive_nome ? (
           <span>{cliente.drive_path || cliente.pasta_drive_nome}</span>
@@ -604,6 +604,15 @@ function PastaClienteTarefa({ tarefa, destaque = false }) {
       )}
     </section>
   );
+}
+
+function DestaqueTarefa({ tarefa }) {
+  const cliente = tarefa?.nome_cliente || tarefa?.cliente_drive?.nome || "Cliente não informado";
+  return <section className="task-primary-focus">
+    <span>Cliente · tarefa</span>
+    <h3>{cliente} <b aria-hidden="true">—</b> {tarefa.titulo}</h3>
+    {tarefa.descricao && <div className="task-primary-instruction"><small>Orientação principal</small><p>{tarefa.descricao}</p></div>}
+  </section>;
 }
 
 function ResumoFluxoTarefa({ tarefa, compacto = false }) {
@@ -2728,7 +2737,14 @@ function AdminDashboard({ usuario, onLogout, state }) {
 
         {abaAtiva === "dashboard" && (
           <>
-            <CentralInicio tarefas={tarefasDoEscopo} usuario={usuario} onNavigate={setAbaAtiva} />
+            <CentralInicio
+              tarefas={tarefasDoEscopo}
+              usuario={usuario}
+              onNavigate={(destino, filtro) => {
+                if (destino === "tarefas" && filtro) setFiltroTarefas(filtro);
+                setAbaAtiva(destino === "delegar" ? "tarefas" : destino);
+              }}
+            />
             <section className="cards-grid">
               <div className="card" onClick={() => { setFiltroTarefas("abertas"); setAbaAtiva("tarefas"); }} style={{ cursor: 'pointer' }}>
                 <MetricIcon type="tarefas" />
@@ -3334,9 +3350,8 @@ function AdminDashboard({ usuario, onLogout, state }) {
                           )}
                         </div>
                         <ResumoFluxoTarefa tarefa={tarefa} compacto />
-                        <h3>{tarefa.titulo}</h3>
+                        <DestaqueTarefa tarefa={tarefa} />
                         <PastaClienteTarefa tarefa={tarefa} />
-                        {tarefa.descricao && <p>{tarefa.descricao}</p>}
                         {tarefa.apontamento && (
                           <div className="admin-task-note">
                             <strong>Apontamento:</strong>{" "}
@@ -3417,7 +3432,8 @@ function AdminDashboard({ usuario, onLogout, state }) {
                 <article className="admin-task-card" data-task-id={tarefa.id} key={tarefa.id}>
                   <div className="admin-task-main">
                     <div className="admin-task-badges"><span className={`status ${tarefa.status}`}>{rotuloStatusTarefa(tarefa.status)}</span>{tarefa.categoria && <span className="category-badge">{tarefa.categoria}</span>}</div>
-                    <h3>{tarefa.titulo}</h3>{tarefa.descricao && <p>{tarefa.descricao}</p>}
+                    <DestaqueTarefa tarefa={tarefa} />
+                    <PastaClienteTarefa tarefa={tarefa} />
                     <small>Responsável: {tarefa.responsavel_texto || responsavel?.nome || "Não atribuída"} | Prazo: {formatarData(tarefa.data_limite)}</small>
                     <LinkComprovanteDrive tarefa={tarefa} />
                   </div>
@@ -4646,11 +4662,10 @@ function EmployeeDashboard({ usuario, onLogout, state }) {
               {tarefasPendentesVisiveis.map((tarefa) => (
                 <div className="task-item" data-task-id={tarefa.id} key={tarefa.id}>
                   <div>
-                    <h3>{tarefa.titulo}</h3>
+                    <DestaqueTarefa tarefa={tarefa} />
                     <ResumoFluxoTarefa tarefa={tarefa} />
                     <PastaClienteTarefa tarefa={tarefa} />
                     {tarefa.origem === "operacional" && <LinhaTempoTarefa tarefa={tarefa} />}
-                    <p>{tarefa.descricao}</p>
                     <AvisoTreinamentoTarefa compacto tarefa={tarefa} />
                     {tarefa.apontamento && (
                       <div className="employee-task-note">
@@ -5360,6 +5375,21 @@ export default function App() {
         .task-client-folder-status.is-archived { color: #805f1d; background: #ffefc5; }
         .task-client-folder > a { min-height: 34px; display: inline-flex; align-items: center; justify-content: center; padding: 0 11px; color: #fff; background: #2f73dc; border-radius: 9px; font-size: 9px; font-weight: 900; text-decoration: none; white-space: nowrap; transition: .18s ease; }
         .task-client-folder > a:hover { background: #1e5fc7; transform: translateY(-1px); box-shadow: 0 7px 15px rgba(40,101,196,.2); }
+        .task-primary-focus { display: grid; gap: 5px; margin: 9px 0 12px; padding: 14px 16px; background: linear-gradient(135deg,#edf5ff,#f8fbff); border: 1px solid rgba(55,119,211,.24); border-left: 5px solid #397ce0; border-radius: 13px; box-shadow: 0 8px 20px rgba(35,88,165,.07); }
+        .task-primary-focus > span { color: #3974c8; font-size: 8px; font-weight: 950; letter-spacing: .9px; text-transform: uppercase; }
+        .task-primary-focus h3,.admin-task-main .task-primary-focus h3,.task-item .task-primary-focus h3 { margin: 0; color: #102f5d; font-size: 17px; font-weight: 900; line-height: 1.35; }
+        .task-primary-focus h3 b { color: #7c94b4; font-weight: 600; }
+        .task-primary-instruction { display: grid; gap: 3px; margin-top: 5px; padding-top: 9px; border-top: 1px solid rgba(69,124,198,.17); }
+        .task-primary-instruction small { margin: 0!important; color: #7286a3!important; font-size: 8px!important; font-weight: 900; letter-spacing: .65px; text-transform: uppercase; }
+        .task-primary-instruction p,.admin-task-main .task-primary-instruction p,.task-item .task-primary-instruction p { margin: 0; color: #203d65; font-size: 13px; font-weight: 750; line-height: 1.55; }
+        .task-client-folder:not(.is-highlighted) { grid-template-columns: auto minmax(0,1fr) auto auto; gap: 8px; margin: 8px 0; padding: 7px 9px; background: rgba(246,249,253,.62); border-color: rgba(112,139,174,.13); box-shadow: none; }
+        .task-client-folder:not(.is-highlighted) .task-client-folder-icon { width: 27px; height: 27px; background: transparent; box-shadow: none; font-size: 14px; opacity: .65; }
+        .task-client-folder:not(.is-highlighted) > div small { color: #8999ad; font-size: 7px; }
+        .task-client-folder:not(.is-highlighted) > div strong { color: #607590; font-size: 10px; }
+        .task-client-folder:not(.is-highlighted) > div span { display: none; }
+        .task-client-folder:not(.is-highlighted) .task-client-folder-status { padding: 3px 6px; color: #668476; background: #edf5f1; font-size: 7px; }
+        .task-client-folder:not(.is-highlighted) > a { min-height: 27px; padding: 0 8px; color: #5275a4; background: #fff; border: 1px solid #d6e1ef; font-size: 8px; }
+        .task-client-folder:not(.is-highlighted) > a:hover { color: #245fae; background: #f2f7fd; box-shadow: none; transform: none; }
 
         .task-management { display: flex; flex-direction: column; gap: 22px; }
         .task-management-header { display: flex; align-items: center; justify-content: space-between; gap: 24px; }
