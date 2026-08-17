@@ -428,10 +428,7 @@ end;
 $$;
 
 drop trigger if exists bloquear_avanco_sem_documentos on public.tarefas;
-create trigger bloquear_avanco_sem_documentos
-before update of status on public.tarefas
-for each row
-execute function public.bloquear_avanco_sem_documentos();
+-- O checklist documental permanece disponivel para registro, mas nao bloqueia conclusoes.
 
 create or replace function public.registrar_perda_prazo()
 returns trigger

@@ -234,10 +234,6 @@ function validarEntregaPop(entrega, tarefa) {
   if (entrega.driveUrl?.trim() && !urlGoogleDriveValida(entrega.driveUrl)) {
     return "O link opcional informado precisa ser do Google Drive.";
   }
-  const algumaAcaoRealizada = Object.values(entrega.checklist || {}).some(Boolean)
-    || entrega.crmAtualizado === true
-    || entrega.planilhaAtualizada === true;
-  if (!algumaAcaoRealizada) return "Marque pelo menos uma opção do que foi realizado.";
   return null;
 }
 
@@ -1140,7 +1136,7 @@ function EntregaPop({ tarefa, valor, onChange }) {
   return (
     <section className="document-checklist pop-delivery-checklist">
       <div className="document-checklist-heading">
-        <div><span className="eyebrow">Registro da execução</span><h4>O que foi realizado?</h4><p>Marque pelo menos uma opção. Não é necessário marcar todas.</p></div>
+        <div><span className="eyebrow">Registro da execução</span><h4>O que foi realizado?</h4><p>Este registro é opcional e não impede a conclusão da tarefa.</p></div>
       </div>
       <div className="document-checklist-grid">
         {criterios.map((criterio) => <label className={valor.checklist?.[criterio] ? "checked" : ""} key={criterio}><input type="checkbox" checked={valor.checklist?.[criterio] || false} onChange={(e) => atualizar("checklist", { ...(valor.checklist || {}), [criterio]: e.target.checked })} /><span>{criterio}</span></label>)}
@@ -2123,8 +2119,8 @@ function AdminDashboard({ usuario, onLogout, state }) {
         "concluir_tarefa_propria_supervisor",
         {
           p_tarefa_id: Number(tarefa.id),
-          p_observacoes: entrega.observacoes.trim(),
-          p_drive_url: entrega.driveUrl.trim() || null,
+          p_observacoes: (entrega.observacoes || "").trim(),
+          p_drive_url: (entrega.driveUrl || "").trim() || null,
         },
       );
       if (error) throw error;
@@ -4479,16 +4475,6 @@ function EmployeeDashboard({ usuario, onLogout, state }) {
   }
 
   async function concluirTarefa(tarefa, imagemComprovacao = null) {
-    if (
-      tarefaExigeChecklistDocumentos(tarefa) &&
-      !checklistDocumentosCompleto(tarefa)
-    ) {
-      alert(
-        "A Etapa 2 está bloqueada. Confirme obrigatoriamente os 5 documentos iniciais antes de avançar para o Jurídico.",
-      );
-      return;
-    }
-
     const entrega = entregasPop[tarefa.id] || {};
     const falhaPop = validarEntregaPop(entrega, tarefa);
     if (falhaPop) {
@@ -4731,18 +4717,8 @@ function EmployeeDashboard({ usuario, onLogout, state }) {
                         {tarefa.origem === "operacional" && tarefa.status === "em_execucao" && <button className="btn-secondary" disabled={tarefaConcluindoId === tarefa.id} onClick={() => informarEspera(tarefa)}>Registrar pendência</button>}
                         <button
                           className="btn-success"
-                          disabled={
-                            tarefaConcluindoId === tarefa.id ||
-                            (tarefaExigeChecklistDocumentos(tarefa) &&
-                              !checklistDocumentosCompleto(tarefa))
-                          }
+                          disabled={tarefaConcluindoId === tarefa.id}
                           onClick={() => setTarefaEmConclusao(tarefa)}
-                          title={
-                            tarefaExigeChecklistDocumentos(tarefa) &&
-                            !checklistDocumentosCompleto(tarefa)
-                              ? "Confirme os 5 documentos antes de concluir"
-                              : undefined
-                          }
                         >
                           {tarefaConcluindoId === tarefa.id ? "Concluindo..." : "Concluir tarefa"}
                         </button>

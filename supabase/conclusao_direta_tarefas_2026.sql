@@ -98,14 +98,6 @@ begin
     if char_length(trim(coalesce(p_motivo,'')))<10 then raise exception 'Justificativa obrigatoria.'; end if;
     destino:='devolvida'; descricao_evento:='Tarefa devolvida ao solicitante: '||trim(p_motivo); evento:='devolver_solicitante';
   elsif p_acao in ('concluir','devolver_conferencia') and t.status='em_execucao' then
-    if not coalesce(p_crm_atualizado,false)
-       and not coalesce(p_planilha_atualizada,false)
-       and not exists (
-         select 1 from jsonb_each(coalesce(p_checklist, '{}'::jsonb)) as item
-         where item.value = 'true'::jsonb
-       ) then
-      raise exception 'Marque pelo menos uma opcao do que foi realizado.';
-    end if;
     if link_drive is not null and link_drive !~* '^https://(drive|docs)\.google\.com/' then
       raise exception 'O link informado deve ser do Google Drive.';
     end if;
@@ -165,7 +157,7 @@ $$;
 create or replace function public.concluir_tarefa_pop(
   p_tarefa_id bigint, p_observacoes text, p_nome_arquivo text,
   p_drive_url text, p_crm_atualizado boolean, p_planilha_atualizada boolean,
-  p_resultado text default 'nao_se_aplica', p_checklist jsonb default null
+  p_resultado text, p_checklist jsonb
 ) returns jsonb language plpgsql security definer set search_path=public as $$
 declare
   tarefa public.tarefas;
@@ -182,15 +174,6 @@ begin
   end if;
   if link_drive is not null and link_drive !~* '^https://(drive|docs)\.google\.com/' then
     raise exception 'O link informado deve ser do Google Drive.';
-  end if;
-
-  if not coalesce(p_crm_atualizado,false)
-     and not coalesce(p_planilha_atualizada,false)
-     and not exists (
-       select 1 from jsonb_each(coalesce(p_checklist, '{}'::jsonb)) as item
-       where item.value = 'true'::jsonb
-     ) then
-    raise exception 'Marque pelo menos uma opcao do que foi realizado.';
   end if;
 
   update public.tarefas set
@@ -220,6 +203,18 @@ begin
 end;
 $$;
 
+-- Compatibilidade imediata com versoes do frontend que ainda enviam 7 parametros.
+create or replace function public.concluir_tarefa_pop(
+  p_tarefa_id bigint, p_observacoes text, p_nome_arquivo text,
+  p_drive_url text, p_crm_atualizado boolean, p_planilha_atualizada boolean,
+  p_resultado text
+) returns jsonb language sql security definer set search_path=public as $$
+  select public.concluir_tarefa_pop(
+    p_tarefa_id, p_observacoes, p_nome_arquivo, p_drive_url,
+    p_crm_atualizado, p_planilha_atualizada, p_resultado, null::jsonb
+  );
+$$;
+
 -- Entregas que já estavam aguardando uma conferência que deixou de ser necessária
 -- são finalizadas, preservando todos os dados e evidências registrados.
 do $$
@@ -247,9 +242,14 @@ revoke all on function public.movimentar_tarefa_operacional(bigint,text,text,jso
 grant execute on function public.movimentar_tarefa_operacional(bigint,text,text,jsonb,text,text,text,boolean,boolean) to authenticated;
 revoke all on function public.concluir_tarefa_pop(bigint,text,text,text,boolean,boolean,text,jsonb) from public;
 grant execute on function public.concluir_tarefa_pop(bigint,text,text,text,boolean,boolean,text,jsonb) to authenticated;
+revoke all on function public.concluir_tarefa_pop(bigint,text,text,text,boolean,boolean,text) from public;
+grant execute on function public.concluir_tarefa_pop(bigint,text,text,text,boolean,boolean,text) to authenticated;
 
-comment on function public.concluir_tarefa_pop is
-'Conclui a tarefa diretamente; exige link do Drive somente quando requer_comprovacao=true.';
+comment on function public.concluir_tarefa_pop(bigint,text,text,text,boolean,boolean,text,jsonb) is
+'Conclui a tarefa diretamente sem exigir checklist, observacao ou evidencia.';
+
+-- Faz o PostgREST reconhecer imediatamente as assinaturas e regras atualizadas.
+notify pgrst, 'reload schema';
 
 notify pgrst, 'reload schema';
 commit;

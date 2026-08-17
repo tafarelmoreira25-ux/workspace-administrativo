@@ -77,10 +77,6 @@ begin
     raise exception 'A tarefa não está disponível para conclusão.';
   end if;
 
-  if nullif(trim(coalesce(p_observacoes, '')), '') is null then
-    raise exception 'Informe as observacoes da conclusao.';
-  end if;
-
   if nullif(trim(coalesce(p_drive_url, '')), '') is not null
      and trim(p_drive_url) !~* '^https://(drive|docs)\.google\.com/' then
     raise exception 'Informe um link valido do Google Drive.';
@@ -106,7 +102,7 @@ begin
     'concluir_supervisor',
     tarefa.status,
     'concluida',
-    'Tratativa realizada e concluída pelo próprio supervisor responsável: ' || trim(p_observacoes),
+    'Tratativa realizada e concluída pelo próprio supervisor responsável.',
     jsonb_build_object('autor_email', email_autor, 'drive_url', nullif(trim(coalesce(p_drive_url, '')), ''))
   );
 

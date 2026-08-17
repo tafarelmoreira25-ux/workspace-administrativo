@@ -86,7 +86,7 @@ for each row execute function public.gerar_id_tarefa_pop();
 create or replace function public.concluir_tarefa_pop(
   p_tarefa_id bigint, p_observacoes text, p_nome_arquivo text,
   p_drive_url text, p_crm_atualizado boolean, p_planilha_atualizada boolean,
-  p_resultado text default 'nao_se_aplica', p_checklist jsonb default null
+  p_resultado text, p_checklist jsonb
 ) returns jsonb language plpgsql security definer set search_path=public as $$
 declare tarefa public.tarefas; retorno jsonb; nome_normalizado text;
 begin
@@ -100,15 +100,6 @@ begin
      and trim(p_drive_url) !~* '^https://(drive|docs)\.google\.com/' then
     raise exception 'O link informado deve ser do Google Drive.';
   end if;
-  if not coalesce(p_crm_atualizado,false)
-     and not coalesce(p_planilha_atualizada,false)
-     and not exists (
-       select 1 from jsonb_each(coalesce(p_checklist, '{}'::jsonb)) as item
-       where item.value = 'true'::jsonb
-     ) then
-    raise exception 'Marque pelo menos uma opcao do que foi realizado.';
-  end if;
-
   update public.tarefas set observacoes_devolutiva=trim(p_observacoes),
     nome_arquivo_evidencia=case when nullif(trim(coalesce(p_drive_url,'')), '') is not null then nome_normalizado else nome_arquivo_evidencia end,
     evidencia_url=coalesce(nullif(trim(coalesce(p_drive_url,'')), ''),evidencia_url),
@@ -131,7 +122,7 @@ end $$;
 revoke all on function public.concluir_tarefa_pop(bigint,text,text,text,boolean,boolean,text,jsonb) from public;
 grant execute on function public.concluir_tarefa_pop(bigint,text,text,text,boolean,boolean,text,jsonb) to authenticated;
 
-comment on function public.concluir_tarefa_pop is
-'Aplica as validacoes obrigatorias de nomenclatura, Drive, CRM, Planilha e devolutiva do POP 1.0.';
+comment on function public.concluir_tarefa_pop(bigint,text,text,text,boolean,boolean,text,jsonb) is
+'Conclui a tarefa sem exigir checklist, observacao ou evidencia.';
 
 commit;
