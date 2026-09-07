@@ -1,13 +1,9 @@
 import { FormEvent, useMemo, useState } from "react";
 import { supabase } from "../../lib/supabase";
 import {
-  CHECKLIST_ELITE,
-  type ArquivosChecklistElite,
   type FaseProcessual,
   type Processo,
   calcularPrazoElite,
-  checklistEliteCompleto,
-  enviarChecklistElite,
 } from "../../lib/esteiraProcessual";
 
 type Props = {
@@ -16,44 +12,37 @@ type Props = {
   showToast: (mensagem: string) => void;
 };
 
-const COLUNAS_KANBAN: FaseProcessual[] = [
-  "Solicitado para Ajuizamento",
-  "Documentos Pendentes",
-  "Documentos Concluídos",
-  "Enviado para Elite",
-  "Pasta Retornada",
-  "Protocolo Liberado",
-];
-
-const ROTULOS_FASE: Record<FaseProcessual, string> = {
-  "Solicitado para Ajuizamento": "Solicitado",
-  "Documentos Pendentes": "Docs pendentes",
-  "Documentos Concluídos": "Docs concluídos",
-  "Pré-Distribuição": "Pré-distribuição",
-  "Enviado para Elite": "Enviado para Elite",
-  "Pasta Retornada": "Pasta retornada",
-  "Protocolo Liberado": "Protocolo liberado",
-  Tramitando: "Tramitando",
-  Arquivado: "Arquivado",
-  Improcedente: "Improcedente",
-};
-
-const STATUS_JUDICIAL_PADRAO = [
-  "TRAMITANDO",
-  "ARQUIVADO",
-  "IMPROCEDENTE",
-  "SENTENÇA PROCEDENTE",
-  "SENTENÇA PARCIALMENTE PROCEDENTE",
-  "NÃO CONFIRMADO NA CONSULTA PÚBLICA",
-];
+const STATUS_DOCUMENTOS = ["Regular", "Irregular", "Pendente"];
+const STATUS_PROCURACAO = ["Elaborando", "Assinadas", "Pendentes", "Atrasadas"];
+const STATUS_ENVIO_ELITE = ["Pendente", "Enviado"];
 
 function formatarData(data: Date | string | null | undefined) {
-  if (!data) return "Sem prazo";
+  if (!data) return "Ainda não iniciado";
   return new Intl.DateTimeFormat("pt-BR").format(new Date(data));
 }
 
-function faseTemPrazo(fase: FaseProcessual) {
-  return ["Enviado para Elite", "Pasta Retornada", "Protocolo Liberado"].includes(fase);
+function criarFormulario(processo?: Processo | null) {
+  return {
+    pasta_cliente_id: processo?.pasta_cliente_id || "",
+    nome_cliente: processo?.nome_cliente || "",
+    cpf_cliente: processo?.cpf_cliente || "",
+    banco_reu: processo?.banco_reu || "",
+    status_documentos: processo?.status_documentos || "Pendente",
+    status_procuracao: processo?.status_procuracao || "Elaborando",
+    documentos_elite_status: processo?.documentos_elite_status || "Pendente",
+    pasta_retornada: Boolean(processo?.pasta_retornada),
+    numero_processo: processo?.numero_processo || "",
+    observacoes: processo?.observacoes || "",
+  };
+}
+
+function statusOperacional(processo: Processo) {
+  if (processo.pasta_retornada) return { classe: "retornada", rotulo: "Pasta retornou" };
+  if (processo.numero_processo) return { classe: "protocolado", rotulo: "Protocolado" };
+  if (calcularPrazoElite(processo.data_envio_elite).sinalizacao === "vermelho") {
+    return { classe: "atrasado", rotulo: "Atrasado" };
+  }
+  return { classe: "pendente", rotulo: "Pendente" };
 }
 
 export default function EsteiraKanban({
@@ -61,440 +50,289 @@ export default function EsteiraKanban({
   onProcessoAtualizado,
   showToast,
 }: Props) {
-  const [dragId, setDragId] = useState<string | null>(null);
-  const [uploadProcesso, setUploadProcesso] = useState<Processo | null>(null);
-  const [protocoloProcesso, setProtocoloProcesso] = useState<Processo | null>(null);
-  const [arquivos, setArquivos] = useState<ArquivosChecklistElite>({});
-  const [numeroProcesso, setNumeroProcesso] = useState("");
+  const [busca, setBusca] = useState("");
+  const [modalAberto, setModalAberto] = useState(false);
+  const [processoEditando, setProcessoEditando] = useState<Processo | null>(null);
+  const [formulario, setFormulario] = useState(criarFormulario(null));
   const [salvando, setSalvando] = useState(false);
-  const [tipoCadastro, setTipoCadastro] = useState<"novo" | "existente">("novo");
-  const [novoProcesso, setNovoProcesso] = useState({
-    nome_cliente: "",
-    banco_reu: "",
-    numero_processo: "",
-    data_distribuicao: "",
-    status_judicial: "TRAMITANDO",
-    justica_gratuita: "Não Solicitada",
-    emenda_inicial: "",
-    link_processo: "",
-    observacoes: "",
-  });
 
-  const processosPorFase = useMemo(
-    () => Object.fromEntries(
-      COLUNAS_KANBAN.map((fase) => [
-        fase,
-        processos.filter((processo) => processo.fase_atual === fase),
-      ]),
-    ) as Record<FaseProcessual, Processo[]>,
-    [processos],
-  );
+  const protocolos = useMemo(() => {
+    const termo = busca.trim().toLowerCase();
+    return processos.filter((processo) => (
+      processo.fase_atual !== "Arquivado" &&
+      processo.fase_atual !== "Improcedente"
+    )).filter((processo) => {
+      if (!termo) return true;
+      return [
+        processo.nome_cliente,
+        processo.cpf_cliente,
+        processo.pasta_cliente_id,
+        processo.banco_reu,
+        processo.numero_processo,
+        processo.observacoes,
+      ].some((valor) => String(valor || "").toLowerCase().includes(termo));
+    });
+  }, [busca, processos]);
 
-  async function criarProcesso(evento: FormEvent<HTMLFormElement>) {
+  function abrirNovoCadastro() {
+    setProcessoEditando(null);
+    setFormulario(criarFormulario(null));
+    setModalAberto(true);
+  }
+
+  function abrirEdicao(processo: Processo) {
+    setProcessoEditando(processo);
+    setFormulario(criarFormulario(processo));
+    setModalAberto(true);
+  }
+
+  async function salvarCadastro(evento: FormEvent<HTMLFormElement>) {
     evento.preventDefault();
-    const nome = novoProcesso.nome_cliente.trim();
-    if (!nome) {
-      showToast("Informe o nome do cliente.");
-      return;
-    }
-    if (tipoCadastro === "existente" && !novoProcesso.numero_processo.trim()) {
-      showToast("Informe o número do processo já protocolado.");
+    const nome = formulario.nome_cliente.trim();
+    const banco = formulario.banco_reu.trim();
+
+    if (!nome || !banco) {
+      showToast("Informe cliente e banco para cadastrar a pasta.");
       return;
     }
 
-    const registroExistente = tipoCadastro === "existente";
-    const faseInicial = registroExistente ? "Protocolo Liberado" : "Solicitado para Ajuizamento";
-    const banco = novoProcesso.banco_reu.trim();
+    const temNumero = Boolean(formulario.numero_processo.trim());
+    let fase: FaseProcessual = temNumero ? "Protocolo Liberado" : "Solicitado para Ajuizamento";
+    let dataEnvioElite = processoEditando?.data_envio_elite || null;
+    let statusPrazo = processoEditando?.status_prazo || null;
+    let dataProtocoloLiberado = processoEditando?.data_protocolo_liberado || null;
+
+    if (formulario.documentos_elite_status === "Enviado" && !dataEnvioElite) {
+      dataEnvioElite = new Date().toISOString();
+      statusPrazo = calcularPrazoElite(dataEnvioElite).rotulo;
+      fase = "Enviado para Elite";
+    }
+
+    if (formulario.pasta_retornada && !temNumero) {
+      fase = "Pasta Retornada";
+    }
+
+    if (temNumero && !dataProtocoloLiberado) {
+      dataProtocoloLiberado = new Date().toISOString();
+      fase = "Protocolo Liberado";
+    }
+
+    const payload = {
+      pasta_cliente_id: formulario.pasta_cliente_id.trim() || null,
+      nome_cliente: nome,
+      cpf_cliente: formulario.cpf_cliente.trim() || null,
+      banco_reu: banco,
+      autor_reu: `${nome} X ${banco}`,
+      fase_atual: fase,
+      status_documentos: formulario.status_documentos,
+      status_procuracao: formulario.status_procuracao,
+      documentos_elite_status: formulario.documentos_elite_status,
+      pasta_retornada: formulario.pasta_retornada,
+      data_envio_elite: dataEnvioElite,
+      data_protocolo_liberado: dataProtocoloLiberado,
+      numero_processo: formulario.numero_processo.trim() || null,
+      status_judicial: temNumero ? "TRAMITANDO" : null,
+      observacoes: formulario.observacoes.trim() || null,
+      origem_registro: processoEditando?.origem_registro || "protocolo_manual",
+    };
 
     setSalvando(true);
-    const { data, error } = await supabase
-      .from("processos")
-      .insert({
-        nome_cliente: nome,
-        autor_reu: banco ? `${nome} X ${banco}` : nome,
-        banco_reu: banco || null,
-        fase_atual: faseInicial,
-        numero_processo: novoProcesso.numero_processo.trim() || null,
-        data_distribuicao: novoProcesso.data_distribuicao || null,
-        status_judicial: registroExistente ? novoProcesso.status_judicial : null,
-        justica_gratuita: novoProcesso.justica_gratuita,
-        emenda_inicial: novoProcesso.emenda_inicial.trim() || null,
-        link_processo: novoProcesso.link_processo.trim() || null,
-        observacoes: novoProcesso.observacoes.trim() || null,
-        origem_registro: registroExistente ? "planilha_oficial" : "novo_encaminhamento",
-      })
-      .select("*")
-      .single();
+    const query = processoEditando
+      ? supabase.from("processos").update(payload).eq("id", processoEditando.id)
+      : supabase.from("processos").insert(payload);
+    const { data, error } = await query.select("*").single();
     setSalvando(false);
 
     if (error) {
-      showToast("Não foi possível criar o registro.");
+      showToast("Não foi possível salvar o protocolo.");
       return;
     }
 
     onProcessoAtualizado(data as Processo);
-    setNovoProcesso({
-      nome_cliente: "",
-      banco_reu: "",
-      numero_processo: "",
-      data_distribuicao: "",
-      status_judicial: "TRAMITANDO",
-      justica_gratuita: "Não Solicitada",
-      emenda_inicial: "",
-      link_processo: "",
-      observacoes: "",
-    });
-    showToast(registroExistente ? "Processo existente cadastrado." : "Novo ajuizamento cadastrado.");
-  }
-
-  async function atualizarFase(
-    processo: Processo,
-    fase: FaseProcessual,
-    extras: Partial<Processo> = {},
-  ) {
-    setSalvando(true);
-    const { data, error } = await supabase
-      .from("processos")
-      .update({ fase_atual: fase, ...extras })
-      .eq("id", processo.id)
-      .select("*")
-      .single();
-    setSalvando(false);
-
-    if (error) {
-      showToast("Não foi possível atualizar a etapa.");
-      return;
-    }
-
-    onProcessoAtualizado(data as Processo);
-    showToast("Etapa atualizada.");
-  }
-
-  function receberCard(faseDestino: FaseProcessual) {
-    if (!dragId) return;
-    const processo = processos.find((item) => item.id === dragId);
-    setDragId(null);
-    if (!processo || processo.fase_atual === faseDestino) return;
-
-    if (faseDestino === "Enviado para Elite" && !checklistEliteCompleto(processo.checklist_elite)) {
-      setUploadProcesso(processo);
-      setArquivos({});
-      return;
-    }
-
-    if (faseDestino === "Enviado para Elite") {
-      const dataEnvio = processo.data_envio_elite || new Date().toISOString();
-      const prazo = calcularPrazoElite(dataEnvio);
-      atualizarFase(processo, faseDestino, {
-        data_envio_elite: dataEnvio,
-        status_prazo: prazo.rotulo,
-      });
-      return;
-    }
-
-    if (faseDestino === "Pasta Retornada" && !processo.data_envio_elite) {
-      showToast("Marque o envio para a Elite antes de registrar retorno da pasta.");
-      return;
-    }
-
-    if (faseDestino === "Protocolo Liberado" && !processo.numero_processo) {
-      setProtocoloProcesso(processo);
-      setNumeroProcesso("");
-      return;
-    }
-
-    atualizarFase(processo, faseDestino);
-  }
-
-  async function confirmarEnvioElite(evento: FormEvent<HTMLFormElement>) {
-    evento.preventDefault();
-    if (!uploadProcesso) return;
-    setSalvando(true);
-
-    try {
-      const checklist = await enviarChecklistElite(uploadProcesso.id, arquivos);
-      const dataEnvio = new Date().toISOString();
-      const prazo = calcularPrazoElite(dataEnvio);
-      const { data, error } = await supabase
-        .from("processos")
-        .update({
-          fase_atual: "Enviado para Elite",
-          data_envio_elite: dataEnvio,
-          status_prazo: prazo.rotulo,
-          checklist_elite: checklist,
-        })
-        .eq("id", uploadProcesso.id)
-        .select("*")
-        .single();
-
-      if (error) throw error;
-      onProcessoAtualizado(data as Processo);
-      setUploadProcesso(null);
-      setArquivos({});
-      showToast("Checklist anexado e processo enviado para a Elite.");
-    } catch (error) {
-      showToast(error instanceof Error ? error.message : "Falha no upload do checklist.");
-    } finally {
-      setSalvando(false);
-    }
-  }
-
-  async function confirmarProtocolo(evento: FormEvent<HTMLFormElement>) {
-    evento.preventDefault();
-    if (!protocoloProcesso) return;
-    const numero = numeroProcesso.trim();
-    if (!numero) {
-      showToast("Informe o número do processo.");
-      return;
-    }
-
-    await atualizarFase(protocoloProcesso, "Protocolo Liberado", {
-      numero_processo: numero,
-      status_judicial: protocoloProcesso.status_judicial || "TRAMITANDO",
-      data_distribuicao: new Date().toISOString().slice(0, 10),
-    });
-    setProtocoloProcesso(null);
-    setNumeroProcesso("");
+    setModalAberto(false);
+    setProcessoEditando(null);
+    showToast("Protocolo salvo.");
   }
 
   return (
-    <div className="esteira-kanban-view">
-      <form className="esteira-create-card extended" onSubmit={criarProcesso}>
-        <div className="esteira-form-mode">
-          <button
-            className={tipoCadastro === "novo" ? "active" : ""}
-            onClick={() => setTipoCadastro("novo")}
-            type="button"
-          >
-            Novo ajuizamento
-          </button>
-          <button
-            className={tipoCadastro === "existente" ? "active" : ""}
-            onClick={() => setTipoCadastro("existente")}
-            type="button"
-          >
-            Processo já protocolado
-          </button>
+    <div className="protocolos-view">
+      <div className="protocolos-toolbar">
+        <div>
+          <span className="eyebrow">Protocolos</span>
+          <h2>Pastas encaminhadas ao processual</h2>
         </div>
         <label>
-          <span>Cliente</span>
+          <span>Pesquisar</span>
           <input
-            value={novoProcesso.nome_cliente}
-            onChange={(evento) => setNovoProcesso((atual) => ({
-              ...atual,
-              nome_cliente: evento.target.value,
-            }))}
-            placeholder="Nome do cliente"
+            type="search"
+            value={busca}
+            onChange={(evento) => setBusca(evento.target.value)}
+            placeholder="Cliente, CPF, ID, banco ou processo"
           />
         </label>
-        <label>
-          <span>Banco réu</span>
-          <input
-            value={novoProcesso.banco_reu}
-            onChange={(evento) => setNovoProcesso((atual) => ({
-              ...atual,
-              banco_reu: evento.target.value,
-            }))}
-            placeholder="Banco ou instituição"
-          />
-        </label>
-        {tipoCadastro === "existente" && (
-          <>
-            <label>
-              <span>Número do processo</span>
-              <input
-                value={novoProcesso.numero_processo}
-                onChange={(evento) => setNovoProcesso((atual) => ({
-                  ...atual,
-                  numero_processo: evento.target.value,
-                }))}
-                placeholder="0000000-00.0000.0.00.0000"
-              />
-            </label>
-            <label>
-              <span>Distribuído em</span>
-              <input
-                type="date"
-                value={novoProcesso.data_distribuicao}
-                onChange={(evento) => setNovoProcesso((atual) => ({
-                  ...atual,
-                  data_distribuicao: evento.target.value,
-                }))}
-              />
-            </label>
-            <label>
-              <span>Status judicial</span>
-              <select
-                value={novoProcesso.status_judicial}
-                onChange={(evento) => setNovoProcesso((atual) => ({
-                  ...atual,
-                  status_judicial: evento.target.value,
-                }))}
-              >
-                {STATUS_JUDICIAL_PADRAO.map((status) => (
-                  <option key={status}>{status}</option>
-                ))}
-              </select>
-            </label>
-            <label>
-              <span>Justiça gratuita</span>
-              <select
-                value={novoProcesso.justica_gratuita}
-                onChange={(evento) => setNovoProcesso((atual) => ({
-                  ...atual,
-                  justica_gratuita: evento.target.value,
-                }))}
-              >
-                <option>Deferida</option>
-                <option>Indeferida</option>
-                <option>Não Solicitada</option>
-              </select>
-            </label>
-            <label>
-              <span>Emenda inicial</span>
-              <input
-                value={novoProcesso.emenda_inicial}
-                onChange={(evento) => setNovoProcesso((atual) => ({
-                  ...atual,
-                  emenda_inicial: evento.target.value,
-                }))}
-                placeholder="Juntada, prazo decorrido..."
-              />
-            </label>
-            <label>
-              <span>Link do processo</span>
-              <input
-                value={novoProcesso.link_processo}
-                onChange={(evento) => setNovoProcesso((atual) => ({
-                  ...atual,
-                  link_processo: evento.target.value,
-                }))}
-                placeholder="Link do PJe/e-SAJ/consulta"
-              />
-            </label>
-          </>
-        )}
-        <label className="wide">
-          <span>Observações</span>
-          <input
-            value={novoProcesso.observacoes}
-            onChange={(evento) => setNovoProcesso((atual) => ({
-              ...atual,
-              observacoes: evento.target.value,
-            }))}
-            placeholder="Resumo rápido do caso ou última movimentação"
-          />
-        </label>
-        <button className="btn-primary" disabled={salvando} type="submit">
-          Cadastrar
+        <button className="btn-primary" onClick={abrirNovoCadastro} type="button">
+          Cadastrar cliente
         </button>
-      </form>
-
-      <div className="esteira-kanban">
-        {COLUNAS_KANBAN.map((fase) => (
-          <section
-            className="kanban-column"
-            key={fase}
-            onDragOver={(evento) => evento.preventDefault()}
-            onDrop={() => receberCard(fase)}
-          >
-            <header>
-              <span>{ROTULOS_FASE[fase]}</span>
-              <strong>{processosPorFase[fase].length}</strong>
-            </header>
-            <div className="kanban-card-list">
-              {processosPorFase[fase].length === 0 ? (
-                <p className="kanban-empty">Sem pastas nesta etapa.</p>
-              ) : processosPorFase[fase].map((processo) => {
-                const prazo = calcularPrazoElite(processo.data_envio_elite);
-                return (
-                  <article
-                    className="process-card"
-                    draggable
-                    key={processo.id}
-                    onDragStart={() => setDragId(processo.id)}
-                  >
-                    <div>
-                      <strong>{processo.nome_cliente}</strong>
-                      <span>{processo.banco_reu || "Banco não informado"}</span>
-                    </div>
-                    {faseTemPrazo(processo.fase_atual) && (
-                      <span className={`prazo-chip ${prazo.sinalizacao}`}>
-                        {prazo.rotulo} · {formatarData(prazo.dataLimite)}
-                      </span>
-                    )}
-                    {processo.numero_processo && (
-                      <small>Processo {processo.numero_processo}</small>
-                    )}
-                    {processo.status_judicial && (
-                      <small>Status: {processo.status_judicial}</small>
-                    )}
-                    {processo.observacoes && <p>{processo.observacoes}</p>}
-                  </article>
-                );
-              })}
-            </div>
-          </section>
-        ))}
       </div>
 
-      {uploadProcesso && (
-        <div className="esteira-modal-backdrop" role="presentation">
-          <form className="esteira-modal" onSubmit={confirmarEnvioElite}>
-            <button
-              className="modal-close"
-              onClick={() => setUploadProcesso(null)}
-              type="button"
-            >
-              ×
-            </button>
-            <span className="eyebrow">Checklist judicial</span>
-            <h3>{uploadProcesso.nome_cliente}</h3>
-            <p>Anexe os documentos assinados antes de enviar a pasta para a Elite.</p>
-            <div className="checklist-upload-grid">
-              {CHECKLIST_ELITE.map((item) => (
-                <label key={item.id}>
-                  <span>{item.label}</span>
-                  <input
-                    accept=".pdf,.png,.jpg,.jpeg,.webp"
-                    onChange={(evento) => {
-                      const arquivo = evento.target.files?.[0];
-                      setArquivos((atuais) => ({ ...atuais, [item.id]: arquivo }));
-                    }}
-                    required
-                    type="file"
-                  />
-                </label>
-              ))}
-            </div>
-            <button className="btn-primary full" disabled={salvando} type="submit">
-              Anexar e enviar para Elite
-            </button>
-          </form>
-        </div>
-      )}
+      <div className="protocolos-list">
+        {protocolos.length === 0 ? (
+          <article className="protocolo-empty">
+            <strong>Nenhuma pasta cadastrada</strong>
+            <p>Cadastre o cliente quando a tratativa extrajudicial não resolver e a pasta precisar seguir para ajuizamento.</p>
+          </article>
+        ) : protocolos.map((processo) => {
+          const prazo = calcularPrazoElite(processo.data_envio_elite);
+          const status = statusOperacional(processo);
 
-      {protocoloProcesso && (
+          return (
+            <article className={`protocolo-card ${status.classe}`} key={processo.id}>
+              <div className="protocolo-card-head">
+                <div>
+                  <span>Cliente</span>
+                  <h3>{processo.nome_cliente}</h3>
+                </div>
+                <strong className={`protocolo-status ${status.classe}`}>{status.rotulo}</strong>
+              </div>
+
+              <dl className="protocolo-fields">
+                <div>
+                  <dt>Documentos</dt>
+                  <dd>{processo.status_documentos || "Pendente"}</dd>
+                </div>
+                <div>
+                  <dt>Procuração</dt>
+                  <dd>{processo.status_procuracao || "Elaborando"}</dd>
+                </div>
+                <div>
+                  <dt>Elite</dt>
+                  <dd>{processo.documentos_elite_status || "Pendente"}</dd>
+                </div>
+                <div>
+                  <dt>Número do processo</dt>
+                  <dd>{processo.numero_processo || "Aguardando protocolo"}</dd>
+                </div>
+                <div>
+                  <dt>Prazo do protocolo</dt>
+                  <dd>{prazo.diasUteisRestantes === null ? prazo.rotulo : `${prazo.diasUteisRestantes} dias úteis`}</dd>
+                </div>
+              </dl>
+
+              {processo.observacoes && (
+                <p className="protocolo-observacao">{processo.observacoes}</p>
+              )}
+
+              <footer>
+                <span>
+                  Atualizado em {formatarData(processo.updated_at)} · ID {processo.pasta_cliente_id || "não informado"}
+                </span>
+                <button className="btn-secondary compact" onClick={() => abrirEdicao(processo)} type="button">
+                  Editar status
+                </button>
+              </footer>
+            </article>
+          );
+        })}
+      </div>
+
+      {modalAberto && (
         <div className="esteira-modal-backdrop" role="presentation">
-          <form className="esteira-modal" onSubmit={confirmarProtocolo}>
+          <form className="esteira-modal protocolo-modal" onSubmit={salvarCadastro}>
             <button
               className="modal-close"
-              onClick={() => setProtocoloProcesso(null)}
+              onClick={() => setModalAberto(false)}
               type="button"
             >
               ×
             </button>
-            <span className="eyebrow">Protocolo liberado</span>
-            <h3>{protocoloProcesso.nome_cliente}</h3>
-            <label>
-              <span>Número do processo</span>
-              <input
-                autoFocus
-                value={numeroProcesso}
-                onChange={(evento) => setNumeroProcesso(evento.target.value)}
-                placeholder="0000000-00.0000.0.00.0000"
-              />
-            </label>
+            <span className="eyebrow">Cadastro preliminar</span>
+            <h3>{processoEditando ? "Editar protocolo" : "Cadastrar cliente"}</h3>
+            <div className="protocolo-modal-grid">
+              <label>
+                <span>Nome do cliente</span>
+                <input
+                  value={formulario.nome_cliente}
+                  onChange={(evento) => setFormulario((atual) => ({ ...atual, nome_cliente: evento.target.value }))}
+                />
+              </label>
+              <label>
+                <span>Banco</span>
+                <input
+                  value={formulario.banco_reu}
+                  onChange={(evento) => setFormulario((atual) => ({ ...atual, banco_reu: evento.target.value }))}
+                />
+              </label>
+              <label>
+                <span>CPF</span>
+                <input
+                  value={formulario.cpf_cliente}
+                  onChange={(evento) => setFormulario((atual) => ({ ...atual, cpf_cliente: evento.target.value }))}
+                  placeholder="000.000.000-00"
+                />
+              </label>
+              <label>
+                <span>ID da pasta</span>
+                <input
+                  value={formulario.pasta_cliente_id}
+                  onChange={(evento) => setFormulario((atual) => ({ ...atual, pasta_cliente_id: evento.target.value }))}
+                  placeholder="Código interno ou pasta Drive"
+                />
+              </label>
+              <label>
+                <span>Documentos judiciais</span>
+                <select
+                  value={formulario.status_documentos}
+                  onChange={(evento) => setFormulario((atual) => ({ ...atual, status_documentos: evento.target.value }))}
+                >
+                  {STATUS_DOCUMENTOS.map((status) => <option key={status}>{status}</option>)}
+                </select>
+              </label>
+              <label>
+                <span>Procurações</span>
+                <select
+                  value={formulario.status_procuracao}
+                  onChange={(evento) => setFormulario((atual) => ({ ...atual, status_procuracao: evento.target.value }))}
+                >
+                  {STATUS_PROCURACAO.map((status) => <option key={status}>{status}</option>)}
+                </select>
+              </label>
+              <label>
+                <span>Anexado e enviado para Elite</span>
+                <select
+                  value={formulario.documentos_elite_status}
+                  onChange={(evento) => setFormulario((atual) => ({ ...atual, documentos_elite_status: evento.target.value }))}
+                >
+                  {STATUS_ENVIO_ELITE.map((status) => <option key={status}>{status}</option>)}
+                </select>
+              </label>
+              <label>
+                <span>Pasta retornada</span>
+                <select
+                  value={formulario.pasta_retornada ? "Sim" : "Não"}
+                  onChange={(evento) => setFormulario((atual) => ({ ...atual, pasta_retornada: evento.target.value === "Sim" }))}
+                >
+                  <option>Não</option>
+                  <option>Sim</option>
+                </select>
+              </label>
+              <label>
+                <span>Número do processo</span>
+                <input
+                  value={formulario.numero_processo}
+                  onChange={(evento) => setFormulario((atual) => ({ ...atual, numero_processo: evento.target.value }))}
+                  placeholder="Preencha quando o protocolo for liberado"
+                />
+              </label>
+              <label className="wide">
+                <span>Observações</span>
+                <textarea
+                  value={formulario.observacoes}
+                  onChange={(evento) => setFormulario((atual) => ({ ...atual, observacoes: evento.target.value }))}
+                  rows={3}
+                  placeholder="Ex.: correção pendente, documentos irregulares, retorno da Elite..."
+                />
+              </label>
+            </div>
             <button className="btn-primary full" disabled={salvando} type="submit">
               Salvar protocolo
             </button>

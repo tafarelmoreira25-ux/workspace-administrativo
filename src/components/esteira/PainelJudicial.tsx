@@ -13,7 +13,12 @@ type Props = {
   showToast: (mensagem: string) => void;
 };
 
-const FASES_JUDICIAIS: FaseProcessual[] = [
+const ETAPAS_PROCESSUAIS: FaseProcessual[] = [
+  "Solicitado para Ajuizamento",
+  "Documentos Pendentes",
+  "Documentos Concluídos",
+  "Enviado para Elite",
+  "Pasta Retornada",
   "Protocolo Liberado",
   "Tramitando",
   "Arquivado",
@@ -41,7 +46,7 @@ function criarFicha(processo: Processo | null) {
     banco_reu: processo?.banco_reu || "",
     numero_processo: processo?.numero_processo || "",
     vara: processo?.vara || "",
-    fase_atual: processo?.fase_atual || "Protocolo Liberado",
+    fase_atual: processo?.fase_atual || "Solicitado para Ajuizamento",
     status_judicial: processo?.status_judicial || "TRAMITANDO",
     justica_gratuita: processo?.justica_gratuita || "Não Solicitada",
     data_distribuicao: processo?.data_distribuicao || "",
@@ -63,24 +68,21 @@ export default function PainelJudicial({
   const [descricao, setDescricao] = useState("");
   const [salvando, setSalvando] = useState(false);
 
-  const processosJudiciais = useMemo(() => {
+  const processosFiltrados = useMemo(() => {
     const termo = busca.trim().toLowerCase();
-    return processos
-      .filter((processo) => (
-        FASES_JUDICIAIS.includes(processo.fase_atual) ||
-        Boolean(processo.numero_processo)
-      ))
-      .filter((processo) => {
-        if (!termo) return true;
-        return [
-          processo.nome_cliente,
-          processo.banco_reu,
-          processo.numero_processo,
-          processo.vara,
-          processo.status_judicial,
-          processo.observacoes,
-        ].some((valor) => String(valor || "").toLowerCase().includes(termo));
-      });
+    return processos.filter((processo) => {
+      if (!termo) return true;
+      return [
+        processo.autor_reu,
+        processo.nome_cliente,
+        processo.banco_reu,
+        processo.numero_processo,
+        processo.vara,
+        processo.status_judicial,
+        processo.emenda_inicial,
+        processo.observacoes,
+      ].some((valor) => String(valor || "").toLowerCase().includes(termo));
+    });
   }, [busca, processos]);
 
   useEffect(() => {
@@ -100,7 +102,7 @@ export default function PainelJudicial({
 
       if (!ativo) return;
       if (error) {
-        showToast("Não foi possível carregar as movimentações.");
+        showToast("Não foi possível carregar o histórico dos autos.");
         return;
       }
       setMovimentacoes((data || []) as MovimentacaoProcessual[]);
@@ -115,20 +117,30 @@ export default function PainelJudicial({
   async function salvarFicha(evento: FormEvent<HTMLFormElement>) {
     evento.preventDefault();
     if (!processoAberto) return;
+    const nome = ficha.nome_cliente.trim();
+    const banco = ficha.banco_reu.trim();
+
+    if (!nome) {
+      showToast("Informe o nome do cliente.");
+      return;
+    }
+
+    const temNumero = Boolean(ficha.numero_processo.trim());
+    const fase = temNumero && ficha.fase_atual === "Solicitado para Ajuizamento"
+      ? "Protocolo Liberado"
+      : ficha.fase_atual;
 
     setSalvando(true);
     const { data, error } = await supabase
       .from("processos")
       .update({
-        nome_cliente: ficha.nome_cliente.trim(),
-        banco_reu: ficha.banco_reu.trim() || null,
-        autor_reu: ficha.banco_reu.trim()
-          ? `${ficha.nome_cliente.trim()} X ${ficha.banco_reu.trim()}`
-          : ficha.nome_cliente.trim(),
+        nome_cliente: nome,
+        banco_reu: banco || null,
+        autor_reu: banco ? `${nome} X ${banco}` : nome,
         numero_processo: ficha.numero_processo.trim() || null,
         vara: ficha.vara.trim() || null,
-        fase_atual: ficha.fase_atual,
-        status_judicial: ficha.status_judicial.trim() || null,
+        fase_atual: fase,
+        status_judicial: temNumero ? ficha.status_judicial.trim() || "TRAMITANDO" : null,
         justica_gratuita: ficha.justica_gratuita,
         data_distribuicao: ficha.data_distribuicao || null,
         emenda_inicial: ficha.emenda_inicial.trim() || null,
@@ -141,14 +153,14 @@ export default function PainelJudicial({
     setSalvando(false);
 
     if (error) {
-      showToast("Não foi possível salvar a ficha.");
+      showToast("Não foi possível salvar o processo.");
       return;
     }
 
     const atualizado = data as Processo;
     onProcessoAtualizado(atualizado);
     setProcessoAberto(atualizado);
-    showToast("Ficha atualizada.");
+    showToast("Processo atualizado.");
   }
 
   async function adicionarMovimentacao(evento: FormEvent<HTMLFormElement>) {
@@ -163,27 +175,27 @@ export default function PainelJudicial({
     setSalvando(true);
     const { data, error } = await supabase
       .from("movimentacoes")
-      .insert({ processo_id: processoAberto.id, descricao: texto })
+      .insert({ processo_id: processoAberto.id, descricao: texto, tipo: "historico_autos" })
       .select("*")
       .single();
     setSalvando(false);
 
     if (error) {
-      showToast("Não foi possível registrar a movimentação.");
+      showToast("Não foi possível registrar o andamento.");
       return;
     }
 
     setMovimentacoes((atuais) => [data as MovimentacaoProcessual, ...atuais]);
     setDescricao("");
-    showToast("Movimentação registrada.");
+    showToast("Andamento registrado.");
   }
 
   return (
     <div className="painel-judicial">
       <div className="judicial-toolbar">
         <div>
-          <span className="eyebrow">CRM Judicial</span>
-          <h2>Pastas com protocolo</h2>
+          <span className="eyebrow">Processos</span>
+          <h2>Controle jurídico das pastas</h2>
         </div>
         <label>
           <span>Pesquisar</span>
@@ -200,46 +212,55 @@ export default function PainelJudicial({
         <table className="judicial-table">
           <thead>
             <tr>
-              <th>Cliente</th>
-              <th>Banco réu</th>
-              <th>Número</th>
+              <th>Autor x réu</th>
+              <th>Processo</th>
               <th>Distribuído</th>
-              <th>Vara</th>
-              <th>JG</th>
+              <th>Situação</th>
               <th>Status</th>
-              <th>Prazo Elite</th>
+              <th>Justiça gratuita</th>
+              <th>Emenda inicial</th>
+              <th>Link</th>
+              <th>Observações</th>
               <th />
             </tr>
           </thead>
           <tbody>
-            {processosJudiciais.length === 0 ? (
+            {processosFiltrados.length === 0 ? (
               <tr>
-                <td colSpan={9}>Nenhuma pasta judicial encontrada.</td>
+                <td colSpan={10}>Nenhum processo encontrado.</td>
               </tr>
-            ) : processosJudiciais.map((processo) => {
+            ) : processosFiltrados.map((processo) => {
               const prazo = calcularPrazoElite(processo.data_envio_elite);
+              const protocolado = Boolean(processo.numero_processo);
+
               return (
                 <tr key={processo.id}>
-                  <td><strong>{processo.nome_cliente}</strong></td>
-                  <td>{processo.banco_reu || "-"}</td>
-                  <td>{processo.numero_processo || "-"}</td>
+                  <td><strong>{processo.autor_reu || processo.nome_cliente}</strong></td>
+                  <td>{processo.numero_processo || "Pendente"}</td>
                   <td>{formatarData(processo.data_distribuicao)}</td>
-                  <td>{processo.vara || "-"}</td>
-                  <td>{processo.justica_gratuita || "Não Solicitada"}</td>
-                  <td><span className="judicial-phase">{processo.status_judicial || processo.fase_atual}</span></td>
                   <td>
-                    <span className={`prazo-chip ${prazo.sinalizacao}`}>
-                      {prazo.rotulo} · {formatarData(prazo.dataLimite)}
+                    <span className={`judicial-phase ${protocolado ? "protocolado" : "pendente"}`}>
+                      {protocolado ? "Protocolado" : "Pendente"}
                     </span>
                   </td>
+                  <td><span className="judicial-phase">{processo.status_judicial || processo.fase_atual}</span></td>
+                  <td>{processo.justica_gratuita || "Não Solicitada"}</td>
+                  <td>{processo.emenda_inicial || "-"}</td>
+                  <td>{processo.link_processo ? <a href={processo.link_processo} target="_blank" rel="noreferrer">Abrir</a> : "-"}</td>
+                  <td>{processo.observacoes || "-"}</td>
                   <td>
                     <button
                       className="btn-secondary compact"
                       onClick={() => setProcessoAberto(processo)}
                       type="button"
                     >
-                      Abrir pasta
+                      {protocolado ? "Abrir processo" : "Abrir pasta"}
                     </button>
+                    {!protocolado && prazo.dataLimite && (
+                      <span className={`prazo-chip ${prazo.sinalizacao}`}>
+                        {prazo.rotulo}
+                      </span>
+                    )}
                   </td>
                 </tr>
               );
@@ -258,13 +279,13 @@ export default function PainelJudicial({
             >
               ×
             </button>
-            <span className="eyebrow">Pasta judicial</span>
+            <span className="eyebrow">Ficha jurídica</span>
             <h3>{processoAberto.nome_cliente}</h3>
-            <p>{processoAberto.numero_processo || "Protocolo ainda sem número vinculado"}</p>
+            <p>{processoAberto.numero_processo || "Pasta pendente de protocolo"}</p>
 
             <form className="processo-ficha-form" onSubmit={salvarFicha}>
               <label>
-                <span>Cliente</span>
+                <span>Nome do cliente</span>
                 <input
                   value={ficha.nome_cliente}
                   onChange={(evento) => setFicha((atual) => ({ ...atual, nome_cliente: evento.target.value }))}
@@ -317,7 +338,7 @@ export default function PainelJudicial({
                   value={ficha.fase_atual}
                   onChange={(evento) => setFicha((atual) => ({ ...atual, fase_atual: evento.target.value as FaseProcessual }))}
                 >
-                  {FASES_JUDICIAIS.map((fase) => (
+                  {ETAPAS_PROCESSUAIS.map((fase) => (
                     <option key={fase}>{fase}</option>
                   ))}
                 </select>
@@ -358,33 +379,33 @@ export default function PainelJudicial({
               <div className="drawer-form-actions">
                 {ficha.link_processo && (
                   <a href={ficha.link_processo} target="_blank" rel="noreferrer">
-                    Abrir link
+                    Abrir link do processo
                   </a>
                 )}
                 <button className="btn-primary" disabled={salvando} type="submit">
-                  Salvar ficha
+                  Salvar processo
                 </button>
               </div>
             </form>
 
             <form className="movimentacao-form" onSubmit={adicionarMovimentacao}>
               <label>
-                <span>Novo andamento</span>
+                <span>Histórico dos autos</span>
                 <textarea
                   value={descricao}
                   onChange={(evento) => setDescricao(evento.target.value)}
-                  placeholder="Descreva a movimentação processual"
+                  placeholder="Registre a movimentação mais recente que será usada no retorno ao cliente"
                   rows={4}
                 />
               </label>
               <button className="btn-primary full" disabled={salvando} type="submit">
-                Adicionar movimentação
+                Adicionar andamento
               </button>
             </form>
 
             <div className="movimentacao-list">
               {movimentacoes.length === 0 ? (
-                <p>Nenhuma movimentação registrada.</p>
+                <p>Nenhum andamento registrado.</p>
               ) : movimentacoes.map((movimentacao) => (
                 <article key={movimentacao.id}>
                   <time dateTime={movimentacao.data_registro}>

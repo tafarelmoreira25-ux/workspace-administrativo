@@ -10,14 +10,14 @@ type Props = {
   showToast?: (mensagem: string) => void;
 };
 
-type Visualizacao = "kanban" | "judicial";
+type Visualizacao = "protocolos" | "processos";
 
 function contarPorFase(processos: Processo[], fase: string) {
   return processos.filter((processo) => processo.fase_atual === fase).length;
 }
 
 export default function EsteiraProcessualPlatino({ usuario, showToast }: Props) {
-  const [visualizacao, setVisualizacao] = useState<Visualizacao>("kanban");
+  const [visualizacao, setVisualizacao] = useState<Visualizacao>("protocolos");
   const [processos, setProcessos] = useState<Processo[]>([]);
   const [carregando, setCarregando] = useState(true);
 
@@ -36,7 +36,7 @@ export default function EsteiraProcessualPlatino({ usuario, showToast }: Props) 
       .order("updated_at", { ascending: false });
 
     if (error) {
-      avisar("Não foi possível carregar a esteira processual.");
+      avisar("Não foi possível carregar o módulo Processual.");
       setCarregando(false);
       return;
     }
@@ -56,10 +56,10 @@ export default function EsteiraProcessualPlatino({ usuario, showToast }: Props) 
     )).length;
 
     return [
-      ["Solicitados", contarPorFase(processos, "Solicitado para Ajuizamento")],
+      ["Protocolos pendentes", processos.filter((processo) => !processo.numero_processo).length],
       ["Com a Elite", contarPorFase(processos, "Enviado para Elite")],
       ["Pastas retornadas", contarPorFase(processos, "Pasta Retornada")],
-      ["Protocolos", processos.filter((processo) => Boolean(processo.numero_processo)).length],
+      ["Processos protocolados", processos.filter((processo) => Boolean(processo.numero_processo)).length],
       ["Atrasados", atrasados],
     ];
   }, [processos]);
@@ -75,18 +75,18 @@ export default function EsteiraProcessualPlatino({ usuario, showToast }: Props) 
   }
 
   return (
-    <section className="esteira-workspace" aria-label="Esteira Processual Platino">
+    <section className="esteira-workspace" aria-label="Módulo Processual Platino">
       <header className="esteira-hero">
         <div className="esteira-brand-block">
           <span className="esteira-logo-orbit">
             <img src="/assets/platino-orbital-logo.png" alt="" />
           </span>
           <div>
-            <span className="eyebrow">Esteira Processual PLATINO</span>
-            <h2>Da solicitação de ajuizamento ao acompanhamento judicial</h2>
+            <span className="eyebrow">Processual</span>
+            <h2>Protocolos e acompanhamento de processos judiciais</h2>
             <p>
-              Controle a pasta desde os documentos assinados, envio para a
-              Elite, retorno, protocolo e atualizações do processo.
+              Registre a pasta desde o pedido de ajuizamento, monitore o prazo
+              de protocolo e mantenha o histórico atualizado para cada cliente.
             </p>
           </div>
         </div>
@@ -96,7 +96,7 @@ export default function EsteiraProcessualPlatino({ usuario, showToast }: Props) 
         </div>
       </header>
 
-      <div className="esteira-metrics" aria-label="Resumo da esteira">
+      <div className="esteira-metrics" aria-label="Resumo processual">
         {indicadores.map(([rotulo, total]) => (
           <article key={rotulo}>
             <span>{rotulo}</span>
@@ -105,20 +105,20 @@ export default function EsteiraProcessualPlatino({ usuario, showToast }: Props) 
         ))}
       </div>
 
-      <div className="esteira-tabs" role="tablist" aria-label="Visualização">
+      <div className="esteira-tabs" role="tablist" aria-label="Abas do módulo Processual">
         <button
-          className={visualizacao === "kanban" ? "active" : ""}
-          onClick={() => setVisualizacao("kanban")}
+          className={visualizacao === "protocolos" ? "active" : ""}
+          onClick={() => setVisualizacao("protocolos")}
           type="button"
         >
-          Distribuição
+          Protocolos
         </button>
         <button
-          className={visualizacao === "judicial" ? "active" : ""}
-          onClick={() => setVisualizacao("judicial")}
+          className={visualizacao === "processos" ? "active" : ""}
+          onClick={() => setVisualizacao("processos")}
           type="button"
         >
-          CRM judicial
+          Processos
         </button>
         <button className="ghost" onClick={carregarProcessos} type="button">
           Atualizar
@@ -127,7 +127,7 @@ export default function EsteiraProcessualPlatino({ usuario, showToast }: Props) 
 
       {carregando ? (
         <div className="panel">Carregando processos...</div>
-      ) : visualizacao === "kanban" ? (
+      ) : visualizacao === "protocolos" ? (
         <EsteiraKanban
           processos={processos}
           onProcessoAtualizado={atualizarProcessoLocal}

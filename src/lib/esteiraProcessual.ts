@@ -34,13 +34,20 @@ export type PrazoElite = {
 
 export type Processo = {
   id: string;
+  pasta_cliente_id: string | null;
   autor_reu: string | null;
   nome_cliente: string;
+  cpf_cliente: string | null;
   banco_reu: string | null;
   fase_atual: FaseProcessual;
   status_judicial: string | null;
+  status_documentos: string | null;
+  status_procuracao: string | null;
+  documentos_elite_status: string | null;
+  pasta_retornada: boolean | null;
   status_prazo: string | null;
   data_envio_elite: string | null;
+  data_protocolo_liberado: string | null;
   data_distribuicao: string | null;
   numero_processo: string | null;
   vara: string | null;

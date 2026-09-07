@@ -405,7 +405,7 @@ function Workspace({ usuario, onLogout, showToast }) {
   if (admin || permissoes.esteira_processual !== false) {
     const indiceTreinamentos = abas.findIndex(([id]) => id === "treinamentos");
     if (!abas.some(([id]) => id === "esteira-processual")) {
-      abas.splice(indiceTreinamentos === -1 ? abas.length : indiceTreinamentos, 0, ["esteira-processual", "Esteira Processual", "esteira"]);
+      abas.splice(indiceTreinamentos === -1 ? abas.length : indiceTreinamentos, 0, ["esteira-processual", "Processual", "esteira"]);
     }
   }
   return <div className="app-layout">

@@ -1,51 +1,31 @@
 -- Esteira Processual PLATINO
 -- Execute depois de remover ou migrar a estrutura antiga de processos.
--- Cria o Kanban inicial, o painel judicial e o checklist de documentos da Elite.
+-- Cria Protocolos, Processos e o checklist de documentos da Elite.
 
 begin;
 
 create extension if not exists pgcrypto;
 
-do $$
-begin
-  if not exists (select 1 from pg_type where typname = 'processo_fase_atual') then
-    create type public.processo_fase_atual as enum (
-      'Solicitado para Ajuizamento',
-      'Documentos Pendentes',
-      'Documentos Concluídos',
-      'Pré-Distribuição',
-      'Enviado para Elite',
-      'Pasta Retornada',
-      'Protocolo Liberado',
-      'Tramitando',
-      'Arquivado',
-      'Improcedente'
-    );
-  end if;
-
-  if not exists (select 1 from pg_type where typname = 'processo_justica_gratuita') then
-    create type public.processo_justica_gratuita as enum (
-      'Deferida',
-      'Indeferida',
-      'Não Solicitada'
-    );
-  end if;
-end;
-$$;
-
 create table if not exists public.processos (
   id uuid primary key default gen_random_uuid(),
+  pasta_cliente_id text,
   autor_reu text,
   nome_cliente text not null,
+  cpf_cliente text,
   banco_reu text,
-  fase_atual public.processo_fase_atual not null default 'Solicitado para Ajuizamento',
+  fase_atual text not null default 'Solicitado para Ajuizamento',
   status_judicial text,
+  status_documentos text not null default 'Pendente',
+  status_procuracao text not null default 'Pendente',
+  documentos_elite_status text not null default 'Pendente',
+  pasta_retornada boolean not null default false,
   status_prazo text,
   data_envio_elite timestamptz,
+  data_protocolo_liberado timestamptz,
   data_distribuicao date,
   numero_processo text,
   vara text,
-  justica_gratuita public.processo_justica_gratuita not null default 'Não Solicitada',
+  justica_gratuita text not null default 'Não Solicitada',
   emenda_inicial text,
   link_processo text,
   observacoes text,
@@ -55,6 +35,41 @@ create table if not exists public.processos (
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
+
+alter table public.processos drop constraint if exists processos_fase_atual_check;
+alter table public.processos add constraint processos_fase_atual_check check (
+  fase_atual in (
+    'Solicitado para Ajuizamento',
+    'Documentos Pendentes',
+    'Documentos Concluídos',
+    'Pré-Distribuição',
+    'Enviado para Elite',
+    'Pasta Retornada',
+    'Protocolo Liberado',
+    'Tramitando',
+    'Arquivado',
+    'Improcedente'
+  )
+);
+
+alter table public.processos drop constraint if exists processos_justica_gratuita_check;
+alter table public.processos add constraint processos_justica_gratuita_check check (
+  justica_gratuita in ('Deferida', 'Indeferida', 'Não Solicitada')
+);
+
+alter table public.processos add column if not exists pasta_cliente_id text;
+alter table public.processos add column if not exists autor_reu text;
+alter table public.processos add column if not exists cpf_cliente text;
+alter table public.processos add column if not exists status_judicial text;
+alter table public.processos add column if not exists status_documentos text not null default 'Pendente';
+alter table public.processos add column if not exists status_procuracao text not null default 'Pendente';
+alter table public.processos add column if not exists documentos_elite_status text not null default 'Pendente';
+alter table public.processos add column if not exists pasta_retornada boolean not null default false;
+alter table public.processos add column if not exists data_protocolo_liberado timestamptz;
+alter table public.processos add column if not exists data_distribuicao date;
+alter table public.processos add column if not exists emenda_inicial text;
+alter table public.processos add column if not exists link_processo text;
+alter table public.processos add column if not exists origem_registro text not null default 'manual';
 
 create table if not exists public.movimentacoes (
   id uuid primary key default gen_random_uuid(),
