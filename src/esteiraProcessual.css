@@ -1,0 +1,663 @@
+.esteira-workspace {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.esteira-hero {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 22px;
+  padding: 24px;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at 82% 0%, rgba(210, 169, 91, .17), transparent 28%),
+    linear-gradient(135deg, rgba(255,255,255,.92), rgba(242,247,255,.74));
+  border: 1px solid rgba(255,255,255,.88);
+  border-radius: 22px;
+  box-shadow: 0 18px 48px rgba(37, 77, 130, .1);
+}
+
+.esteira-brand-block {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  min-width: 0;
+}
+
+.esteira-logo-orbit {
+  position: relative;
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+  width: 74px;
+  height: 74px;
+  border: 1px solid rgba(205, 163, 83, .45);
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 13px 28px rgba(14, 47, 113, .11);
+}
+
+.esteira-logo-orbit::before,
+.esteira-logo-orbit::after {
+  content: "";
+  position: absolute;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #d1a85d;
+}
+
+.esteira-logo-orbit::before { left: 8px; bottom: 13px; }
+.esteira-logo-orbit::after { right: 10px; top: 16px; }
+
+.esteira-logo-orbit img {
+  width: 54px;
+  height: 54px;
+  object-fit: contain;
+  border-radius: 50%;
+}
+
+.esteira-hero h2 {
+  max-width: 720px;
+  margin: 5px 0 6px;
+  font-size: clamp(22px, 2.3vw, 32px);
+  letter-spacing: -.03em;
+  text-transform: none;
+}
+
+.esteira-hero p {
+  max-width: 680px;
+  font-size: 13px;
+}
+
+.esteira-user-tag {
+  min-width: 180px;
+  padding: 13px 15px;
+  text-align: right;
+  background: rgba(255,255,255,.72);
+  border: 1px solid rgba(193, 209, 231, .7);
+  border-radius: 14px;
+}
+
+.esteira-user-tag span {
+  display: block;
+  color: #8291a7;
+  font-size: 9px;
+  font-weight: 850;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+
+.esteira-user-tag strong {
+  display: block;
+  margin-top: 4px;
+  color: #102a56;
+  font-size: 12px;
+}
+
+.esteira-metrics {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.esteira-metrics article {
+  padding: 16px;
+  background: rgba(255,255,255,.72);
+  border: 1px solid rgba(255,255,255,.86);
+  border-radius: 15px;
+  box-shadow: 0 10px 26px rgba(45, 86, 140, .08);
+}
+
+.esteira-metrics span {
+  display: block;
+  color: #75869d;
+  font-size: 10px;
+  font-weight: 800;
+}
+
+.esteira-metrics strong {
+  display: block;
+  margin-top: 6px;
+  color: #102a56;
+  font-size: 28px;
+}
+
+.esteira-tabs {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px;
+  background: rgba(255,255,255,.64);
+  border: 1px solid rgba(255,255,255,.84);
+  border-radius: 15px;
+  box-shadow: 0 12px 28px rgba(45, 86, 140, .07);
+}
+
+.esteira-tabs button {
+  min-height: 40px;
+  padding: 0 14px;
+  color: #506a8b;
+  background: transparent;
+  border: 0;
+  border-radius: 10px;
+  cursor: pointer;
+  font-size: 11px;
+  font-weight: 850;
+}
+
+.esteira-tabs button.active {
+  color: white;
+  background: linear-gradient(135deg, #265fd0, #123d91);
+  box-shadow: 0 8px 18px rgba(24, 76, 174, .18);
+}
+
+.esteira-tabs button.ghost {
+  margin-left: auto;
+  color: #315d94;
+  background: white;
+  border: 1px solid #d6e1ee;
+}
+
+.esteira-create-card {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1.4fr auto;
+  align-items: end;
+  gap: 10px;
+  padding: 14px;
+  margin-bottom: 16px;
+  background: rgba(255,255,255,.75);
+  border: 1px solid rgba(255,255,255,.86);
+  border-radius: 16px;
+  box-shadow: 0 10px 28px rgba(40, 82, 140, .08);
+}
+
+.esteira-create-card.extended {
+  grid-template-columns: repeat(4, minmax(0, 1fr)) auto;
+}
+
+.esteira-create-card .wide {
+  grid-column: 1 / -2;
+}
+
+.esteira-form-mode {
+  grid-column: 1 / -1;
+  display: flex;
+  gap: 7px;
+  padding: 5px;
+  background: #f4f8fd;
+  border: 1px solid #dce7f3;
+  border-radius: 12px;
+}
+
+.esteira-form-mode button {
+  min-height: 36px;
+  padding: 0 12px;
+  color: #536b89;
+  background: transparent;
+  border: 0;
+  border-radius: 9px;
+  cursor: pointer;
+  font-size: 10px;
+  font-weight: 850;
+}
+
+.esteira-form-mode button.active {
+  color: #fff;
+  background: #1f60d6;
+  box-shadow: 0 6px 14px rgba(31, 96, 214, .16);
+}
+
+.esteira-create-card label,
+.esteira-modal label,
+.judicial-toolbar label,
+.movimentacao-form label,
+.processo-ficha-form label {
+  display: grid;
+  gap: 7px;
+}
+
+.esteira-create-card span,
+.esteira-modal label span,
+.judicial-toolbar label span,
+.movimentacao-form label span,
+.processo-ficha-form label span {
+  color: #5e738d;
+  font-size: 9px;
+  font-weight: 850;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+
+.esteira-kanban {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(260px, 1fr));
+  gap: 14px;
+}
+
+.kanban-column {
+  min-height: 430px;
+  padding: 14px;
+  background: rgba(247,250,255,.72);
+  border: 1px solid rgba(255,255,255,.88);
+  border-radius: 18px;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.8), 0 14px 36px rgba(41, 82, 137, .08);
+}
+
+.kanban-column header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 3px 2px 13px;
+}
+
+.kanban-column header span {
+  color: #123d7f;
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: .05em;
+  text-transform: uppercase;
+}
+
+.kanban-column header strong {
+  display: grid;
+  place-items: center;
+  min-width: 30px;
+  height: 30px;
+  color: #123d7f;
+  background: #fff;
+  border: 1px solid #dbe6f3;
+  border-radius: 50%;
+  font-size: 12px;
+}
+
+.kanban-card-list {
+  display: grid;
+  gap: 10px;
+}
+
+.kanban-empty {
+  padding: 34px 10px;
+  color: #8c9bb0;
+  font-size: 12px;
+  text-align: center;
+  border: 1px dashed #cdd9e8;
+  border-radius: 13px;
+}
+
+.process-card {
+  display: grid;
+  gap: 10px;
+  padding: 14px;
+  background: #fff;
+  border: 1px solid #dbe5f0;
+  border-left: 4px solid #1f60d6;
+  border-radius: 12px;
+  box-shadow: 0 8px 18px rgba(28, 66, 117, .07);
+  cursor: grab;
+}
+
+.process-card:active {
+  cursor: grabbing;
+}
+
+.process-card strong {
+  display: block;
+  color: #102a56;
+  font-size: 13px;
+}
+
+.process-card span:not(.prazo-chip) {
+  display: block;
+  margin-top: 3px;
+  color: #74849a;
+  font-size: 10px;
+}
+
+.process-card small {
+  color: #48688e;
+  font-size: 10px;
+  font-weight: 750;
+}
+
+.process-card p {
+  margin: 0;
+  color: #657890;
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+.prazo-chip {
+  display: inline-flex;
+  width: fit-content;
+  max-width: 100%;
+  padding: 6px 9px;
+  border-radius: 999px;
+  font-size: 9px;
+  font-weight: 850;
+  text-transform: uppercase;
+}
+
+.prazo-chip.verde {
+  color: #21705e;
+  background: #ddf5ee;
+  border: 1px solid #b6eadb;
+}
+
+.prazo-chip.amarelo {
+  color: #936513;
+  background: #fff2cc;
+  border: 1px solid #efd797;
+}
+
+.prazo-chip.vermelho {
+  color: #a13b4f;
+  background: #ffe2e8;
+  border: 1px solid #f5bac6;
+}
+
+.prazo-chip.pendente {
+  color: #667085;
+  background: #eef2f6;
+  border: 1px solid #d8e0ea;
+}
+
+.esteira-modal-backdrop {
+  position: fixed;
+  z-index: 1300;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: rgba(8, 25, 52, .56);
+  backdrop-filter: blur(7px);
+}
+
+.esteira-modal {
+  position: relative;
+  display: grid;
+  gap: 15px;
+  width: min(620px, 96vw);
+  max-height: 92vh;
+  padding: 24px;
+  overflow: auto;
+  background: #fff;
+  border: 1px solid rgba(255,255,255,.42);
+  border-radius: 18px;
+  box-shadow: 0 28px 80px rgba(3, 18, 42, .34);
+}
+
+.esteira-modal h3,
+.judicial-drawer-panel h3 {
+  margin: 0;
+  color: #102a56;
+  font-size: 22px;
+}
+
+.modal-close {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  color: #60748d;
+  background: #f4f7fb;
+  border: 1px solid #dbe4ef;
+  border-radius: 9px;
+  cursor: pointer;
+  font-size: 16px;
+  font-weight: 900;
+}
+
+.checklist-upload-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 11px;
+}
+
+.painel-judicial {
+  display: grid;
+  gap: 14px;
+}
+
+.judicial-toolbar {
+  display: grid;
+  grid-template-columns: 1fr minmax(260px, 410px);
+  align-items: end;
+  gap: 18px;
+  padding: 18px;
+  background: rgba(255,255,255,.75);
+  border: 1px solid rgba(255,255,255,.88);
+  border-radius: 16px;
+  box-shadow: 0 10px 28px rgba(40, 82, 140, .08);
+}
+
+.judicial-toolbar h2 {
+  margin: 3px 0 0;
+  font-size: 20px;
+  text-transform: none;
+}
+
+.judicial-table-wrap {
+  overflow: auto;
+  background: rgba(255,255,255,.82);
+  border: 1px solid rgba(255,255,255,.88);
+  border-radius: 16px;
+  box-shadow: 0 12px 34px rgba(40, 82, 140, .08);
+}
+
+.judicial-table {
+  width: 100%;
+  min-width: 920px;
+  border-collapse: collapse;
+}
+
+.judicial-table th,
+.judicial-table td {
+  padding: 13px 14px;
+  border-bottom: 1px solid #e7eef6;
+  color: #526781;
+  font-size: 11px;
+  text-align: left;
+  vertical-align: middle;
+}
+
+.judicial-table th {
+  color: #173f7b;
+  background: #f4f8fd;
+  font-size: 9px;
+  font-weight: 900;
+  letter-spacing: .07em;
+  text-transform: uppercase;
+}
+
+.judicial-table td strong {
+  color: #102a56;
+  font-size: 12px;
+}
+
+.judicial-phase {
+  display: inline-flex;
+  padding: 6px 8px;
+  color: #244d85;
+  background: #e8f1ff;
+  border: 1px solid #d4e3f8;
+  border-radius: 999px;
+  font-size: 9px;
+  font-weight: 850;
+}
+
+.judicial-drawer {
+  position: fixed;
+  z-index: 1250;
+  inset: 0;
+  display: flex;
+  justify-content: flex-end;
+  background: rgba(8, 25, 52, .32);
+}
+
+.judicial-drawer-panel {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  width: min(520px, 96vw);
+  height: 100%;
+  padding: 26px;
+  overflow: auto;
+  background: #fff;
+  box-shadow: -24px 0 68px rgba(6, 21, 47, .26);
+}
+
+.processo-ficha-form {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  padding: 14px;
+  background: #f7faff;
+  border: 1px solid #e0e9f4;
+  border-radius: 14px;
+}
+
+.processo-ficha-form .wide,
+.drawer-form-actions {
+  grid-column: 1 / -1;
+}
+
+.drawer-form-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.drawer-form-actions a {
+  color: #245fc7;
+  font-size: 11px;
+  font-weight: 850;
+}
+
+.drawer-actions {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+
+.btn-secondary.danger {
+  color: #9b3549;
+  background: #fff1f4;
+  border-color: #f3c2cc;
+}
+
+.movimentacao-form {
+  display: grid;
+  gap: 10px;
+  padding: 14px;
+  background: #f6f9fd;
+  border: 1px solid #e1e9f3;
+  border-radius: 14px;
+}
+
+.movimentacao-list {
+  display: grid;
+  gap: 10px;
+}
+
+.movimentacao-list article {
+  padding: 13px;
+  background: #f9fbfe;
+  border: 1px solid #e1e9f3;
+  border-left: 3px solid #d1a85d;
+  border-radius: 12px;
+}
+
+.movimentacao-list time {
+  color: #315f9b;
+  font-size: 9px;
+  font-weight: 850;
+}
+
+.movimentacao-list p {
+  margin: 6px 0 0;
+  color: #455d7b;
+  font-size: 12px;
+  line-height: 1.55;
+}
+
+@media (max-width: 1040px) {
+  .esteira-hero,
+  .esteira-brand-block,
+  .judicial-toolbar {
+    align-items: stretch;
+    grid-template-columns: 1fr;
+    flex-direction: column;
+  }
+
+  .esteira-user-tag {
+    width: 100%;
+    text-align: left;
+  }
+
+  .esteira-metrics {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .esteira-create-card,
+  .esteira-create-card.extended {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .esteira-create-card .btn-primary,
+  .esteira-create-card .wide {
+    grid-column: 1 / -1;
+  }
+
+  .esteira-kanban {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 620px) {
+  .esteira-hero,
+  .esteira-create-card,
+  .judicial-toolbar {
+    padding: 14px;
+    border-radius: 14px;
+  }
+
+  .esteira-brand-block {
+    gap: 12px;
+  }
+
+  .esteira-logo-orbit {
+    width: 56px;
+    height: 56px;
+  }
+
+  .esteira-logo-orbit img {
+    width: 42px;
+    height: 42px;
+  }
+
+  .esteira-metrics,
+  .esteira-create-card,
+  .esteira-create-card.extended,
+  .checklist-upload-grid,
+  .drawer-actions,
+  .processo-ficha-form {
+    grid-template-columns: 1fr;
+  }
+
+  .esteira-tabs {
+    flex-wrap: wrap;
+  }
+
+  .esteira-tabs button.ghost {
+    width: 100%;
+    margin-left: 0;
+  }
+}

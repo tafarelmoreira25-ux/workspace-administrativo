@@ -28,7 +28,7 @@ function dataParaNome(dataIso) {
 }
 
 function montarNomeAutomatico(modelo, dados, numeroDocumento, versao = 1) {
-  const cliente = String(dados.nomeCliente || dados.clienteVinculado || "Cliente").trim() || "Cliente";
+  const cliente = String(dados.nomeCliente || "Cliente").trim() || "Cliente";
   const partes = [modelo.nome, cliente, dataParaNome(dados.dataEmissao), numeroDocumento];
   if (versao > 1) partes.push(`Versão ${String(versao).padStart(2, "0")}`);
   return partes.join("_").replace(/\s{2,}/g, " ").slice(0, 180);
@@ -53,7 +53,7 @@ function criarFormularioInicial(responsavel, modelo = MODELOS[0], departamento =
   const camposDoModelo = Object.fromEntries(modelo.campos.map((campo) => [campo.nome, campo.valorInicial === "responsavel" ? responsavel || "" : valorInicialCampo(campo, hoje)]));
   return {
     modeloId: modelo.id, tipo: modelo.nome, titulo: modelo.titulo || modelo.nome,
-    dataEmissao: hoje, clienteVinculadoId: "", clienteVinculado: "",
+    dataEmissao: hoje,
     responsavel: responsavel || "", departamento: departamento || "Jurídico",
     destino: destinoPadrao(modelo), observacaoInterna: "", salvarNaPasta: true, versao: 1,
     ...camposDoModelo,
@@ -149,17 +149,17 @@ function EtapasDocumento({ etapaAtual }) {
   return <ol className="legal-doc-steps" aria-label="Etapas da geração do documento">{etapas.map((etapa, indice) => { const numero = indice + 1; const concluida = numero < etapaAtual; const atual = numero === etapaAtual; return <li key={etapa} className={`${concluida ? "done" : ""} ${atual ? "active" : ""}`} aria-current={atual ? "step" : undefined}><span>{concluida ? "✓" : numero}</span><strong>{etapa}</strong></li>; })}</ol>;
 }
 
-function CampoDocumento({ campo, valor, erro, importado, onChange, onBlur }) {
+function CampoDocumento({ campo, valor, erro, onChange, onBlur }) {
   const inputId = `doc-field-${campo.nome}`;
   const props = { id: inputId, name: campo.nome, value: valor || "", onChange, onBlur, required: campo.obrigatorio, "aria-invalid": Boolean(erro), "aria-describedby": erro ? `${inputId}-error` : undefined };
-  return <label className={`legal-doc-field ${campo.largura === "total" ? "wide" : ""} ${erro ? "invalid" : ""} ${importado ? "imported" : ""}`} htmlFor={inputId}><span className="legal-doc-label-row"><span>{campo.rotulo}{campo.obrigatorio ? " *" : ""}</span>{importado ? <small>✓ Importado do cliente</small> : null}</span>{campo.tipo === "textarea" ? <textarea {...props} rows="4" placeholder={campo.placeholder} /> : campo.tipo === "select" ? <select {...props}>{campo.opcoes.map((opcao) => <option key={opcao.valor} value={opcao.valor}>{opcao.rotulo}</option>)}</select> : <input {...props} type={campo.tipo || "text"} placeholder={campo.placeholder} min={campo.min} />}{erro ? <small className="legal-doc-field-error" id={`${inputId}-error`}>{erro}</small> : null}</label>;
+  return <label className={`legal-doc-field ${campo.largura === "total" ? "wide" : ""} ${erro ? "invalid" : ""}`} htmlFor={inputId}><span className="legal-doc-label-row"><span>{campo.rotulo}{campo.obrigatorio ? " *" : ""}</span></span>{campo.tipo === "textarea" ? <textarea {...props} rows="4" placeholder={campo.placeholder} /> : campo.tipo === "select" ? <select {...props}>{campo.opcoes.map((opcao) => <option key={opcao.valor} value={opcao.valor}>{opcao.rotulo}</option>)}</select> : <input {...props} type={campo.tipo || "text"} placeholder={campo.placeholder} min={campo.min} />}{erro ? <small className="legal-doc-field-error" id={`${inputId}-error`}>{erro}</small> : null}</label>;
 }
 
-function GrupoCampos({ grupo, dados, tocados, importados, onChange, onBlur, modeloId, abertoInicial = false }) {
+function GrupoCampos({ grupo, dados, tocados, onChange, onBlur, modeloId, abertoInicial = false }) {
   const [aberto, setAberto] = useState(abertoInicial);
   const obrigatorios = grupo.campos.filter((campo) => campo.obrigatorio);
   const preenchidos = obrigatorios.filter((campo) => !erroCampo(campo, dados[campo.nome])).length;
-  return <section className={`legal-doc-field-group ${aberto ? "open" : ""}`}><button type="button" className="legal-doc-field-group-toggle" onClick={() => setAberto((valor) => !valor)} aria-expanded={aberto}><span><strong>{grupo.titulo}</strong><small>{preenchidos} de {obrigatorios.length} obrigatórios preenchidos</small></span><span className="legal-doc-group-progress"><i style={{ width: `${obrigatorios.length ? (preenchidos / obrigatorios.length) * 100 : 100}%` }} /></span><b aria-hidden="true">⌄</b></button>{aberto ? <div className="legal-doc-fields-grid" key={modeloId}>{grupo.campos.map((campo) => <CampoDocumento key={campo.nome} campo={campo} valor={dados[campo.nome]} erro={tocados.has(campo.nome) ? erroCampo(campo, dados[campo.nome]) : ""} importado={importados.has(campo.nome)} onChange={onChange} onBlur={onBlur} />)}</div> : null}</section>;
+  return <section className={`legal-doc-field-group ${aberto ? "open" : ""}`}><button type="button" className="legal-doc-field-group-toggle" onClick={() => setAberto((valor) => !valor)} aria-expanded={aberto}><span><strong>{grupo.titulo}</strong><small>{preenchidos} de {obrigatorios.length} obrigatórios preenchidos</small></span><span className="legal-doc-group-progress"><i style={{ width: `${obrigatorios.length ? (preenchidos / obrigatorios.length) * 100 : 100}%` }} /></span><b aria-hidden="true">⌄</b></button>{aberto ? <div className="legal-doc-fields-grid" key={modeloId}>{grupo.campos.map((campo) => <CampoDocumento key={campo.nome} campo={campo} valor={dados[campo.nome]} erro={tocados.has(campo.nome) ? erroCampo(campo, dados[campo.nome]) : ""} onChange={onChange} onBlur={onBlur} />)}</div> : null}</section>;
 }
 
 function PainelProgresso({ total, preenchidos, pendentes, onVerPendentes }) {
@@ -172,7 +172,7 @@ function AssistentePreenchimento({ dados, pendentes, errosVisiveis, onCorrigir }
   if (errosVisiveis.length > 0) aviso = { tom: "error", titulo: "Revise um dado informado", texto: errosVisiveis[0].erro, campo: errosVisiveis[0].campo.nome };
   else if (pendentes.length > 0) aviso = { tom: "warning", titulo: `Faltam ${pendentes.length} ${pendentes.length === 1 ? "informação obrigatória" : "informações obrigatórias"}`, texto: `Comece por ${pendentes[0].rotulo.toLowerCase()} para avançar na preparação.`, campo: pendentes[0].nome };
   else aviso = { tom: "success", titulo: "Documento pronto para revisão", texto: "Todos os campos obrigatórios foram preenchidos. Confira a prévia antes de gerar o PDF." };
-  const orientacoes = [aviso, !dados.clienteVinculadoId ? { tom: "info", titulo: "Vincule um cliente", texto: "Pesquise o cadastro para importar informações e melhorar a rastreabilidade." } : { tom: "success", titulo: "Cliente vinculado", texto: `${dados.clienteVinculado} está associado a este documento.` }, { tom: "info", titulo: "Conferência recomendada", texto: dados.numeroContrato ? "Revise o número do contrato antes de gerar o arquivo final." : "Inclua contrato ou processo no nome quando essa referência estiver disponível." }];
+  const orientacoes = [aviso, { tom: "info", titulo: "Conferência recomendada", texto: dados.numeroContrato ? "Revise o número do contrato antes de gerar o arquivo final." : "Inclua contrato ou processo no nome quando essa referência estiver disponível." }];
   return <section className="legal-doc-assistant"><div className="legal-doc-section-title"><span><DocumentCategoryIcon name="shield" size={20} /></span><div><span className="eyebrow">Apoio contextual</span><h3>Assistente de preenchimento</h3></div></div><div className="legal-doc-advice-list">{orientacoes.map((item) => <article className={`legal-doc-advice ${item.tom}`} key={item.titulo}><span aria-hidden="true">{item.tom === "success" ? "✓" : item.tom === "info" ? "i" : "!"}</span><div><strong>{item.titulo}</strong><p>{item.texto}</p>{item.campo ? <button type="button" onClick={() => onCorrigir(item.campo)}>Corrigir agora</button> : null}</div></article>)}</div></section>;
 }
 
@@ -203,12 +203,6 @@ export default function GeradorDocumentos({ responsavel, usuario, onSuccess }) {
   const [salvandoNomeModelo, setSalvandoNomeModelo] = useState(false);
   const [favoritos, setFavoritos] = useState(() => lerJsonLocal(DOCUMENT_FAVORITES_KEY, []));
   const [modelosRecentes, setModelosRecentes] = useState(() => lerJsonLocal(DOCUMENT_RECENT_MODELS_KEY, []));
-  const [clientes, setClientes] = useState([]);
-  const [clientesCarregando, setClientesCarregando] = useState(true);
-  const [clientesErro, setClientesErro] = useState("");
-  const [buscaCliente, setBuscaCliente] = useState("");
-  const [clienteBuscaAberta, setClienteBuscaAberta] = useState(false);
-  const [camposImportados, setCamposImportados] = useState(() => new Set());
   const [tocados, setTocados] = useState(() => new Set());
   const [gerando, setGerando] = useState(false);
   const [erro, setErro] = useState("");
@@ -249,7 +243,6 @@ export default function GeradorDocumentos({ responsavel, usuario, onSuccess }) {
   const podeGerar = identificacaoCompleta && pendentes.length === 0 && !declaracaoIrpfInvalida && !gerando;
   const etapaAtual = !identificacaoCompleta ? 2 : pendentes.length || declaracaoIrpfInvalida ? 3 : 4;
   const documentosProcuracao = modeloSelecionado.modo === "procuracao" ? listarDocumentosProcuracao(dados) : [];
-  const clientesFiltrados = clientes.filter((cliente) => !normalizarBusca(buscaCliente) || normalizarBusca(`${cliente.nome} ${cliente.cpf || ""} ${cliente.codigo_interno || ""}`).includes(normalizarBusca(buscaCliente))).slice(0, 6);
 
   const focarCampo = useCallback((nome) => {
     setTocados((atuais) => new Set([...atuais, nome]));
@@ -258,9 +251,8 @@ export default function GeradorDocumentos({ responsavel, usuario, onSuccess }) {
 
   useEffect(() => {
     let ativo = true;
-    Promise.allSettled([supabase.rpc("listar_clientes_central"), supabase.from("documentos_juridicos").select("*").order("created_at", { ascending: false }).limit(12), supabase.from("modelos_juridicos_config").select("modelo_id, nome_exibicao")]).then(([clientesResultado, historicoResultado, nomesResultado]) => {
+    Promise.allSettled([supabase.from("documentos_juridicos").select("*").order("created_at", { ascending: false }).limit(12), supabase.from("modelos_juridicos_config").select("modelo_id, nome_exibicao")]).then(([historicoResultado, nomesResultado]) => {
       if (!ativo) return;
-      if (clientesResultado.status === "fulfilled" && !clientesResultado.value.error) setClientes(clientesResultado.value.data || []); else setClientesErro("Não foi possível consultar os clientes agora. Você ainda pode preencher os dados manualmente.");
       if (historicoResultado.status === "fulfilled" && !historicoResultado.value.error) {
         const remotos = (historicoResultado.value.data || []).map((item) => ({ id: item.id, nomeDocumento: item.nome_documento, modeloId: item.modelo_id, modeloNome: item.modelo_nome, cliente: item.cliente_nome, responsavel: item.responsavel_nome, criadoEm: item.created_at, versao: item.versao, status: item.status, destino: item.destino, storagePath: item.arquivo_principal_path, metadata: item.metadata }));
         setHistorico((locais) => [...remotos, ...locais.filter((local) => !remotos.some((remoto) => remoto.id === local.id))].slice(0, 20));
@@ -270,7 +262,6 @@ export default function GeradorDocumentos({ responsavel, usuario, onSuccess }) {
         setNomesModelos(nomesRemotos);
         localStorage.setItem(DOCUMENT_MODEL_NAMES_KEY, JSON.stringify(nomesRemotos));
       }
-      setClientesCarregando(false);
     });
     return () => { ativo = false; };
   }, []);
@@ -336,7 +327,7 @@ export default function GeradorDocumentos({ responsavel, usuario, onSuccess }) {
     return () => { ativo = false; window.clearTimeout(temporizador); };
   }, [dados, modeloSelecionado, nomeSugerido, nomesDoConjunto, previewVersao]);
 
-  function atualizarDados(parcial, importados = []) { setDados((atual) => ({ ...atual, ...parcial })); if (importados.length) setCamposImportados(new Set(importados)); setDirty(true); setErro(""); setPreviewAtualizadaEm(new Date()); }
+  function atualizarDados(parcial) { setDados((atual) => ({ ...atual, ...parcial })); setDirty(true); setErro(""); setPreviewAtualizadaEm(new Date()); }
   function atualizarCampo(evento) { const { name, type, value, checked } = evento.target; const parcial = { [name]: type === "checkbox" ? checked : formatarValorCampo(name, value) }; if (name === "nacionalidade") parcial.nacionalidadePreenchidaManualmente = true; atualizarDados(parcial); setTocados((atuais) => new Set([...atuais, name])); }
   function marcarTocado(evento) { setTocados((atuais) => new Set([...atuais, evento.target.name])); }
 
@@ -344,8 +335,8 @@ export default function GeradorDocumentos({ responsavel, usuario, onSuccess }) {
     if (modelo.id !== modeloSelecionado.id && dirty && !window.confirm("Trocar o modelo? Os campos específicos do documento atual serão substituídos, mas os dados comuns serão preservados.")) return;
     const inicial = criarFormularioInicial(responsavel, modelo, departamentoUsuario);
     modelo.campos.forEach((campo) => { if (dados[campo.nome]) inicial[campo.nome] = dados[campo.nome]; });
-    Object.assign(inicial, { clienteVinculadoId: dados.clienteVinculadoId || "", clienteVinculado: dados.clienteVinculado || "", observacaoInterna: dados.observacaoInterna || "", nacionalidadePreenchidaManualmente: Boolean(dados.nacionalidadePreenchidaManualmente) });
-    atualizarDados(inicial); setTocados(new Set()); setCamposImportados(new Set());
+    Object.assign(inicial, { observacaoInterna: dados.observacaoInterna || "", nacionalidadePreenchidaManualmente: Boolean(dados.nacionalidadePreenchidaManualmente) });
+    atualizarDados(inicial); setTocados(new Set());
     const novosRecentes = [modelo.id, ...modelosRecentes.filter((id) => id !== modelo.id)].slice(0, 6); setModelosRecentes(novosRecentes); localStorage.setItem(DOCUMENT_RECENT_MODELS_KEY, JSON.stringify(novosRecentes));
     setBibliotecaAberta(false); primeiraSecaoRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
   }
@@ -372,11 +363,6 @@ export default function GeradorDocumentos({ responsavel, usuario, onSuccess }) {
     }
   }
 
-  function selecionarCliente(cliente) {
-    const parcial = { clienteVinculadoId: cliente.id, clienteVinculado: cliente.nome, nomeCliente: cliente.nome || dados.nomeCliente, cpfCnpj: cliente.cpf || dados.cpfCnpj, numeroContrato: cliente.numero_contrato || dados.numeroContrato, numeroProcesso: cliente.numero_processo || dados.numeroProcesso, departamento: cliente.departamento_atual || dados.departamento, destino: cliente.pasta_drive_nome || dados.destino };
-    const importados = ["nomeCliente", cliente.cpf && "cpfCnpj", cliente.numero_contrato && "numeroContrato", cliente.numero_processo && "numeroProcesso"].filter(Boolean);
-    atualizarDados(parcial, importados); setBuscaCliente(cliente.nome); setClienteBuscaAberta(false);
-  }
 
   function salvarRascunho() {
     const dataSalvamento = persistirRascunho(dados);
@@ -391,8 +377,8 @@ export default function GeradorDocumentos({ responsavel, usuario, onSuccess }) {
     dirtyRef.current = false;
     setDados(inicial);
     setTocados(new Set());
-    setCamposImportados(new Set());
-    setBuscaCliente("");
+
+
     setSalvoEm(null);
     setDirty(false);
   }
@@ -413,9 +399,9 @@ export default function GeradorDocumentos({ responsavel, usuario, onSuccess }) {
 
   async function arquivarNoSupabase(arquivos, registro) {
     if (!dados.salvarNaPasta) return { registro, aviso: "O salvamento automático foi desativado; os arquivos estão disponíveis apenas para download nesta sessão." };
-    const clientePasta = String(dados.clienteVinculadoId || "sem-cliente"); const ano = dados.dataEmissao?.slice(0, 4) || String(new Date().getFullYear()); const nonce = `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`; const paths = [];
+    const clientePasta = "documentos"; const ano = dados.dataEmissao?.slice(0, 4) || String(new Date().getFullYear()); const nonce = `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`; const paths = [];
     for (const arquivo of arquivos) { const path = `${clientePasta}/${ano}/${nonce}-${arquivo.nome}`; const { error: uploadError } = await supabase.storage.from("documentos-juridicos").upload(path, arquivo.bytes, { contentType: "application/pdf", upsert: false }); if (uploadError) throw uploadError; paths.push(path); }
-    const { data: salvo, error: salvarError } = await supabase.from("documentos_juridicos").insert({ nome_documento: registro.nomeDocumento, nome_arquivo: arquivos[0].nome, modelo_id: registro.modeloId, modelo_nome: registro.modeloNome, categoria: modeloSelecionado.categoriaNome, cliente_id: dados.clienteVinculadoId || null, cliente_nome: registro.cliente || null, cpf_cnpj: dados.cpfCnpj || null, numero_contrato: dados.numeroContrato || null, numero_processo: dados.numeroProcesso || null, responsavel_nome: registro.responsavel, departamento: dados.departamento || null, destino: dados.destino || null, versao: registro.versao, status: "gerado", arquivo_principal_path: paths[0], arquivos_paths: paths, metadata: { dados, arquivos: arquivos.map((arquivo) => arquivo.nome) } }).select("id").single();
+    const { data: salvo, error: salvarError } = await supabase.from("documentos_juridicos").insert({ nome_documento: registro.nomeDocumento, nome_arquivo: arquivos[0].nome, modelo_id: registro.modeloId, modelo_nome: registro.modeloNome, categoria: modeloSelecionado.categoriaNome, cliente_nome: registro.cliente || null, cpf_cnpj: dados.cpfCnpj || null, numero_contrato: dados.numeroContrato || null, numero_processo: dados.numeroProcesso || null, responsavel_nome: registro.responsavel, departamento: dados.departamento || null, destino: dados.destino || null, versao: registro.versao, status: "gerado", arquivo_principal_path: paths[0], arquivos_paths: paths, metadata: { dados, arquivos: arquivos.map((arquivo) => arquivo.nome) } }).select("id").single();
     if (salvarError) throw salvarError;
     const { data: assinatura } = await supabase.storage.from("documentos-juridicos").createSignedUrl(paths[0], 60 * 60);
     return { registro: { ...registro, id: salvo.id, storagePath: paths[0], link: assinatura?.signedUrl || "" }, aviso: "" };
@@ -432,7 +418,7 @@ export default function GeradorDocumentos({ responsavel, usuario, onSuccess }) {
       const nomeDocumento = nomesParaGeracao[modeloSelecionado.modo];
       const dadosGeracao = { ...dados, versao };
       const arquivos = await gerarArquivos(dadosGeracao, modeloSelecionado, nomeDocumento, true, nomesParaGeracao); const criadoEm = new Date().toISOString();
-      const registroBase = { id: `local-${Date.now()}`, nomeDocumento, modeloId: modeloSelecionado.id, modeloNome: modeloSelecionado.nome, icone: modeloSelecionado.icone, cliente: dados.clienteVinculado || dados.nomeCliente, responsavel: responsavel || "Não informado", criadoEm, versao, status: "Gerado", destino: dados.destino, metadata: { dados: dadosGeracao } };
+      const registroBase = { id: `local-${Date.now()}`, nomeDocumento, modeloId: modeloSelecionado.id, modeloNome: modeloSelecionado.nome, icone: modeloSelecionado.icone, cliente: dados.nomeCliente, responsavel: responsavel || "Não informado", criadoEm, versao, status: "Gerado", destino: dados.destino, metadata: { dados: dadosGeracao } };
       let arquivamento = { registro: registroBase, aviso: "" };
       try { arquivamento = await arquivarNoSupabase(arquivos, registroBase); } catch (archiveError) { console.warn("Documento gerado sem arquivamento remoto:", archiveError); }
       const registro = { ...arquivamento.registro, arquivos: arquivos.map((arquivo) => ({ nome: arquivo.nome })) };
@@ -462,10 +448,10 @@ export default function GeradorDocumentos({ responsavel, usuario, onSuccess }) {
           <div className="legal-doc-name-suggestion"><div><span>Nome do arquivo gerado automaticamente</span><strong>{nomeSugerido || modeloSelecionado.nome}</strong><small>O nome inclui dados do cliente e a data, sem precisar ser digitado pela equipe.</small></div></div>
           {duplicado ? <div className="legal-doc-duplicate-warning"><span>!</span><div><strong>Já existe um documento com nome semelhante.</strong><p>Ao gerar, será criada automaticamente a Versão {String(versaoSugerida).padStart(2, "0")}.</p></div></div> : null}
           <div className="legal-doc-file-preview"><span>Nome do arquivo</span><code>{nomeArquivo}</code></div>
-          <div className="legal-doc-identification-grid"><section><div className="legal-doc-subsection-heading"><span>1</span><div><h3>Localize o cliente</h3><p>Escolha um cadastro para importar os dados já existentes.</p></div></div><div className="legal-doc-client-picker"><label className="legal-doc-field"><span>Cliente vinculado</span><input type="search" value={buscaCliente} onFocus={() => setClienteBuscaAberta(true)} onBlur={() => window.setTimeout(() => setClienteBuscaAberta(false), 120)} onChange={(evento) => { setBuscaCliente(evento.target.value); setClienteBuscaAberta(true); }} placeholder={clientesCarregando ? "Carregando clientes…" : "Pesquisar por nome, CPF ou código…"} /></label>{clienteBuscaAberta ? <div className="legal-doc-client-results">{clientesFiltrados.length ? clientesFiltrados.map((cliente) => <button type="button" key={cliente.id} onMouseDown={() => selecionarCliente(cliente)}><strong>{cliente.nome}</strong><span>{cliente.cpf || "CPF não informado"} · {cliente.codigo_interno || "Sem código"}</span></button>) : <p>Nenhum cliente encontrado.</p>}</div> : null}</div>{clientesErro ? <p className="legal-doc-inline-warning">{clientesErro}</p> : null}{camposImportados.size ? <p className="legal-doc-import-summary">✓ {camposImportados.size} informações importadas. Revise apenas se necessário.</p> : null}</section><section><div className="legal-doc-subsection-heading"><span>2</span><div><h3>Referências principais</h3><p>Use apenas os identificadores disponíveis para este atendimento.</p></div></div><div className="legal-doc-control-grid compact"><label className="legal-doc-field"><span>Data de emissão *</span><input type="date" name="dataEmissao" value={dados.dataEmissao || ""} onChange={atualizarCampo} required /></label><label className="legal-doc-field"><span>CPF ou CNPJ</span><input name="cpfCnpj" value={dados.cpfCnpj || ""} onChange={atualizarCampo} onBlur={marcarTocado} placeholder="000.000.000-00" /></label><label className="legal-doc-field wide"><span>Número do contrato</span><input name="numeroContrato" value={dados.numeroContrato || ""} onChange={atualizarCampo} /></label></div></section></div>
-          <details className="legal-doc-control-details"><summary><span>Informações de controle e arquivamento</span><small>Opcional — abrir somente quando precisar</small></summary><div className="legal-doc-control-grid"><label className="legal-doc-field"><span>Número do processo</span><input name="numeroProcesso" value={dados.numeroProcesso || ""} onChange={atualizarCampo} /></label><label className="legal-doc-field"><span>Responsável pela geração</span><input value={responsavel || ""} readOnly /></label><label className="legal-doc-field"><span>Departamento</span><select name="departamento" value={dados.departamento || ""} onChange={atualizarCampo}><option>Administrativo</option><option>Jurídico</option><option>Processual</option><option>Supervisão</option></select></label><label className="legal-doc-field wide"><span>Observação interna</span><textarea name="observacaoInterna" value={dados.observacaoInterna || ""} onChange={atualizarCampo} rows="3" placeholder="Contexto interno opcional. Este texto não será incluído no documento." /></label></div><div className="legal-doc-destination"><label><input type="checkbox" name="salvarNaPasta" checked={Boolean(dados.salvarNaPasta)} onChange={atualizarCampo} /><span><strong>Salvar automaticamente na pasta do cliente</strong><small>O registro ficará disponível no histórico do workspace.</small></span></label><div><span>Destino</span><input name="destino" value={dados.destino || ""} onChange={atualizarCampo} aria-label="Destino de arquivamento" /></div></div></details>
+          <div className="legal-doc-identification-grid"><section><div className="legal-doc-subsection-heading"><span>1</span><div><h3>Referências principais</h3><p>Use apenas os identificadores disponíveis para este atendimento.</p></div></div><div className="legal-doc-control-grid compact"><label className="legal-doc-field"><span>Data de emissão *</span><input type="date" name="dataEmissao" value={dados.dataEmissao || ""} onChange={atualizarCampo} required /></label><label className="legal-doc-field"><span>CPF ou CNPJ</span><input name="cpfCnpj" value={dados.cpfCnpj || ""} onChange={atualizarCampo} onBlur={marcarTocado} placeholder="000.000.000-00" /></label><label className="legal-doc-field wide"><span>Número do contrato</span><input name="numeroContrato" value={dados.numeroContrato || ""} onChange={atualizarCampo} /></label></div></section></div>
+          <details className="legal-doc-control-details"><summary><span>Informações de controle e arquivamento</span><small>Opcional — abrir somente quando precisar</small></summary><div className="legal-doc-control-grid"><label className="legal-doc-field"><span>Número do processo</span><input name="numeroProcesso" value={dados.numeroProcesso || ""} onChange={atualizarCampo} /></label><label className="legal-doc-field"><span>Responsável pela geração</span><input value={responsavel || ""} readOnly /></label><label className="legal-doc-field"><span>Departamento</span><select name="departamento" value={dados.departamento || ""} onChange={atualizarCampo}><option>Administrativo</option><option>Jurídico</option><option>Processual</option><option>Supervisão</option></select></label><label className="legal-doc-field wide"><span>Observação interna</span><textarea name="observacaoInterna" value={dados.observacaoInterna || ""} onChange={atualizarCampo} rows="3" placeholder="Contexto interno opcional. Este texto não será incluído no documento." /></label></div><div className="legal-doc-destination"><label><input type="checkbox" name="salvarNaPasta" checked={Boolean(dados.salvarNaPasta)} onChange={atualizarCampo} /><span><strong>Salvar documento no workspace</strong><small>O registro ficará disponível no histórico do workspace.</small></span></label><div><span>Destino</span><input name="destino" value={dados.destino || ""} onChange={atualizarCampo} aria-label="Destino de arquivamento" /></div></div></details>
         </section>
-        <section className="legal-doc-section"><div className="legal-doc-section-heading"><div><span className="eyebrow">Etapa 3</span><h2>Dados necessários para este modelo</h2><p>Os campos estão agrupados. Abra uma seção de cada vez e preencha somente o que for necessário.</p></div></div>{grupos.map((grupo, indice) => <GrupoCampos key={`${modeloSelecionado.id}-${grupo.id}`} grupo={grupo} dados={dados} tocados={tocados} importados={camposImportados} onChange={atualizarCampo} onBlur={marcarTocado} modeloId={modeloSelecionado.id} abertoInicial={indice === 0} />)}
+        <section className="legal-doc-section"><div className="legal-doc-section-heading"><div><span className="eyebrow">Etapa 3</span><h2>Dados necessários para este modelo</h2><p>Os campos estão agrupados. Abra uma seção de cada vez e preencha somente o que for necessário.</p></div></div>{grupos.map((grupo, indice) => <GrupoCampos key={`${modeloSelecionado.id}-${grupo.id}`} grupo={grupo} dados={dados} tocados={tocados} onChange={atualizarCampo} onBlur={marcarTocado} modeloId={modeloSelecionado.id} abertoInicial={indice === 0} />)}
           {modeloSelecionado.modo === "procuracao" ? <section className="legal-doc-bundle"><div><span className="eyebrow">Conjunto documental</span><h3>Gerar declarações com a Procuração</h3><p>Os mesmos dados serão reutilizados nos arquivos selecionados.</p></div><label><input type="checkbox" name="gerarHipossuficiencia" checked={Boolean(dados.gerarHipossuficiencia)} onChange={atualizarCampo} /><span><strong>Declaração de Hipossuficiência</strong><small>Justiça gratuita</small></span></label><label><input type="checkbox" name="gerarIsencaoIrpf" checked={Boolean(dados.gerarIsencaoIrpf)} onChange={atualizarCampo} /><span><strong>Declaração de Isenção de IRPF</strong><small>Isenção de imposto de renda</small></span></label>{dados.gerarIsencaoIrpf ? <label className="legal-doc-field"><span>Exercícios da isenção *</span><input id="exercicios-conjunto" name="exercicios" value={dados.exercicios || ""} onChange={atualizarCampo} placeholder="2024, 2025 e 2026" /></label> : null}<p>{documentosProcuracao.length} {documentosProcuracao.length === 1 ? "PDF será gerado" : "PDFs serão gerados"}.</p></section> : null}
         </section>
         <div className="legal-doc-support-grid"><PainelProgresso total={obrigatorios.length} preenchidos={preenchidos} pendentes={pendentes} onVerPendentes={() => pendentes[0] && focarCampo(pendentes[0].nome)} /><AssistentePreenchimento dados={dados} pendentes={pendentes} errosVisiveis={errosVisiveis} onCorrigir={focarCampo} /></div>{erro ? <p className="legal-doc-form-error" role="alert">{erro}</p> : null}

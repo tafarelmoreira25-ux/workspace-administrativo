@@ -132,56 +132,6 @@ export function normalizarBuscaTreinamento(valor = "") {
     .toLowerCase();
 }
 
-function conteudoDaTarefa(tarefa = {}) {
-  return normalizarBuscaTreinamento([
-    tarefa.categoria,
-    tarefa.tipo_tarefa_codigo,
-    tarefa.titulo,
-    tarefa.descricao,
-    tarefa.solicitacao,
-    tarefa.resultado_esperado,
-    tarefa.codigo_etapa,
-    tarefa.setor_executor,
-  ].filter(Boolean).join(" "));
-}
-
-export function recomendarTreinamentosParaTarefa(tarefa, limite = 2) {
-  const conteudo = conteudoDaTarefa(tarefa);
-  const categoria = normalizarBuscaTreinamento(tarefa?.categoria || tarefa?.titulo || "");
-  const setor = normalizarBuscaTreinamento(tarefa?.setor_executor || "");
-
-  const classificados = TREINAMENTOS_OPERACIONAIS.map((treinamento) => {
-    let pontos = treinamento.geral ? 1 : 0;
-    let motivo = treinamento.geral ? "Referência geral da operação" : "";
-
-    if (treinamento.categorias.some((item) => normalizarBuscaTreinamento(item) === categoria)) {
-      pontos += 14;
-      motivo = `Recomendado para ${tarefa?.categoria || tarefa?.titulo}`;
-    }
-
-    const correspondencias = treinamento.palavras.filter((palavra) =>
-      conteudo.includes(normalizarBuscaTreinamento(palavra)),
-    );
-    pontos += correspondencias.length * 3;
-    if (!motivo && correspondencias.length) motivo = "Relacionado ao conteúdo desta tarefa";
-
-    if (
-      treinamento.equipe !== "Todas" &&
-      setor &&
-      setor.includes(normalizarBuscaTreinamento(treinamento.equipe))
-    ) {
-      pontos += 2;
-    }
-
-    return { ...treinamento, motivo, pontos };
-  });
-
-  return classificados
-    .filter((treinamento) => treinamento.pontos > 0)
-    .sort((a, b) => b.pontos - a.pontos || b.prioridade - a.prioridade)
-    .slice(0, Math.max(1, limite));
-}
-
 export function filtrarTreinamentos({ busca = "", equipe = "Todas" } = {}) {
   const termo = normalizarBuscaTreinamento(busca.trim());
   return TREINAMENTOS_OPERACIONAIS.filter((treinamento) => {

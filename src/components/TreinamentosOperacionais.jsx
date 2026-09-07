@@ -1,7 +1,6 @@
 import { useState } from "react";
 import {
   filtrarTreinamentos,
-  recomendarTreinamentosParaTarefa,
   TREINAMENTOS_OPERACIONAIS,
 } from "../lib/trainingResources";
 import "../trainingResources.css";
@@ -16,35 +15,6 @@ function IconeTreinamento({ tipo }) {
   return <span className={`training-resource-icon training-resource-${tipo.toLowerCase().replaceAll(" ", "-")}`}>{icone}</span>;
 }
 
-export function AvisoTreinamentoTarefa({ tarefa, compacto = false }) {
-  const recomendados = recomendarTreinamentosParaTarefa(tarefa, compacto ? 1 : 2);
-  if (!recomendados.length) return null;
-
-  return (
-    <aside className={`task-training-suggestion ${compacto ? "compact" : ""}`} aria-label="Treinamento recomendado para esta tarefa">
-      <div className="task-training-heading">
-        <span aria-hidden="true">🎓</span>
-        <div>
-          <small>Antes de executar</small>
-          <strong>Treinamento recomendado para esta tarefa</strong>
-        </div>
-      </div>
-      <div className="task-training-links">
-        {recomendados.map((treinamento) => (
-          <a href={treinamento.url} key={treinamento.id} target="_blank" rel="noreferrer">
-            <IconeTreinamento tipo={treinamento.tipo} />
-            <span>
-              <strong>{treinamento.titulo}</strong>
-              <small>{treinamento.motivo}</small>
-            </span>
-            <b aria-hidden="true">↗</b>
-          </a>
-        ))}
-      </div>
-    </aside>
-  );
-}
-
 export default function TreinamentosOperacionais({ usuario }) {
   const [busca, setBusca] = useState("");
   const [equipe, setEquipe] = useState("Todas");
@@ -57,7 +27,7 @@ export default function TreinamentosOperacionais({ usuario }) {
         <div>
           <span className="eyebrow">Conhecimento operacional</span>
           <h1>Central de Treinamentos</h1>
-          <p>Consulte os manuais oficiais e encontre rapidamente o material indicado para cada tarefa da esteira.</p>
+          <p>Consulte os manuais oficiais e encontre rapidamente os materiais de referência.</p>
         </div>
         <div className="training-hub-summary">
           <small>Materiais cadastrados</small>
@@ -89,7 +59,7 @@ export default function TreinamentosOperacionais({ usuario }) {
 
       <div className="training-hub-meta">
         <strong>{resultados.length} material(is) encontrado(s)</strong>
-        <span>Olá, {usuario?.nome?.split(" ")[0] || "colaborador"}. Abra o treinamento em uma nova aba e mantenha a tarefa disponível.</span>
+        <span>Olá, {usuario?.nome?.split(" ")[0] || "colaborador"}. Abra o treinamento em uma nova aba.</span>
       </div>
 
       {resultados.length ? (

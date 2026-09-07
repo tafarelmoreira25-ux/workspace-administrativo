@@ -10,7 +10,6 @@ create table if not exists public.documentos_juridicos (
   modelo_id text not null,
   modelo_nome text not null,
   categoria text,
-  cliente_id bigint references public.clientes(id) on delete set null,
   cliente_nome text,
   cpf_cnpj text,
   numero_contrato text,
@@ -34,7 +33,7 @@ create table if not exists public.documentos_juridicos (
 create index if not exists documentos_juridicos_nome_idx
   on public.documentos_juridicos (lower(nome_documento));
 create index if not exists documentos_juridicos_cliente_idx
-  on public.documentos_juridicos (cliente_id, created_at desc);
+  on public.documentos_juridicos (cliente_nome, created_at desc);
 create index if not exists documentos_juridicos_criador_idx
   on public.documentos_juridicos (created_by, created_at desc);
 
