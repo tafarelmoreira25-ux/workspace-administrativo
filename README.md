@@ -32,7 +32,23 @@ npm run preview
 
 O comando `npm run check` executa lint, testes automatizados e build.
 
-## ConfiguraÃ§Ã£o do Supabase
+## Importação da carteira processual histórica
+
+A importação é executada no backend em lotes de 25 registros, com upsert,
+checkpoint e relatório. Ela não consulta tribunais nem depende do navegador.
+
+1. Execute `supabase/processos_protocolados_historicos_2026.sql` no banco.
+2. Defina `SUPABASE_SERVICE_ROLE_KEY` apenas no `.env` local do ambiente de
+   importação. Essa chave nunca deve ser publicada ou exposta ao Vite.
+3. Valide a fonte com `npm run import:processos:dry-run`.
+4. Execute `npm run import:processos`.
+
+O snapshot integral da fonte fica em
+`data/processos-protocolados-fonte.json`. O progresso e o relatório são
+gravados em `.tmp/importacao-processos-checkpoint.json` e
+`.tmp/importacao-processos-relatorio.json`.
+
+## Configuração do Supabase
 
 ### RecuperaÃ§Ã£o de senha
 
