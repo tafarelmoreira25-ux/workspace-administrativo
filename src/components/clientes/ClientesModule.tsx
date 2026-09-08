@@ -330,19 +330,32 @@ export default function ClientesModule({ usuario, showToast }: Props) {
   async function prepararImportacao() {
     setImportacaoCarregando(true);
     setImportacaoResultado([]);
-    const { data: sessaoData, error: sessaoError } = await supabase.auth.getSession();
+    const sessaoTimeout = new Promise((_, reject) => window.setTimeout(() => reject(new Error("Tempo limite ao validar a sessão.")), 15000));
+    const { data: sessaoData, error: sessaoError } = await Promise.race([supabase.auth.getSession(), sessaoTimeout]) as Awaited<ReturnType<typeof supabase.auth.getSession>>;
     if (sessaoError || !sessaoData.session?.user) {
       setImportacaoCarregando(false);
       avisar("Importação bloqueada: faça login com um usuário autorizado.");
       return;
     }
-    const { data: existentes, error: consultaError } = await supabase.from("clientes").select("id,nome_completo,cpf,telefone").limit(2000);
+    const consultaTimeout = new Promise((_, reject) => window.setTimeout(() => reject(new Error("Tempo limite ao consultar clientes.")), 15000));
+    const { data: existentes, error: consultaError } = await Promise.race([
+      supabase.from("clientes").select("id,nome_completo,cpf,telefone").limit(2000),
+      consultaTimeout,
+    ]) as Awaited<ReturnType<typeof supabase.from>>;
     if (consultaError) {
       setImportacaoCarregando(false);
       avisar(`Não foi possível consultar clientes: ${consultaError.message}`);
       return;
     }
-    const resposta = await fetch("/importacoes/clientes-processual.txt");
+    const controlador = new AbortController();
+    const limite = window.setTimeout(() => controlador.abort(), 15000);
+    const resposta = await fetch("/importacoes/clientes-processual.txt", { cache: "no-store", signal: controlador.signal });
+    window.clearTimeout(limite);
+    if (!resposta.ok) {
+      setImportacaoCarregando(false);
+      avisar(`NÃ£o foi possÃ­vel carregar a relaÃ§Ã£o de clientes (${resposta.status}).`);
+      return;
+    }
     const texto = await resposta.text();
     const nomes = texto.split(/\r?\n/).filter(Boolean).map((origem) => ({ nome_completo: extrairNomeImportacao(origem), origem }));
     const unicos = new Map<string, { nome_completo: string; origem: string }>();
@@ -395,7 +408,7 @@ export default function ClientesModule({ usuario, showToast }: Props) {
           <p>Cadastro único do cliente, separado dos processos judiciais e preparado para múltiplas demandas.</p>
         </div>
         <div className="ficha-section-actions">
-          <button type="button" className="btn-secondary" onClick={() => { setImportacaoAberta(true); prepararImportacao(); }}>Importar clientes</button>
+          <button type="button" className="btn-secondary" onClick={() => { setImportacaoAberta(true); prepararImportacao().catch((error) => { setImportacaoCarregando(false); avisar(error instanceof Error ? error.message : "Não foi possível preparar a importação."); }); }}>Importar clientes</button>
           <button type="button" className="btn-primary" onClick={abrirNovoCliente}>+ Novo cliente</button>
         </div>
       </header>

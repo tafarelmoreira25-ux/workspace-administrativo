@@ -1584,6 +1584,20 @@ p {
   border-radius: 8px;
 }
 
+.real-search {
+  position: relative;
+  width: 100%;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.real-search > input {
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
 .global-search input {
   height: 36px;
   padding: 0 !important;
@@ -2532,16 +2546,31 @@ textarea:focus {
 }
 
 /* === Login canonical (must remain last so legacy declarations cannot win) === */
+html,
+body,
+#root {
+  width: 100%;
+  min-height: 100%;
+  margin: 0;
+}
+
 .login-page-liquid {
   min-height: 100svh !important;
-  width: 100% !important;
+  width: 100vw !important;
+  max-width: none !important;
+  margin: 0 !important;
   position: relative !important;
   overflow: hidden !important;
   display: flex !important;
   align-items: center !important;
   justify-content: flex-start !important;
-  padding: clamp(28px, 4vh, 50px) clamp(40px, 7vw, 110px) !important;
-  background: url('/assets/platino-login-background.png') center top / auto 100% no-repeat, linear-gradient(90deg, #eaf3ff 0%, #f8fbff 14%, #f8fbff 86%, #eaf3ff 100%) !important;
+  padding: clamp(28px, 4vh, 50px) clamp(85px, 9vw, 150px) !important;
+  border-radius: 0 !important;
+  background-image: url('/assets/platino-login-background.png') !important;
+  background-size: cover !important;
+  background-position: center top !important;
+  background-repeat: no-repeat !important;
+  background-color: #eaf3ff !important;
 }
 .login-page-liquid::before,
 .login-page-liquid::after,
@@ -2549,7 +2578,7 @@ textarea:focus {
 .login-page-liquid .login-card {
   position: relative !important; z-index: 2 !important;
   width: min(100%, 380px) !important; max-width: 380px !important;
-  margin: clamp(110px, 17vh, 175px) 0 0 !important; padding: 32px !important;
+  margin: clamp(92px, 14vh, 145px) 0 0 !important; padding: 32px !important;
   border-radius: 18px !important; background: rgba(255,255,255,.90) !important;
   border: 1px solid rgba(200,215,235,.9) !important;
   box-shadow: 0 18px 48px rgba(26,63,118,.13) !important;
@@ -2566,7 +2595,7 @@ textarea:focus {
 .login-page-liquid .login-submit { min-height:52px !important; height:52px !important; margin-top:3px !important; border-radius:10px !important; background:linear-gradient(135deg,#2f73df,#1e5fc9) !important; box-shadow:0 10px 24px rgba(37,99,201,.22) !important; font-size:14px !important; }
 .login-page-liquid .login-submit::before { display:none !important; }
 @media (max-width:880px) {
-  .login-page-liquid { justify-content:center !important; padding:24px !important; background:url('/assets/platino-login-background.png') center top / cover no-repeat !important; }
+  .login-page-liquid { justify-content:center !important; padding:24px !important; background-image:url('/assets/platino-login-background.png') !important; background-size:cover !important; background-position:center top !important; }
   .login-page-liquid .login-card { margin-top:0 !important; width:min(100%,410px) !important; max-width:410px !important; }
 }
 @media (max-width:520px) {
