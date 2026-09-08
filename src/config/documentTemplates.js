@@ -31,7 +31,7 @@ export const DOCUMENT_TEMPLATES = [
     descricao:
       "Procuração para Ação de Revisão de Contrato, baseada no modelo oficial enviado.",
     modo: "procuracao",
-    titulo: "Procuração Ad Judicia",
+    titulo: "Procuração ad judicia",
     identidadeVisual: true,
     campos: [
       { nome: "nomeCliente", rotulo: "Nome completo", obrigatorio: true, largura: "total" },
@@ -375,7 +375,7 @@ export const DOCUMENT_TEMPLATES = [
       },
       {
         nome: "valorDemaisTarifas",
-        rotulo: "Demais Tarifas (R$)",
+        rotulo: "Demais tarifas (R$)",
         obrigatorio: true,
         placeholder: "Ex.: 300,00",
       },
@@ -426,11 +426,11 @@ export const DOCUMENT_TEMPLATES = [
   },
   {
     id: "termo-ciencia-pagamento",
-    nome: "Termo de Ciencia de Pagamento",
+    nome: "Termo de Ciência de Pagamento",
     descricao:
-      "Termo para ciencia do cliente sobre o pagamento parcelado dos custos do procedimento de revisao contratual.",
+      "Termo para ciência do cliente sobre o pagamento parcelado dos custos do procedimento de revisão contratual.",
     modo: "termo-ciencia-pagamento",
-    titulo: "Termo de Ciencia de Pagamento",
+    titulo: "Termo de Ciência de Pagamento",
     identidadeVisual: true,
     campos: [
       {
@@ -451,7 +451,7 @@ export const DOCUMENT_TEMPLATES = [
         rotulo: "Valor total por extenso",
         obrigatorio: true,
         largura: "total",
-        placeholder: "Ex.: tres mil e quinhentos reais",
+        placeholder: "Ex.: três mil e quinhentos reais",
       },
       {
         nome: "quantidadeParcelas",
@@ -465,13 +465,13 @@ export const DOCUMENT_TEMPLATES = [
         rotulo: "Produto / custo",
         obrigatorio: true,
         largura: "total",
-        placeholder: "Ex.: assessoria para revisao contratual",
+        placeholder: "Ex.: assessoria para revisão contratual",
       },
       {
         nome: "localEmissao",
-        rotulo: "Cidade/Estado de emissao",
+        rotulo: "Cidade/Estado de emissão",
         obrigatorio: true,
-        valorInicial: "Sao Paulo/SP",
+        valorInicial: "São Paulo/SP",
       },
     ],
   },

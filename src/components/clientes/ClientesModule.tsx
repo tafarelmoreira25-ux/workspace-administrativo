@@ -27,8 +27,11 @@ type ProcessoResumo = {
   nome_cliente?: string | null;
   cpf_cliente?: string | null;
   banco_reu?: string | null;
+  reu?: string | null;
   numero_processo?: string | null;
   fase_atual?: string | null;
+  situacao?: string | null;
+  resultado?: string | null;
   status_judicial?: string | null;
   justica_gratuita?: string | null;
   responsavel?: string | null;
@@ -169,8 +172,8 @@ export default function ClientesModule({ usuario, showToast }: Props) {
     setErro("");
 
     const [clientesResultado, processosResultado, documentosResultado, atendimentosResultado] = await Promise.allSettled([
-      supabase.from("clientes").select("*").order("updated_at", { ascending: false }).limit(250),
-      supabase.from("processos").select("id, cliente_id, nome_cliente, cpf_cliente, banco_reu, numero_processo, fase_atual, status_judicial, justica_gratuita, responsavel, updated_at").order("updated_at", { ascending: false }).limit(500),
+      supabase.from("clientes").select("*").order("updated_at", { ascending: false }).limit(2000),
+      supabase.from("processos").select("id, cliente_id, nome_cliente, cpf_cliente, reu, banco_reu, numero_processo, fase_atual, situacao, resultado, status_judicial, justica_gratuita, responsavel, updated_at").order("updated_at", { ascending: false }).limit(1200),
       supabase.from("documentos_juridicos").select("id, nome_documento, modelo_nome, cliente_nome, cpf_cnpj, numero_processo, responsavel_nome, status, created_at").order("created_at", { ascending: false }).limit(500),
       supabase.from("processual_atendimentos").select("*").order("data", { ascending: false }).limit(500),
     ]);
@@ -470,7 +473,7 @@ export default function ClientesModule({ usuario, showToast }: Props) {
           <aside className="cliente-ficha-panel">
             <header>
               <button type="button" className="drawer-close" onClick={() => setClienteAberto(null)} aria-label="Fechar ficha">×</button>
-              <span className="eyebrow">Ficha cliente</span>
+              <span className="eyebrow">Ficha do cliente</span>
               <h3>{clienteAberto.nome_completo}</h3>
               <dl className="cliente-ficha-topo">
                 <div><dt>CPF</dt><dd>{clienteAberto.cpf || "—"}</dd></div>
@@ -478,7 +481,7 @@ export default function ClientesModule({ usuario, showToast }: Props) {
                 <div><dt>Telefone</dt><dd>{clienteAberto.telefone || "—"}</dd></div>
                 <div><dt>E-mail</dt><dd>{clienteAberto.email || "—"}</dd></div>
                 <div><dt>Responsável</dt><dd>{clienteAberto.responsavel || "—"}</dd></div>
-                <div><dt>Pasta Drive</dt><dd>{clienteAberto.link_pasta_cliente ? <a href={clienteAberto.link_pasta_cliente} target="_blank" rel="noreferrer">Abrir pasta</a> : "—"}</dd></div>
+                <div><dt>Pasta no Drive</dt><dd>{clienteAberto.link_pasta_cliente ? <a href={clienteAberto.link_pasta_cliente} target="_blank" rel="noreferrer">Abrir pasta</a> : "—"}</dd></div>
               </dl>
             </header>
 
@@ -519,11 +522,11 @@ export default function ClientesModule({ usuario, showToast }: Props) {
                         <tbody>{processosDoCliente.map((processo) => (
                           <tr key={processo.id}>
                             <td>{processo.numero_processo || "Pendente"}</td>
+                            <td>{processo.reu || processo.banco_reu || "—"}</td>
                             <td>{processo.banco_reu || "—"}</td>
-                            <td>{processo.banco_reu || "—"}</td>
-                            <td><span className="table-chip">{processo.numero_processo ? "Protocolado" : "Pendente"}</span></td>
+                            <td><span className="table-chip">{processo.situacao || (processo.numero_processo ? "Protocolado" : "Pendente")}</span></td>
                             <td>{processo.fase_atual || "—"}</td>
-                            <td>{processo.status_judicial || "—"}</td>
+                            <td>{processo.resultado || processo.status_judicial || "—"}</td>
                             <td>{processo.responsavel || "—"}</td>
                           </tr>
                         ))}</tbody>
@@ -587,7 +590,7 @@ export default function ClientesModule({ usuario, showToast }: Props) {
           <form className="cliente-modal" onSubmit={salvarCliente}>
             <header>
               <div>
-                <span className="eyebrow">Cadastro cliente</span>
+                <span className="eyebrow">Cadastro de cliente</span>
                 <h3>{clienteEditando ? "Editar cliente" : "Novo cliente"}</h3>
               </div>
               <button type="button" className="drawer-close" onClick={() => setModalAberto(false)} aria-label="Fechar">×</button>
@@ -596,11 +599,11 @@ export default function ClientesModule({ usuario, showToast }: Props) {
               <label className="wide"><span>Nome completo *</span><input required value={formulario.nome_completo} onChange={(e) => setFormulario((f) => ({ ...f, nome_completo: e.target.value }))} /></label>
               <label><span>CPF</span><input value={formulario.cpf} onChange={(e) => setFormulario((f) => ({ ...f, cpf: e.target.value }))} /></label>
               <label><span>RG</span><input value={formulario.rg} onChange={(e) => setFormulario((f) => ({ ...f, rg: e.target.value }))} /></label>
-              <label><span>Data nascimento</span><input type="date" value={formulario.data_nascimento} onChange={(e) => setFormulario((f) => ({ ...f, data_nascimento: e.target.value }))} /></label>
+              <label><span>Data de nascimento</span><input type="date" value={formulario.data_nascimento} onChange={(e) => setFormulario((f) => ({ ...f, data_nascimento: e.target.value }))} /></label>
               <label><span>Telefone</span><input value={formulario.telefone} onChange={(e) => setFormulario((f) => ({ ...f, telefone: e.target.value }))} /></label>
               <label><span>E-mail</span><input type="email" value={formulario.email} onChange={(e) => setFormulario((f) => ({ ...f, email: e.target.value }))} /></label>
               <label><span>ID CRM</span><input value={formulario.id_crm} onChange={(e) => setFormulario((f) => ({ ...f, id_crm: e.target.value }))} /></label>
-              <label className="wide"><span>Link pasta Drive</span><input value={formulario.link_pasta_cliente} onChange={(e) => setFormulario((f) => ({ ...f, link_pasta_cliente: e.target.value }))} placeholder="https://drive.google.com/..." /></label>
+              <label className="wide"><span>Link da pasta no Drive</span><input value={formulario.link_pasta_cliente} onChange={(e) => setFormulario((f) => ({ ...f, link_pasta_cliente: e.target.value }))} placeholder="https://drive.google.com/..." /></label>
               <label><span>Responsável</span><input value={formulario.responsavel} onChange={(e) => setFormulario((f) => ({ ...f, responsavel: e.target.value }))} /></label>
               <label className="wide"><span>Endereço</span><input value={formulario.endereco} onChange={(e) => setFormulario((f) => ({ ...f, endereco: e.target.value }))} /></label>
               <label className="wide"><span>Observações</span><textarea rows={4} value={formulario.observacoes} onChange={(e) => setFormulario((f) => ({ ...f, observacoes: e.target.value }))} /></label>

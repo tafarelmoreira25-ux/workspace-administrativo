@@ -199,7 +199,7 @@ export default function OperacionalProcessualModule({ usuario, showToast, initia
   }, [agendaView, tarefasFiltradas]);
 
   function processoSelecionado(id: string) {
-    return processos.find((processo) => processo.id === id);
+    return processos.find((processo) => String(processo.id) === String(id));
   }
 
   async function salvarTarefa(evento: FormEvent<HTMLFormElement>) {

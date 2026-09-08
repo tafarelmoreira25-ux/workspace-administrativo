@@ -431,11 +431,6 @@ export default function PainelJudicial({
       showToast("Informe o cliente.");
       return;
     }
-    if (modalCadastro && !ficha.numero_processo.trim()) {
-      showToast("Informe o Número CNJ do processo existente.");
-      return;
-    }
-
     const payload = {
       cliente_id: limpar(ficha.cliente_id),
       nome_cliente: ficha.nome_cliente.trim(),
@@ -446,7 +441,10 @@ export default function PainelJudicial({
       autor: limpar(ficha.autor) || ficha.nome_cliente.trim(),
       reu: limpar(ficha.reu) || limpar(ficha.banco_reu),
       banco_reu: limpar(ficha.banco_reu),
-      autor_reu: `${limpar(ficha.autor) || ficha.nome_cliente.trim()} X ${limpar(ficha.reu) || limpar(ficha.banco_reu) || "Réu não informado"}`,
+      autor_reu: [
+        limpar(ficha.autor) || ficha.nome_cliente.trim(),
+        limpar(ficha.reu) || limpar(ficha.banco_reu),
+      ].filter(Boolean).join(" X "),
       produto: limpar(ficha.produto),
       numero_contrato: limpar(ficha.numero_contrato),
       numero_processo: limpar(ficha.numero_processo),
@@ -462,7 +460,6 @@ export default function PainelJudicial({
       fase_judicial: ficha.fase_judicial,
       fase_atual: ficha.fase_judicial as FaseProcessual,
       resultado: ficha.resultado,
-      status_judicial: ficha.resultado,
       justica_gratuita: ficha.justica_gratuita,
       emenda_status: ficha.emenda_status,
       emenda_inicial: ficha.emenda_status,
@@ -974,7 +971,7 @@ export default function PainelJudicial({
           <form className="judicial-drawer-panel process-ficha" onSubmit={salvarProcesso}>
             <button className="modal-close" onClick={() => { setProcessoAberto(null); setModalCadastro(false); }} type="button">×</button>
             <header className="process-ficha-header">
-              <span className="eyebrow">Ficha processo</span>
+              <span className="eyebrow">Ficha do processo</span>
               <h3>{ficha.nome_cliente || "Novo processo existente"}</h3>
               <p>{ficha.numero_processo || "Número CNJ pendente"}</p>
               <div className="process-badge-row">
@@ -996,7 +993,7 @@ export default function PainelJudicial({
                     <label><span>Cliente *</span><input value={ficha.nome_cliente} onChange={(e) => setFicha((f) => ({ ...f, nome_cliente: e.target.value }))} /></label>
                     <label><span>CPF</span><input value={ficha.cpf_cliente} onChange={(e) => setFicha((f) => ({ ...f, cpf_cliente: e.target.value }))} /></label>
                     <label><span>ID CRM</span><input value={ficha.id_crm} onChange={(e) => setFicha((f) => ({ ...f, id_crm: e.target.value }))} /></label>
-                    <label><span>Link pasta Drive</span><input value={ficha.link_pasta_cliente} onChange={(e) => setFicha((f) => ({ ...f, link_pasta_cliente: e.target.value }))} placeholder="Pasta do cliente no Drive" /></label>
+                    <label><span>Link da pasta no Drive</span><input value={ficha.link_pasta_cliente} onChange={(e) => setFicha((f) => ({ ...f, link_pasta_cliente: e.target.value }))} placeholder="Pasta do cliente no Drive" /></label>
                     <label><span>Autor</span><input value={ficha.autor} onChange={(e) => setFicha((f) => ({ ...f, autor: e.target.value }))} /></label>
                     <label><span>Réu</span><input value={ficha.reu} onChange={(e) => setFicha((f) => ({ ...f, reu: e.target.value }))} /></label>
                     <label><span>Banco</span><input value={ficha.banco_reu} onChange={(e) => setFicha((f) => ({ ...f, banco_reu: e.target.value }))} /></label>
@@ -1007,9 +1004,9 @@ export default function PainelJudicial({
                     <label><span>Tribunal</span><input value={ficha.tribunal} onChange={(e) => setFicha((f) => ({ ...f, tribunal: e.target.value }))} /></label>
                     <label><span>Comarca</span><input value={ficha.comarca} onChange={(e) => setFicha((f) => ({ ...f, comarca: e.target.value }))} /></label>
                     <label><span>Vara</span><input value={ficha.vara} onChange={(e) => setFicha((f) => ({ ...f, vara: e.target.value }))} /></label>
-                    <label><span>Tipo ação</span><input value={ficha.tipo_acao} onChange={(e) => setFicha((f) => ({ ...f, tipo_acao: e.target.value }))} /></label>
+                    <label><span>Tipo de ação</span><input value={ficha.tipo_acao} onChange={(e) => setFicha((f) => ({ ...f, tipo_acao: e.target.value }))} /></label>
                     <label><span>Responsável</span><input value={ficha.responsavel} onChange={(e) => setFicha((f) => ({ ...f, responsavel: e.target.value }))} /></label>
-                    <label><span>Link consulta</span><input value={ficha.link_consulta} onChange={(e) => setFicha((f) => ({ ...f, link_consulta: e.target.value }))} /></label>
+                    <label><span>Link da consulta</span><input value={ficha.link_consulta} onChange={(e) => setFicha((f) => ({ ...f, link_consulta: e.target.value }))} /></label>
                     <label><span>Situação</span><select value={ficha.situacao} onChange={(e) => setFicha((f) => ({ ...f, situacao: e.target.value }))}>{SITUACOES.map((o) => <option key={o}>{o}</option>)}</select></label>
                     <label><span>Fase</span><select value={ficha.fase_judicial} onChange={(e) => setFicha((f) => ({ ...f, fase_judicial: e.target.value }))}>{FASES_JUDICIAIS.map((o) => <option key={o}>{o}</option>)}</select></label>
                     <label><span>Resultado</span><select value={ficha.resultado} onChange={(e) => setFicha((f) => ({ ...f, resultado: e.target.value }))}>{RESULTADOS.map((o) => <option key={o}>{o}</option>)}</select></label>
@@ -1065,7 +1062,7 @@ export default function PainelJudicial({
                     <label><span>Fonte</span><select value={movimentacaoForm.fonte} onChange={(e) => setMovimentacaoForm((f) => ({ ...f, fonte: e.target.value }))}>{FONTES_ORIGEM.map((opcao) => <option key={opcao}>{opcao}</option>)}</select></label>
                     <label className="wide"><span>Título *</span><input value={movimentacaoForm.titulo} onChange={(e) => setMovimentacaoForm((f) => ({ ...f, titulo: e.target.value }))} placeholder="Ex.: Sentença publicada, emenda determinada, audiência designada" /></label>
                     <label className="wide"><span>Descrição técnica *</span><textarea rows={4} value={movimentacaoForm.descricao_tecnica} onChange={(e) => setMovimentacaoForm((f) => ({ ...f, descricao_tecnica: e.target.value }))} /></label>
-                    <label className="wide"><span>Resumo para cliente</span><textarea rows={3} value={movimentacaoForm.resumo_cliente} onChange={(e) => setMovimentacaoForm((f) => ({ ...f, resumo_cliente: e.target.value }))} /></label>
+                    <label className="wide"><span>Resumo para o cliente</span><textarea rows={3} value={movimentacaoForm.resumo_cliente} onChange={(e) => setMovimentacaoForm((f) => ({ ...f, resumo_cliente: e.target.value }))} /></label>
                     <label><span>Link</span><input value={movimentacaoForm.link} onChange={(e) => setMovimentacaoForm((f) => ({ ...f, link: e.target.value }))} placeholder="https://" /></label>
                     <label><span>Anexo</span><input value={movimentacaoForm.anexo_url} onChange={(e) => setMovimentacaoForm((f) => ({ ...f, anexo_url: e.target.value }))} placeholder="Link ou caminho do arquivo" /></label>
                     <label><span>Próxima revisão</span><input type="date" value={movimentacaoForm.proxima_revisao} onChange={(e) => setMovimentacaoForm((f) => ({ ...f, proxima_revisao: e.target.value }))} /></label>

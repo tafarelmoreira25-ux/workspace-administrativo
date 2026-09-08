@@ -437,11 +437,11 @@ export default function EsteiraKanban({
                 <label><span>Cliente *</span><input value={formulario.nome_cliente} onChange={(e) => setFormulario((f) => ({ ...f, nome_cliente: e.target.value }))} /></label>
                 <label><span>CPF</span><input value={formulario.cpf_cliente} onChange={(e) => setFormulario((f) => ({ ...f, cpf_cliente: e.target.value }))} /></label>
                 <label><span>ID CRM</span><input value={formulario.id_crm} onChange={(e) => setFormulario((f) => ({ ...f, id_crm: e.target.value }))} /></label>
-                <label><span>Link pasta Drive</span><input value={formulario.link_pasta_cliente} onChange={(e) => setFormulario((f) => ({ ...f, link_pasta_cliente: e.target.value }))} placeholder="https://drive.google.com/..." /></label>
+                <label><span>Link da pasta no Drive</span><input value={formulario.link_pasta_cliente} onChange={(e) => setFormulario((f) => ({ ...f, link_pasta_cliente: e.target.value }))} placeholder="https://drive.google.com/..." /></label>
                 <label><span>Instituição financeira *</span><input value={formulario.banco_reu} onChange={(e) => setFormulario((f) => ({ ...f, banco_reu: e.target.value }))} /></label>
                 <label><span>Produto</span><input value={formulario.produto} onChange={(e) => setFormulario((f) => ({ ...f, produto: e.target.value }))} /></label>
-                <label><span>Número contrato</span><input value={formulario.numero_contrato} onChange={(e) => setFormulario((f) => ({ ...f, numero_contrato: e.target.value }))} /></label>
-                <label><span>Motivo ajuizamento</span><select value={formulario.motivo_ajuizamento} onChange={(e) => setFormulario((f) => ({ ...f, motivo_ajuizamento: e.target.value }))}>{MOTIVOS_AJUIZAMENTO.map((item) => <option key={item}>{item}</option>)}</select></label>
+                <label><span>Número do contrato</span><input value={formulario.numero_contrato} onChange={(e) => setFormulario((f) => ({ ...f, numero_contrato: e.target.value }))} /></label>
+                <label><span>Motivo do ajuizamento</span><select value={formulario.motivo_ajuizamento} onChange={(e) => setFormulario((f) => ({ ...f, motivo_ajuizamento: e.target.value }))}>{MOTIVOS_AJUIZAMENTO.map((item) => <option key={item}>{item}</option>)}</select></label>
                 <label><span>Responsável</span><input value={formulario.responsavel} onChange={(e) => setFormulario((f) => ({ ...f, responsavel: e.target.value }))} /></label>
                 <label className="wide"><span>Observação</span><textarea rows={2} value={formulario.observacoes} onChange={(e) => setFormulario((f) => ({ ...f, observacoes: e.target.value }))} /></label>
               </div>
@@ -465,8 +465,8 @@ export default function EsteiraKanban({
               <h4>Procurações e declarações</h4>
               <div className="protocolo-modal-grid">
                 <label><span>Procuração</span><select value={formulario.procuracao_status} onChange={(e) => setFormulario((f) => ({ ...f, procuracao_status: e.target.value }))}>{STATUS_PROCURACAO.map((item) => <option key={item}>{item}</option>)}</select></label>
-                <label><span>Declaração hipossuficiência</span><select value={formulario.declaracao_hipossuficiencia_status} onChange={(e) => setFormulario((f) => ({ ...f, declaracao_hipossuficiencia_status: e.target.value }))}>{STATUS_PROCURACAO.map((item) => <option key={item}>{item}</option>)}</select></label>
-                <label><span>Declaração IR</span><select value={formulario.declaracao_ir_status} onChange={(e) => setFormulario((f) => ({ ...f, declaracao_ir_status: e.target.value }))}>{STATUS_PROCURACAO.map((item) => <option key={item}>{item}</option>)}</select></label>
+                <label><span>Declaração de hipossuficiência</span><select value={formulario.declaracao_hipossuficiencia_status} onChange={(e) => setFormulario((f) => ({ ...f, declaracao_hipossuficiencia_status: e.target.value }))}>{STATUS_PROCURACAO.map((item) => <option key={item}>{item}</option>)}</select></label>
+                <label><span>Declaração de IR</span><select value={formulario.declaracao_ir_status} onChange={(e) => setFormulario((f) => ({ ...f, declaracao_ir_status: e.target.value }))}>{STATUS_PROCURACAO.map((item) => <option key={item}>{item}</option>)}</select></label>
                 <label className="wide"><span>Outros configuráveis</span><input value={formulario.procuracoes_outros} onChange={(e) => setFormulario((f) => ({ ...f, procuracoes_outros: e.target.value }))} placeholder="Ex.: declaração adicional, termo específico..." /></label>
               </div>
             </section>
@@ -487,13 +487,13 @@ export default function EsteiraKanban({
               <h4>Pasta retornada</h4>
               <div className="protocolo-modal-grid">
                 <label><span>Status</span><select value={formulario.pasta_retorno_status} onChange={(e) => setFormulario((f) => ({ ...f, pasta_retorno_status: e.target.value }))}>{STATUS_RETORNO.map((item) => <option key={item}>{item}</option>)}</select></label>
-                <label><span>Data retorno</span><input type="date" value={formulario.pasta_retorno_data} onChange={(e) => setFormulario((f) => ({ ...f, pasta_retorno_data: e.target.value }))} /></label>
+                <label><span>Data do retorno</span><input type="date" value={formulario.pasta_retorno_data} onChange={(e) => setFormulario((f) => ({ ...f, pasta_retorno_data: e.target.value }))} /></label>
                 <label><span>Motivo</span><input value={formulario.pasta_retorno_motivo} onChange={(e) => setFormulario((f) => ({ ...f, pasta_retorno_motivo: e.target.value }))} /></label>
                 <label><span>Responsabilidade</span><select value={formulario.pasta_retorno_responsabilidade} onChange={(e) => setFormulario((f) => ({ ...f, pasta_retorno_responsabilidade: e.target.value }))}>{RESPONSABILIDADES.map((item) => <option key={item}>{item}</option>)}</select></label>
                 <label><span>Documento faltante</span><input value={formulario.pasta_retorno_documento_faltante} onChange={(e) => setFormulario((f) => ({ ...f, pasta_retorno_documento_faltante: e.target.value }))} /></label>
-                <label><span>Impacto SLA</span><select value={formulario.pasta_retorno_impacto_sla} onChange={(e) => setFormulario((f) => ({ ...f, pasta_retorno_impacto_sla: e.target.value }))}>{IMPACTO_SLA.map((item) => <option key={item}>{item}</option>)}</select></label>
-                <label><span>Data regularização</span><input type="date" value={formulario.pasta_retorno_data_regularizacao} onChange={(e) => setFormulario((f) => ({ ...f, pasta_retorno_data_regularizacao: e.target.value }))} /></label>
-                <label><span>Data reenvio</span><input type="date" value={formulario.pasta_retorno_data_reenvio} onChange={(e) => setFormulario((f) => ({ ...f, pasta_retorno_data_reenvio: e.target.value }))} /></label>
+                <label><span>Impacto no SLA</span><select value={formulario.pasta_retorno_impacto_sla} onChange={(e) => setFormulario((f) => ({ ...f, pasta_retorno_impacto_sla: e.target.value }))}>{IMPACTO_SLA.map((item) => <option key={item}>{item}</option>)}</select></label>
+                <label><span>Data da regularização</span><input type="date" value={formulario.pasta_retorno_data_regularizacao} onChange={(e) => setFormulario((f) => ({ ...f, pasta_retorno_data_regularizacao: e.target.value }))} /></label>
+                <label><span>Data do reenvio</span><input type="date" value={formulario.pasta_retorno_data_reenvio} onChange={(e) => setFormulario((f) => ({ ...f, pasta_retorno_data_reenvio: e.target.value }))} /></label>
                 <label className="wide"><span>Descrição/observação</span><textarea rows={2} value={formulario.pasta_retorno_descricao || formulario.pasta_retorno_observacao} onChange={(e) => setFormulario((f) => ({ ...f, pasta_retorno_descricao: e.target.value, pasta_retorno_observacao: e.target.value }))} /></label>
               </div>
             </section>
@@ -501,14 +501,14 @@ export default function EsteiraKanban({
             <section className="protocolo-form-section">
               <h4>Protocolo e distribuição</h4>
               <div className="protocolo-modal-grid">
-                <label><span>Status protocolo</span><select value={formulario.protocolo_status} onChange={(e) => setFormulario((f) => ({ ...f, protocolo_status: e.target.value }))}>{STATUS_PROTOCOLO.map((item) => <option key={item}>{item}</option>)}</select></label>
-                <label><span>Número processo *</span><input value={formulario.numero_processo} onChange={(e) => setFormulario((f) => ({ ...f, numero_processo: e.target.value }))} /></label>
-                <label><span>Data liberação *</span><input type="datetime-local" value={formulario.protocolo_data_liberacao} onChange={(e) => setFormulario((f) => ({ ...f, protocolo_data_liberacao: e.target.value }))} /></label>
+                <label><span>Status do protocolo</span><select value={formulario.protocolo_status} onChange={(e) => setFormulario((f) => ({ ...f, protocolo_status: e.target.value }))}>{STATUS_PROTOCOLO.map((item) => <option key={item}>{item}</option>)}</select></label>
+                <label><span>Número do processo *</span><input value={formulario.numero_processo} onChange={(e) => setFormulario((f) => ({ ...f, numero_processo: e.target.value }))} /></label>
+                <label><span>Data da liberação *</span><input type="datetime-local" value={formulario.protocolo_data_liberacao} onChange={(e) => setFormulario((f) => ({ ...f, protocolo_data_liberacao: e.target.value }))} /></label>
                 <label><span>Tribunal</span><input value={formulario.tribunal} onChange={(e) => setFormulario((f) => ({ ...f, tribunal: e.target.value }))} /></label>
                 <label><span>Comarca</span><input value={formulario.comarca} onChange={(e) => setFormulario((f) => ({ ...f, comarca: e.target.value }))} /></label>
                 <label><span>Vara</span><input value={formulario.vara} onChange={(e) => setFormulario((f) => ({ ...f, vara: e.target.value }))} /></label>
                 <label><span>Link do processo</span><input value={formulario.link_consulta} onChange={(e) => setFormulario((f) => ({ ...f, link_consulta: e.target.value }))} placeholder="Link de consulta no tribunal" /></label>
-                <label><span>Data distribuição</span><input type="date" value={formulario.data_distribuicao} onChange={(e) => setFormulario((f) => ({ ...f, data_distribuicao: e.target.value }))} /></label>
+                <label><span>Data da distribuição</span><input type="date" value={formulario.data_distribuicao} onChange={(e) => setFormulario((f) => ({ ...f, data_distribuicao: e.target.value }))} /></label>
               </div>
             </section>
 

@@ -16,7 +16,7 @@ type Props = { usuario: Usuario; showToast?: (mensagem: string) => void; initial
 
 const CATEGORIAS_OCORRENCIA = ["Custas", "Documentação", "Emenda", "Prazo", "Pasta retornada", "Falha operacional", "Falha cliente", "Falha prestador", "Divergência documental", "Comunicação", "Outro"];
 const RESPONSABILIDADES = ["Cliente", "Platino", "Elite", "Advogado", "Terceiro", "Não identificado"];
-const STATUS_CUSTAS = ["Pendente", "Informado cliente", "Pago", "Não pago", "Vencido", "Dispensado"];
+const STATUS_CUSTAS = ["Pendente", "Cliente informado", "Pago", "Não pago", "Vencido", "Dispensado"];
 const TIPOS_ALERTA = ["SLA", "Prazo", "Processo", "Documento", "Custas", "Tarefa", "Pasta retornada", "Revisão", "Atendimento"];
 
 function hoje() { return new Date().toISOString().slice(0, 10); }
@@ -87,7 +87,7 @@ export default function GerencialProcessualModule({ usuario, showToast, initialV
 
   useEffect(() => { carregar(); }, [carregar]);
 
-  const processosPorId = useMemo(() => new Map(processos.map((p) => [p.id, p])), [processos]);
+  const processosPorId = useMemo(() => new Map(processos.map((p) => [String(p.id), p])), [processos]);
   const processosOpcao = useMemo(() => processos.slice(0, 300), [processos]);
 
   const alertas = useMemo(() => {
@@ -133,7 +133,7 @@ export default function GerencialProcessualModule({ usuario, showToast, initialV
 
   const ocorrenciasFiltradas = useMemo(() => {
     const termo = normalizar(busca);
-    return ocorrencias.filter((o) => !termo || normalizar(`${o.categoria} ${o.descricao} ${o.responsabilidade} ${processosPorId.get(o.processo_id)?.nome_cliente || ""}`).includes(termo));
+    return ocorrencias.filter((o) => !termo || normalizar(`${o.categoria} ${o.descricao} ${o.responsabilidade} ${processosPorId.get(String(o.processo_id || ""))?.nome_cliente || ""}`).includes(termo));
   }, [busca, ocorrencias, processosPorId]);
 
   async function salvarOcorrencia(evento: FormEvent<HTMLFormElement>) {

@@ -101,7 +101,7 @@ alter table public.processual_ocorrencias add constraint processual_ocorrencias_
 
 alter table public.processual_custas drop constraint if exists processual_custas_status_check;
 alter table public.processual_custas add constraint processual_custas_status_check check (
-  status in ('Pendente', 'Informado cliente', 'Pago', 'Não pago', 'Vencido', 'Dispensado')
+  status in ('Pendente', 'Cliente informado', 'Pago', 'Não pago', 'Vencido', 'Dispensado')
 );
 
 alter table public.processual_etiquetas drop constraint if exists processual_etiquetas_origem_check;
