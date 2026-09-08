@@ -8,6 +8,7 @@ import "../../esteiraProcessual.css";
 type Props = {
   usuario?: { nome?: string };
   showToast?: (mensagem: string) => void;
+  initialView?: Visualizacao;
 };
 
 type Visualizacao = "protocolos" | "processos";
@@ -16,8 +17,8 @@ function contarPorFase(processos: Processo[], fase: string) {
   return processos.filter((processo) => processo.fase_atual === fase).length;
 }
 
-export default function EsteiraProcessualPlatino({ usuario, showToast }: Props) {
-  const [visualizacao, setVisualizacao] = useState<Visualizacao>("protocolos");
+export default function EsteiraProcessualPlatino({ usuario, showToast, initialView = "protocolos" }: Props) {
+  const [visualizacao, setVisualizacao] = useState<Visualizacao>(initialView);
   const [processos, setProcessos] = useState<Processo[]>([]);
   const [carregando, setCarregando] = useState(true);
 
@@ -83,7 +84,7 @@ export default function EsteiraProcessualPlatino({ usuario, showToast }: Props) 
           </span>
           <div>
             <span className="eyebrow">Processual</span>
-            <h2>Protocolos e acompanhamento de processos judiciais</h2>
+            <h2>Controle de ajuizamentos e processos judiciais</h2>
             <p>
               Registre a pasta desde o pedido de ajuizamento, monitore o prazo
               de protocolo e mantenha o histórico atualizado para cada cliente.
@@ -132,12 +133,14 @@ export default function EsteiraProcessualPlatino({ usuario, showToast }: Props) 
           processos={processos}
           onProcessoAtualizado={atualizarProcessoLocal}
           showToast={avisar}
+          usuario={usuario}
         />
       ) : (
         <PainelJudicial
           processos={processos}
           onProcessoAtualizado={atualizarProcessoLocal}
           showToast={avisar}
+          usuario={usuario}
         />
       )}
     </section>

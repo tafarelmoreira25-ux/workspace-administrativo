@@ -61,6 +61,25 @@ function criarFormularioInicial(responsavel, modelo = MODELOS[0], departamento =
   };
 }
 
+function dadosDoContextoDocumento(contexto = {}) {
+  const cliente = contexto.cliente || {};
+  const processo = contexto.processo || {};
+  return Object.fromEntries(Object.entries({
+    nomeCliente: cliente.nome_completo || cliente.nome || processo.nome_cliente,
+    cpfCnpj: cliente.cpf || processo.cpf_cliente,
+    rg: cliente.rg,
+    email: cliente.email,
+    endereco: cliente.endereco,
+    banco: processo.banco_reu || processo.reu,
+    numeroContrato: processo.numero_contrato,
+    numeroProcesso: processo.numero_processo,
+    vara: processo.vara,
+    comarca: processo.comarca,
+    observacaoInterna: contexto.observacaoInterna,
+    departamento: contexto.departamento || "Processual",
+  }).filter(([, valor]) => valor !== undefined && valor !== null && valor !== ""));
+}
+
 function lerJsonLocal(chave, fallback) {
   try { return JSON.parse(localStorage.getItem(chave)) ?? fallback; } catch { return fallback; }
 }
@@ -75,7 +94,14 @@ function persistirRascunho(dados) {
   return salvoEm;
 }
 
-function carregarRascunho(responsavel, departamento) {
+function carregarRascunho(responsavel, departamento, contextoDocumento) {
+  if (contextoDocumento) {
+    return {
+      ...criarFormularioInicial(responsavel, MODELOS[0], departamento),
+      ...dadosDoContextoDocumento(contextoDocumento),
+      contextoDocumento,
+    };
+  }
   const salvo = lerJsonLocal(DOCUMENT_DRAFT_KEY, null);
   if (!rascunhoValido(salvo)) {
     localStorage.removeItem(DOCUMENT_DRAFT_KEY);
@@ -193,10 +219,10 @@ function DocumentosRecentes({ documentos, busca, onBusca, onOpen, onDuplicate, o
   return <section className="legal-doc-recent-section"><div className="legal-doc-recent-heading"><div><span className="eyebrow">Rastreabilidade</span><h2>Documentos recentes</h2><p>Últimas gerações registradas neste workspace.</p></div><label><span>⌕</span><input type="search" value={busca} onChange={(evento) => onBusca(evento.target.value)} placeholder="Pesquisar no histórico…" /></label></div>{filtrados.length === 0 ? <div className="legal-doc-recent-empty"><DocumentCategoryIcon name="clock" size={25} /><strong>Nenhum documento recente</strong><p>Os arquivos gerados aparecerão aqui com versão, responsável e destino.</p></div> : <div className="legal-doc-recent-list">{filtrados.slice(0, 8).map((item) => <article key={item.id}><span className="model-card-icon"><DocumentModelIcon size={34} /></span><div><strong>{item.nomeDocumento}</strong><p>{item.modeloNome} · {item.cliente || "Cliente não vinculado"}</p><small>{formatarDataHora(item.criadoEm)} · {item.responsavel} · Versão {String(item.versao || 1).padStart(2, "0")}</small></div><span className="legal-doc-history-status">{item.status || "Gerado"}</span><div className="legal-doc-history-actions"><button type="button" onClick={() => onOpen(item)} disabled={!item.link && !item.storagePath}>Abrir</button><button type="button" onClick={() => onDuplicate(item)}>Duplicar</button><button type="button" onClick={() => onVersion(item)}>Nova versão</button></div></article>)}</div>}</section>;
 }
 
-export default function GeradorDocumentos({ responsavel, usuario, onSuccess }) {
+export default function GeradorDocumentos({ responsavel, usuario, onSuccess, contextoDocumento, onDocumentoGerado, onStatusDocumento }) {
   const departamentoUsuario = usuario?.setor || usuario?.departamento || "Jurídico";
-  const [dados, setDados] = useState(() => carregarRascunho(responsavel, departamentoUsuario));
-  const [bibliotecaAberta, setBibliotecaAberta] = useState(true);
+  const [dados, setDados] = useState(() => carregarRascunho(responsavel, departamentoUsuario, contextoDocumento));
+  const [bibliotecaAberta, setBibliotecaAberta] = useState(false);
   const [nomesModelos, setNomesModelos] = useState(() => lerJsonLocal(DOCUMENT_MODEL_NAMES_KEY, {}));
   const [editandoNomeModelo, setEditandoNomeModelo] = useState(false);
   const [nomeModeloEmEdicao, setNomeModeloEmEdicao] = useState("");
@@ -401,10 +427,10 @@ export default function GeradorDocumentos({ responsavel, usuario, onSuccess }) {
     if (!dados.salvarNaPasta) return { registro, aviso: "O salvamento automático foi desativado; os arquivos estão disponíveis apenas para download nesta sessão." };
     const clientePasta = "documentos"; const ano = dados.dataEmissao?.slice(0, 4) || String(new Date().getFullYear()); const nonce = `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`; const paths = [];
     for (const arquivo of arquivos) { const path = `${clientePasta}/${ano}/${nonce}-${arquivo.nome}`; const { error: uploadError } = await supabase.storage.from("documentos-juridicos").upload(path, arquivo.bytes, { contentType: "application/pdf", upsert: false }); if (uploadError) throw uploadError; paths.push(path); }
-    const { data: salvo, error: salvarError } = await supabase.from("documentos_juridicos").insert({ nome_documento: registro.nomeDocumento, nome_arquivo: arquivos[0].nome, modelo_id: registro.modeloId, modelo_nome: registro.modeloNome, categoria: modeloSelecionado.categoriaNome, cliente_nome: registro.cliente || null, cpf_cnpj: dados.cpfCnpj || null, numero_contrato: dados.numeroContrato || null, numero_processo: dados.numeroProcesso || null, responsavel_nome: registro.responsavel, departamento: dados.departamento || null, destino: dados.destino || null, versao: registro.versao, status: "gerado", arquivo_principal_path: paths[0], arquivos_paths: paths, metadata: { dados, arquivos: arquivos.map((arquivo) => arquivo.nome) } }).select("id").single();
+    const { data: salvo, error: salvarError } = await supabase.from("documentos_juridicos").insert({ nome_documento: registro.nomeDocumento, nome_arquivo: arquivos[0].nome, modelo_id: registro.modeloId, modelo_nome: registro.modeloNome, categoria: modeloSelecionado.categoriaNome, cliente_id: dados.contextoDocumento?.cliente?.id || null, processo_id: dados.contextoDocumento?.processo?.id || null, tipo_documento: modeloSelecionado.modo, cliente_nome: registro.cliente || null, cpf_cnpj: dados.cpfCnpj || null, numero_contrato: dados.numeroContrato || null, numero_processo: dados.numeroProcesso || null, responsavel_nome: registro.responsavel, departamento: dados.departamento || null, destino: dados.destino || null, versao: registro.versao, status: "Gerado", assinado: false, arquivo_principal_path: paths[0], arquivos_paths: paths, metadata: { dados, arquivos: arquivos.map((arquivo) => arquivo.nome), contextoDocumento: dados.contextoDocumento || null } }).select("*").single();
     if (salvarError) throw salvarError;
     const { data: assinatura } = await supabase.storage.from("documentos-juridicos").createSignedUrl(paths[0], 60 * 60);
-    return { registro: { ...registro, id: salvo.id, storagePath: paths[0], link: assinatura?.signedUrl || "" }, aviso: "" };
+    return { registro: { ...registro, id: salvo.id, storagePath: paths[0], link: assinatura?.signedUrl || "", documentoRemoto: salvo }, aviso: "" };
   }
 
   async function handleGerarPdf(evento) {
@@ -424,6 +450,7 @@ export default function GeradorDocumentos({ responsavel, usuario, onSuccess }) {
       const registro = { ...arquivamento.registro, arquivos: arquivos.map((arquivo) => ({ nome: arquivo.nome })) };
       const novoHistorico = [registro, ...historico.filter((item) => item.id !== registro.id)].slice(0, 20); setHistorico(novoHistorico); localStorage.setItem(DOCUMENT_HISTORY_KEY, JSON.stringify(novoHistorico)); localStorage.removeItem(DOCUMENT_DRAFT_KEY); dirtyRef.current = false; setDirty(false);
       setResultado({ ...registro, arquivos, aviso: "APÓS A ASSINATURA, ANEXE NA PASTA DO CLIENTE NO DRIVE.", numeroDocumento }); setPreviewAtualizadaEm(new Date());
+      onDocumentoGerado?.({ ...registro, arquivos, aviso: arquivamento.aviso, numeroDocumento, documentoRemoto: registro.documentoRemoto || null, modelo: modeloSelecionado, dados: dadosGeracao });
       onSuccess?.(modeloSelecionado.modo === "procuracao" ? mensagemConjuntoGerado(listarDocumentosProcuracao(dados)) : "Documento PDF gerado com sucesso!");
     } catch (generationError) { console.error(generationError); setErro(generationError instanceof Error ? generationError.message : "Não foi possível gerar o PDF. Revise os dados e tente novamente."); } finally { setGerando(false); }
   }
@@ -431,7 +458,7 @@ export default function GeradorDocumentos({ responsavel, usuario, onSuccess }) {
   async function abrirHistorico(item) { let link = item.link; if (!link && item.storagePath) { const { data } = await supabase.storage.from("documentos-juridicos").createSignedUrl(item.storagePath, 60 * 60); link = data?.signedUrl; } if (link) window.open(link, "_blank", "noopener,noreferrer"); }
   function carregarRegistro(item, novaVersao = false) { const modelo = modelos.find((modeloItem) => modeloItem.id === item.modeloId) || modeloSelecionado; const dadosSalvos = { ...(item.metadata?.dados || {}) }; delete dadosSalvos.nomeDocumento; const versao = novaVersao ? (Number(item.versao) || 1) + 1 : 1; setDados({ ...criarFormularioInicial(responsavel, modelo, departamentoUsuario), ...dadosSalvos, modeloId: modelo.id, versao }); setDirty(true); setBibliotecaAberta(false); primeiraSecaoRef.current?.scrollIntoView({ behavior: "smooth" }); }
   async function copiarLink() { if (!resultado?.link) return; await navigator.clipboard.writeText(resultado.link); onSuccess?.("Link interno copiado."); }
-  async function prepararAssinatura() { if (resultado?.id && !String(resultado.id).startsWith("local-")) await supabase.from("documentos_juridicos").update({ status: "aguardando_assinatura" }).eq("id", resultado.id); setResultado((atual) => ({ ...atual, status: "Aguardando assinatura" })); onSuccess?.("Documento marcado como pronto para assinatura."); }
+  async function prepararAssinatura() { if (resultado?.id && !String(resultado.id).startsWith("local-")) await supabase.from("documentos_juridicos").update({ status: "Aguardando assinatura" }).eq("id", resultado.id); setResultado((atual) => ({ ...atual, status: "Aguardando assinatura" })); onStatusDocumento?.({ ...resultado, status: "Aguardando assinatura" }); onSuccess?.("Documento marcado como pronto para assinatura."); }
 
   const razaoBloqueio = pendentes.length ? `Preencha os ${pendentes.length} campos obrigatórios pendentes para gerar o PDF.` : declaracaoIrpfInvalida ? "Informe os exercícios da declaração de IRPF." : "";
 

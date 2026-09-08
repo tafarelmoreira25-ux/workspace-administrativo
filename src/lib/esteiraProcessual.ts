@@ -2,15 +2,20 @@ import { supabase } from "./supabase";
 
 export const FASES_PROCESSUAIS = [
   "Solicitado para Ajuizamento",
-  "Documentos Pendentes",
-  "Documentos Concluídos",
-  "Pré-Distribuição",
+  "Documentação",
+  "Procuração",
+  "CRM",
   "Enviado para Elite",
+  "SLA",
   "Pasta Retornada",
   "Protocolo Liberado",
+  "Distribuição",
   "Tramitando",
   "Arquivado",
   "Improcedente",
+  "Documentos Pendentes",
+  "Documentos Concluídos",
+  "Pré-Distribuição",
 ] as const;
 
 export type FaseProcessual = (typeof FASES_PROCESSUAIS)[number];
@@ -23,30 +28,92 @@ export const JUSTICA_GRATUITA_OPCOES = [
 
 export type JusticaGratuita = (typeof JUSTICA_GRATUITA_OPCOES)[number];
 
-export type StatusPrazoElite = "verde" | "amarelo" | "vermelho" | "pendente";
+export type StatusPrazoElite = "neutro" | "atencao" | "critico" | "vermelho" | "atrasado" | "pendente" | "verde" | "amarelo";
 
 export type PrazoElite = {
   dataLimite: Date | null;
   diasUteisRestantes: number | null;
+  diasUteisDecorridos: number | null;
+  diasUteisAtraso: number;
+  percentual: number;
   sinalizacao: StatusPrazoElite;
   rotulo: string;
 };
 
 export type Processo = {
   id: string;
+  cliente_id?: string | null;
   pasta_cliente_id: string | null;
+  id_crm?: string | null;
   autor_reu: string | null;
+  autor?: string | null;
+  reu?: string | null;
   nome_cliente: string;
   cpf_cliente: string | null;
   banco_reu: string | null;
+  produto?: string | null;
+  numero_contrato?: string | null;
+  motivo_ajuizamento?: string | null;
   fase_atual: FaseProcessual;
   status_judicial: string | null;
   status_documentos: string | null;
   status_procuracao: string | null;
   documentos_elite_status: string | null;
+  documentacao_status?: string | null;
+  documentacao_motivo?: string | null;
+  documentacao_faltantes?: string | null;
+  documentacao_responsabilidade?: string | null;
+  documentacao_observacao?: string | null;
+  documentacao_data?: string | null;
+  procuracao_status?: string | null;
+  declaracao_hipossuficiencia_status?: string | null;
+  declaracao_ir_status?: string | null;
+  procuracoes_outros?: string | null;
+  crm_documentos_status?: string | null;
+  crm_documentos_data?: string | null;
+  crm_documentos_responsavel?: string | null;
+  crm_documentos_usuario?: string | null;
   pasta_retornada: boolean | null;
+  pasta_retorno_status?: string | null;
+  pasta_retorno_data?: string | null;
+  pasta_retorno_motivo?: string | null;
+  pasta_retorno_descricao?: string | null;
+  pasta_retorno_responsabilidade?: string | null;
+  pasta_retorno_documento_faltante?: string | null;
+  pasta_retorno_data_regularizacao?: string | null;
+  pasta_retorno_data_reenvio?: string | null;
+  pasta_retorno_observacao?: string | null;
+  pasta_retorno_impacto_sla?: string | null;
+  protocolo_status?: string | null;
+  protocolo_data_liberacao?: string | null;
+  tribunal?: string | null;
+  comarca?: string | null;
+  tipo_acao?: string | null;
+  link_consulta?: string | null;
+  responsavel?: string | null;
+  situacao?: string | null;
+  fase_judicial?: string | null;
+  resultado?: string | null;
+  ultima_movimentacao?: string | null;
+  ultima_movimentacao_data?: string | null;
+  ultima_revisao?: string | null;
+  ultima_revisao_por?: string | null;
+  ultima_revisao_observacao?: string | null;
+  ultima_revisao_em?: string | null;
+  proxima_revisao?: string | null;
+  proximo_prazo?: string | null;
+  emenda_status?: string | null;
+  custas_status?: string | null;
+  com_pendencia?: boolean | null;
+  sem_revisao?: boolean | null;
+  recursal?: boolean | null;
+  ultimo_atendimento?: string | null;
+  ultimo_relatorio_enviado?: string | null;
   status_prazo: string | null;
   data_envio_elite: string | null;
+  sla_iniciado_em?: string | null;
+  sla_encerrado_em?: string | null;
+  sla_dias_uteis_utilizados?: number | null;
   data_protocolo_liberado: string | null;
   data_distribuicao: string | null;
   numero_processo: string | null;
@@ -57,6 +124,8 @@ export type Processo = {
   observacoes: string | null;
   checklist_elite?: Record<string, string>;
   origem_registro?: string | null;
+  created_by?: string | null;
+  updated_by?: string | null;
   created_at?: string;
   updated_at?: string;
 };
@@ -66,6 +135,24 @@ export type MovimentacaoProcessual = {
   processo_id: string;
   data_registro: string;
   descricao: string;
+  tipo?: string;
+  categoria?: string | null;
+  titulo?: string | null;
+  descricao_tecnica?: string | null;
+  resumo_cliente?: string | null;
+  responsavel?: string | null;
+  fonte?: string | null;
+  link?: string | null;
+  importancia?: "Normal" | "Relevante" | "Crítico" | string | null;
+  anexo_url?: string | null;
+  proxima_providencia?: string | null;
+  proxima_revisao?: string | null;
+  criar_tarefa_relacionada?: boolean | null;
+  origem?: "manual" | "integration" | "api" | "import" | "ai" | string | null;
+  deleted_at?: string | null;
+  deleted_by?: string | null;
+  created_by?: string | null;
+  created_by_nome?: string | null;
   created_at?: string;
 };
 
@@ -88,31 +175,36 @@ function normalizarData(data: string | Date) {
   return parsed;
 }
 
-function adicionarDiasUteis(dataInicial: Date, totalDiasUteis: number) {
+function chaveData(data: Date) {
+  return data.toISOString().slice(0, 10);
+}
+
+function ehDiaUtil(data: Date, feriados: string[] = []) {
+  const diaSemana = data.getDay();
+  return diaSemana !== 0 && diaSemana !== 6 && !feriados.includes(chaveData(data));
+}
+
+export function adicionarDiasUteis(dataInicial: Date, totalDiasUteis: number, feriados: string[] = []) {
   const resultado = new Date(dataInicial);
   let diasSomados = 0;
 
   while (diasSomados < totalDiasUteis) {
     resultado.setDate(resultado.getDate() + 1);
-    const diaSemana = resultado.getDay();
-    if (diaSemana !== 0 && diaSemana !== 6) {
-      diasSomados += 1;
-    }
+    if (ehDiaUtil(resultado, feriados)) diasSomados += 1;
   }
 
   return resultado;
 }
 
-function contarDiasUteisAte(dataInicial: Date, dataFinal: Date) {
+export function contarDiasUteisEntre(dataInicial: Date, dataFinal: Date, feriados: string[] = [], incluirFinal = true) {
   const cursor = new Date(dataInicial);
   cursor.setHours(0, 0, 0, 0);
   const limite = new Date(dataFinal);
   limite.setHours(0, 0, 0, 0);
   let total = 0;
 
-  while (cursor <= limite) {
-    const diaSemana = cursor.getDay();
-    if (diaSemana !== 0 && diaSemana !== 6) total += 1;
+  while (cursor < limite || (incluirFinal && cursor <= limite)) {
+    if (ehDiaUtil(cursor, feriados)) total += 1;
     cursor.setDate(cursor.getDate() + 1);
   }
 
@@ -122,11 +214,15 @@ function contarDiasUteisAte(dataInicial: Date, dataFinal: Date) {
 export function calcularPrazoElite(
   dataEnvio: string | Date | null | undefined,
   hojeReferencia: Date = new Date(),
+  feriados: string[] = [],
 ): PrazoElite {
   if (!dataEnvio) {
     return {
       dataLimite: null,
       diasUteisRestantes: null,
+      diasUteisDecorridos: null,
+      diasUteisAtraso: 0,
+      percentual: 0,
       sinalizacao: "pendente",
       rotulo: "Pendente",
     };
@@ -137,31 +233,54 @@ export function calcularPrazoElite(
     return {
       dataLimite: null,
       diasUteisRestantes: null,
+      diasUteisDecorridos: null,
+      diasUteisAtraso: 0,
+      percentual: 0,
       sinalizacao: "pendente",
       rotulo: "Data inválida",
     };
   }
 
-  const dataLimite = adicionarDiasUteis(dataBase, 20);
+  const dataLimite = adicionarDiasUteis(dataBase, 20, feriados);
   const hoje = normalizarData(hojeReferencia) || new Date();
+  const diasUteisDecorridos = Math.max(0, contarDiasUteisEntre(dataBase, hoje, feriados, false));
 
   if (hoje > dataLimite) {
+    const atraso = contarDiasUteisEntre(dataLimite, hoje, feriados, false);
     return {
       dataLimite,
       diasUteisRestantes: 0,
-      sinalizacao: "vermelho",
-      rotulo: "Atrasado",
+      diasUteisDecorridos,
+      diasUteisAtraso: atraso,
+      percentual: 100,
+      sinalizacao: "atrasado",
+      rotulo: `Atrasado há ${atraso} ${atraso === 1 ? "dia útil" : "dias úteis"}`,
     };
   }
 
-  const diasUteisRestantes = contarDiasUteisAte(hoje, dataLimite);
-  const sinalizacao = diasUteisRestantes < 5 ? "amarelo" : "verde";
+  const diasUteisRestantes = contarDiasUteisEntre(hoje, dataLimite, feriados, true);
+  let sinalizacao: StatusPrazoElite = "neutro";
+  let rotulo = "No prazo";
+
+  if (diasUteisRestantes === 0) {
+    sinalizacao = "vermelho";
+    rotulo = "Data limite";
+  } else if (diasUteisRestantes <= 2) {
+    sinalizacao = "critico";
+    rotulo = "Crítico";
+  } else if (diasUteisRestantes <= 5) {
+    sinalizacao = "atencao";
+    rotulo = "Atenção";
+  }
 
   return {
     dataLimite,
     diasUteisRestantes,
+    diasUteisDecorridos,
+    diasUteisAtraso: 0,
+    percentual: Math.min(100, Math.round((diasUteisDecorridos / 20) * 100)),
     sinalizacao,
-    rotulo: sinalizacao === "amarelo" ? "Atenção" : "Pendente",
+    rotulo,
   };
 }
 

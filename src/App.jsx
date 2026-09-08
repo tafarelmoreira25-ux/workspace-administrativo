@@ -6,6 +6,11 @@ import TreinamentosOperacionais from "./components/TreinamentosOperacionais";
 import "./App.css";
 const GeradorDocumentos = lazy(() => import("./GeradorDocumentos"));
 const EsteiraProcessualPlatino = lazy(() => import("./components/esteira/EsteiraProcessualPlatino"));
+const ClientesModule = lazy(() => import("./components/clientes/ClientesModule"));
+const OperacionalProcessualModule = lazy(() => import("./components/operacional/OperacionalProcessualModule"));
+const DocumentosAcervo = lazy(() => import("./components/documentos/DocumentosAcervo"));
+const GerencialProcessualModule = lazy(() => import("./components/gerencial/GerencialProcessualModule"));
+const GlobalSearch = lazy(() => import("./components/gerencial/GlobalSearch"));
 const ADMIN_EMAIL = (import.meta.env.VITE_ADMIN_EMAIL || "tafarel@platino.com").toLowerCase();
 const TEMPO_LIMITE_INICIALIZACAO_MS = 8_000;
 function limitarTempo(promise, tempoMs, mensagem) {
@@ -85,11 +90,21 @@ function UiIcon({ name, size = 20 }) {
   const paths = {
     dashboard: <><rect x="3" y="3" width="7" height="7" rx="2" /><rect x="14" y="3" width="7" height="7" rx="2" /><rect x="3" y="14" width="7" height="7" rx="2" /><rect x="14" y="14" width="7" height="7" rx="2" /></>,
     equipe: <><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M22 21v-2a4 4 0 0 0-3-3.87" /><path d="M16 3.13a4 4 0 0 1 0 7.75" /></>,
+    clientes: <><path d="M16 11a4 4 0 1 0-8 0" /><path d="M4 21a8 8 0 0 1 16 0" /><circle cx="12" cy="7" r="3" /></>,
     documentos: <><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z" /><path d="M14 2v6h6" /><path d="M8 13h8" /><path d="M8 17h6" /></>,
     planner: <><rect x="3" y="5" width="18" height="16" rx="2" /><path d="M16 3v4" /><path d="M8 3v4" /><path d="M3 11h18" /><path d="m8 16 2 2 4-4" /></>,
     feedback: <><path d="M21 15a4 4 0 0 1-4 4H8l-5 3V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4Z" /><path d="M8 9h8" /><path d="M8 13h5" /></>,
     treinamento: <><path d="m3 9 9-5 9 5-9 5-9-5Z" /><path d="M7 11.5V16c3 2 7 2 10 0v-4.5" /><path d="M21 9v6" /></>,
     esteira: <><path d="M4 6h16" /><path d="M4 12h10" /><path d="M4 18h7" /><path d="m15 16 2 2 4-5" /></>,
+    protocolo: <><path d="M9 11h6" /><path d="M9 15h4" /><path d="M8 3h8l3 3v15H5V3Z" /><path d="M16 3v4h4" /></>,
+    prazos: <><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" /></>,
+    agenda: <><rect x="3" y="5" width="18" height="16" rx="2" /><path d="M16 3v4" /><path d="M8 3v4" /><path d="M3 10h18" /></>,
+    indicadores: <><path d="M4 19V5" /><path d="M4 19h16" /><path d="M8 15l3-4 3 2 5-7" /></>,
+    alertas: <><path d="M12 9v4" /><path d="M12 17h.01" /><path d="M10.3 3.9 2.8 17a2 2 0 0 0 1.7 3h15a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z" /></>,
+    busca: <><circle cx="11" cy="11" r="7" /><path d="m20 20-3.5-3.5" /></>,
+    sino: <><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9" /><path d="M10 21h4" /></>,
+    admin: <><path d="M12 2 4 5v6c0 5 3.4 9 8 11 4.6-2 8-6 8-11V5Z" /><path d="M9 12l2 2 4-5" /></>,
+    ocorrencias: <><path d="M4 5h16" /><path d="M4 12h16" /><path d="M4 19h10" /><circle cx="18" cy="19" r="2" /></>,
     olho: <><path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6S2 12 2 12Z" /><circle cx="12" cy="12" r="2.5" /></>,
     logout: <><path d="M10 17l5-5-5-5" /><path d="M15 12H3" /><path d="M21 19V5a2 2 0 0 0-2-2h-6" /></>,
     spark: <><path d="m12 3-1.8 4.5L6 9l4.2 1.5L12 15l1.8-4.5L18 9l-4.2-1.5Z" /><path d="m5 15-.8 2L2 18l2.2.8L5 21l.8-2.2L8 18l-2.2-1Z" /></>,
@@ -113,27 +128,130 @@ function UiIcon({ name, size = 20 }) {
   );
 }
 
-function NavItem({ active, icon, children, onClick, options = [] }) {
+function NavItem({ active, icon, children, onClick, disabled = false }) {
   return (
-    <button className={`nav-item ${active ? "active-tab" : ""}`} onClick={onClick}>
-      {icon === "documentos" ? (
-        <img
-          src="/assets/pdf-document-icon.png"
-          alt=""
-          className="nav-image-icon"
-        />
-      ) : (
-        <UiIcon name={icon} />
-      )}
+    <button className={`nav-item ${active ? "active-tab" : ""}`} disabled={disabled} onClick={onClick}>
+      <UiIcon name={icon} size={18} />
       <span>{children}</span>
-      {options.length > 0 && (
-        <span className="nav-menu-popover" aria-hidden="true">
-          {options.map((option) => (
-            <small key={option}>{option}</small>
-          ))}
-        </span>
-      )}
     </button>
+  );
+}
+
+function AreaTrabalho({ usuario, admin }) {
+  const primeiroNome = usuario.nome?.split(" ")[0] || "equipe";
+  const indicadores = [
+    ["Tarefas de hoje", "0", "Fila operacional preparada"],
+    ["Atrasadas", "0", "Sem pendências críticas"],
+    ["Protocolos no prazo", "0", "Monitoramento da Elite"],
+    ["Alertas ativos", "0", "Nenhum alerta novo"],
+  ];
+  const tabelas = [
+    {
+      titulo: "Tarefas de hoje",
+      colunas: ["Cliente", "Atividade", "Prazo", "Prioridade", "Responsável"],
+      vazio: "Nenhuma tarefa programada para hoje.",
+    },
+    {
+      titulo: "Próximos prazos",
+      colunas: ["Cliente", "Tipo", "Data limite", "Status", "Responsável"],
+      vazio: "Nenhum prazo próximo cadastrado.",
+    },
+    {
+      titulo: "Processos sem revisão",
+      colunas: ["Cliente", "Processo", "Última revisão", "Status", "Ação"],
+      vazio: "Nenhum processo pendente de revisão.",
+    },
+  ];
+  const alertas = [
+    "Protocolos atrasados",
+    "Pastas retornadas",
+    "Custas pendentes",
+    "Emendas pendentes",
+    "Reuniões do dia",
+  ];
+
+  return (
+    <section className="workspace-home">
+      <div className="workspace-heading">
+        <div>
+          <span className="eyebrow">Área de Trabalho</span>
+          <h2>O que exige atenção hoje</h2>
+          <p>Visão operacional para acompanhar prazos, protocolos, revisões e alertas do escritório.</p>
+        </div>
+        <div className="workspace-heading-meta">
+          <strong>{primeiroNome}</strong>
+          <span>{admin ? "Administrador" : "Operação"}</span>
+        </div>
+      </div>
+
+      <div className="workspace-kpis">
+        {indicadores.map(([titulo, valor, legenda]) => (
+          <article className="workspace-kpi" key={titulo}>
+            <span>{titulo}</span>
+            <strong>{valor}</strong>
+            <small>{legenda}</small>
+          </article>
+        ))}
+      </div>
+
+      <div className="workspace-grid">
+        <div className="workspace-main-column">
+          {tabelas.map((tabela) => (
+            <section className="workspace-table-card" key={tabela.titulo}>
+              <header>
+                <h3>{tabela.titulo}</h3>
+                <button type="button" className="btn-secondary compact">Ver todos</button>
+              </header>
+              <div className="dense-table-shell">
+                <table>
+                  <thead>
+                    <tr>{tabela.colunas.map((coluna) => <th key={coluna}>{coluna}</th>)}</tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <td colSpan={tabela.colunas.length}>
+                        <div className="empty-row">{tabela.vazio}</div>
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </section>
+          ))}
+        </div>
+
+        <aside className="workspace-side-column">
+          <section className="workspace-table-card">
+            <header>
+              <h3>Alertas</h3>
+              <span className="subtle-count">0 ativos</span>
+            </header>
+            <div className="alert-stack">
+              {alertas.map((alerta) => (
+                <article key={alerta}>
+                  <span />
+                  <div>
+                    <strong>{alerta}</strong>
+                    <small>Estado vazio preparado</small>
+                  </div>
+                </article>
+              ))}
+            </div>
+          </section>
+        </aside>
+      </div>
+    </section>
+  );
+}
+
+function PlaceholderModulo({ titulo, descricao }) {
+  return (
+    <section className="module-placeholder">
+      <span className="eyebrow">Módulo preparado</span>
+      <h2>{titulo}</h2>
+      <p>{descricao}</p>
+      <div className="placeholder-panel">A estrutura visual já está disponível. A lógica será conectada em uma próxima etapa.</div>
+    </section>
   );
 }
 
@@ -401,26 +519,107 @@ function Workspace({ usuario, onLogout, showToast }) {
   }, [usuario.id, showToast]);
   const permissoes = usuario.permissoes || {};
   const admin = usuario.tipo === "admin";
-  const abas = [["inicio", "Início", "dashboard"], ...(admin || permissoes.documentos !== false ? [["documentos", "Documentos", "documentos"]] : []), ["treinamentos", "Treinamentos", "treinamento"], ...(!admin ? [["feedbacks", "Meus feedbacks", "feedback"]] : [])];
-  if (admin || permissoes.esteira_processual !== false) {
-    const indiceTreinamentos = abas.findIndex(([id]) => id === "treinamentos");
-    if (!abas.some(([id]) => id === "esteira-processual")) {
-      abas.splice(indiceTreinamentos === -1 ? abas.length : indiceTreinamentos, 0, ["esteira-processual", "Processual", "esteira"]);
-    }
+  const podeVerDocumentos = admin || permissoes.documentos !== false;
+  const podeVerProcessual = admin || permissoes.esteira_processual !== false;
+  const navGroups = [
+    {
+      titulo: "Operação",
+      itens: [
+        ["inicio", "Área de Trabalho", "dashboard"],
+        ["clientes", "Clientes", "clientes"],
+        ...(podeVerProcessual ? [["esteira-processual", "Processual", "esteira"]] : []),
+        ["processual-visao", "Visão Geral", "indicadores"],
+        ["processual-protocolos", "Protocolos", "protocolo"],
+        ["processual-processos", "Processos", "documentos"],
+        ["processual-prazos", "Prazos", "prazos"],
+        ["processual-ocorrencias", "Ocorrências", "ocorrencias"],
+        ["atendimentos", "Atendimentos", "feedback"],
+        ["agenda", "Agenda e Prazos", "agenda"],
+      ],
+    },
+    {
+      titulo: "Produção",
+      itens: [
+        ...(podeVerDocumentos ? [["documentos", "Gerador de Documentos", "documentos"], ["documentos-arquivo", "Documentos", "protocolo"]] : []),
+        ["indicadores", "Indicadores", "indicadores"],
+        ["alertas", "Alertas", "alertas"],
+        ["treinamentos", "Treinamentos", "treinamento"],
+      ],
+    },
+    {
+      titulo: "Administração",
+      itens: [
+        ["administracao", "Administração", "admin"],
+        ...(!admin ? [["feedbacks", "Meus feedbacks", "feedback"]] : []),
+      ],
+    },
+  ];
+  const abas = navGroups.flatMap((grupo) => grupo.itens);
+  const rotuloAtual = abas.find(([id]) => id === aba)?.[1] || "Área de Trabalho";
+  const placeholderTextos = {
+    "processual-visao": ["Visão Geral", "Painel executivo do Processual com distribuição, atrasos e acompanhamento da carteira."],
+    "processual-prazos": ["Prazos", "Calendário operacional de prazos, emendas, custas e retornos críticos."],
+    "processual-ocorrencias": ["Ocorrências", "Registro de impedimentos, pendências documentais e eventos relevantes."],
+    atendimentos: ["Atendimentos", "Histórico de contatos, retornos e solicitações relacionadas à carteira."],
+    agenda: ["Agenda e Prazos", "Agenda preparada para reuniões, vencimentos e próximos atos."],
+    "documentos-arquivo": ["Documentos", "Arquivo e rastreabilidade dos documentos gerados no workspace."],
+    indicadores: ["Indicadores", "Métricas operacionais e jurídicas para gestão do escritório."],
+    alertas: ["Alertas", "Central de riscos e pendências relevantes."],
+    administracao: ["Administração", "Gestão administrativa preparada para permissões, usuários e parâmetros."],
+  };
+  function navegar(id) {
+    setAba(id);
+    if (id === "feedbacks") carregarFeedbacks();
   }
+
   return <div className="app-layout">
     <aside className="sidebar">
-      <div className="brand"><img src="/logo-interface.png" alt="Platino" className="brand-icon" /><div><strong>Platino</strong><span>Workspace</span></div></div>
-      <nav aria-label="Menu principal">{abas.map(([id, nome, icon]) => <NavItem key={id} active={aba === id} icon={icon} onClick={() => { setAba(id); if (id === "feedbacks") carregarFeedbacks(); }}>{nome}</NavItem>)}</nav>
+      <div className="brand"><img src="/assets/platino-orbital-logo.png" alt="Platino" className="brand-icon" /><div><strong>PLATINO</strong><span>Workspace</span></div></div>
+      <nav aria-label="Menu principal">
+        {navGroups.map((grupo) => (
+          <section className="nav-group" key={grupo.titulo}>
+            <span>{grupo.titulo}</span>
+            {grupo.itens.map(([id, nome, icon]) => (
+              <NavItem key={id} active={aba === id} icon={icon} onClick={() => navegar(id)}>{nome}</NavItem>
+            ))}
+          </section>
+        ))}
+      </nav>
       <button className="sidebar-logout" onClick={onLogout}><UiIcon name="logout" /> Sair</button>
     </aside>
     <main className="main-content">
-      <header className="topbar"><h1>{abas.find(([id]) => id === aba)?.[1]}</h1><span>{usuario.nome}</span></header>
-      {aba === "inicio" && <><section className="panel"><span className="eyebrow">Workspace Platino</span><h2>Olá, {usuario.nome?.split(" ")[0]}!</h2><p>Acesse seus documentos e materiais de treinamento pelo menu.</p></section>{!admin && permissoes.planner !== false && <MeuPlanner funcionariaLogadaId={usuario.id} />}</>}
+      <header className="topbar">
+        <div>
+          <h1>{rotuloAtual}</h1>
+          <p>Gestão operacional do escritório em um fluxo único.</p>
+        </div>
+        <div className="global-search">
+          <Suspense fallback={<><UiIcon name="busca" size={17} /><input type="search" placeholder="Buscar cliente, CPF, ID, processo ou banco..." aria-label="Busca global" /></>}>
+            <GlobalSearch />
+          </Suspense>
+        </div>
+        <div className="topbar-actions">
+          <button type="button" className="icon-button" aria-label="Notificações"><UiIcon name="sino" size={18} /></button>
+          <div className="user-chip"><strong>{usuario.nome}</strong><span>{usuario.email}</span></div>
+        </div>
+      </header>
+      {aba === "inicio" && <><AreaTrabalho usuario={usuario} admin={admin} />{!admin && permissoes.planner !== false && <MeuPlanner funcionariaLogadaId={usuario.id} />}</>}
+      {aba === "clientes" && <Suspense fallback={<section className="panel">Carregando clientes...</section>}><ClientesModule usuario={usuario} showToast={showToast} /></Suspense>}
       {aba === "documentos" && <Suspense fallback={<section className="panel">Carregando documentos...</section>}><GeradorDocumentos usuario={usuario} responsavel={usuario.nome} onSuccess={showToast} /></Suspense>}
       {aba === "esteira-processual" && <Suspense fallback={<section className="panel">Carregando esteira processual...</section>}><EsteiraProcessualPlatino usuario={usuario} showToast={showToast} /></Suspense>}
+      {aba === "processual-protocolos" && <Suspense fallback={<section className="panel">Carregando protocolos...</section>}><EsteiraProcessualPlatino usuario={usuario} showToast={showToast} initialView="protocolos" /></Suspense>}
+      {aba === "processual-processos" && <Suspense fallback={<section className="panel">Carregando processos...</section>}><EsteiraProcessualPlatino usuario={usuario} showToast={showToast} initialView="processos" /></Suspense>}
+      {aba === "processual-prazos" && <Suspense fallback={<section className="panel">Carregando prazos...</section>}><OperacionalProcessualModule usuario={usuario} showToast={showToast} initialView="agenda" /></Suspense>}
+      {aba === "processual-visao" && <Suspense fallback={<section className="panel">Carregando visão geral...</section>}><GerencialProcessualModule usuario={usuario} showToast={showToast} initialView="indicadores" /></Suspense>}
+      {aba === "processual-ocorrencias" && <Suspense fallback={<section className="panel">Carregando ocorrências...</section>}><GerencialProcessualModule usuario={usuario} showToast={showToast} initialView="ocorrencias" /></Suspense>}
+      {aba === "atendimentos" && <Suspense fallback={<section className="panel">Carregando atendimentos...</section>}><OperacionalProcessualModule usuario={usuario} showToast={showToast} initialView="atendimentos" /></Suspense>}
+      {aba === "agenda" && <Suspense fallback={<section className="panel">Carregando agenda...</section>}><OperacionalProcessualModule usuario={usuario} showToast={showToast} initialView="agenda" /></Suspense>}
+      {aba === "documentos-arquivo" && <Suspense fallback={<section className="panel">Carregando documentos...</section>}><DocumentosAcervo usuario={usuario} showToast={showToast} /></Suspense>}
+      {aba === "indicadores" && <Suspense fallback={<section className="panel">Carregando indicadores...</section>}><GerencialProcessualModule usuario={usuario} showToast={showToast} initialView="indicadores" /></Suspense>}
+      {aba === "alertas" && <Suspense fallback={<section className="panel">Carregando alertas...</section>}><GerencialProcessualModule usuario={usuario} showToast={showToast} initialView="alertas" /></Suspense>}
       {aba === "treinamentos" && <TreinamentosOperacionais usuario={usuario} />}
       {aba === "feedbacks" && <section className="panel"><h2>Meus feedbacks</h2><button className="btn-secondary" onClick={carregarFeedbacks}>Atualizar</button><ListaFeedbacks feedbacks={feedbacks} /></section>}
+      {placeholderTextos[aba] && !["processual-prazos", "processual-visao", "processual-ocorrencias", "atendimentos", "agenda", "documentos-arquivo", "indicadores", "alertas"].includes(aba) && <PlaceholderModulo titulo={placeholderTextos[aba][0]} descricao={placeholderTextos[aba][1]} />}
     </main>
   </div>;
 }
