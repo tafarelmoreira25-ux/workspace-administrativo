@@ -17,6 +17,7 @@ create table if not exists public.clientes (
   email text,
   endereco text,
   id_crm text,
+  link_pasta_cliente text,
   responsavel text,
   observacoes text,
   created_at timestamptz not null default now(),
@@ -33,6 +34,7 @@ alter table public.clientes add column if not exists telefone text;
 alter table public.clientes add column if not exists email text;
 alter table public.clientes add column if not exists endereco text;
 alter table public.clientes add column if not exists id_crm text;
+alter table public.clientes add column if not exists link_pasta_cliente text;
 alter table public.clientes add column if not exists responsavel text;
 alter table public.clientes add column if not exists observacoes text;
 alter table public.clientes add column if not exists created_at timestamptz not null default now();

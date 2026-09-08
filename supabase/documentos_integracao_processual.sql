@@ -1,5 +1,7 @@
 -- Etapa 8 — Integração com Gerador de Documentos
 -- Migration segura e aditiva. Não recria o Gerador e não apaga documentos existentes.
+-- O PDF NÃO é armazenado no Supabase; esta tabela registra apenas metadados.
+-- O arquivamento oficial do arquivo final permanece na pasta do cliente no Drive.
 
 begin;
 
@@ -11,6 +13,8 @@ alter table if exists public.documentos_juridicos
   add column if not exists comunicado_em timestamptz,
   add column if not exists comunicado_canal text,
   add column if not exists comunicado_observacao text,
+  add column if not exists armazenamento_oficial text not null default 'Drive',
+  add column if not exists link_pasta_cliente text,
   add column if not exists substitui_documento_id uuid,
   add column if not exists updated_at timestamptz not null default now();
 

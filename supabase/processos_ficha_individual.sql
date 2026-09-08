@@ -12,6 +12,7 @@ begin
     alter table public.processos add column if not exists autor text;
     alter table public.processos add column if not exists reu text;
     alter table public.processos add column if not exists tipo_acao text;
+    alter table public.processos add column if not exists link_pasta_cliente text;
     alter table public.processos add column if not exists link_consulta text;
     alter table public.processos add column if not exists situacao text not null default 'Pendente de protocolo';
     alter table public.processos add column if not exists fase_judicial text not null default 'Pré-ajuizamento';

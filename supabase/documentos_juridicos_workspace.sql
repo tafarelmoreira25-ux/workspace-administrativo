@@ -14,6 +14,7 @@ create table if not exists public.documentos_juridicos (
   cpf_cnpj text,
   numero_contrato text,
   numero_processo text,
+  link_pasta_cliente text,
   responsavel_nome text not null,
   departamento text,
   destino text,
@@ -23,12 +24,16 @@ create table if not exists public.documentos_juridicos (
   )),
   arquivo_principal_path text,
   arquivos_paths jsonb not null default '[]'::jsonb,
+  armazenamento_oficial text not null default 'Drive',
   metadata jsonb not null default '{}'::jsonb,
   created_by uuid not null default auth.uid(),
   created_by_email text not null default lower(coalesce(auth.jwt()->>'email', '')),
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
+
+alter table public.documentos_juridicos add column if not exists link_pasta_cliente text;
+alter table public.documentos_juridicos add column if not exists armazenamento_oficial text not null default 'Drive';
 
 create index if not exists documentos_juridicos_nome_idx
   on public.documentos_juridicos (lower(nome_documento));
@@ -115,22 +120,8 @@ on public.documentos_juridicos for update to authenticated
 using (created_by = auth.uid() or public.usuario_e_admin())
 with check (created_by = auth.uid() or public.usuario_e_admin());
 
-insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
-values ('documentos-juridicos', 'documentos-juridicos', false, 10485760, array['application/pdf'])
-on conflict (id) do update set
-  public = excluded.public,
-  file_size_limit = excluded.file_size_limit,
-  allowed_mime_types = excluded.allowed_mime_types;
-
-drop policy if exists "Equipe consulta arquivos juridicos" on storage.objects;
-create policy "Equipe consulta arquivos juridicos"
-on storage.objects for select to authenticated
-using (bucket_id = 'documentos-juridicos');
-
-drop policy if exists "Equipe envia arquivos juridicos" on storage.objects;
-create policy "Equipe envia arquivos juridicos"
-on storage.objects for insert to authenticated
-with check (bucket_id = 'documentos-juridicos');
+-- O Gerador de Documentos registra metadados no banco.
+-- O PDF final não é armazenado no Supabase; o arquivamento oficial fica no Drive.
 
 notify pgrst, 'reload schema';
 commit;

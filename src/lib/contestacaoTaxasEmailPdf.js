@@ -353,7 +353,7 @@ export async function gerarContestacaoTaxasEmailPdfComAssets(
     desenharTexto(contexto, paragrafo, { alinhamento: "justify" });
   });
 
-  adicionarPagina(contexto);
+  garantirEspaco(contexto, 230);
 
   [
     "A presente notificação tem por finalidade buscar uma solução consensual e extrajudicial para a controvérsia, evitando a adoção de medidas administrativas e judiciais cabíveis, preservando-se, assim, os princípios da cooperação e da boa-fé entre as partes.",
@@ -369,26 +369,25 @@ export async function gerarContestacaoTaxasEmailPdfComAssets(
     {
       alinhamento: "center",
       antes: 8,
-      depois: 18,
+      depois: 10,
       manterJunto: true,
     },
   );
 
-  contexto.y = Math.min(contexto.y, 170);
-  garantirEspaco(contexto, 115);
-  const larguraAssinatura = 76;
+  garantirEspaco(contexto, 92);
+  const larguraAssinatura = 66;
   const xAssinatura = (A4[0] - larguraAssinatura) / 2;
 
   if (contexto.assinatura) {
     contexto.pagina.drawImage(contexto.assinatura, {
       x: xAssinatura,
-      y: contexto.y - 47,
+      y: contexto.y - 38,
       width: larguraAssinatura,
-      height: 64,
+      height: 52,
     });
   }
 
-  contexto.y -= 55;
+  contexto.y -= 43;
   contexto.pagina.drawLine({
     start: { x: 145, y: contexto.y },
     end: { x: A4[0] - 145, y: contexto.y },

@@ -247,6 +247,7 @@ function criarFicha(processo: Processo | null, responsavel = "") {
     nome_cliente: processo?.nome_cliente || "",
     cpf_cliente: processo?.cpf_cliente || "",
     id_crm: processo?.id_crm || processo?.pasta_cliente_id || "",
+    link_pasta_cliente: processo?.link_pasta_cliente || "",
     autor: processo?.autor || processo?.nome_cliente || "",
     reu: processo?.reu || processo?.banco_reu || "",
     banco_reu: processo?.banco_reu || "",
@@ -441,6 +442,7 @@ export default function PainelJudicial({
       cpf_cliente: limpar(ficha.cpf_cliente),
       id_crm: limpar(ficha.id_crm),
       pasta_cliente_id: limpar(ficha.id_crm),
+      link_pasta_cliente: limpar(ficha.link_pasta_cliente),
       autor: limpar(ficha.autor) || ficha.nome_cliente.trim(),
       reu: limpar(ficha.reu) || limpar(ficha.banco_reu),
       banco_reu: limpar(ficha.banco_reu),
@@ -761,6 +763,7 @@ export default function PainelJudicial({
         id: processoAberto.cliente_id,
         nome_completo: processoAberto.nome_cliente,
         cpf: processoAberto.cpf_cliente,
+        link_pasta_cliente: processoAberto.link_pasta_cliente,
       },
       processo: processoAberto,
       departamento: "Processual",
@@ -787,7 +790,7 @@ export default function PainelJudicial({
       responsavel: usuario?.nome || usuario?.email || null,
       fonte: "Gerador de Documentos",
       importancia: resultado.modelo?.modo === "procuracao" ? "Relevante" : "Normal",
-      anexo_url: documento?.arquivo_principal_path || null,
+      anexo_url: null,
       origem: "manual",
       created_by_nome: usuario?.nome || usuario?.email || null,
     }).select("*").single();
@@ -993,6 +996,7 @@ export default function PainelJudicial({
                     <label><span>Cliente *</span><input value={ficha.nome_cliente} onChange={(e) => setFicha((f) => ({ ...f, nome_cliente: e.target.value }))} /></label>
                     <label><span>CPF</span><input value={ficha.cpf_cliente} onChange={(e) => setFicha((f) => ({ ...f, cpf_cliente: e.target.value }))} /></label>
                     <label><span>ID CRM</span><input value={ficha.id_crm} onChange={(e) => setFicha((f) => ({ ...f, id_crm: e.target.value }))} /></label>
+                    <label><span>Link pasta Drive</span><input value={ficha.link_pasta_cliente} onChange={(e) => setFicha((f) => ({ ...f, link_pasta_cliente: e.target.value }))} placeholder="Pasta do cliente no Drive" /></label>
                     <label><span>Autor</span><input value={ficha.autor} onChange={(e) => setFicha((f) => ({ ...f, autor: e.target.value }))} /></label>
                     <label><span>Réu</span><input value={ficha.reu} onChange={(e) => setFicha((f) => ({ ...f, reu: e.target.value }))} /></label>
                     <label><span>Banco</span><input value={ficha.banco_reu} onChange={(e) => setFicha((f) => ({ ...f, banco_reu: e.target.value }))} /></label>
@@ -1165,7 +1169,10 @@ export default function PainelJudicial({
             </div>
 
             <footer className="process-ficha-actions">
-              {ficha.link_consulta ? <a href={ficha.link_consulta} target="_blank" rel="noreferrer">Abrir consulta</a> : <span />}
+              <div className="process-link-actions">
+                {ficha.link_pasta_cliente ? <a href={ficha.link_pasta_cliente} target="_blank" rel="noreferrer">Abrir pasta Drive</a> : null}
+                {ficha.link_consulta ? <a href={ficha.link_consulta} target="_blank" rel="noreferrer">Abrir consulta</a> : null}
+              </div>
               <div><button className="btn-secondary" onClick={() => { setProcessoAberto(null); setModalCadastro(false); }} type="button">Fechar</button><button className="btn-primary" disabled={salvando} type="submit">{salvando ? "Salvando..." : "Salvar processo"}</button></div>
             </footer>
           </form>

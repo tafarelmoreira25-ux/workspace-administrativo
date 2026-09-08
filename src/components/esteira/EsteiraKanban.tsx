@@ -78,6 +78,7 @@ function criarFormulario(processo?: Processo | null, responsavel = "") {
     nome_cliente: processo?.nome_cliente || "",
     cpf_cliente: processo?.cpf_cliente || "",
     id_crm: processo?.id_crm || processo?.pasta_cliente_id || "",
+    link_pasta_cliente: processo?.link_pasta_cliente || "",
     banco_reu: processo?.banco_reu || "",
     produto: processo?.produto || "",
     numero_contrato: processo?.numero_contrato || "",
@@ -112,6 +113,7 @@ function criarFormulario(processo?: Processo | null, responsavel = "") {
     tribunal: processo?.tribunal || "",
     comarca: processo?.comarca || "",
     vara: processo?.vara || "",
+    link_consulta: processo?.link_consulta || processo?.link_processo || "",
     data_distribuicao: processo?.data_distribuicao || "",
   };
 }
@@ -195,6 +197,7 @@ export default function EsteiraKanban({
         processo.cpf_cliente,
         processo.id_crm,
         processo.pasta_cliente_id,
+        processo.link_pasta_cliente,
         processo.banco_reu,
         processo.numero_processo,
         processo.responsavel,
@@ -253,6 +256,7 @@ export default function EsteiraKanban({
 
     const payload = {
       pasta_cliente_id: formulario.id_crm.trim() || null,
+      link_pasta_cliente: formulario.link_pasta_cliente.trim() || null,
       id_crm: formulario.id_crm.trim() || null,
       nome_cliente: nome,
       cpf_cliente: formulario.cpf_cliente.trim() || null,
@@ -302,6 +306,8 @@ export default function EsteiraKanban({
       tribunal: formulario.tribunal.trim() || null,
       comarca: formulario.comarca.trim() || null,
       vara: formulario.vara.trim() || null,
+      link_consulta: formulario.link_consulta.trim() || null,
+      link_processo: formulario.link_consulta.trim() || null,
       data_distribuicao: formulario.data_distribuicao || null,
       fase_atual: formulario.protocolo_status === "Liberado" ? "Protocolo Liberado" : etapaAtual({ ...(processoEditando || {}), documentos_elite_status: formulario.documentos_elite_status, data_envio_elite: dataEnvioElite, pasta_retorno_status: formulario.pasta_retorno_status, numero_processo: formulario.numero_processo, protocolo_status: formulario.protocolo_status } as Processo),
       status_judicial: formulario.protocolo_status === "Liberado" ? "TRAMITANDO" : null,
@@ -431,6 +437,7 @@ export default function EsteiraKanban({
                 <label><span>Cliente *</span><input value={formulario.nome_cliente} onChange={(e) => setFormulario((f) => ({ ...f, nome_cliente: e.target.value }))} /></label>
                 <label><span>CPF</span><input value={formulario.cpf_cliente} onChange={(e) => setFormulario((f) => ({ ...f, cpf_cliente: e.target.value }))} /></label>
                 <label><span>ID CRM</span><input value={formulario.id_crm} onChange={(e) => setFormulario((f) => ({ ...f, id_crm: e.target.value }))} /></label>
+                <label><span>Link pasta Drive</span><input value={formulario.link_pasta_cliente} onChange={(e) => setFormulario((f) => ({ ...f, link_pasta_cliente: e.target.value }))} placeholder="https://drive.google.com/..." /></label>
                 <label><span>Instituição financeira *</span><input value={formulario.banco_reu} onChange={(e) => setFormulario((f) => ({ ...f, banco_reu: e.target.value }))} /></label>
                 <label><span>Produto</span><input value={formulario.produto} onChange={(e) => setFormulario((f) => ({ ...f, produto: e.target.value }))} /></label>
                 <label><span>Número contrato</span><input value={formulario.numero_contrato} onChange={(e) => setFormulario((f) => ({ ...f, numero_contrato: e.target.value }))} /></label>
@@ -467,11 +474,11 @@ export default function EsteiraKanban({
             <section className="protocolo-form-section">
               <h4>CRM, Elite e SLA</h4>
               <div className="protocolo-modal-grid">
-                <label><span>Documentos anexados ao CRM</span><select value={formulario.crm_documentos_status} onChange={(e) => setFormulario((f) => ({ ...f, crm_documentos_status: e.target.value }))}>{STATUS_CRM.map((item) => <option key={item}>{item}</option>)}</select></label>
+                <label><span>Documentos conferidos/anexados no Drive</span><select value={formulario.crm_documentos_status} onChange={(e) => setFormulario((f) => ({ ...f, crm_documentos_status: e.target.value }))}>{STATUS_CRM.map((item) => <option key={item}>{item}</option>)}</select></label>
                 <label><span>Elite</span><select value={formulario.documentos_elite_status} onChange={(e) => setFormulario((f) => ({ ...f, documentos_elite_status: e.target.value }))}>{STATUS_ELITE.map((item) => <option key={item}>{item}</option>)}</select></label>
                 <div className="sla-preview">
                   <span>Enviado</span><strong>{formatarDataHora(processoEditando?.data_envio_elite)}</strong>
-                  <small>Ao marcar Enviado, o SLA de 20 dias úteis inicia automaticamente.</small>
+                  <small>O sistema registra a conferência; os arquivos permanecem na pasta do cliente no Drive. Ao marcar Enviado, o SLA de 20 dias úteis inicia automaticamente.</small>
                 </div>
               </div>
             </section>
@@ -500,6 +507,7 @@ export default function EsteiraKanban({
                 <label><span>Tribunal</span><input value={formulario.tribunal} onChange={(e) => setFormulario((f) => ({ ...f, tribunal: e.target.value }))} /></label>
                 <label><span>Comarca</span><input value={formulario.comarca} onChange={(e) => setFormulario((f) => ({ ...f, comarca: e.target.value }))} /></label>
                 <label><span>Vara</span><input value={formulario.vara} onChange={(e) => setFormulario((f) => ({ ...f, vara: e.target.value }))} /></label>
+                <label><span>Link do processo</span><input value={formulario.link_consulta} onChange={(e) => setFormulario((f) => ({ ...f, link_consulta: e.target.value }))} placeholder="Link de consulta no tribunal" /></label>
                 <label><span>Data distribuição</span><input type="date" value={formulario.data_distribuicao} onChange={(e) => setFormulario((f) => ({ ...f, data_distribuicao: e.target.value }))} /></label>
               </div>
             </section>

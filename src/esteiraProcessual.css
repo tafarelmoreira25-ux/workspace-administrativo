@@ -1773,6 +1773,12 @@
   gap: 8px;
 }
 
+.process-link-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
 .process-ficha-actions a {
   color: #2557d6;
   font-size: 12px;

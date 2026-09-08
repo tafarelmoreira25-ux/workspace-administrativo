@@ -1,6 +1,7 @@
 -- Esteira Processual PLATINO
 -- Execute depois de remover ou migrar a estrutura antiga de processos.
 -- Cria Protocolos, Processos e o checklist de documentos da Elite.
+-- Não armazena arquivos no Supabase Storage: a pasta oficial permanece no Drive.
 
 begin;
 
@@ -9,6 +10,7 @@ create extension if not exists pgcrypto;
 create table if not exists public.processos (
   id uuid primary key default gen_random_uuid(),
   pasta_cliente_id text,
+  link_pasta_cliente text,
   autor_reu text,
   nome_cliente text not null,
   cpf_cliente text,
@@ -28,6 +30,7 @@ create table if not exists public.processos (
   justica_gratuita text not null default 'Não Solicitada',
   emenda_inicial text,
   link_processo text,
+  link_consulta text,
   observacoes text,
   checklist_elite jsonb not null default '{}'::jsonb,
   origem_registro text not null default 'manual',
@@ -58,6 +61,7 @@ alter table public.processos add constraint processos_justica_gratuita_check che
 );
 
 alter table public.processos add column if not exists pasta_cliente_id text;
+alter table public.processos add column if not exists link_pasta_cliente text;
 alter table public.processos add column if not exists autor_reu text;
 alter table public.processos add column if not exists cpf_cliente text;
 alter table public.processos add column if not exists status_judicial text;
@@ -69,6 +73,7 @@ alter table public.processos add column if not exists data_protocolo_liberado ti
 alter table public.processos add column if not exists data_distribuicao date;
 alter table public.processos add column if not exists emenda_inicial text;
 alter table public.processos add column if not exists link_processo text;
+alter table public.processos add column if not exists link_consulta text;
 alter table public.processos add column if not exists origem_registro text not null default 'manual';
 
 create table if not exists public.movimentacoes (
@@ -93,12 +98,27 @@ create table if not exists public.processos_documentos (
       'procuracao_assinada'
     )
   ),
-  bucket text not null default 'processos-elite',
-  arquivo_path text not null,
+  status text not null default 'Pendente',
+  link_drive text,
+  observacao text,
+  armazenamento_oficial text not null default 'Drive',
+  conferido_by uuid default auth.uid() references auth.users(id) on delete set null,
+  conferido_em timestamptz,
+  bucket text,
+  arquivo_path text,
   uploaded_by uuid default auth.uid() references auth.users(id) on delete set null,
-  uploaded_at timestamptz not null default now(),
+  uploaded_at timestamptz,
   unique (processo_id, tipo_documento)
 );
+
+alter table public.processos_documentos add column if not exists status text not null default 'Pendente';
+alter table public.processos_documentos add column if not exists link_drive text;
+alter table public.processos_documentos add column if not exists observacao text;
+alter table public.processos_documentos add column if not exists armazenamento_oficial text not null default 'Drive';
+alter table public.processos_documentos add column if not exists conferido_by uuid default auth.uid() references auth.users(id) on delete set null;
+alter table public.processos_documentos add column if not exists conferido_em timestamptz;
+alter table public.processos_documentos alter column arquivo_path drop not null;
+alter table public.processos_documentos alter column bucket drop not null;
 
 create or replace function public.atualizar_updated_at_processos()
 returns trigger
@@ -119,24 +139,6 @@ create index if not exists processos_fase_idx on public.processos (fase_atual, u
 create index if not exists processos_cliente_idx on public.processos (nome_cliente);
 create index if not exists movimentacoes_processo_idx on public.movimentacoes (processo_id, data_registro desc);
 create index if not exists processos_documentos_processo_idx on public.processos_documentos (processo_id);
-
-insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
-values (
-  'processos-elite',
-  'processos-elite',
-  false,
-  52428800,
-  array[
-    'application/pdf',
-    'image/png',
-    'image/jpeg',
-    'image/webp'
-  ]
-)
-on conflict (id) do update set
-  public = excluded.public,
-  file_size_limit = excluded.file_size_limit,
-  allowed_mime_types = excluded.allowed_mime_types;
 
 alter table public.processos enable row level security;
 alter table public.movimentacoes enable row level security;
@@ -167,21 +169,5 @@ create policy "Equipe gerencia documentos de processos"
 on public.processos_documentos for all to authenticated
 using (true)
 with check (true);
-
-drop policy if exists "Equipe consulta anexos da elite" on storage.objects;
-create policy "Equipe consulta anexos da elite"
-on storage.objects for select to authenticated
-using (bucket_id = 'processos-elite');
-
-drop policy if exists "Equipe envia anexos da elite" on storage.objects;
-create policy "Equipe envia anexos da elite"
-on storage.objects for insert to authenticated
-with check (bucket_id = 'processos-elite');
-
-drop policy if exists "Equipe atualiza anexos da elite" on storage.objects;
-create policy "Equipe atualiza anexos da elite"
-on storage.objects for update to authenticated
-using (bucket_id = 'processos-elite')
-with check (bucket_id = 'processos-elite');
 
 commit;

@@ -30,6 +30,8 @@ do $$
 begin
   if to_regclass('public.processos') is not null then
     alter table public.processos add column if not exists id_crm text;
+    alter table public.processos add column if not exists link_pasta_cliente text;
+    alter table public.processos add column if not exists link_consulta text;
     alter table public.processos add column if not exists produto text;
     alter table public.processos add column if not exists numero_contrato text;
     alter table public.processos add column if not exists motivo_ajuizamento text;

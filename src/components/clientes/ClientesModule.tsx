@@ -12,6 +12,7 @@ type Cliente = {
   email: string | null;
   endereco: string | null;
   id_crm: string | null;
+  link_pasta_cliente: string | null;
   responsavel: string | null;
   observacoes: string | null;
   created_at: string | null;
@@ -76,6 +77,7 @@ const FORMULARIO_INICIAL = {
   email: "",
   endereco: "",
   id_crm: "",
+  link_pasta_cliente: "",
   responsavel: "",
   observacoes: "",
 };
@@ -109,6 +111,7 @@ function criarFormulario(cliente?: Cliente | null, responsavel = "") {
     email: cliente.email || "",
     endereco: cliente.endereco || "",
     id_crm: cliente.id_crm || "",
+    link_pasta_cliente: cliente.link_pasta_cliente || "",
     responsavel: cliente.responsavel || responsavel,
     observacoes: cliente.observacoes || "",
   };
@@ -245,6 +248,7 @@ export default function ClientesModule({ usuario, showToast }: Props) {
         rg: clienteAberto.rg,
         email: clienteAberto.email,
         endereco: clienteAberto.endereco,
+        link_pasta_cliente: clienteAberto.link_pasta_cliente,
       },
       departamento: "Processual",
     };
@@ -274,6 +278,7 @@ export default function ClientesModule({ usuario, showToast }: Props) {
       email: limparTexto(formulario.email),
       endereco: limparTexto(formulario.endereco),
       id_crm: limparTexto(formulario.id_crm),
+      link_pasta_cliente: limparTexto(formulario.link_pasta_cliente),
       responsavel: limparTexto(formulario.responsavel),
       observacoes: limparTexto(formulario.observacoes),
       updated_by: usuario.email || usuario.nome || null,
@@ -388,6 +393,7 @@ export default function ClientesModule({ usuario, showToast }: Props) {
                 <div><dt>Telefone</dt><dd>{clienteAberto.telefone || "—"}</dd></div>
                 <div><dt>E-mail</dt><dd>{clienteAberto.email || "—"}</dd></div>
                 <div><dt>Responsável</dt><dd>{clienteAberto.responsavel || "—"}</dd></div>
+                <div><dt>Pasta Drive</dt><dd>{clienteAberto.link_pasta_cliente ? <a href={clienteAberto.link_pasta_cliente} target="_blank" rel="noreferrer">Abrir pasta</a> : "—"}</dd></div>
               </dl>
             </header>
 
@@ -509,6 +515,7 @@ export default function ClientesModule({ usuario, showToast }: Props) {
               <label><span>Telefone</span><input value={formulario.telefone} onChange={(e) => setFormulario((f) => ({ ...f, telefone: e.target.value }))} /></label>
               <label><span>E-mail</span><input type="email" value={formulario.email} onChange={(e) => setFormulario((f) => ({ ...f, email: e.target.value }))} /></label>
               <label><span>ID CRM</span><input value={formulario.id_crm} onChange={(e) => setFormulario((f) => ({ ...f, id_crm: e.target.value }))} /></label>
+              <label className="wide"><span>Link pasta Drive</span><input value={formulario.link_pasta_cliente} onChange={(e) => setFormulario((f) => ({ ...f, link_pasta_cliente: e.target.value }))} placeholder="https://drive.google.com/..." /></label>
               <label><span>Responsável</span><input value={formulario.responsavel} onChange={(e) => setFormulario((f) => ({ ...f, responsavel: e.target.value }))} /></label>
               <label className="wide"><span>Endereço</span><input value={formulario.endereco} onChange={(e) => setFormulario((f) => ({ ...f, endereco: e.target.value }))} /></label>
               <label className="wide"><span>Observações</span><textarea rows={4} value={formulario.observacoes} onChange={(e) => setFormulario((f) => ({ ...f, observacoes: e.target.value }))} /></label>

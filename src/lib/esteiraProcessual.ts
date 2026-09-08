@@ -44,6 +44,7 @@ export type Processo = {
   id: string;
   cliente_id?: string | null;
   pasta_cliente_id: string | null;
+  link_pasta_cliente?: string | null;
   id_crm?: string | null;
   autor_reu: string | null;
   autor?: string | null;
@@ -166,7 +167,14 @@ export const CHECKLIST_ELITE = [
 
 export type ChecklistEliteId = (typeof CHECKLIST_ELITE)[number]["id"];
 
+export type RegistroChecklistElite = {
+  status?: "Pendente" | "Conferido" | "Anexado no Drive" | "Irregular" | string;
+  link_drive?: string | null;
+  observacao?: string | null;
+};
+
 export type ArquivosChecklistElite = Partial<Record<ChecklistEliteId, File>>;
+export type RegistrosChecklistElite = Partial<Record<ChecklistEliteId, RegistroChecklistElite>>;
 
 function normalizarData(data: string | Date) {
   const parsed = data instanceof Date ? new Date(data) : new Date(data);
@@ -288,43 +296,24 @@ export function checklistEliteCompleto(checklist?: Record<string, unknown> | nul
   return CHECKLIST_ELITE.every((item) => Boolean(checklist?.[item.id]));
 }
 
-function limparNomeArquivo(nome: string) {
-  return nome
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .replace(/[^a-zA-Z0-9._-]+/g, "-")
-    .replace(/-+/g, "-")
-    .replace(/^-|-$/g, "")
-    .toLowerCase();
-}
-
-export async function enviarChecklistElite(
+export async function registrarChecklistEliteDrive(
   processoId: string,
-  arquivos: ArquivosChecklistElite,
+  registros: RegistrosChecklistElite,
 ) {
-  const faltantes = CHECKLIST_ELITE.filter((item) => !arquivos[item.id]).map(
-    (item) => item.label,
-  );
+  const faltantes = CHECKLIST_ELITE.filter((item) => {
+    const registro = registros[item.id];
+    return !registro || !["Conferido", "Anexado no Drive"].includes(String(registro.status || ""));
+  }).map((item) => item.label);
 
   if (faltantes.length > 0) {
-    throw new Error(`Envie todos os documentos obrigatórios: ${faltantes.join(", ")}.`);
+    throw new Error(`Marque todos os documentos obrigatórios como conferidos/anexados no Drive: ${faltantes.join(", ")}.`);
   }
 
-  const enviados: Record<string, string> = {};
+  const conferidos: Record<string, string> = {};
 
   for (const item of CHECKLIST_ELITE) {
-    const arquivo = arquivos[item.id];
-    if (!arquivo) continue;
-    const path = `${processoId}/checklist-elite/${item.id}-${Date.now()}-${limparNomeArquivo(arquivo.name)}`;
-    const { error: uploadError } = await supabase.storage
-      .from("processos-elite")
-      .upload(path, arquivo, {
-        cacheControl: "3600",
-        contentType: arquivo.type || "application/octet-stream",
-        upsert: true,
-      });
-
-    if (uploadError) throw uploadError;
+    const registro = registros[item.id];
+    if (!registro) continue;
 
     const { error: registroError } = await supabase
       .from("processos_documentos")
@@ -332,15 +321,38 @@ export async function enviarChecklistElite(
         {
           processo_id: processoId,
           tipo_documento: item.id,
-          arquivo_path: path,
-          bucket: "processos-elite",
+          status: registro.status || "Conferido",
+          link_drive: registro.link_drive || null,
+          observacao: registro.observacao || null,
+          armazenamento_oficial: "Drive",
+          conferido_em: new Date().toISOString(),
         },
         { onConflict: "processo_id,tipo_documento" },
       );
 
     if (registroError) throw registroError;
-    enviados[item.id] = path;
+    conferidos[item.id] = registro.status || "Conferido";
   }
 
-  return enviados;
+  return conferidos;
+}
+
+export async function enviarChecklistElite(
+  processoId: string,
+  arquivosOuRegistros: ArquivosChecklistElite | RegistrosChecklistElite,
+) {
+  const registros = Object.fromEntries(
+    CHECKLIST_ELITE.map((item) => {
+      const valor = arquivosOuRegistros[item.id] as File | RegistroChecklistElite | undefined;
+      const status = valor instanceof File ? "Conferido" : valor?.status;
+      const link_drive = valor instanceof File ? null : valor?.link_drive;
+      const observacao = valor instanceof File
+        ? `Arquivo ${valor.name} conferido. Arquivamento oficial deve ser feito na pasta do cliente no Drive.`
+        : valor?.observacao;
+
+      return [item.id, { status, link_drive, observacao }];
+    }),
+  ) as RegistrosChecklistElite;
+
+  return registrarChecklistEliteDrive(processoId, registros);
 }
