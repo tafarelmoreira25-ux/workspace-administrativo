@@ -1,4 +1,4 @@
-export const DOCUMENT_WORKSPACE_SCHEMA = 2;
+﻿export const DOCUMENT_WORKSPACE_SCHEMA = 2;
 export const DOCUMENT_DRAFT_KEY = "platino.documentos.rascunho.v2";
 export const DOCUMENT_DRAFT_TTL_MS = 24 * 60 * 60 * 1000;
 export const DOCUMENT_HISTORY_KEY = "platino.documentos.historico.v2";
@@ -162,6 +162,14 @@ const MODEL_META = {
     descricao: "Consolida contatos, propostas, valores e manifestação do cliente na negociação.",
     minutos: 7,
   },
+  "relatorio-atualizacao-processual": {
+    nome: "Relatório de Atualização Processual",
+    categoria: "relatorios",
+    descricao: "Gera o relatório processual editável em DOCX com base no modelo oficial atualizado.",
+    minutos: 6,
+    selo: "Processual",
+    recomendado: true,
+  },
 };
 
 const FIELD_GROUPS = [
@@ -170,7 +178,7 @@ const FIELD_GROUPS = [
   { id: "profissionais", titulo: "Informações profissionais", campos: ["profissao", "responsavelDocumento"] },
   { id: "endereco", titulo: "Endereço", campos: ["endereco", "cep", "cidade", "uf", "localEmissao"] },
   { id: "contratuais", titulo: "Dados contratuais e financeiros", prefixos: ["banco", "cnpjBanco", "enderecoBanco", "numeroContrato", "dataContrato", "dataCompromisso", "valor", "quantidadeParcelas", "produto", "servico", "modalidade", "bandeira", "tipoVenda", "codigoAutorizacao", "horario"] },
-  { id: "processuais", titulo: "Informações processuais", prefixos: ["numeroProcesso", "vara", "comarca", "protocolo", "numeroProtocolo", "dataContato", "dataProposta", "validadeProposta", "manifestacaoCliente", "observacoes", "dataInicioRepresentacao", "dataAberturaReclamacao", "exercicios"] },
+  { id: "processuais", titulo: "Informações processuais", prefixos: ["numeroProcesso", "vara", "comarca", "tribunal", "origemTribunal", "dataDistribuicao", "dataConsulta", "segredoJustica", "assunto", "justicaGratuita", "autor", "reu", "status", "prazoAtual", "responsavelProvidencia", "dataUltimaMovimentacao", "ultimaMovimentacao", "proximosPassos", "anexosResumo", "capturaProcesso", "linkConsulta", "protocolo", "numeroProtocolo", "dataContato", "dataProposta", "validadeProposta", "manifestacaoCliente", "observacoes", "dataInicioRepresentacao", "dataAberturaReclamacao", "exercicios"] },
 ];
 
 export function enriquecerModelos(modelos) {
@@ -302,3 +310,4 @@ export function proximaVersao(nome, historico) {
     .map((item) => Number(item.versao) || 1);
   return versoes.length ? Math.max(...versoes) + 1 : 1;
 }
+

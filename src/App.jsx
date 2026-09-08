@@ -574,7 +574,7 @@ function Workspace({ usuario, onLogout, showToast }) {
 
   return <div className="app-layout">
     <aside className="sidebar">
-      <div className="brand"><img src="/assets/platino-orbital-logo.png" alt="Platino" className="brand-icon" /><div><strong>PLATINO</strong><span>Workspace</span></div></div>
+      <div className="brand"><img src="/assets/platino-orbital-logo.png" alt="Platino" className="brand-icon" /><div><strong>Processual</strong><span>Workspace</span></div></div>
       <nav aria-label="Menu principal">
         {navGroups.map((grupo) => (
           <section className="nav-group" key={grupo.titulo}>
