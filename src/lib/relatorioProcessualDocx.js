@@ -255,7 +255,23 @@ function escaparXml(valor) {
 }
 
 function substituirCamposXml(xml, campos) {
-  let atualizado = xml;
+  const substituirNoTrecho = (trecho) => {
+    let atualizado = trecho;
+    let campoSubstituido = false;
+
+    for (const campo of PLACEHOLDER_FIELDS) {
+      const placeholder = `{{${campo}}}`;
+      if (!atualizado.includes(placeholder)) continue;
+      atualizado = atualizado.split(placeholder).join(escaparXml(campos[campo]));
+      campoSubstituido = true;
+    }
+
+    return campoSubstituido
+      ? atualizado.replace(/<w:highlight\b[^>]*\/>/g, "")
+      : atualizado;
+  };
+
+  let atualizado = xml.replace(/<w:r\b[^>]*>[\s\S]*?<\/w:r>/g, substituirNoTrecho);
   for (const campo of PLACEHOLDER_FIELDS) atualizado = atualizado.split(`{{${campo}}}`).join(escaparXml(campos[campo]));
   return atualizado;
 }
@@ -278,6 +294,12 @@ function criarBlocoCaptura(rId, captura) {
   return `<w:p><w:pPr><w:spacing w:before="70" w:after="30" w:line="240" w:lineRule="auto"/><w:keepNext/></w:pPr><w:r><w:rPr><w:rFonts w:ascii="Arial" w:hAnsi="Arial"/><w:b/><w:color w:val="173D77"/><w:sz w:val="14"/></w:rPr><w:t>CAPTURA DE TELA DO PROCESSO</w:t></w:r></w:p><w:p><w:pPr><w:spacing w:before="0" w:after="50" w:line="240" w:lineRule="auto"/><w:jc w:val="center"/></w:pPr><w:r><w:drawing><wp:inline distT="0" distB="0" distL="0" distR="0"><wp:extent cx="${largura}" cy="${altura}"/><wp:effectExtent l="0" t="0" r="0" b="0"/><wp:docPr id="92701" name="Captura de tela do processo"/><wp:cNvGraphicFramePr><a:graphicFrameLocks xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" noChangeAspect="1"/></wp:cNvGraphicFramePr><a:graphic xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"><a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/picture"><pic:pic xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture"><pic:nvPicPr><pic:cNvPr id="92702" name="captura-processo.${captura.extensao}"/><pic:cNvPicPr/></pic:nvPicPr><pic:blipFill><a:blip r:embed="${rId}"/><a:stretch><a:fillRect/></a:stretch></pic:blipFill><pic:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="${largura}" cy="${altura}"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></pic:spPr></pic:pic></a:graphicData></a:graphic></wp:inline></w:drawing></w:r></w:p>`;
 }
 
+function criarBlocoAssinatura(rId) {
+  const largura = 4300000;
+  const altura = 1575000;
+  return `<w:p><w:pPr><w:spacing w:before="100" w:after="0" w:line="240" w:lineRule="auto"/><w:jc w:val="center"/><w:keepNext w:val="0"/></w:pPr><w:r><w:drawing><wp:inline distT="0" distB="0" distL="0" distR="0"><wp:extent cx="${largura}" cy="${altura}"/><wp:effectExtent l="0" t="0" r="0" b="0"/><wp:docPr id="92711" name="Assinatura Platino"/><wp:cNvGraphicFramePr><a:graphicFrameLocks xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" noChangeAspect="1"/></wp:cNvGraphicFramePr><a:graphic xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"><a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/picture"><pic:pic xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture"><pic:nvPicPr><pic:cNvPr id="92712" name="assinatura-platino-final.png"/><pic:cNvPicPr/></pic:nvPicPr><pic:blipFill><a:blip r:embed="${rId}"><a:lum bright="0" contrast="30000"/></a:blip><a:stretch><a:fillRect/></a:stretch></pic:blipFill><pic:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="${largura}" cy="${altura}"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></pic:spPr></pic:pic></a:graphicData></a:graphic></wp:inline></w:drawing></w:r></w:p>`;
+}
+
 function inserirCapturaNoDocumento(xml, rId, captura) {
   if (!captura) return xml;
   const ancora = "ABRIR CONSULTA PROCESSUAL";
@@ -287,6 +309,19 @@ function inserirCapturaNoDocumento(xml, rId, captura) {
   if (fimTabela < 0) return xml;
   const pontoInsercao = fimTabela + "</w:tbl>".length;
   return `${xml.slice(0, pontoInsercao)}${criarBlocoCaptura(rId, captura)}${xml.slice(pontoInsercao)}`;
+}
+
+function inserirAssinaturaNoDocumento(xml, rId) {
+  if (!rId) return xml;
+  return xml.replace("<w:sectPr", `${criarBlocoAssinatura(rId)}<w:sectPr`);
+}
+
+function removerAssinaturaDoRodape(xml) {
+  return xml.replace(/<w:p\b[^>]*>(?:(?!<\/w:p>)[\s\S])*?<w:drawing>[\s\S]*?<\/w:p>/g, "");
+}
+
+function reduzirMargemInferior(xml) {
+  return xml.replace(/(<w:pgMar\b[^>]*\bw:bottom=")\d+("[^>]*>)/, (_, inicio, fim) => `${inicio}900${fim}`);
 }
 
 function atualizarRelConsulta(relsXml, link) {
@@ -299,7 +334,7 @@ function proximoRelationshipId(relsXml) {
   return `rId${Math.max(0, ...numeros) + 1}`;
 }
 
-function adicionarRelCaptura(relsXml, rId, nomeArquivo) {
+function adicionarRelImagem(relsXml, rId, nomeArquivo) {
   if (!rId) return relsXml;
   const rel = `<Relationship Id="${rId}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/${nomeArquivo}"/>`;
   return relsXml.replace("</Relationships>", `${rel}</Relationships>`);
@@ -342,16 +377,29 @@ export async function gerarRelatorioAtualizacaoProcessualDocx(dados = {}) {
   const entradasOriginais = parseZip(template);
   const relsEntry = entradasOriginais.find((entry) => entry.name === "word/_rels/document.xml.rels");
   const relsXmlOriginal = relsEntry ? await lerEntradaXml(relsEntry) : "";
-  const capturaRId = captura ? proximoRelationshipId(relsXmlOriginal) : "";
+  const assinaturaRId = proximoRelationshipId(relsXmlOriginal);
+  const relsComAssinatura = adicionarRelImagem(relsXmlOriginal, assinaturaRId, "image1.png");
+  const capturaRId = captura ? proximoRelationshipId(relsComAssinatura) : "";
   const capturaNomeArquivo = captura ? `captura-processo.${captura.extensao}` : "";
   const entries = await Promise.all(entradasOriginais.map(async (entry) => {
-    if (entry.name !== "word/document.xml" && entry.name !== "word/_rels/document.xml.rels" && entry.name !== "[Content_Types].xml") return entry;
+    const xmlComCampos = /^word\/(?:document|header\d+|footer\d+)\.xml$/.test(entry.name);
+    if (!xmlComCampos && entry.name !== "word/_rels/document.xml.rels" && entry.name !== "[Content_Types].xml") return entry;
     const originalXml = await lerEntradaXml(entry);
-    const xml = entry.name === "word/document.xml"
-      ? inserirCapturaNoDocumento(substituirCamposXml(originalXml, campos), capturaRId, captura)
-      : entry.name === "word/_rels/document.xml.rels"
-        ? adicionarRelCaptura(atualizarRelConsulta(originalXml, dados.linkConsulta || dados.linkProcesso || dados.contextoDocumento?.processo?.link_consulta || dados.contextoDocumento?.processo?.link_processo), capturaRId, capturaNomeArquivo)
-        : atualizarContentTypes(originalXml, captura);
+    let xml;
+    if (entry.name === "word/document.xml") {
+      xml = substituirCamposXml(originalXml, campos);
+      xml = inserirCapturaNoDocumento(xml, capturaRId, captura);
+      xml = inserirAssinaturaNoDocumento(xml, assinaturaRId);
+      xml = reduzirMargemInferior(xml);
+    } else if (/^word\/(?:header\d+|footer\d+)\.xml$/.test(entry.name)) {
+      xml = substituirCamposXml(originalXml, campos);
+      if (entry.name.startsWith("word/footer")) xml = removerAssinaturaDoRodape(xml);
+    } else if (entry.name === "word/_rels/document.xml.rels") {
+      xml = atualizarRelConsulta(relsComAssinatura, dados.linkConsulta || dados.linkProcesso || dados.contextoDocumento?.processo?.link_consulta || dados.contextoDocumento?.processo?.link_processo);
+      xml = adicionarRelImagem(xml, capturaRId, capturaNomeArquivo);
+    } else {
+      xml = atualizarContentTypes(originalXml, captura);
+    }
     return atualizarEntradaXml(entry, xml);
   }));
   if (captura) entries.push(criarEntradaArquivo(`word/media/${capturaNomeArquivo}`, captura.bytes));

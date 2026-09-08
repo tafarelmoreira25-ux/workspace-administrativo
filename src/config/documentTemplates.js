@@ -620,7 +620,7 @@ export const DOCUMENT_TEMPLATES = [
   {
     id: "relatorio-atualizacao-processual",
     nome: "Relatório de Atualização Processual",
-    descricao: "Modelo oficial editável em DOCX. Preenche somente os campos destacados em amarelo no arquivo-base.",
+    descricao: "Modelo oficial editável em DOCX. Os destaques amarelos do arquivo-base são removidos após o preenchimento.",
     modo: "relatorio-atualizacao-processual",
     titulo: "Relatório de Atualização Processual",
     identidadeVisual: true,
