@@ -68,6 +68,8 @@ type Props = {
   showToast?: (message: string) => void;
 };
 
+type ImportacaoCliente = { nome_completo: string; origem: string; status: "novo" | "existente" | "possivel" | "invalido"; motivo?: string };
+
 const FORMULARIO_INICIAL = {
   nome_completo: "",
   cpf: "",
@@ -122,6 +124,21 @@ function limparTexto(valor: string) {
   return texto || null;
 }
 
+function corrigirCodificacao(valor: string) {
+  if (!/[ÃÂâ]/.test(valor)) return valor;
+  try {
+    return decodeURIComponent(escape(valor));
+  } catch {
+    return valor;
+  }
+}
+
+function extrairNomeImportacao(linha: string) {
+  const primeiraColuna = (linha.split("\t")[0] || "").replace(/^\"|\"$/g, "").trim();
+  const nome = corrigirCodificacao(primeiraColuna).replace(/^\t+/, "").split(/\s+[xX]\s+/)[0].trim();
+  return nome;
+}
+
 export default function ClientesModule({ usuario, showToast }: Props) {
   const [clientes, setClientes] = useState<Cliente[]>([]);
   const [processos, setProcessos] = useState<ProcessoResumo[]>([]);
@@ -137,6 +154,10 @@ export default function ClientesModule({ usuario, showToast }: Props) {
   const [carregando, setCarregando] = useState(true);
   const [salvando, setSalvando] = useState(false);
   const [erro, setErro] = useState("");
+  const [importacaoAberta, setImportacaoAberta] = useState(false);
+  const [importacaoCarregando, setImportacaoCarregando] = useState(false);
+  const [importacaoExecutando, setImportacaoExecutando] = useState(false);
+  const [importacaoResultado, setImportacaoResultado] = useState<ImportacaoCliente[]>([]);
 
   const avisar = useCallback((mensagem: string) => {
     if (showToast) showToast(mensagem);
@@ -306,6 +327,54 @@ export default function ClientesModule({ usuario, showToast }: Props) {
     avisar(clienteEditando ? "Cliente atualizado." : "Cliente cadastrado.");
   }
 
+  async function prepararImportacao() {
+    setImportacaoCarregando(true);
+    setImportacaoResultado([]);
+    const { data: sessaoData, error: sessaoError } = await supabase.auth.getSession();
+    if (sessaoError || !sessaoData.session?.user) {
+      setImportacaoCarregando(false);
+      avisar("Importação bloqueada: faça login com um usuário autorizado.");
+      return;
+    }
+    const { data: existentes, error: consultaError } = await supabase.from("clientes").select("id,nome_completo,cpf,telefone").limit(2000);
+    if (consultaError) {
+      setImportacaoCarregando(false);
+      avisar(`Não foi possível consultar clientes: ${consultaError.message}`);
+      return;
+    }
+    const resposta = await fetch("/importacoes/clientes-processual.txt");
+    const texto = await resposta.text();
+    const nomes = texto.split(/\r?\n/).filter(Boolean).map((origem) => ({ nome_completo: extrairNomeImportacao(origem), origem }));
+    const unicos = new Map<string, { nome_completo: string; origem: string }>();
+    nomes.forEach((item) => { const chave = normalizarBusca(item.nome_completo); if (item.nome_completo && chave !== "captura de tela" && !unicos.has(chave)) unicos.set(chave, item); });
+    const existentesPorNome = new Map((existentes || []).map((cliente) => [normalizarBusca(cliente.nome_completo), cliente]));
+    const resultado = [...unicos.values()].map((item): ImportacaoCliente => {
+      const existente = existentesPorNome.get(normalizarBusca(item.nome_completo));
+      return existente ? { ...item, status: "existente", motivo: "Cliente já cadastrado." } : { ...item, status: "novo" };
+    });
+    setImportacaoResultado(resultado);
+    setImportacaoCarregando(false);
+  }
+
+  async function executarImportacao() {
+    const novos = importacaoResultado.filter((item) => item.status === "novo");
+    if (!novos.length) return;
+    setImportacaoExecutando(true);
+    const resultados = [...importacaoResultado];
+    for (let inicio = 0; inicio < novos.length; inicio += 25) {
+      const lote = novos.slice(inicio, inicio + 25);
+      for (const item of lote) {
+        const { error } = await supabase.from("clientes").insert({ nome_completo: item.nome_completo });
+        const indice = resultados.findIndex((resultado) => resultado.nome_completo === item.nome_completo);
+        if (indice >= 0) resultados[indice] = error ? { ...item, status: "possivel", motivo: error.message } : { ...item, status: "existente", motivo: "Cadastrado com sucesso." };
+      }
+    }
+    setImportacaoResultado(resultados);
+    await carregarDados();
+    setImportacaoExecutando(false);
+    avisar("Importação concluída. Confira o relatório antes de fechar.");
+  }
+
   function processosCount(cliente: Cliente) {
     const id = String(cliente.id);
     const cpf = normalizarBusca(cliente.cpf || "");
@@ -325,7 +394,10 @@ export default function ClientesModule({ usuario, showToast }: Props) {
           <h2>Base de clientes</h2>
           <p>Cadastro único do cliente, separado dos processos judiciais e preparado para múltiplas demandas.</p>
         </div>
-        <button type="button" className="btn-primary" onClick={abrirNovoCliente}>+ Novo cliente</button>
+        <div className="ficha-section-actions">
+          <button type="button" className="btn-secondary" onClick={() => { setImportacaoAberta(true); prepararImportacao(); }}>Importar clientes</button>
+          <button type="button" className="btn-primary" onClick={abrirNovoCliente}>+ Novo cliente</button>
+        </div>
       </header>
 
       <div className="clientes-layout">
@@ -539,6 +611,21 @@ export default function ClientesModule({ usuario, showToast }: Props) {
               onDocumentoGerado={registrarDocumentoGerado}
               onSuccess={avisar}
             />
+          </section>
+        </div>
+      ) : null}
+
+      {importacaoAberta ? (
+        <div className="modal-backdrop" role="presentation">
+          <section className="cliente-modal importacao-modal">
+            <header><div><span className="eyebrow">Importação temporária</span><h3>Importar clientes</h3></div><button type="button" className="drawer-close" onClick={() => setImportacaoAberta(false)} aria-label="Fechar">×</button></header>
+            {importacaoCarregando ? <div className="empty-row">Validando sessão e preparando prévia...</div> : (
+              <>
+                <div className="importacao-resumo"><span>Total válido: <strong>{importacaoResultado.length}</strong></span><span>Novos: <strong>{importacaoResultado.filter((item) => item.status === "novo").length}</strong></span><span>Já existentes: <strong>{importacaoResultado.filter((item) => item.status === "existente").length}</strong></span><span>Possíveis duplicidades/erros: <strong>{importacaoResultado.filter((item) => item.status === "possivel").length}</strong></span></div>
+                <div className="importacao-lista">{importacaoResultado.filter((item) => item.status !== "existente").slice(0, 80).map((item) => <div key={item.nome_completo}><strong>{item.nome_completo}</strong><small>{item.status === "novo" ? "Será cadastrado" : item.motivo}</small></div>)}</div>
+                <footer><button type="button" className="btn-secondary" onClick={() => setImportacaoAberta(false)}>Cancelar</button><button type="button" className="btn-primary" disabled={importacaoExecutando || !importacaoResultado.some((item) => item.status === "novo")} onClick={executarImportacao}>{importacaoExecutando ? "Cadastrando..." : "Confirmar importação"}</button></footer>
+              </>
+            )}
           </section>
         </div>
       ) : null}
