@@ -805,6 +805,98 @@ button:disabled { cursor: wait; opacity: .58; transform: none !important; }
   }
 }
 
+/* === Tela de login consolidada ===
+   Esta é a única regra efetiva da composição da tela de acesso. */
+.login-page-liquid {
+  min-height: 100svh !important;
+  width: 100% !important;
+  position: relative !important;
+  overflow: hidden !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: flex-start !important;
+  padding: clamp(28px, 4vh, 50px) clamp(40px, 7vw, 110px) !important;
+  background:
+    url('/assets/platino-login-background.png') center top / auto 100% no-repeat,
+    linear-gradient(90deg, #eaf3ff 0%, #f8fbff 14%, #f8fbff 86%, #eaf3ff 100%) !important;
+}
+
+.login-page-liquid::before,
+.login-page-liquid::after,
+.login-page-liquid .liquid-bg {
+  display: none !important;
+}
+
+.login-page-liquid .login-card {
+  position: relative !important;
+  z-index: 2 !important;
+  width: min(100%, 380px) !important;
+  max-width: 380px !important;
+  margin: clamp(110px, 17vh, 175px) 0 0 !important;
+  padding: 32px !important;
+  border-radius: 18px !important;
+  background: rgba(255, 255, 255, .90) !important;
+  border: 1px solid rgba(200, 215, 235, .90) !important;
+  box-shadow: 0 18px 48px rgba(26, 63, 118, .13) !important;
+  backdrop-filter: blur(12px) !important;
+  -webkit-backdrop-filter: blur(12px) !important;
+}
+
+.login-page-liquid .login-card::before,
+.login-page-liquid .login-footer,
+.login-page-liquid .login-brand,
+.login-page-liquid .login-heading,
+.login-page-liquid .forgot-password {
+  display: none !important;
+}
+
+.login-page-liquid .login-form {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 16px !important;
+  margin: 0 !important;
+}
+
+.login-page-liquid .glass-field { gap: 7px !important; }
+.login-page-liquid .glass-field > span { color: #284568 !important; font-size: 12px !important; font-weight: 800 !important; }
+.login-page-liquid .glass-input {
+  display: flex !important;
+  align-items: center !important;
+  gap: 10px !important;
+  height: 52px !important;
+  min-height: 52px !important;
+  padding: 0 14px !important;
+  border: 1px solid #d7e0eb !important;
+  border-radius: 12px !important;
+  background: #f8fafc !important;
+  box-shadow: none !important;
+}
+.login-page-liquid .glass-input input { height: auto !important; padding: 0 !important; border: 0 !important; background: transparent !important; box-shadow: none !important; }
+.login-page-liquid .login-submit {
+  min-height: 52px !important;
+  height: 52px !important;
+  margin-top: 3px !important;
+  border-radius: 10px !important;
+  background: linear-gradient(135deg, #2f73df, #1e5fc9) !important;
+  box-shadow: 0 10px 24px rgba(37, 99, 201, .22) !important;
+  font-size: 14px !important;
+}
+.login-page-liquid .login-submit::before { display: none !important; }
+
+@media (max-width: 880px) {
+  .login-page-liquid {
+    justify-content: center !important;
+    padding: 24px !important;
+    background: url('/assets/platino-login-background.png') center top / cover no-repeat !important;
+  }
+  .login-page-liquid .login-card { margin-top: 0 !important; width: min(100%, 410px) !important; max-width: 410px !important; }
+}
+
+@media (max-width: 520px) {
+  .login-page-liquid { min-height: 100svh !important; padding: 18px !important; }
+  .login-page-liquid .login-card { width: 100% !important; padding: 28px 22px !important; }
+}
+
 /* Ajustes finais da tela de login */
 .login-page-liquid {
   grid-template-columns: 1fr !important;
@@ -1087,6 +1179,97 @@ html, body, #root { width: 100%; max-width: 100%; overflow-x: clip; }
   .sidebar-logout { padding-inline: 11px; }
   .main-content { padding: 12px 8px 32px; }
   .topbar, .panel { padding: 16px; border-radius: 18px; }
+}
+
+/* === Login final: arte integral no desktop e formulário responsivo === */
+.login-page-liquid {
+  min-height: 100svh !important;
+  width: 100% !important;
+  position: relative !important;
+  overflow: hidden !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: flex-start !important;
+  padding: clamp(28px, 4vh, 50px) clamp(40px, 7vw, 110px) !important;
+  background:
+    url('/assets/platino-login-background.png') center top / auto 100% no-repeat,
+    linear-gradient(90deg, #eaf3ff 0%, #f8fbff 14%, #f8fbff 86%, #eaf3ff 100%) !important;
+}
+
+.login-page-liquid::before,
+.login-page-liquid::after,
+.login-page-liquid .liquid-bg {
+  display: none !important;
+}
+
+.login-page-liquid .login-card {
+  position: relative !important;
+  z-index: 2 !important;
+  width: min(100%, 380px) !important;
+  max-width: 380px !important;
+  margin-top: clamp(110px, 17vh, 175px) !important;
+  padding: 32px !important;
+  border-radius: 18px !important;
+  background: rgba(255, 255, 255, 0.90) !important;
+  border: 1px solid rgba(200, 215, 235, 0.90) !important;
+  box-shadow: 0 18px 48px rgba(26, 63, 118, 0.13) !important;
+  backdrop-filter: blur(12px) !important;
+  -webkit-backdrop-filter: blur(12px) !important;
+}
+
+.login-page-liquid .login-card::before,
+.login-page-liquid .login-footer,
+.login-page-liquid .login-brand,
+.login-page-liquid .login-heading,
+.login-page-liquid .forgot-password {
+  display: none !important;
+}
+
+.login-page-liquid .login-form {
+  margin-top: 0 !important;
+  gap: 16px !important;
+}
+
+.login-page-liquid .glass-input {
+  min-height: 52px !important;
+  height: 52px !important;
+  border-radius: 10px !important;
+  background: rgba(248, 250, 252, 0.92) !important;
+  border: 1px solid #d7e0eb !important;
+  box-shadow: none !important;
+}
+
+.login-page-liquid .login-submit {
+  min-height: 52px !important;
+  height: 52px !important;
+  margin-top: 4px !important;
+  border-radius: 10px !important;
+}
+
+@media (max-width: 880px) {
+  .login-page-liquid {
+    justify-content: center !important;
+    padding: 24px !important;
+    background: url('/assets/platino-login-background.png') center top / cover no-repeat !important;
+  }
+
+  .login-page-liquid .login-card {
+    margin-top: 0 !important;
+    width: min(100%, 410px) !important;
+    max-width: 410px !important;
+  }
+}
+
+@media (max-width: 520px) {
+  .login-page-liquid {
+    min-height: 100svh !important;
+    padding: 18px !important;
+  }
+
+  .login-page-liquid .login-card {
+    width: 100% !important;
+    padding: 26px 22px !important;
+  }
 }
 .login-page-liquid {
   display: flex !important;
@@ -2346,4 +2529,47 @@ textarea:focus {
   .ficha-details {
     grid-template-columns: 1fr;
   }
+}
+
+/* === Login canonical (must remain last so legacy declarations cannot win) === */
+.login-page-liquid {
+  min-height: 100svh !important;
+  width: 100% !important;
+  position: relative !important;
+  overflow: hidden !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: flex-start !important;
+  padding: clamp(28px, 4vh, 50px) clamp(40px, 7vw, 110px) !important;
+  background: url('/assets/platino-login-background.png') center top / auto 100% no-repeat, linear-gradient(90deg, #eaf3ff 0%, #f8fbff 14%, #f8fbff 86%, #eaf3ff 100%) !important;
+}
+.login-page-liquid::before,
+.login-page-liquid::after,
+.login-page-liquid .liquid-bg { display: none !important; }
+.login-page-liquid .login-card {
+  position: relative !important; z-index: 2 !important;
+  width: min(100%, 380px) !important; max-width: 380px !important;
+  margin: clamp(110px, 17vh, 175px) 0 0 !important; padding: 32px !important;
+  border-radius: 18px !important; background: rgba(255,255,255,.90) !important;
+  border: 1px solid rgba(200,215,235,.9) !important;
+  box-shadow: 0 18px 48px rgba(26,63,118,.13) !important;
+  backdrop-filter: blur(12px) !important;
+}
+.login-page-liquid .login-card::before,
+.login-page-liquid .login-footer,
+.login-page-liquid .login-brand,
+.login-page-liquid .login-heading,
+.login-page-liquid .forgot-password { display: none !important; }
+.login-page-liquid .login-form { display:flex !important; flex-direction:column !important; gap:16px !important; margin:0 !important; }
+.login-page-liquid .glass-input { height:52px !important; min-height:52px !important; padding:0 14px !important; border:1px solid #d7e0eb !important; border-radius:12px !important; background:#f8fafc !important; box-shadow:none !important; }
+.login-page-liquid .glass-input input { height:auto !important; padding:0 !important; border:0 !important; background:transparent !important; box-shadow:none !important; }
+.login-page-liquid .login-submit { min-height:52px !important; height:52px !important; margin-top:3px !important; border-radius:10px !important; background:linear-gradient(135deg,#2f73df,#1e5fc9) !important; box-shadow:0 10px 24px rgba(37,99,201,.22) !important; font-size:14px !important; }
+.login-page-liquid .login-submit::before { display:none !important; }
+@media (max-width:880px) {
+  .login-page-liquid { justify-content:center !important; padding:24px !important; background:url('/assets/platino-login-background.png') center top / cover no-repeat !important; }
+  .login-page-liquid .login-card { margin-top:0 !important; width:min(100%,410px) !important; max-width:410px !important; }
+}
+@media (max-width:520px) {
+  .login-page-liquid { min-height:100svh !important; padding:18px !important; }
+  .login-page-liquid .login-card { width:100% !important; padding:28px 22px !important; }
 }
