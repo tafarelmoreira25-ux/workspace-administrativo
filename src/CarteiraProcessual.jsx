@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { supabase } from "./lib/supabase";
+import "./carteiraProcessual.css";
 
 const STATUS = [
   ["tramitando", "Tramitando"],

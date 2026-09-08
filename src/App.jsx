@@ -11,6 +11,7 @@ const OperacionalProcessualModule = lazy(() => import("./components/operacional/
 const DocumentosAcervo = lazy(() => import("./components/documentos/DocumentosAcervo"));
 const GerencialProcessualModule = lazy(() => import("./components/gerencial/GerencialProcessualModule"));
 const GlobalSearch = lazy(() => import("./components/gerencial/GlobalSearch"));
+const CarteiraProcessual = lazy(() => import("./CarteiraProcessual"));
 const ADMIN_EMAIL = (import.meta.env.VITE_ADMIN_EMAIL || "tafarel@platino.com").toLowerCase();
 const TEMPO_LIMITE_INICIALIZACAO_MS = 8_000;
 function limitarTempo(promise, tempoMs, mensagem) {
@@ -500,6 +501,11 @@ function Workspace({ usuario, onLogout, showToast }) {
   }, [usuario.id, showToast]);
   const permissoes = usuario.permissoes || {};
   const admin = usuario.tipo === "admin";
+  const setorNormalizado = String(usuario.setor || usuario.cargo || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase();
+  const podeEditarCarteira = admin || setorNormalizado === "administrativo";
   const podeVerDocumentos = admin || permissoes.documentos !== false;
   const podeVerProcessual = admin || permissoes.esteira_processual !== false;
   const navGroups = [
@@ -512,6 +518,7 @@ function Workspace({ usuario, onLogout, showToast }) {
         ["processual-visao", "Visão Geral", "indicadores"],
         ["processual-protocolos", "Protocolos", "protocolo"],
         ["processual-processos", "Processos", "documentos"],
+        ...(podeVerProcessual ? [["carteira-historica", "Carteira histórica", "documentos"]] : []),
         ["processual-prazos", "Prazos", "prazos"],
         ["processual-ocorrencias", "Ocorrências", "ocorrencias"],
         ["atendimentos", "Atendimentos", "feedback"],
@@ -590,6 +597,7 @@ function Workspace({ usuario, onLogout, showToast }) {
       {aba === "esteira-processual" && <Suspense fallback={<section className="panel">Carregando esteira processual...</section>}><EsteiraProcessualPlatino usuario={usuario} showToast={showToast} /></Suspense>}
       {aba === "processual-protocolos" && <Suspense fallback={<section className="panel">Carregando protocolos...</section>}><EsteiraProcessualPlatino usuario={usuario} showToast={showToast} initialView="protocolos" /></Suspense>}
       {aba === "processual-processos" && <Suspense fallback={<section className="panel">Carregando processos...</section>}><EsteiraProcessualPlatino usuario={usuario} showToast={showToast} initialView="processos" /></Suspense>}
+      {aba === "carteira-historica" && <Suspense fallback={<section className="panel">Carregando carteira histórica...</section>}><CarteiraProcessual podeEditar={podeEditarCarteira} showToast={showToast} /></Suspense>}
       {aba === "processual-prazos" && <Suspense fallback={<section className="panel">Carregando prazos...</section>}><OperacionalProcessualModule usuario={usuario} showToast={showToast} initialView="agenda" /></Suspense>}
       {aba === "processual-visao" && <Suspense fallback={<section className="panel">Carregando visão geral...</section>}><GerencialProcessualModule usuario={usuario} showToast={showToast} initialView="indicadores" /></Suspense>}
       {aba === "processual-ocorrencias" && <Suspense fallback={<section className="panel">Carregando ocorrências...</section>}><GerencialProcessualModule usuario={usuario} showToast={showToast} initialView="ocorrencias" /></Suspense>}
