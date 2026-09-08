@@ -302,8 +302,8 @@ function Login({ onLogin }) {
   const [senha, setSenha] = useState("");
   const [mostrarSenha, setMostrarSenha] = useState(false);
   const [carregando, setCarregando] = useState(false);
-  const [enviandoRecuperacao, setEnviandoRecuperacao] = useState(false);
-  const [avisoRecuperacao, setAvisoRecuperacao] = useState("");
+  const [, setEnviandoRecuperacao] = useState(false);
+  const [, setAvisoRecuperacao] = useState("");
 
   async function fazerLogin(event) {
     event.preventDefault();
@@ -361,6 +361,8 @@ function Login({ onLogin }) {
     );
   }
 
+  void solicitarRecuperacao;
+
   return (
     <div className="login-page login-page-liquid">
       <div className="liquid-bg" aria-hidden="true">
@@ -380,12 +382,6 @@ function Login({ onLogin }) {
       </div>
 
       <section className="glass-card login-card" aria-label="Login Platino equipe">
-        <div className="login-card-accent" aria-hidden="true" />
-        <div className="login-heading">
-          <h1>Bem-vindo de volta! <span aria-hidden="true">👋</span></h1>
-          <p>Acesse sua conta corporativa.</p>
-        </div>
-
         <form className="login-form" onSubmit={fazerLogin}>
           <label className="glass-field floating-field">
             <span className="sr-only">E-mail corporativo</span>
@@ -431,17 +427,6 @@ function Login({ onLogin }) {
           </label>
 
           <button
-            className="forgot-password"
-            disabled={enviandoRecuperacao}
-            onClick={solicitarRecuperacao}
-            type="button"
-          >
-            {enviandoRecuperacao ? "Enviando..." : "Esqueci minha senha"}
-          </button>
-
-          {avisoRecuperacao && <p className="auth-message" role="status">{avisoRecuperacao}</p>}
-
-          <button
             type="submit"
             className="glass-button full login-submit"
             disabled={carregando}
@@ -453,10 +438,6 @@ function Login({ onLogin }) {
         </form>
       </section>
 
-      <div className="login-footer login-footer-minimal">
-        <span>© 2026 <strong>Platino equipe</strong></span>
-        <span>Versão 2.0.0</span>
-      </div>
     </div>
   );
 }

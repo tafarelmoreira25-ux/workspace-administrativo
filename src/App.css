@@ -227,6 +227,44 @@ button:disabled { cursor: wait; opacity: .58; transform: none !important; }
     url('/assets/platino-login-background.png') right center / auto 100% no-repeat !important;
 }
 
+/* Login minimalista: o fundo fornece a identidade visual e o card concentra apenas o acesso. */
+.login-page-liquid {
+  grid-template-columns: 1fr !important;
+  place-items: center !important;
+  padding: 32px !important;
+  background: url('/assets/platino-login-background.png') center center / cover no-repeat !important;
+}
+
+.login-page-liquid::after,
+.login-page-liquid .liquid-bg {
+  display: none !important;
+}
+
+.login-page-liquid .login-card {
+  grid-column: 1 !important;
+  justify-self: center !important;
+  align-self: center !important;
+  width: min(100%, 390px) !important;
+  min-height: auto !important;
+  padding: 34px !important;
+  border-radius: 18px !important;
+  background: rgba(255, 255, 255, 0.78) !important;
+  border: 1px solid rgba(255, 255, 255, 0.9) !important;
+  box-shadow: 0 20px 55px rgba(52, 93, 147, 0.16), inset 0 1px 0 rgba(255, 255, 255, 0.95) !important;
+  backdrop-filter: blur(18px) saturate(120%) !important;
+  -webkit-backdrop-filter: blur(18px) saturate(120%) !important;
+}
+
+.login-page-liquid .login-card::before,
+.login-page-liquid .login-footer {
+  display: none !important;
+}
+
+.login-page-liquid .login-form {
+  margin-top: 0 !important;
+  gap: 16px !important;
+}
+
 .login-page-liquid::before {
   content: "" !important;
   position: absolute !important;
@@ -765,6 +803,44 @@ button:disabled { cursor: wait; opacity: .58; transform: none !important; }
   .login-footer {
     display: none !important;
   }
+}
+
+/* Ajustes finais da tela de login */
+.login-page-liquid {
+  grid-template-columns: 1fr !important;
+  place-items: center !important;
+  padding: 32px !important;
+  background: url('/assets/platino-login-background.png') center center / cover no-repeat !important;
+}
+
+.login-page-liquid::after,
+.login-page-liquid .liquid-bg {
+  display: none !important;
+}
+
+.login-page-liquid .login-card {
+  grid-column: 1 !important;
+  justify-self: center !important;
+  align-self: center !important;
+  width: min(100%, 390px) !important;
+  min-height: auto !important;
+  padding: 34px !important;
+  border-radius: 18px !important;
+  background: rgba(255, 255, 255, 0.78) !important;
+  border: 1px solid rgba(255, 255, 255, 0.9) !important;
+  box-shadow: 0 20px 55px rgba(52, 93, 147, 0.16), inset 0 1px 0 rgba(255, 255, 255, 0.95) !important;
+  backdrop-filter: blur(18px) saturate(120%) !important;
+  -webkit-backdrop-filter: blur(18px) saturate(120%) !important;
+}
+
+.login-page-liquid .login-card::before,
+.login-page-liquid .login-footer {
+  display: none !important;
+}
+
+.login-page-liquid .login-form {
+  margin-top: 0 !important;
+  gap: 16px !important;
 }
 .login-page-liquid {
   display: flex !important;
