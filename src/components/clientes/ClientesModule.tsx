@@ -353,7 +353,7 @@ export default function ClientesModule({ usuario, showToast }: Props) {
     window.clearTimeout(limite);
     if (!resposta.ok) {
       setImportacaoCarregando(false);
-      avisar(`NÃ£o foi possÃ­vel carregar a relaÃ§Ã£o de clientes (${resposta.status}).`);
+      avisar(`Não foi possível carregar a relação de clientes (${resposta.status}).`);
       return;
     }
     const texto = await resposta.text();

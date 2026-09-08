@@ -1,4 +1,4 @@
-﻿import { FormEvent, useEffect, useMemo, useState } from "react";
+import { FormEvent, useEffect, useMemo, useState } from "react";
 import { supabase } from "../../lib/supabase";
 import GeradorDocumentos from "../../GeradorDocumentos";
 import {
@@ -63,22 +63,22 @@ type DocumentoProcessual = {
 
 const SITUACOES = ["Pendente de protocolo", "Em andamento", "Suspenso / Sobrestado", "Encerrado"];
 const FASES_JUDICIAIS = [
-  "PrÃ©-ajuizamento",
-  "DistribuiÃ§Ã£o",
-  "PetiÃ§Ã£o inicial",
-  "AnÃ¡lise inicial",
+  "Pré-ajuizamento",
+  "Distribuição",
+  "Petição inicial",
+  "Análise inicial",
   "Emenda",
-  "CitaÃ§Ã£o",
-  "ContestaÃ§Ã£o",
-  "RÃ©plica",
-  "InstruÃ§Ã£o",
-  "AudiÃªncia",
+  "Citação",
+  "Contestação",
+  "Réplica",
+  "Instrução",
+  "Audiência",
   "Conclusos",
-  "SentenÃ§a",
+  "Sentença",
   "Fase recursal",
   "Cumprimento",
-  "ExecuÃ§Ã£o",
-  "TrÃ¢nsito em julgado",
+  "Execução",
+  "Trânsito em julgado",
   "Baixa",
   "Arquivado",
 ];
@@ -87,42 +87,42 @@ const RESULTADOS = [
   "Procedente",
   "Parcialmente procedente",
   "Improcedente",
-  "Extinto sem resoluÃ§Ã£o do mÃ©rito",
-  "Extinto com resoluÃ§Ã£o do mÃ©rito",
+  "Extinto sem resolução do mérito",
+  "Extinto com resolução do mérito",
   "Acordo homologado",
-  "Cancelamento da distribuiÃ§Ã£o",
+  "Cancelamento da distribuição",
   "Outro",
 ];
-const JUSTICA_GRATUITA = ["NÃ£o analisada", "Deferida", "Indeferida"];
-const EMENDA = ["NÃ£o solicitada", "Solicitada", "Pendente", "Juntada", "Prazo decorrido", "NÃ£o se aplica"];
-const SIM_NAO = ["Todos", "Sim", "NÃ£o"];
-const ABAS_FICHA = ["Resumo", "HistÃ³rico", "MovimentaÃ§Ãµes", "Tarefas e Prazos", "Atendimentos", "Documentos", "OcorrÃªncias", "RelatÃ³rios", "Auditoria"];
+const JUSTICA_GRATUITA = ["Não analisada", "Deferida", "Indeferida"];
+const EMENDA = ["Não solicitada", "Solicitada", "Pendente", "Juntada", "Prazo decorrido", "Não se aplica"];
+const SIM_NAO = ["Todos", "Sim", "Não"];
+const ABAS_FICHA = ["Resumo", "Histórico", "Movimentações", "Tarefas e Prazos", "Atendimentos", "Documentos", "Ocorrências", "Relatórios", "Auditoria"];
 const CATEGORIAS_TIMELINE = [
-  "MovimentaÃ§Ã£o processual",
+  "Movimentação processual",
   "Atendimento",
   "Tarefa",
   "Prazo",
   "Documento",
   "Custas",
-  "OcorrÃªncia",
+  "Ocorrência",
   "Protocolo",
-  "AlteraÃ§Ã£o cadastral",
-  "RelatÃ³rio",
+  "Alteração cadastral",
+  "Relatório",
   "Sistema",
 ];
-const FILTROS_TIMELINE = ["Todos", "Processo", "Atendimentos", "Tarefas", "Documentos", "Custas", "OcorrÃªncias", "RelatÃ³rios"];
-const IMPORTANCIAS = ["Normal", "Relevante", "CrÃ­tico"];
-const FONTES_ORIGEM = ["Manual", "PJe", "e-SAJ", "Projudi", "Eproc", "DiÃ¡rio oficial", "Cliente", "Elite", "Outro"];
-const TIPOS_TAREFA = ["Contato cliente", "Revisar processo", "Verificar protocolo", "Cobrar assinatura", "Solicitar documento", "Custas", "ReuniÃ£o", "AudiÃªncia", "Prazo processual", "Tarefa interna", "Outro"];
-const PRIORIDADES_TAREFA = ["Baixa", "Normal", "Alta", "CrÃ­tica"];
-const STATUS_TAREFA = ["Pendente", "Em andamento", "ConcluÃ­da", "Cancelada", "Atrasada"];
-const CANAIS_ATENDIMENTO = ["WhatsApp", "Telefone", "E-mail", "ReuniÃ£o", "Presencial", "Outro"];
-const STATUS_DOCUMENTO = ["Gerado", "Aguardando assinatura", "Assinado", "Anexado", "Enviado", "SubstituÃ­do", "Cancelado"];
+const FILTROS_TIMELINE = ["Todos", "Processo", "Atendimentos", "Tarefas", "Documentos", "Custas", "Ocorrências", "Relatórios"];
+const IMPORTANCIAS = ["Normal", "Relevante", "Crítico"];
+const FONTES_ORIGEM = ["Manual", "PJe", "e-SAJ", "Projudi", "Eproc", "Diário oficial", "Cliente", "Elite", "Outro"];
+const TIPOS_TAREFA = ["Contato cliente", "Revisar processo", "Verificar protocolo", "Cobrar assinatura", "Solicitar documento", "Custas", "Reunião", "Audiência", "Prazo processual", "Tarefa interna", "Outro"];
+const PRIORIDADES_TAREFA = ["Baixa", "Normal", "Alta", "Crítica"];
+const STATUS_TAREFA = ["Pendente", "Em andamento", "Concluída", "Cancelada", "Atrasada"];
+const CANAIS_ATENDIMENTO = ["WhatsApp", "Telefone", "E-mail", "Reunião", "Presencial", "Outro"];
+const STATUS_DOCUMENTO = ["Gerado", "Aguardando assinatura", "Assinado", "Anexado", "Enviado", "Substituído", "Cancelado"];
 
 function criarMovimentacaoForm() {
   return {
     data: new Date().toISOString().slice(0, 16),
-    categoria: "MovimentaÃ§Ã£o processual",
+    categoria: "Movimentação processual",
     titulo: "",
     descricao_tecnica: "",
     resumo_cliente: "",
@@ -168,12 +168,12 @@ function normalizar(valor = "") {
 }
 
 function formatarData(data?: string | Date | null) {
-  if (!data) return "â€”";
+  if (!data) return "—";
   return new Intl.DateTimeFormat("pt-BR").format(new Date(data));
 }
 
 function formatarDataHora(data?: string | Date | null) {
-  if (!data) return "â€”";
+  if (!data) return "—";
   return new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeStyle: "short" }).format(new Date(data));
 }
 
@@ -189,12 +189,12 @@ function somarDias(data: Date, dias: number) {
 
 function calcularAlertaRevisao(processo?: Processo | null) {
   if (!processo?.ultima_revisao) {
-    return { classe: "critica", rotulo: "Sem revisÃ£o interna registrada", dias: null as number | null };
+    return { classe: "critica", rotulo: "Sem revisão interna registrada", dias: null as number | null };
   }
 
   const ultima = new Date(processo.ultima_revisao);
   if (Number.isNaN(ultima.getTime())) {
-    return { classe: "critica", rotulo: "RevisÃ£o invÃ¡lida", dias: null as number | null };
+    return { classe: "critica", rotulo: "Revisão inválida", dias: null as number | null };
   }
 
   const hoje = new Date();
@@ -202,21 +202,21 @@ function calcularAlertaRevisao(processo?: Processo | null) {
   hoje.setHours(0, 0, 0, 0);
   const dias = Math.max(0, Math.floor((hoje.getTime() - ultima.getTime()) / 86400000));
 
-  if (dias >= 90) return { classe: "critica", rotulo: `CrÃ­tica: ${dias} dias sem revisÃ£o`, dias };
-  if (dias >= 60) return { classe: "alta", rotulo: `Alta: ${dias} dias sem revisÃ£o`, dias };
-  if (dias >= 30) return { classe: "atencao", rotulo: `AtenÃ§Ã£o: ${dias} dias sem revisÃ£o`, dias };
-  return { classe: "ok", rotulo: `Revisado hÃ¡ ${dias} dias`, dias };
+  if (dias >= 90) return { classe: "critica", rotulo: `Crítica: ${dias} dias sem revisão`, dias };
+  if (dias >= 60) return { classe: "alta", rotulo: `Alta: ${dias} dias sem revisão`, dias };
+  if (dias >= 30) return { classe: "atencao", rotulo: `Atenção: ${dias} dias sem revisão`, dias };
+  return { classe: "ok", rotulo: `Revisado há ${dias} dias`, dias };
 }
 
 function categoriaPorFiltro(filtro: string) {
   const mapa: Record<string, string[]> = {
-    Processo: ["MovimentaÃ§Ã£o processual", "Protocolo", "Sistema", "AlteraÃ§Ã£o cadastral"],
+    Processo: ["Movimentação processual", "Protocolo", "Sistema", "Alteração cadastral"],
     Atendimentos: ["Atendimento"],
     Tarefas: ["Tarefa", "Prazo"],
     Documentos: ["Documento"],
     Custas: ["Custas"],
-    "OcorrÃªncias": ["OcorrÃªncia"],
-    "RelatÃ³rios": ["RelatÃ³rio"],
+    "Ocorrências": ["Ocorrência"],
+    "Relatórios": ["Relatório"],
   };
   return mapa[filtro] || [];
 }
@@ -229,7 +229,7 @@ function situacaoDoProcesso(processo: Processo) {
 }
 
 function faseDoProcesso(processo: Processo) {
-  return processo.fase_judicial || processo.fase_atual || "PrÃ©-ajuizamento";
+  return processo.fase_judicial || processo.fase_atual || "Pré-ajuizamento";
 }
 
 function resultadoDoProcesso(processo: Processo) {
@@ -264,13 +264,13 @@ function criarFicha(processo: Processo | null, responsavel = "") {
     situacao: situacaoDoProcesso(processo || ({} as Processo)),
     fase_judicial: faseDoProcesso(processo || ({} as Processo)),
     resultado: resultadoDoProcesso(processo || ({} as Processo)),
-    justica_gratuita: processo?.justica_gratuita || "NÃ£o analisada",
-    emenda_status: processo?.emenda_status || processo?.emenda_inicial || "NÃ£o solicitada",
+    justica_gratuita: processo?.justica_gratuita || "Não analisada",
+    emenda_status: processo?.emenda_status || processo?.emenda_inicial || "Não solicitada",
     observacoes: processo?.observacoes || "",
     proximo_prazo: processo?.proximo_prazo || "",
     ultima_revisao: processo?.ultima_revisao || "",
     proxima_revisao: processo?.proxima_revisao || "",
-    custas_status: processo?.custas_status || "NÃ£o informado",
+    custas_status: processo?.custas_status || "Não informado",
     com_pendencia: Boolean(processo?.com_pendencia),
     pasta_retornada: Boolean(processo?.pasta_retornada),
     sem_revisao: Boolean(processo?.sem_revisao),
@@ -432,7 +432,7 @@ export default function PainelJudicial({
       return;
     }
     if (modalCadastro && !ficha.numero_processo.trim()) {
-      showToast("Informe o NÃºmero CNJ do processo existente.");
+      showToast("Informe o Número CNJ do processo existente.");
       return;
     }
 
@@ -446,7 +446,7 @@ export default function PainelJudicial({
       autor: limpar(ficha.autor) || ficha.nome_cliente.trim(),
       reu: limpar(ficha.reu) || limpar(ficha.banco_reu),
       banco_reu: limpar(ficha.banco_reu),
-      autor_reu: `${limpar(ficha.autor) || ficha.nome_cliente.trim()} X ${limpar(ficha.reu) || limpar(ficha.banco_reu) || "RÃ©u nÃ£o informado"}`,
+      autor_reu: `${limpar(ficha.autor) || ficha.nome_cliente.trim()} X ${limpar(ficha.reu) || limpar(ficha.banco_reu) || "Réu não informado"}`,
       produto: limpar(ficha.produto),
       numero_contrato: limpar(ficha.numero_contrato),
       numero_processo: limpar(ficha.numero_processo),
@@ -488,7 +488,7 @@ export default function PainelJudicial({
     setSalvando(false);
 
     if (error) {
-      showToast(`NÃ£o foi possÃ­vel salvar o processo: ${error.message}`);
+      showToast(`Não foi possível salvar o processo: ${error.message}`);
       return;
     }
 
@@ -505,7 +505,7 @@ export default function PainelJudicial({
     const titulo = movimentacaoForm.titulo.trim();
     const descricaoTecnica = movimentacaoForm.descricao_tecnica.trim();
     if (!titulo || !descricaoTecnica) {
-      showToast("Informe o tÃ­tulo e a descriÃ§Ã£o tÃ©cnica da movimentaÃ§Ã£o.");
+      showToast("Informe o título e a descrição técnica da movimentação.");
       return;
     }
 
@@ -514,7 +514,7 @@ export default function PainelJudicial({
       processo_id: processoAberto.id,
       data_registro: dataRegistro,
       descricao: descricaoTecnica,
-      tipo: movimentacaoForm.categoria === "MovimentaÃ§Ã£o processual" ? "movimentacao_judicial" : normalizar(movimentacaoForm.categoria).replace(/\s+/g, "_"),
+      tipo: movimentacaoForm.categoria === "Movimentação processual" ? "movimentacao_judicial" : normalizar(movimentacaoForm.categoria).replace(/\s+/g, "_"),
       categoria: movimentacaoForm.categoria,
       titulo,
       descricao_tecnica: descricaoTecnica,
@@ -540,13 +540,13 @@ export default function PainelJudicial({
     setSalvando(false);
 
     if (error) {
-      showToast(`NÃ£o foi possÃ­vel registrar a movimentaÃ§Ã£o: ${error.message}`);
+      showToast(`Não foi possível registrar a movimentação: ${error.message}`);
       return;
     }
 
     setMovimentacoes((atuais) => [data as MovimentacaoProcessual, ...atuais]);
     const atualizacaoProcesso: Partial<Processo> = {};
-    if (movimentacaoForm.categoria === "MovimentaÃ§Ã£o processual") {
+    if (movimentacaoForm.categoria === "Movimentação processual") {
       atualizacaoProcesso.ultima_movimentacao = titulo;
       atualizacaoProcesso.ultima_movimentacao_data = dataRegistro;
     }
@@ -560,7 +560,7 @@ export default function PainelJudicial({
       onProcessoAtualizado(atualizado);
     }
     setMovimentacaoForm(criarMovimentacaoForm());
-    showToast("MovimentaÃ§Ã£o registrada.");
+    showToast("Movimentação registrada.");
   }
 
   async function registrarRevisaoInterna() {
@@ -571,11 +571,11 @@ export default function PainelJudicial({
     const payloadMovimentacao = {
       processo_id: processoAberto.id,
       data_registro: agora.toISOString(),
-      descricao: observacao || "RevisÃ£o interna do processo realizada.",
+      descricao: observacao || "Revisão interna do processo realizada.",
       tipo: "revisao_interna",
       categoria: "Sistema",
-      titulo: "RevisÃ£o interna",
-      descricao_tecnica: observacao || "RevisÃ£o interna do processo realizada.",
+      titulo: "Revisão interna",
+      descricao_tecnica: observacao || "Revisão interna do processo realizada.",
       responsavel: usuario?.nome || ficha.responsavel || null,
       fonte: "Manual",
       importancia: "Normal",
@@ -600,7 +600,7 @@ export default function PainelJudicial({
     setSalvando(false);
 
     if (movimento.error || processo.error) {
-      showToast(`NÃ£o foi possÃ­vel registrar a revisÃ£o: ${(movimento.error || processo.error)?.message}`);
+      showToast(`Não foi possível registrar a revisão: ${(movimento.error || processo.error)?.message}`);
       return;
     }
 
@@ -610,7 +610,7 @@ export default function PainelJudicial({
     setFicha(criarFicha(atualizado, usuario?.nome || ""));
     onProcessoAtualizado(atualizado);
     setRevisaoObservacao("");
-    showToast("RevisÃ£o interna registrada.");
+    showToast("Revisão interna registrada.");
   }
 
   async function arquivarMovimentacao(movimentacao: MovimentacaoProcessual) {
@@ -623,18 +623,18 @@ export default function PainelJudicial({
     setSalvando(false);
 
     if (error) {
-      showToast(`NÃ£o foi possÃ­vel arquivar o registro: ${error.message}`);
+      showToast(`Não foi possível arquivar o registro: ${error.message}`);
       return;
     }
     setMovimentacoes((atuais) => atuais.filter((item) => item.id !== movimentacao.id));
-    showToast("Registro arquivado no histÃ³rico.");
+    showToast("Registro arquivado no histórico.");
   }
 
   async function criarTarefaProcesso(evento: FormEvent<HTMLFormElement>) {
     evento.preventDefault();
     if (!processoAberto) return;
     if (!tarefaForm.titulo.trim()) {
-      showToast("Informe o tÃ­tulo da tarefa.");
+      showToast("Informe o título da tarefa.");
       return;
     }
 
@@ -667,7 +667,7 @@ export default function PainelJudicial({
         descricao_tecnica: tarefaForm.descricao.trim() || tarefaForm.titulo.trim(),
         responsavel: payload.responsavel,
         fonte: "Manual",
-        importancia: tarefaForm.prioridade === "CrÃ­tica" ? "CrÃ­tico" : tarefaForm.prioridade === "Alta" ? "Relevante" : "Normal",
+        importancia: tarefaForm.prioridade === "Crítica" ? "Crítico" : tarefaForm.prioridade === "Alta" ? "Relevante" : "Normal",
         origem: "manual",
         created_by_nome: usuario?.nome || usuario?.email || null,
       });
@@ -675,7 +675,7 @@ export default function PainelJudicial({
     setSalvando(false);
 
     if (error) {
-      showToast(`NÃ£o foi possÃ­vel criar a tarefa: ${error.message}`);
+      showToast(`Não foi possível criar a tarefa: ${error.message}`);
       return;
     }
     setTarefasProcesso((atuais) => [...atuais, data as TarefaProcessual]);
@@ -686,15 +686,15 @@ export default function PainelJudicial({
   async function atualizarStatusTarefaProcesso(tarefa: TarefaProcessual, status: string) {
     const { data, error } = await supabase.from("processual_tarefas").update({ status, updated_by_nome: usuario?.nome || usuario?.email || null }).eq("id", tarefa.id).select("*").single();
     if (error) {
-      showToast("NÃ£o foi possÃ­vel atualizar a tarefa.");
+      showToast("Não foi possível atualizar a tarefa.");
       return;
     }
     setTarefasProcesso((atuais) => atuais.map((item) => item.id === tarefa.id ? data as TarefaProcessual : item));
-    if (status === "ConcluÃ­da" && window.confirm("Tarefa concluÃ­da. Registrar atendimento agora?")) {
+    if (status === "Concluída" && window.confirm("Tarefa concluída. Registrar atendimento agora?")) {
       setAbaFicha("Atendimentos");
       setAtendimentoForm((form) => ({
         ...form,
-        descricao: `Atendimento relacionado Ã  tarefa: ${tarefa.titulo}`,
+        descricao: `Atendimento relacionado à tarefa: ${tarefa.titulo}`,
         responsavel: tarefa.responsavel || usuario?.nome || "",
       }));
     }
@@ -732,7 +732,7 @@ export default function PainelJudicial({
         processo_id: processoAberto.id,
         data_registro: dataRegistro,
         categoria: "Atendimento",
-        titulo: `${atendimentoForm.canal} â€” ${atendimentoForm.tipo || "Atendimento"}`,
+        titulo: `${atendimentoForm.canal} — ${atendimentoForm.tipo || "Atendimento"}`,
         descricao: atendimentoForm.descricao.trim(),
         descricao_tecnica: atendimentoForm.descricao.trim(),
         responsavel: payload.responsavel,
@@ -747,7 +747,7 @@ export default function PainelJudicial({
     setSalvando(false);
 
     if (error) {
-      showToast(`NÃ£o foi possÃ­vel registrar o atendimento: ${error.message}`);
+      showToast(`Não foi possível registrar o atendimento: ${error.message}`);
       return;
     }
     setAtendimentosProcesso((atuais) => [data as AtendimentoProcessual, ...atuais]);
@@ -785,7 +785,7 @@ export default function PainelJudicial({
       processo_id: processoAberto.id,
       categoria: "Documento",
       titulo: `${modeloNome} gerado`,
-      descricao: `${modeloNome} gerado por ${usuario?.nome || "usuÃ¡rio"}.`,
+      descricao: `${modeloNome} gerado por ${usuario?.nome || "usuário"}.`,
       descricao_tecnica: `${modeloNome} gerado e vinculado ao processo.`,
       responsavel: usuario?.nome || usuario?.email || null,
       fonte: "Gerador de Documentos",
@@ -802,7 +802,7 @@ export default function PainelJudicial({
     if (!processoAberto) return;
     const { data, error } = await supabase.from("documentos_juridicos").update({ status, assinado }).eq("id", documento.id).select("*").single();
     if (error) {
-      showToast("NÃ£o foi possÃ­vel atualizar o documento.");
+      showToast("Não foi possível atualizar o documento.");
       return;
     }
     const atualizado = data as DocumentoProcessual;
@@ -850,7 +850,7 @@ export default function PainelJudicial({
         data: agora.toISOString().slice(0, 10),
         hora: agora.toTimeString().slice(0, 5),
         canal: comunicacaoCanal,
-        tipo: "ComunicaÃ§Ã£o de documento",
+        tipo: "Comunicação de documento",
         descricao: observacao,
         responsavel: usuario?.nome || usuario?.email || null,
         created_by_nome: usuario?.nome || usuario?.email || null,
@@ -870,14 +870,14 @@ export default function PainelJudicial({
       if (!atendimento.error) setAtendimentosProcesso((atuais) => [atendimento.data as AtendimentoProcessual, ...atuais]);
     }
     if (error) {
-      showToast("NÃ£o foi possÃ­vel registrar a comunicaÃ§Ã£o.");
+      showToast("Não foi possível registrar a comunicação.");
       return;
     }
     setDocumentosProcesso((atuais) => atuais.map((item) => item.id === comunicandoDocumento.id ? data as DocumentoProcessual : item));
     setComunicandoDocumento(null);
     setComunicacaoObservacao("");
     setComunicacaoCanal("WhatsApp");
-    showToast("ComunicaÃ§Ã£o registrada e atendimento criado.");
+    showToast("Comunicação registrada e atendimento criado.");
   }
 
   const fichaAberta = processoAberto || (modalCadastro ? ({} as Processo) : null);
@@ -897,8 +897,8 @@ export default function PainelJudicial({
       <div className="judicial-toolbar processos-toolbar">
         <div>
           <span className="eyebrow">Processos</span>
-          <h2>Controle jurÃ­dico da carteira processual</h2>
-          <p>Processos protocolados e pastas ainda pendentes de protocolo em uma visÃ£o Ãºnica.</p>
+          <h2>Controle jurídico da carteira processual</h2>
+          <p>Processos protocolados e pastas ainda pendentes de protocolo em uma visão única.</p>
         </div>
         <label>
           <span>Busca</span>
@@ -908,17 +908,17 @@ export default function PainelJudicial({
       </div>
 
       <section className="processos-filters">
-        <label><span>SituaÃ§Ã£o</span><select value={filtros.situacao} onChange={(e) => setFiltros((f) => ({ ...f, situacao: e.target.value }))}>{["Todos", ...SITUACOES].map((o) => <option key={o}>{o}</option>)}</select></label>
+        <label><span>Situação</span><select value={filtros.situacao} onChange={(e) => setFiltros((f) => ({ ...f, situacao: e.target.value }))}>{["Todos", ...SITUACOES].map((o) => <option key={o}>{o}</option>)}</select></label>
         <label><span>Fase</span><select value={filtros.fase} onChange={(e) => setFiltros((f) => ({ ...f, fase: e.target.value }))}>{["Todos", ...FASES_JUDICIAIS].map((o) => <option key={o}>{o}</option>)}</select></label>
         <label><span>Resultado</span><select value={filtros.resultado} onChange={(e) => setFiltros((f) => ({ ...f, resultado: e.target.value }))}>{["Todos", ...RESULTADOS].map((o) => <option key={o}>{o}</option>)}</select></label>
         <label><span>Banco</span><select value={filtros.banco} onChange={(e) => setFiltros((f) => ({ ...f, banco: e.target.value }))}>{bancos.map((o) => <option key={o}>{o}</option>)}</select></label>
-        <label><span>ResponsÃ¡vel</span><select value={filtros.responsavel} onChange={(e) => setFiltros((f) => ({ ...f, responsavel: e.target.value }))}>{responsaveis.map((o) => <option key={o}>{o}</option>)}</select></label>
-        <label><span>JustiÃ§a gratuita</span><select value={filtros.justica} onChange={(e) => setFiltros((f) => ({ ...f, justica: e.target.value }))}>{["Todos", ...JUSTICA_GRATUITA].map((o) => <option key={o}>{o}</option>)}</select></label>
+        <label><span>Responsável</span><select value={filtros.responsavel} onChange={(e) => setFiltros((f) => ({ ...f, responsavel: e.target.value }))}>{responsaveis.map((o) => <option key={o}>{o}</option>)}</select></label>
+        <label><span>Justiça gratuita</span><select value={filtros.justica} onChange={(e) => setFiltros((f) => ({ ...f, justica: e.target.value }))}>{["Todos", ...JUSTICA_GRATUITA].map((o) => <option key={o}>{o}</option>)}</select></label>
         <label><span>Emenda</span><select value={filtros.emenda} onChange={(e) => setFiltros((f) => ({ ...f, emenda: e.target.value }))}>{["Todos", ...EMENDA].map((o) => <option key={o}>{o}</option>)}</select></label>
-        <label><span>Com pendÃªncia</span><select value={filtros.comPendencia} onChange={(e) => setFiltros((f) => ({ ...f, comPendencia: e.target.value }))}>{SIM_NAO.map((o) => <option key={o}>{o}</option>)}</select></label>
+        <label><span>Com pendência</span><select value={filtros.comPendencia} onChange={(e) => setFiltros((f) => ({ ...f, comPendencia: e.target.value }))}>{SIM_NAO.map((o) => <option key={o}>{o}</option>)}</select></label>
         <label><span>Custas</span><select value={filtros.custas} onChange={(e) => setFiltros((f) => ({ ...f, custas: e.target.value }))}>{custas.map((o) => <option key={o}>{o}</option>)}</select></label>
         <label><span>Pasta retornada</span><select value={filtros.pastaRetornada} onChange={(e) => setFiltros((f) => ({ ...f, pastaRetornada: e.target.value }))}>{SIM_NAO.map((o) => <option key={o}>{o}</option>)}</select></label>
-        <label><span>Sem revisÃ£o</span><select value={filtros.semRevisao} onChange={(e) => setFiltros((f) => ({ ...f, semRevisao: e.target.value }))}>{SIM_NAO.map((o) => <option key={o}>{o}</option>)}</select></label>
+        <label><span>Sem revisão</span><select value={filtros.semRevisao} onChange={(e) => setFiltros((f) => ({ ...f, semRevisao: e.target.value }))}>{SIM_NAO.map((o) => <option key={o}>{o}</option>)}</select></label>
         <label><span>Encerrado</span><select value={filtros.encerrado} onChange={(e) => setFiltros((f) => ({ ...f, encerrado: e.target.value }))}>{SIM_NAO.map((o) => <option key={o}>{o}</option>)}</select></label>
         <label><span>Recursal</span><select value={filtros.recursal} onChange={(e) => setFiltros((f) => ({ ...f, recursal: e.target.value }))}>{SIM_NAO.map((o) => <option key={o}>{o}</option>)}</select></label>
       </section>
@@ -929,16 +929,16 @@ export default function PainelJudicial({
             <tr>
               <th>Cliente</th>
               <th>Processo</th>
-              <th>RÃ©u</th>
+              <th>Réu</th>
               <th>Banco</th>
-              <th>SituaÃ§Ã£o</th>
+              <th>Situação</th>
               <th>Fase</th>
               <th>Resultado</th>
-              <th>Ãšltima movimentaÃ§Ã£o</th>
-              <th>Ãšltima revisÃ£o</th>
-              <th>PrÃ³ximo prazo</th>
-              <th>ResponsÃ¡vel</th>
-              <th>AÃ§Ãµes</th>
+              <th>Última movimentação</th>
+              <th>Última revisão</th>
+              <th>Próximo prazo</th>
+              <th>Responsável</th>
+              <th>Ações</th>
             </tr>
           </thead>
           <tbody>
@@ -952,15 +952,15 @@ export default function PainelJudicial({
                 <tr key={processo.id}>
                   <td><strong>{processo.nome_cliente}</strong><small>{processo.cpf_cliente || processo.id_crm || "Sem CPF/ID"}</small></td>
                   <td>{processo.numero_processo || "Pendente"}</td>
-                  <td>{processo.reu || processo.banco_reu || "â€”"}</td>
-                  <td>{processo.banco_reu || "â€”"}</td>
+                  <td>{processo.reu || processo.banco_reu || "—"}</td>
+                  <td>{processo.banco_reu || "—"}</td>
                   <td><span className={`process-badge ${badgeClass(situacao)}`}>{situacao}</span></td>
                   <td>{fase}</td>
                   <td>{resultado}</td>
-                  <td><span className="truncate-cell">{processo.ultima_movimentacao || "â€”"}</span></td>
+                  <td><span className="truncate-cell">{processo.ultima_movimentacao || "—"}</span></td>
                   <td>{formatarData(processo.ultima_revisao)}</td>
                   <td>{formatarData(processo.proximo_prazo)}</td>
-                  <td>{processo.responsavel || "â€”"}</td>
+                  <td>{processo.responsavel || "—"}</td>
                   <td><button className="btn-secondary compact" onClick={() => abrirFicha(processo)} type="button">Abrir ficha</button></td>
                 </tr>
               );
@@ -972,11 +972,11 @@ export default function PainelJudicial({
       {fichaAberta && (
         <aside className="judicial-drawer process-drawer" aria-label="Ficha do processo">
           <form className="judicial-drawer-panel process-ficha" onSubmit={salvarProcesso}>
-            <button className="modal-close" onClick={() => { setProcessoAberto(null); setModalCadastro(false); }} type="button">Ã—</button>
+            <button className="modal-close" onClick={() => { setProcessoAberto(null); setModalCadastro(false); }} type="button">×</button>
             <header className="process-ficha-header">
               <span className="eyebrow">Ficha processo</span>
               <h3>{ficha.nome_cliente || "Novo processo existente"}</h3>
-              <p>{ficha.numero_processo || "NÃºmero CNJ pendente"}</p>
+              <p>{ficha.numero_processo || "Número CNJ pendente"}</p>
               <div className="process-badge-row">
                 <span className={`process-badge ${badgeClass(ficha.situacao)}`}>{ficha.situacao}</span>
                 <span className={`process-badge ${badgeClass(ficha.fase_judicial)}`}>{ficha.fase_judicial}</span>
@@ -991,106 +991,106 @@ export default function PainelJudicial({
             <div className="process-ficha-content">
               {abaFicha === "Resumo" ? <>
                 <section className="process-form-section">
-                  <h4>InformaÃ§Ãµes principais</h4>
+                  <h4>Informações principais</h4>
                   <div className="process-form-grid">
                     <label><span>Cliente *</span><input value={ficha.nome_cliente} onChange={(e) => setFicha((f) => ({ ...f, nome_cliente: e.target.value }))} /></label>
                     <label><span>CPF</span><input value={ficha.cpf_cliente} onChange={(e) => setFicha((f) => ({ ...f, cpf_cliente: e.target.value }))} /></label>
                     <label><span>ID CRM</span><input value={ficha.id_crm} onChange={(e) => setFicha((f) => ({ ...f, id_crm: e.target.value }))} /></label>
                     <label><span>Link pasta Drive</span><input value={ficha.link_pasta_cliente} onChange={(e) => setFicha((f) => ({ ...f, link_pasta_cliente: e.target.value }))} placeholder="Pasta do cliente no Drive" /></label>
                     <label><span>Autor</span><input value={ficha.autor} onChange={(e) => setFicha((f) => ({ ...f, autor: e.target.value }))} /></label>
-                    <label><span>RÃ©u</span><input value={ficha.reu} onChange={(e) => setFicha((f) => ({ ...f, reu: e.target.value }))} /></label>
+                    <label><span>Réu</span><input value={ficha.reu} onChange={(e) => setFicha((f) => ({ ...f, reu: e.target.value }))} /></label>
                     <label><span>Banco</span><input value={ficha.banco_reu} onChange={(e) => setFicha((f) => ({ ...f, banco_reu: e.target.value }))} /></label>
                     <label><span>Produto</span><input value={ficha.produto} onChange={(e) => setFicha((f) => ({ ...f, produto: e.target.value }))} /></label>
                     <label><span>Contrato</span><input value={ficha.numero_contrato} onChange={(e) => setFicha((f) => ({ ...f, numero_contrato: e.target.value }))} /></label>
-                    <label><span>NÃºmero CNJ</span><input value={ficha.numero_processo} onChange={(e) => setFicha((f) => ({ ...f, numero_processo: e.target.value }))} /></label>
-                    <label><span>DistribuiÃ§Ã£o</span><input type="date" value={ficha.data_distribuicao} onChange={(e) => setFicha((f) => ({ ...f, data_distribuicao: e.target.value }))} /></label>
+                    <label><span>Número CNJ</span><input value={ficha.numero_processo} onChange={(e) => setFicha((f) => ({ ...f, numero_processo: e.target.value }))} /></label>
+                    <label><span>Distribuição</span><input type="date" value={ficha.data_distribuicao} onChange={(e) => setFicha((f) => ({ ...f, data_distribuicao: e.target.value }))} /></label>
                     <label><span>Tribunal</span><input value={ficha.tribunal} onChange={(e) => setFicha((f) => ({ ...f, tribunal: e.target.value }))} /></label>
                     <label><span>Comarca</span><input value={ficha.comarca} onChange={(e) => setFicha((f) => ({ ...f, comarca: e.target.value }))} /></label>
                     <label><span>Vara</span><input value={ficha.vara} onChange={(e) => setFicha((f) => ({ ...f, vara: e.target.value }))} /></label>
-                    <label><span>Tipo aÃ§Ã£o</span><input value={ficha.tipo_acao} onChange={(e) => setFicha((f) => ({ ...f, tipo_acao: e.target.value }))} /></label>
-                    <label><span>ResponsÃ¡vel</span><input value={ficha.responsavel} onChange={(e) => setFicha((f) => ({ ...f, responsavel: e.target.value }))} /></label>
+                    <label><span>Tipo ação</span><input value={ficha.tipo_acao} onChange={(e) => setFicha((f) => ({ ...f, tipo_acao: e.target.value }))} /></label>
+                    <label><span>Responsável</span><input value={ficha.responsavel} onChange={(e) => setFicha((f) => ({ ...f, responsavel: e.target.value }))} /></label>
                     <label><span>Link consulta</span><input value={ficha.link_consulta} onChange={(e) => setFicha((f) => ({ ...f, link_consulta: e.target.value }))} /></label>
-                    <label><span>SituaÃ§Ã£o</span><select value={ficha.situacao} onChange={(e) => setFicha((f) => ({ ...f, situacao: e.target.value }))}>{SITUACOES.map((o) => <option key={o}>{o}</option>)}</select></label>
+                    <label><span>Situação</span><select value={ficha.situacao} onChange={(e) => setFicha((f) => ({ ...f, situacao: e.target.value }))}>{SITUACOES.map((o) => <option key={o}>{o}</option>)}</select></label>
                     <label><span>Fase</span><select value={ficha.fase_judicial} onChange={(e) => setFicha((f) => ({ ...f, fase_judicial: e.target.value }))}>{FASES_JUDICIAIS.map((o) => <option key={o}>{o}</option>)}</select></label>
                     <label><span>Resultado</span><select value={ficha.resultado} onChange={(e) => setFicha((f) => ({ ...f, resultado: e.target.value }))}>{RESULTADOS.map((o) => <option key={o}>{o}</option>)}</select></label>
-                    <label><span>JustiÃ§a gratuita</span><select value={ficha.justica_gratuita} onChange={(e) => setFicha((f) => ({ ...f, justica_gratuita: e.target.value }))}>{JUSTICA_GRATUITA.map((o) => <option key={o}>{o}</option>)}</select></label>
+                    <label><span>Justiça gratuita</span><select value={ficha.justica_gratuita} onChange={(e) => setFicha((f) => ({ ...f, justica_gratuita: e.target.value }))}>{JUSTICA_GRATUITA.map((o) => <option key={o}>{o}</option>)}</select></label>
                     <label><span>Emenda</span><select value={ficha.emenda_status} onChange={(e) => setFicha((f) => ({ ...f, emenda_status: e.target.value }))}>{EMENDA.map((o) => <option key={o}>{o}</option>)}</select></label>
-                    <label><span>PrÃ³ximo prazo</span><input type="date" value={ficha.proximo_prazo} onChange={(e) => setFicha((f) => ({ ...f, proximo_prazo: e.target.value }))} /></label>
-                    <label><span>Ãšltima revisÃ£o</span><input type="date" value={ficha.ultima_revisao} onChange={(e) => setFicha((f) => ({ ...f, ultima_revisao: e.target.value }))} /></label>
-                    <label><span>PrÃ³xima revisÃ£o</span><input type="date" value={ficha.proxima_revisao} onChange={(e) => setFicha((f) => ({ ...f, proxima_revisao: e.target.value }))} /></label>
+                    <label><span>Próximo prazo</span><input type="date" value={ficha.proximo_prazo} onChange={(e) => setFicha((f) => ({ ...f, proximo_prazo: e.target.value }))} /></label>
+                    <label><span>Última revisão</span><input type="date" value={ficha.ultima_revisao} onChange={(e) => setFicha((f) => ({ ...f, ultima_revisao: e.target.value }))} /></label>
+                    <label><span>Próxima revisão</span><input type="date" value={ficha.proxima_revisao} onChange={(e) => setFicha((f) => ({ ...f, proxima_revisao: e.target.value }))} /></label>
                     <label><span>Custas</span><input value={ficha.custas_status} onChange={(e) => setFicha((f) => ({ ...f, custas_status: e.target.value }))} /></label>
-                    <label className="check-line"><input type="checkbox" checked={ficha.com_pendencia} onChange={(e) => setFicha((f) => ({ ...f, com_pendencia: e.target.checked }))} /> Com pendÃªncia</label>
+                    <label className="check-line"><input type="checkbox" checked={ficha.com_pendencia} onChange={(e) => setFicha((f) => ({ ...f, com_pendencia: e.target.checked }))} /> Com pendência</label>
                     <label className="check-line"><input type="checkbox" checked={ficha.pasta_retornada} onChange={(e) => setFicha((f) => ({ ...f, pasta_retornada: e.target.checked }))} /> Pasta retornada</label>
-                    <label className="check-line"><input type="checkbox" checked={ficha.sem_revisao} onChange={(e) => setFicha((f) => ({ ...f, sem_revisao: e.target.checked }))} /> Sem revisÃ£o</label>
+                    <label className="check-line"><input type="checkbox" checked={ficha.sem_revisao} onChange={(e) => setFicha((f) => ({ ...f, sem_revisao: e.target.checked }))} /> Sem revisão</label>
                     <label className="check-line"><input type="checkbox" checked={ficha.recursal} onChange={(e) => setFicha((f) => ({ ...f, recursal: e.target.checked }))} /> Recursal</label>
-                    <label className="wide"><span>ObservaÃ§Ãµes</span><textarea rows={3} value={ficha.observacoes} onChange={(e) => setFicha((f) => ({ ...f, observacoes: e.target.value }))} /></label>
+                    <label className="wide"><span>Observações</span><textarea rows={3} value={ficha.observacoes} onChange={(e) => setFicha((f) => ({ ...f, observacoes: e.target.value }))} /></label>
                   </div>
                 </section>
                 <aside className="process-next-actions">
-                  <h4>PrÃ³ximas aÃ§Ãµes</h4>
+                  <h4>Próximas ações</h4>
                   <article className={`review-alert ${calcularAlertaRevisao(processoAberto).classe}`}>
-                    <strong>RevisÃ£o processual</strong>
+                    <strong>Revisão processual</strong>
                     <span>{calcularAlertaRevisao(processoAberto).rotulo}</span>
-                    <small>PrÃ³xima revisÃ£o: {formatarData(processoAberto?.proxima_revisao || ficha.proxima_revisao)}</small>
+                    <small>Próxima revisão: {formatarData(processoAberto?.proxima_revisao || ficha.proxima_revisao)}</small>
                   </article>
                   <article>
-                    <strong>Ãšltima movimentaÃ§Ã£o judicial</strong>
-                    <span>{processoAberto?.ultima_movimentacao || "NÃ£o registrada"}</span>
+                    <strong>Última movimentação judicial</strong>
+                    <span>{processoAberto?.ultima_movimentacao || "Não registrada"}</span>
                     <small>{formatarDataHora(processoAberto?.ultima_movimentacao_data)}</small>
                   </article>
                   <article>
-                    <strong>Ãšltima revisÃ£o pela Platino</strong>
+                    <strong>Última revisão pela Platino</strong>
                     <span>{formatarData(processoAberto?.ultima_revisao || ficha.ultima_revisao)}</span>
-                    <small>{processoAberto?.ultima_revisao_por || usuario?.nome || "ResponsÃ¡vel nÃ£o informado"}</small>
+                    <small>{processoAberto?.ultima_revisao_por || usuario?.nome || "Responsável não informado"}</small>
                   </article>
-                  <article><strong>PendÃªncias</strong><span>{ficha.com_pendencia ? "HÃ¡ pendÃªncia registrada" : "Nenhuma pendÃªncia marcada"}</span></article>
-                  <article><strong>Ãšltimo atendimento</strong><span>{processoAberto?.ultimo_atendimento || "NÃ£o registrado"}</span></article>
-                  <article><strong>Ãšltimo relatÃ³rio enviado</strong><span>{processoAberto?.ultimo_relatorio_enviado || "NÃ£o registrado"}</span></article>
+                  <article><strong>Pendências</strong><span>{ficha.com_pendencia ? "Há pendência registrada" : "Nenhuma pendência marcada"}</span></article>
+                  <article><strong>Último atendimento</strong><span>{processoAberto?.ultimo_atendimento || "Não registrado"}</span></article>
+                  <article><strong>Último relatório enviado</strong><span>{processoAberto?.ultimo_relatorio_enviado || "Não registrado"}</span></article>
                 </aside>
               </> : null}
 
-              {abaFicha === "MovimentaÃ§Ãµes" ? (
+              {abaFicha === "Movimentações" ? (
                 <section className="process-form-section">
                   <div className="section-title-row">
                     <div>
-                      <h4>Registrar movimentaÃ§Ã£o</h4>
-                      <p>Registro manual preparado para integraÃ§Ãµes futuras com tribunais, APIs, importaÃ§Ãµes e IA.</p>
+                      <h4>Registrar movimentação</h4>
+                      <p>Registro manual preparado para integrações futuras com tribunais, APIs, importações e IA.</p>
                     </div>
                     <span className="process-badge andamento">Origem manual</span>
                   </div>
                   <form className="movimentacao-form movement-form-grid" onSubmit={adicionarMovimentacao}>
                     <label><span>Data e hora</span><input type="datetime-local" value={movimentacaoForm.data} onChange={(e) => setMovimentacaoForm((f) => ({ ...f, data: e.target.value }))} /></label>
                     <label><span>Categoria</span><select value={movimentacaoForm.categoria} onChange={(e) => setMovimentacaoForm((f) => ({ ...f, categoria: e.target.value }))}>{CATEGORIAS_TIMELINE.map((opcao) => <option key={opcao}>{opcao}</option>)}</select></label>
-                    <label><span>ImportÃ¢ncia</span><select value={movimentacaoForm.importancia} onChange={(e) => setMovimentacaoForm((f) => ({ ...f, importancia: e.target.value }))}>{IMPORTANCIAS.map((opcao) => <option key={opcao}>{opcao}</option>)}</select></label>
+                    <label><span>Importância</span><select value={movimentacaoForm.importancia} onChange={(e) => setMovimentacaoForm((f) => ({ ...f, importancia: e.target.value }))}>{IMPORTANCIAS.map((opcao) => <option key={opcao}>{opcao}</option>)}</select></label>
                     <label><span>Fonte</span><select value={movimentacaoForm.fonte} onChange={(e) => setMovimentacaoForm((f) => ({ ...f, fonte: e.target.value }))}>{FONTES_ORIGEM.map((opcao) => <option key={opcao}>{opcao}</option>)}</select></label>
-                    <label className="wide"><span>TÃ­tulo *</span><input value={movimentacaoForm.titulo} onChange={(e) => setMovimentacaoForm((f) => ({ ...f, titulo: e.target.value }))} placeholder="Ex.: SentenÃ§a publicada, emenda determinada, audiÃªncia designada" /></label>
-                    <label className="wide"><span>DescriÃ§Ã£o tÃ©cnica *</span><textarea rows={4} value={movimentacaoForm.descricao_tecnica} onChange={(e) => setMovimentacaoForm((f) => ({ ...f, descricao_tecnica: e.target.value }))} /></label>
+                    <label className="wide"><span>Título *</span><input value={movimentacaoForm.titulo} onChange={(e) => setMovimentacaoForm((f) => ({ ...f, titulo: e.target.value }))} placeholder="Ex.: Sentença publicada, emenda determinada, audiência designada" /></label>
+                    <label className="wide"><span>Descrição técnica *</span><textarea rows={4} value={movimentacaoForm.descricao_tecnica} onChange={(e) => setMovimentacaoForm((f) => ({ ...f, descricao_tecnica: e.target.value }))} /></label>
                     <label className="wide"><span>Resumo para cliente</span><textarea rows={3} value={movimentacaoForm.resumo_cliente} onChange={(e) => setMovimentacaoForm((f) => ({ ...f, resumo_cliente: e.target.value }))} /></label>
                     <label><span>Link</span><input value={movimentacaoForm.link} onChange={(e) => setMovimentacaoForm((f) => ({ ...f, link: e.target.value }))} placeholder="https://" /></label>
                     <label><span>Anexo</span><input value={movimentacaoForm.anexo_url} onChange={(e) => setMovimentacaoForm((f) => ({ ...f, anexo_url: e.target.value }))} placeholder="Link ou caminho do arquivo" /></label>
-                    <label><span>PrÃ³xima revisÃ£o</span><input type="date" value={movimentacaoForm.proxima_revisao} onChange={(e) => setMovimentacaoForm((f) => ({ ...f, proxima_revisao: e.target.value }))} /></label>
-                    <label className="wide"><span>PrÃ³xima providÃªncia</span><input value={movimentacaoForm.proxima_providencia} onChange={(e) => setMovimentacaoForm((f) => ({ ...f, proxima_providencia: e.target.value }))} /></label>
+                    <label><span>Próxima revisão</span><input type="date" value={movimentacaoForm.proxima_revisao} onChange={(e) => setMovimentacaoForm((f) => ({ ...f, proxima_revisao: e.target.value }))} /></label>
+                    <label className="wide"><span>Próxima providência</span><input value={movimentacaoForm.proxima_providencia} onChange={(e) => setMovimentacaoForm((f) => ({ ...f, proxima_providencia: e.target.value }))} /></label>
                     <label className="check-line wide"><input type="checkbox" checked={movimentacaoForm.criar_tarefa_relacionada} onChange={(e) => setMovimentacaoForm((f) => ({ ...f, criar_tarefa_relacionada: e.target.checked }))} /> Criar tarefa relacionada futuramente</label>
-                    <div className="movement-actions"><button className="btn-primary" disabled={salvando} type="submit">Registrar movimentaÃ§Ã£o</button></div>
+                    <div className="movement-actions"><button className="btn-primary" disabled={salvando} type="submit">Registrar movimentação</button></div>
                   </form>
                   <TimelineProcessual movimentacoes={movimentacoes} filtro={timelineFiltro} onFiltro={setTimelineFiltro} onArquivar={arquivarMovimentacao} />
                 </section>
               ) : null}
-              {abaFicha === "HistÃ³rico" ? (
+              {abaFicha === "Histórico" ? (
                 <section className="process-form-section">
                   <div className="section-title-row">
                     <div>
-                      <h4>HistÃ³rico permanente</h4>
+                      <h4>Histórico permanente</h4>
                       <p>Linha do tempo unificada do processo, preservando a categoria e a fonte de cada evento.</p>
                     </div>
                   </div>
                   <div className="review-register">
                     <div>
-                      <strong>RevisÃ£o interna</strong>
-                      <span>Registre quando a Platino revisou o processo. Isso nÃ£o substitui a Ãºltima movimentaÃ§Ã£o judicial.</span>
+                      <strong>Revisão interna</strong>
+                      <span>Registre quando a Platino revisou o processo. Isso não substitui a última movimentação judicial.</span>
                     </div>
-                    <input value={revisaoObservacao} onChange={(e) => setRevisaoObservacao(e.target.value)} placeholder="ObservaÃ§Ã£o opcional da revisÃ£o" />
-                    <button className="btn-secondary" disabled={salvando || !processoAberto} onClick={registrarRevisaoInterna} type="button">Registrar revisÃ£o</button>
+                    <input value={revisaoObservacao} onChange={(e) => setRevisaoObservacao(e.target.value)} placeholder="Observação opcional da revisão" />
+                    <button className="btn-secondary" disabled={salvando || !processoAberto} onClick={registrarRevisaoInterna} type="button">Registrar revisão</button>
                   </div>
                   <TimelineProcessual movimentacoes={movimentacoes} filtro={timelineFiltro} onFiltro={setTimelineFiltro} onArquivar={arquivarMovimentacao} />
                 </section>
@@ -1100,21 +1100,21 @@ export default function PainelJudicial({
                   <div className="section-title-row">
                     <div>
                       <h4>Tarefas e prazos do processo</h4>
-                      <p>Crie atividades vinculadas ao processo. Prazos processuais aparecem tambÃ©m na agenda operacional.</p>
+                      <p>Crie atividades vinculadas ao processo. Prazos processuais aparecem também na agenda operacional.</p>
                     </div>
                     <span className="process-badge andamento">{tarefasProcesso.length} registros</span>
                   </div>
                   <form className="movimentacao-form movement-form-grid" onSubmit={criarTarefaProcesso}>
-                    <label className="wide"><span>TÃ­tulo</span><input value={tarefaForm.titulo} onChange={(e) => setTarefaForm((f) => ({ ...f, titulo: e.target.value }))} /></label>
-                    <label className="wide"><span>DescriÃ§Ã£o</span><textarea rows={3} value={tarefaForm.descricao} onChange={(e) => setTarefaForm((f) => ({ ...f, descricao: e.target.value }))} /></label>
+                    <label className="wide"><span>Título</span><input value={tarefaForm.titulo} onChange={(e) => setTarefaForm((f) => ({ ...f, titulo: e.target.value }))} /></label>
+                    <label className="wide"><span>Descrição</span><textarea rows={3} value={tarefaForm.descricao} onChange={(e) => setTarefaForm((f) => ({ ...f, descricao: e.target.value }))} /></label>
                     <label><span>Tipo</span><select value={tarefaForm.tipo} onChange={(e) => setTarefaForm((f) => ({ ...f, tipo: e.target.value }))}>{TIPOS_TAREFA.map((opcao) => <option key={opcao}>{opcao}</option>)}</select></label>
                     <label><span>Data</span><input type="date" value={tarefaForm.data} onChange={(e) => setTarefaForm((f) => ({ ...f, data: e.target.value }))} /></label>
-                    <label><span>HorÃ¡rio</span><input type="time" value={tarefaForm.horario} onChange={(e) => setTarefaForm((f) => ({ ...f, horario: e.target.value }))} /></label>
-                    <label><span>ResponsÃ¡vel</span><input value={tarefaForm.responsavel} onChange={(e) => setTarefaForm((f) => ({ ...f, responsavel: e.target.value }))} /></label>
+                    <label><span>Horário</span><input type="time" value={tarefaForm.horario} onChange={(e) => setTarefaForm((f) => ({ ...f, horario: e.target.value }))} /></label>
+                    <label><span>Responsável</span><input value={tarefaForm.responsavel} onChange={(e) => setTarefaForm((f) => ({ ...f, responsavel: e.target.value }))} /></label>
                     <label><span>Prioridade</span><select value={tarefaForm.prioridade} onChange={(e) => setTarefaForm((f) => ({ ...f, prioridade: e.target.value }))}>{PRIORIDADES_TAREFA.map((opcao) => <option key={opcao}>{opcao}</option>)}</select></label>
                     <label><span>Status</span><select value={tarefaForm.status} onChange={(e) => setTarefaForm((f) => ({ ...f, status: e.target.value }))}>{STATUS_TAREFA.map((opcao) => <option key={opcao}>{opcao}</option>)}</select></label>
                     <label><span>Lembrete</span><input value={tarefaForm.lembrete} onChange={(e) => setTarefaForm((f) => ({ ...f, lembrete: e.target.value }))} /></label>
-                    <label className="wide"><span>ObservaÃ§Ã£o</span><textarea rows={2} value={tarefaForm.observacao} onChange={(e) => setTarefaForm((f) => ({ ...f, observacao: e.target.value }))} /></label>
+                    <label className="wide"><span>Observação</span><textarea rows={2} value={tarefaForm.observacao} onChange={(e) => setTarefaForm((f) => ({ ...f, observacao: e.target.value }))} /></label>
                     <div className="movement-actions"><button className="btn-primary" disabled={salvando} type="submit">Criar tarefa</button></div>
                   </form>
                   <ListaTarefasProcesso tarefas={tarefasProcesso} onStatus={atualizarStatusTarefaProcesso} />
@@ -1125,7 +1125,7 @@ export default function PainelJudicial({
                   <div className="section-title-row">
                     <div>
                       <h4>Atendimentos do processo</h4>
-                      <p>Registre contatos permanentes. Cada atendimento tambÃ©m entra no histÃ³rico do processo.</p>
+                      <p>Registre contatos permanentes. Cada atendimento também entra no histórico do processo.</p>
                     </div>
                     <span className="process-badge andamento">{atendimentosProcesso.length} registros</span>
                   </div>
@@ -1134,32 +1134,32 @@ export default function PainelJudicial({
                     <label><span>Hora</span><input type="time" value={atendimentoForm.hora} onChange={(e) => setAtendimentoForm((f) => ({ ...f, hora: e.target.value }))} /></label>
                     <label><span>Canal</span><select value={atendimentoForm.canal} onChange={(e) => setAtendimentoForm((f) => ({ ...f, canal: e.target.value }))}>{CANAIS_ATENDIMENTO.map((opcao) => <option key={opcao}>{opcao}</option>)}</select></label>
                     <label><span>Tipo</span><input value={atendimentoForm.tipo} onChange={(e) => setAtendimentoForm((f) => ({ ...f, tipo: e.target.value }))} /></label>
-                    <label className="wide"><span>DescriÃ§Ã£o</span><textarea rows={4} value={atendimentoForm.descricao} onChange={(e) => setAtendimentoForm((f) => ({ ...f, descricao: e.target.value }))} placeholder="Ex.: Cliente informado sobre custas." /></label>
-                    <label><span>ResponsÃ¡vel</span><input value={atendimentoForm.responsavel} onChange={(e) => setAtendimentoForm((f) => ({ ...f, responsavel: e.target.value }))} /></label>
+                    <label className="wide"><span>Descrição</span><textarea rows={4} value={atendimentoForm.descricao} onChange={(e) => setAtendimentoForm((f) => ({ ...f, descricao: e.target.value }))} placeholder="Ex.: Cliente informado sobre custas." /></label>
+                    <label><span>Responsável</span><input value={atendimentoForm.responsavel} onChange={(e) => setAtendimentoForm((f) => ({ ...f, responsavel: e.target.value }))} /></label>
                     <label><span>Anexo</span><input value={atendimentoForm.anexo_url} onChange={(e) => setAtendimentoForm((f) => ({ ...f, anexo_url: e.target.value }))} /></label>
                     <div className="movement-actions"><button className="btn-primary" disabled={salvando} type="submit">Registrar atendimento</button></div>
                   </form>
                   <ListaAtendimentosProcesso atendimentos={atendimentosProcesso} />
                 </section>
               ) : null}
-              {abaFicha === "Auditoria" ? <section className="process-form-section"><h4>Auditoria</h4>{auditoria.length === 0 ? <div className="empty-row">Nenhum registro de auditoria.</div> : auditoria.map((item) => <article className="audit-row" key={item.id}><strong>{item.campo}</strong><span>{item.valor_anterior || "vazio"} â†’ {item.valor_novo || "vazio"}</span><small>{item.usuario || "UsuÃ¡rio"} Â· {formatarDataHora(item.created_at)}</small></article>)}</section> : null}
+              {abaFicha === "Auditoria" ? <section className="process-form-section"><h4>Auditoria</h4>{auditoria.length === 0 ? <div className="empty-row">Nenhum registro de auditoria.</div> : auditoria.map((item) => <article className="audit-row" key={item.id}><strong>{item.campo}</strong><span>{item.valor_anterior || "vazio"} → {item.valor_novo || "vazio"}</span><small>{item.usuario || "Usuário"} · {formatarDataHora(item.created_at)}</small></article>)}</section> : null}
               {abaFicha === "Documentos" ? (
                 <section className="process-form-section">
                   <div className="section-title-row">
                     <div>
                       <h4>Documentos do processo</h4>
-                      <p>ProduÃ§Ã£o pelo Gerador existente e acervo vinculado ao cliente/processo.</p>
+                      <p>Produção pelo Gerador existente e acervo vinculado ao cliente/processo.</p>
                     </div>
                     <button className="btn-primary compact" onClick={() => abrirGeradorDocumento()} type="button">Gerar documento</button>
                   </div>
                   <ListaDocumentosProcesso documentos={documentosProcesso} onStatus={atualizarStatusDocumento} onComunicar={setComunicandoDocumento} />
                   <section className="report-box">
                     <div>
-                      <strong>RelatÃ³rio processual</strong>
-                      <span>Ãšltimo relatÃ³rio: {ultimoRelatorio ? formatarDataHora(ultimoRelatorio.created_at) : "nÃ£o localizado"} Â· {movimentacoesPosterioresRelatorio} movimentaÃ§Ãµes posteriores.</span>
+                      <strong>Relatório processual</strong>
+                      <span>Último relatório: {ultimoRelatorio ? formatarDataHora(ultimoRelatorio.created_at) : "não localizado"} · {movimentacoesPosterioresRelatorio} movimentações posteriores.</span>
                     </div>
-                    <label><input type="checkbox" /> ContestaÃ§Ã£o</label>
-                    <label><input type="checkbox" /> RÃ©plica</label>
+                    <label><input type="checkbox" /> Contestação</label>
+                    <label><input type="checkbox" /> Réplica</label>
                     <label><input type="checkbox" /> Conclusos</label>
                     <button className="btn-secondary compact" type="button" onClick={() => abrirGeradorDocumento({
                       modeloId: "relatorio-atualizacao-processual",
@@ -1174,7 +1174,7 @@ export default function PainelJudicial({
                   </section>
                 </section>
               ) : null}
-              {!["Resumo", "HistÃ³rico", "MovimentaÃ§Ãµes", "Tarefas e Prazos", "Atendimentos", "Documentos", "Auditoria"].includes(abaFicha) ? <section className="process-form-section"><h4>{abaFicha}</h4><div className="empty-row">Ãrea preparada para vincular {abaFicha.toLowerCase()} do processo.</div></section> : null}
+              {!["Resumo", "Histórico", "Movimentações", "Tarefas e Prazos", "Atendimentos", "Documentos", "Auditoria"].includes(abaFicha) ? <section className="process-form-section"><h4>{abaFicha}</h4><div className="empty-row">Área preparada para vincular {abaFicha.toLowerCase()} do processo.</div></section> : null}
             </div>
 
             <footer className="process-ficha-actions">
@@ -1190,7 +1190,7 @@ export default function PainelJudicial({
       {geradorAberto && processoAberto ? (
         <div className="document-generator-backdrop">
           <section className="document-generator-shell">
-            <button type="button" className="drawer-close" onClick={() => { setGeradorAberto(false); setContextoGerador(null); }} aria-label="Fechar">Ã—</button>
+            <button type="button" className="drawer-close" onClick={() => { setGeradorAberto(false); setContextoGerador(null); }} aria-label="Fechar">×</button>
             <GeradorDocumentos
               usuario={usuario}
               responsavel={usuario?.nome}
@@ -1208,15 +1208,15 @@ export default function PainelJudicial({
         <div className="modal-backdrop">
           <section className="cliente-modal">
             <header>
-              <div><span className="eyebrow">ComunicaÃ§Ã£o</span><h3>Marcar como comunicado</h3></div>
-              <button className="drawer-close" onClick={() => setComunicandoDocumento(null)} type="button">Ã—</button>
+              <div><span className="eyebrow">Comunicação</span><h3>Marcar como comunicado</h3></div>
+              <button className="drawer-close" onClick={() => setComunicandoDocumento(null)} type="button">×</button>
             </header>
             <div className="cliente-form-grid">
               <label><span>Documento</span><input value={comunicandoDocumento.nome_documento} readOnly /></label>
               <label><span>Canal</span><select value={comunicacaoCanal} onChange={(e) => setComunicacaoCanal(e.target.value)}>{CANAIS_ATENDIMENTO.map((canal) => <option key={canal}>{canal}</option>)}</select></label>
-              <label className="wide"><span>ObservaÃ§Ã£o</span><textarea rows={4} value={comunicacaoObservacao} onChange={(e) => setComunicacaoObservacao(e.target.value)} /></label>
+              <label className="wide"><span>Observação</span><textarea rows={4} value={comunicacaoObservacao} onChange={(e) => setComunicacaoObservacao(e.target.value)} /></label>
             </div>
-            <footer><button className="btn-secondary" onClick={() => setComunicandoDocumento(null)} type="button">Cancelar</button><button className="btn-primary" onClick={marcarDocumentoComunicado} type="button">Salvar comunicaÃ§Ã£o</button></footer>
+            <footer><button className="btn-secondary" onClick={() => setComunicandoDocumento(null)} type="button">Cancelar</button><button className="btn-primary" onClick={marcarDocumentoComunicado} type="button">Salvar comunicação</button></footer>
           </section>
         </div>
       ) : null}
@@ -1239,7 +1239,7 @@ function TimelineProcessual({
   const itens = movimentacoes.filter((movimentacao) => {
     if (movimentacao.deleted_at) return false;
     if (filtro === "Todos") return true;
-    return categorias.includes(movimentacao.categoria || "MovimentaÃ§Ã£o processual");
+    return categorias.includes(movimentacao.categoria || "Movimentação processual");
   });
 
   return (
@@ -1256,7 +1256,7 @@ function TimelineProcessual({
       ) : (
         <div className="timeline-list">
           {itens.map((movimentacao) => {
-            const categoria = movimentacao.categoria || "MovimentaÃ§Ã£o processual";
+            const categoria = movimentacao.categoria || "Movimentação processual";
             const importancia = movimentacao.importancia || "Normal";
             return (
               <article className="timeline-item" key={movimentacao.id}>
@@ -1265,7 +1265,7 @@ function TimelineProcessual({
                   <header>
                     <div>
                       <time dateTime={movimentacao.data_registro}>{formatarDataHora(movimentacao.data_registro)}</time>
-                      <h5>{movimentacao.titulo || movimentacao.tipo || "MovimentaÃ§Ã£o registrada"}</h5>
+                      <h5>{movimentacao.titulo || movimentacao.tipo || "Movimentação registrada"}</h5>
                     </div>
                     <div className="timeline-badges">
                       <span>{categoria}</span>
@@ -1275,10 +1275,10 @@ function TimelineProcessual({
                   <p>{movimentacao.descricao_tecnica || movimentacao.descricao}</p>
                   {movimentacao.resumo_cliente ? <blockquote>{movimentacao.resumo_cliente}</blockquote> : null}
                   <footer>
-                    <span>ResponsÃ¡vel: {movimentacao.responsavel || movimentacao.created_by_nome || "NÃ£o informado"}</span>
+                    <span>Responsável: {movimentacao.responsavel || movimentacao.created_by_nome || "Não informado"}</span>
                     <span>Fonte: {movimentacao.fonte || "Manual"}</span>
-                    {movimentacao.proxima_providencia ? <span>ProvidÃªncia: {movimentacao.proxima_providencia}</span> : null}
-                    {movimentacao.proxima_revisao ? <span>PrÃ³xima revisÃ£o: {formatarData(movimentacao.proxima_revisao)}</span> : null}
+                    {movimentacao.proxima_providencia ? <span>Providência: {movimentacao.proxima_providencia}</span> : null}
+                    {movimentacao.proxima_revisao ? <span>Próxima revisão: {formatarData(movimentacao.proxima_revisao)}</span> : null}
                     {movimentacao.link ? <a href={movimentacao.link} target="_blank" rel="noreferrer">Abrir link</a> : null}
                     {movimentacao.anexo_url ? <a href={movimentacao.anexo_url} target="_blank" rel="noreferrer">Abrir anexo</a> : null}
                     <button type="button" onClick={() => onArquivar(movimentacao)}>Arquivar</button>
@@ -1307,11 +1307,11 @@ function ListaTarefasProcesso({
         <article key={tarefa.id}>
           <div>
             <strong>{tarefa.titulo}</strong>
-            <span>{tarefa.tipo} Â· {formatarData(tarefa.data)}{tarefa.horario ? `, ${tarefa.horario}` : ""}</span>
+            <span>{tarefa.tipo} · {formatarData(tarefa.data)}{tarefa.horario ? `, ${tarefa.horario}` : ""}</span>
             {tarefa.descricao ? <p>{tarefa.descricao}</p> : null}
           </div>
           <div>
-            <small>{tarefa.prioridade} Â· {tarefa.responsavel || "Sem responsÃ¡vel"}</small>
+            <small>{tarefa.prioridade} · {tarefa.responsavel || "Sem responsável"}</small>
             <select value={tarefa.status} onChange={(e) => onStatus(tarefa, e.target.value)}>
               {STATUS_TAREFA.map((status) => <option key={status}>{status}</option>)}
             </select>
@@ -1340,11 +1340,11 @@ function ListaDocumentosProcesso({
             <th>Tipo</th>
             <th>Documento</th>
             <th>Data</th>
-            <th>VersÃ£o</th>
+            <th>Versão</th>
             <th>Status</th>
             <th>Assinado</th>
-            <th>ResponsÃ¡vel</th>
-            <th>AÃ§Ãµes</th>
+            <th>Responsável</th>
+            <th>Ações</th>
           </tr>
         </thead>
         <tbody>
@@ -1356,7 +1356,7 @@ function ListaDocumentosProcesso({
               <td>{String(documento.versao || 1).padStart(2, "0")}</td>
               <td><select value={documento.status || "Gerado"} onChange={(e) => onStatus(documento, e.target.value)}>{STATUS_DOCUMENTO.map((status) => <option key={status}>{status}</option>)}</select></td>
               <td><input type="checkbox" checked={Boolean(documento.assinado)} onChange={(e) => onStatus(documento, e.target.checked ? "Assinado" : documento.status || "Gerado", e.target.checked)} /></td>
-              <td>{documento.responsavel_nome || "â€”"}</td>
+              <td>{documento.responsavel_nome || "—"}</td>
               <td><button className="btn-secondary compact" type="button" onClick={() => onComunicar(documento)}>{documento.comunicado_em ? "Comunicado" : "Marcar comunicado"}</button></td>
             </tr>
           ))}
@@ -1373,8 +1373,8 @@ function ListaAtendimentosProcesso({ atendimentos }: { atendimentos: Atendimento
       {atendimentos.map((atendimento) => (
         <article key={atendimento.id}>
           <div>
-            <strong>{atendimento.canal} Â· {atendimento.tipo || "Atendimento"}</strong>
-            <span>{formatarData(atendimento.data)}{atendimento.hora ? `, ${atendimento.hora}` : ""} Â· {atendimento.responsavel || "Sem responsÃ¡vel"}</span>
+            <strong>{atendimento.canal} · {atendimento.tipo || "Atendimento"}</strong>
+            <span>{formatarData(atendimento.data)}{atendimento.hora ? `, ${atendimento.hora}` : ""} · {atendimento.responsavel || "Sem responsável"}</span>
             <p>{atendimento.descricao}</p>
           </div>
           {atendimento.anexo_url ? <a href={atendimento.anexo_url} target="_blank" rel="noreferrer">Abrir anexo</a> : null}

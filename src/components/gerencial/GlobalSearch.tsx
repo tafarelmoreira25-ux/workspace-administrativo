@@ -1,4 +1,4 @@
-﻿import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { supabase } from "../../lib/supabase";
 
 type Resultado = { id: string; grupo: "Clientes" | "Processos" | "Documentos" | "Atendimentos"; titulo: string; subtitulo: string; detalhe?: string };
@@ -33,7 +33,7 @@ export default function GlobalSearch() {
       if (clientes.status === "fulfilled" && !clientes.value.error) lista.push(...(clientes.value.data || []).map((c: any) => ({ id: c.id, grupo: "Clientes" as const, titulo: c.nome_completo, subtitulo: c.cpf || c.id_crm || "Cliente", detalhe: c.telefone })));
       if (processos.status === "fulfilled" && !processos.value.error) lista.push(...(processos.value.data || []).map((p: any) => ({ id: p.id, grupo: "Processos" as const, titulo: p.nome_cliente, subtitulo: p.numero_processo || "Pendente de protocolo", detalhe: p.banco_reu })));
       if (documentos.status === "fulfilled" && !documentos.value.error) lista.push(...(documentos.value.data || []).map((d: any) => ({ id: d.id, grupo: "Documentos" as const, titulo: d.nome_documento, subtitulo: d.cliente_nome || d.modelo_nome, detalhe: d.numero_processo })));
-      if (atendimentos.status === "fulfilled" && !atendimentos.value.error) lista.push(...(atendimentos.value.data || []).map((a: any) => ({ id: a.id, grupo: "Atendimentos" as const, titulo: a.cliente_nome, subtitulo: `${a.canal} Â· ${a.processo_numero || "sem processo"}`, detalhe: a.descricao })));
+      if (atendimentos.status === "fulfilled" && !atendimentos.value.error) lista.push(...(atendimentos.value.data || []).map((a: any) => ({ id: a.id, grupo: "Atendimentos" as const, titulo: a.cliente_nome, subtitulo: `${a.canal} · ${a.processo_numero || "sem processo"}`, detalhe: a.descricao })));
       setResultados(lista);
       setCarregando(false);
     }

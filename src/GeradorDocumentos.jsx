@@ -1,4 +1,4 @@
-﻿import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import ModelLibraryModal, { DocumentCategoryIcon, DocumentModelIcon } from "./components/documentos/ModelLibraryModal";
 import {
   DOCUMENT_DRAFT_KEY, DOCUMENT_FAVORITES_KEY, DOCUMENT_HISTORY_KEY,
@@ -30,31 +30,31 @@ function dataParaNome(dataIso) {
 function montarNomeAutomatico(modelo, dados, numeroDocumento, versao = 1) {
   const cliente = String(dados.nomeCliente || "Cliente").trim() || "Cliente";
   const partes = [modelo.nome, cliente, dataParaNome(dados.dataEmissao), numeroDocumento];
-  if (versao > 1) partes.push(`VersÃ£o ${String(versao).padStart(2, "0")}`);
+  if (versao > 1) partes.push(`Versão ${String(versao).padStart(2, "0")}`);
   return partes.join("_").replace(/\s{2,}/g, " ").slice(0, 180);
 }
 
 function montarNomesDoConjunto(modelo, dados, numeroDocumento, versao = 1) {
   const nomes = { [modelo.modo]: montarNomeAutomatico(modelo, dados, numeroDocumento, versao) };
   if (modelo.modo === "procuracao") {
-    nomes.hipossuficiencia = montarNomeAutomatico({ ...modelo, nome: "DeclaraÃ§Ã£o de HipossuficiÃªncia" }, dados, numeroDocumento, versao);
-    nomes["isencao-irpf"] = montarNomeAutomatico({ ...modelo, nome: "DeclaraÃ§Ã£o de IsenÃ§Ã£o de Imposto de Renda" }, dados, numeroDocumento, versao);
+    nomes.hipossuficiencia = montarNomeAutomatico({ ...modelo, nome: "Declaração de Hipossuficiência" }, dados, numeroDocumento, versao);
+    nomes["isencao-irpf"] = montarNomeAutomatico({ ...modelo, nome: "Declaração de Isenção de Imposto de Renda" }, dados, numeroDocumento, versao);
   }
   return nomes;
 }
 
 function destinoPadrao(modelo) {
-  const pastas = { procuracoes: "PROCURAÃ‡Ã•ES", declaracoes: "DECLARAÃ‡Ã•ES", notificacoes: "NOTIFICAÃ‡Ã•ES_E_INTIMAÃ‡Ã•ES", contestacoes: "CONTESTAÃ‡Ã•ES", termos: "TERMOS", relatorios: "RELATÃ“RIOS", "recibos-certidoes": "RECIBOS_E_CERTIDÃ•ES" };
+  const pastas = { procuracoes: "PROCURAÇÕES", declaracoes: "DECLARAÇÕES", notificacoes: "NOTIFICAÇÕES_E_INTIMAÇÕES", contestacoes: "CONTESTAÇÕES", termos: "TERMOS", relatorios: "RELATÓRIOS", "recibos-certidoes": "RECIBOS_E_CERTIDÕES" };
   return `Drive do cliente / ${pastas[modelo.categoria] || "DOCUMENTOS"}`;
 }
 
-function criarFormularioInicial(responsavel, modelo = MODELOS[0], departamento = "JurÃ­dico") {
+function criarFormularioInicial(responsavel, modelo = MODELOS[0], departamento = "Jurídico") {
   const hoje = dataLocalIso();
   const camposDoModelo = Object.fromEntries(modelo.campos.map((campo) => [campo.nome, campo.valorInicial === "responsavel" ? responsavel || "" : valorInicialCampo(campo, hoje)]));
   return {
     modeloId: modelo.id, tipo: modelo.nome, titulo: modelo.titulo || modelo.nome,
     dataEmissao: hoje,
-    responsavel: responsavel || "", departamento: departamento || "JurÃ­dico",
+    responsavel: responsavel || "", departamento: departamento || "Jurídico",
     destino: destinoPadrao(modelo), observacaoInterna: "", salvarNaPasta: true, versao: 1,
     ...camposDoModelo,
     ...(modelo.modo === "procuracao" ? criarOpcoesIniciaisProcuracao(hoje) : {}),
@@ -78,7 +78,7 @@ function dadosDoContextoDocumento(contexto = {}) {
     comarca: processo.comarca,
     dataDistribuicao: processo.data_distribuicao || processo.distribuido_em,
     origemTribunal,
-    segredoJustica: processo.segredo_justica ? "Sim" : "NÃ£o",
+    segredoJustica: processo.segredo_justica ? "Sim" : "Não",
     assunto: processo.tipo_acao || processo.produto,
     justicaGratuita: processo.justica_gratuita,
     autorNome: processo.autor || cliente.nome_completo || cliente.nome || processo.nome_cliente,
@@ -197,7 +197,7 @@ function baixarArquivos(arquivos) {
 
 function EtapasDocumento({ etapaAtual }) {
   const etapas = ["Selecionar modelo", "Identificar documento", "Preencher dados", "Revisar e gerar"];
-  return <ol className="legal-doc-steps" aria-label="Etapas da geraÃ§Ã£o do documento">{etapas.map((etapa, indice) => { const numero = indice + 1; const concluida = numero < etapaAtual; const atual = numero === etapaAtual; return <li key={etapa} className={`${concluida ? "done" : ""} ${atual ? "active" : ""}`} aria-current={atual ? "step" : undefined}><span>{concluida ? "âœ“" : numero}</span><strong>{etapa}</strong></li>; })}</ol>;
+  return <ol className="legal-doc-steps" aria-label="Etapas da geração do documento">{etapas.map((etapa, indice) => { const numero = indice + 1; const concluida = numero < etapaAtual; const atual = numero === etapaAtual; return <li key={etapa} className={`${concluida ? "done" : ""} ${atual ? "active" : ""}`} aria-current={atual ? "step" : undefined}><span>{concluida ? "✓" : numero}</span><strong>{etapa}</strong></li>; })}</ol>;
 }
 
 function CampoDocumento({ campo, valor, erro, onChange, onBlur }) {
@@ -213,21 +213,21 @@ function GrupoCampos({ grupo, dados, tocados, onChange, onBlur, modeloId, aberto
   const [aberto, setAberto] = useState(abertoInicial);
   const obrigatorios = grupo.campos.filter((campo) => campo.obrigatorio);
   const preenchidos = obrigatorios.filter((campo) => !erroCampo(campo, dados[campo.nome])).length;
-  return <section className={`legal-doc-field-group ${aberto ? "open" : ""}`}><button type="button" className="legal-doc-field-group-toggle" onClick={() => setAberto((valor) => !valor)} aria-expanded={aberto}><span><strong>{grupo.titulo}</strong><small>{preenchidos} de {obrigatorios.length} obrigatÃ³rios preenchidos</small></span><span className="legal-doc-group-progress"><i style={{ width: `${obrigatorios.length ? (preenchidos / obrigatorios.length) * 100 : 100}%` }} /></span><b aria-hidden="true">âŒ„</b></button>{aberto ? <div className="legal-doc-fields-grid" key={modeloId}>{grupo.campos.map((campo) => <CampoDocumento key={campo.nome} campo={campo} valor={dados[campo.nome]} erro={tocados.has(campo.nome) ? erroCampo(campo, dados[campo.nome]) : ""} onChange={onChange} onBlur={onBlur} />)}</div> : null}</section>;
+  return <section className={`legal-doc-field-group ${aberto ? "open" : ""}`}><button type="button" className="legal-doc-field-group-toggle" onClick={() => setAberto((valor) => !valor)} aria-expanded={aberto}><span><strong>{grupo.titulo}</strong><small>{preenchidos} de {obrigatorios.length} obrigatórios preenchidos</small></span><span className="legal-doc-group-progress"><i style={{ width: `${obrigatorios.length ? (preenchidos / obrigatorios.length) * 100 : 100}%` }} /></span><b aria-hidden="true">⌄</b></button>{aberto ? <div className="legal-doc-fields-grid" key={modeloId}>{grupo.campos.map((campo) => <CampoDocumento key={campo.nome} campo={campo} valor={dados[campo.nome]} erro={tocados.has(campo.nome) ? erroCampo(campo, dados[campo.nome]) : ""} onChange={onChange} onBlur={onBlur} />)}</div> : null}</section>;
 }
 
 function PainelProgresso({ total, preenchidos, pendentes, onVerPendentes }) {
   const percentual = total ? Math.round((preenchidos / total) * 100) : 100;
-  return <section className="legal-doc-progress-card"><div className="legal-doc-progress-heading"><div><span className="eyebrow">Progresso do documento</span><h3>{percentual}% preenchido</h3></div><strong>{preenchidos} de {total}</strong></div><div className="legal-doc-progress-track" aria-label={`${percentual}% preenchido`}><span style={{ width: `${percentual}%` }} /></div>{pendentes.length > 0 ? <><p>{pendentes.length} {pendentes.length === 1 ? "campo obrigatÃ³rio impede" : "campos obrigatÃ³rios impedem"} a geraÃ§Ã£o.</p><ul>{pendentes.slice(0, 4).map((campo) => <li key={campo.nome}>{campo.rotulo}</li>)}</ul><button type="button" className="btn-secondary compact" onClick={onVerPendentes}>Ver campos pendentes</button></> : <p className="legal-doc-ready">âœ“ Todos os campos obrigatÃ³rios estÃ£o prontos para revisÃ£o.</p>}</section>;
+  return <section className="legal-doc-progress-card"><div className="legal-doc-progress-heading"><div><span className="eyebrow">Progresso do documento</span><h3>{percentual}% preenchido</h3></div><strong>{preenchidos} de {total}</strong></div><div className="legal-doc-progress-track" aria-label={`${percentual}% preenchido`}><span style={{ width: `${percentual}%` }} /></div>{pendentes.length > 0 ? <><p>{pendentes.length} {pendentes.length === 1 ? "campo obrigatório impede" : "campos obrigatórios impedem"} a geração.</p><ul>{pendentes.slice(0, 4).map((campo) => <li key={campo.nome}>{campo.rotulo}</li>)}</ul><button type="button" className="btn-secondary compact" onClick={onVerPendentes}>Ver campos pendentes</button></> : <p className="legal-doc-ready">✓ Todos os campos obrigatórios estão prontos para revisão.</p>}</section>;
 }
 
 function AssistentePreenchimento({ dados, pendentes, errosVisiveis, onCorrigir }) {
   let aviso;
   if (errosVisiveis.length > 0) aviso = { tom: "error", titulo: "Revise um dado informado", texto: errosVisiveis[0].erro, campo: errosVisiveis[0].campo.nome };
-  else if (pendentes.length > 0) aviso = { tom: "warning", titulo: `Faltam ${pendentes.length} ${pendentes.length === 1 ? "informaÃ§Ã£o obrigatÃ³ria" : "informaÃ§Ãµes obrigatÃ³rias"}`, texto: `Comece por ${pendentes[0].rotulo.toLowerCase()} para avanÃ§ar na preparaÃ§Ã£o.`, campo: pendentes[0].nome };
-  else aviso = { tom: "success", titulo: "Documento pronto para revisÃ£o", texto: "Todos os campos obrigatÃ³rios foram preenchidos. Confira a prÃ©via antes de gerar o PDF." };
-  const orientacoes = [aviso, { tom: "info", titulo: "ConferÃªncia recomendada", texto: dados.numeroContrato ? "Revise o nÃºmero do contrato antes de gerar o arquivo final." : "Inclua contrato ou processo no nome quando essa referÃªncia estiver disponÃ­vel." }];
-  return <section className="legal-doc-assistant"><div className="legal-doc-section-title"><span><DocumentCategoryIcon name="shield" size={20} /></span><div><span className="eyebrow">Apoio contextual</span><h3>Assistente de preenchimento</h3></div></div><div className="legal-doc-advice-list">{orientacoes.map((item) => <article className={`legal-doc-advice ${item.tom}`} key={item.titulo}><span aria-hidden="true">{item.tom === "success" ? "âœ“" : item.tom === "info" ? "i" : "!"}</span><div><strong>{item.titulo}</strong><p>{item.texto}</p>{item.campo ? <button type="button" onClick={() => onCorrigir(item.campo)}>Corrigir agora</button> : null}</div></article>)}</div></section>;
+  else if (pendentes.length > 0) aviso = { tom: "warning", titulo: `Faltam ${pendentes.length} ${pendentes.length === 1 ? "informação obrigatória" : "informações obrigatórias"}`, texto: `Comece por ${pendentes[0].rotulo.toLowerCase()} para avançar na preparação.`, campo: pendentes[0].nome };
+  else aviso = { tom: "success", titulo: "Documento pronto para revisão", texto: "Todos os campos obrigatórios foram preenchidos. Confira a prévia antes de gerar o PDF." };
+  const orientacoes = [aviso, { tom: "info", titulo: "Conferência recomendada", texto: dados.numeroContrato ? "Revise o número do contrato antes de gerar o arquivo final." : "Inclua contrato ou processo no nome quando essa referência estiver disponível." }];
+  return <section className="legal-doc-assistant"><div className="legal-doc-section-title"><span><DocumentCategoryIcon name="shield" size={20} /></span><div><span className="eyebrow">Apoio contextual</span><h3>Assistente de preenchimento</h3></div></div><div className="legal-doc-advice-list">{orientacoes.map((item) => <article className={`legal-doc-advice ${item.tom}`} key={item.titulo}><span aria-hidden="true">{item.tom === "success" ? "✓" : item.tom === "info" ? "i" : "!"}</span><div><strong>{item.titulo}</strong><p>{item.texto}</p>{item.campo ? <button type="button" onClick={() => onCorrigir(item.campo)}>Corrigir agora</button> : null}</div></article>)}</div></section>;
 }
 
 function PainelPrevia({ modelo, nomeDocumento, numeroDocumento, atualizadoEm, gerando, pdfUrl, erroPrevia, fullscreen, onFullscreen, onRefresh }) {
@@ -245,11 +245,11 @@ function ModalSucesso({ resultado, onClose, onDownload, onOpen, onCopy, onSignat
 function DocumentosRecentes({ documentos, busca, onBusca, onOpen, onDuplicate, onVersion }) {
   const termo = normalizarBusca(busca);
   const filtrados = documentos.filter((item) => !termo || normalizarBusca(`${item.nomeDocumento} ${item.modeloNome} ${item.cliente} ${item.responsavel}`).includes(termo));
-  return <section className="legal-doc-recent-section"><div className="legal-doc-recent-heading"><div><span className="eyebrow">Rastreabilidade</span><h2>Documentos recentes</h2><p>Ãšltimas geraÃ§Ãµes registradas neste workspace.</p></div><label><span>âŒ•</span><input type="search" value={busca} onChange={(evento) => onBusca(evento.target.value)} placeholder="Pesquisar no histÃ³ricoâ€¦" /></label></div>{filtrados.length === 0 ? <div className="legal-doc-recent-empty"><DocumentCategoryIcon name="clock" size={25} /><strong>Nenhum documento recente</strong><p>Os arquivos gerados aparecerÃ£o aqui com versÃ£o, responsÃ¡vel e destino.</p></div> : <div className="legal-doc-recent-list">{filtrados.slice(0, 8).map((item) => <article key={item.id}><span className="model-card-icon"><DocumentModelIcon size={34} /></span><div><strong>{item.nomeDocumento}</strong><p>{item.modeloNome} Â· {item.cliente || "Cliente nÃ£o vinculado"}</p><small>{formatarDataHora(item.criadoEm)} Â· {item.responsavel} Â· VersÃ£o {String(item.versao || 1).padStart(2, "0")}</small></div><span className="legal-doc-history-status">{item.status || "Gerado"}</span><div className="legal-doc-history-actions"><button type="button" onClick={() => onOpen(item)} disabled={!item.link && !item.storagePath}>Abrir</button><button type="button" onClick={() => onDuplicate(item)}>Duplicar</button><button type="button" onClick={() => onVersion(item)}>Nova versÃ£o</button></div></article>)}</div>}</section>;
+  return <section className="legal-doc-recent-section"><div className="legal-doc-recent-heading"><div><span className="eyebrow">Rastreabilidade</span><h2>Documentos recentes</h2><p>Últimas gerações registradas neste workspace.</p></div><label><span>⌕</span><input type="search" value={busca} onChange={(evento) => onBusca(evento.target.value)} placeholder="Pesquisar no histórico…" /></label></div>{filtrados.length === 0 ? <div className="legal-doc-recent-empty"><DocumentCategoryIcon name="clock" size={25} /><strong>Nenhum documento recente</strong><p>Os arquivos gerados aparecerão aqui com versão, responsável e destino.</p></div> : <div className="legal-doc-recent-list">{filtrados.slice(0, 8).map((item) => <article key={item.id}><span className="model-card-icon"><DocumentModelIcon size={34} /></span><div><strong>{item.nomeDocumento}</strong><p>{item.modeloNome} · {item.cliente || "Cliente não vinculado"}</p><small>{formatarDataHora(item.criadoEm)} · {item.responsavel} · Versão {String(item.versao || 1).padStart(2, "0")}</small></div><span className="legal-doc-history-status">{item.status || "Gerado"}</span><div className="legal-doc-history-actions"><button type="button" onClick={() => onOpen(item)} disabled={!item.link && !item.storagePath}>Abrir</button><button type="button" onClick={() => onDuplicate(item)}>Duplicar</button><button type="button" onClick={() => onVersion(item)}>Nova versão</button></div></article>)}</div>}</section>;
 }
 
 export default function GeradorDocumentos({ responsavel, usuario, onSuccess, contextoDocumento, onDocumentoGerado, onStatusDocumento }) {
-  const departamentoUsuario = usuario?.setor || usuario?.departamento || "JurÃ­dico";
+  const departamentoUsuario = usuario?.setor || usuario?.departamento || "Jurídico";
   const [dados, setDados] = useState(() => carregarRascunho(responsavel, departamentoUsuario, contextoDocumento));
   const [bibliotecaAberta, setBibliotecaAberta] = useState(false);
   const [nomesModelos, setNomesModelos] = useState(() => lerJsonLocal(DOCUMENT_MODEL_NAMES_KEY, {}));
@@ -380,7 +380,7 @@ export default function GeradorDocumentos({ responsavel, usuario, onSuccess, con
       try {
         const arquivos = await gerarArquivos(dados, modeloSelecionado, nomeSugerido, false, nomesDoConjunto);
         const primeiroArquivo = arquivos[0];
-        if (!primeiroArquivo) throw new Error("Nenhum PDF disponÃ­vel para a prÃ©via.");
+        if (!primeiroArquivo) throw new Error("Nenhum PDF disponível para a prévia.");
         const url = URL.createObjectURL(new Blob([primeiroArquivo.bytes], { type: "application/pdf" }));
         if (!ativo) { URL.revokeObjectURL(url); return; }
         if (previewPdfUrlRef.current) URL.revokeObjectURL(previewPdfUrlRef.current);
@@ -388,8 +388,8 @@ export default function GeradorDocumentos({ responsavel, usuario, onSuccess, con
         setPreviewPdfUrl(url);
         setPreviewAtualizadaEm(new Date());
       } catch (previewError) {
-        console.warn("NÃ£o foi possÃ­vel atualizar a prÃ©via do documento:", previewError);
-        if (ativo) setPreviewPdfErro(previewError instanceof Error ? `NÃ£o foi possÃ­vel atualizar a prÃ©via: ${previewError.message}` : "NÃ£o foi possÃ­vel atualizar a prÃ©via do PDF.");
+        console.warn("Não foi possível atualizar a prévia do documento:", previewError);
+        if (ativo) setPreviewPdfErro(previewError instanceof Error ? `Não foi possível atualizar a prévia: ${previewError.message}` : "Não foi possível atualizar a prévia do PDF.");
       } finally {
         if (ativo) setPreviewPdfGerando(false);
       }
@@ -420,7 +420,7 @@ export default function GeradorDocumentos({ responsavel, usuario, onSuccess, con
   function marcarTocado(evento) { setTocados((atuais) => new Set([...atuais, evento.target.name])); }
 
   function selecionarModelo(modelo) {
-    if (modelo.id !== modeloSelecionado.id && dirty && !window.confirm("Trocar o modelo? Os campos especÃ­ficos do documento atual serÃ£o substituÃ­dos, mas os dados comuns serÃ£o preservados.")) return;
+    if (modelo.id !== modeloSelecionado.id && dirty && !window.confirm("Trocar o modelo? Os campos específicos do documento atual serão substituídos, mas os dados comuns serão preservados.")) return;
     const inicial = criarFormularioInicial(responsavel, modelo, departamentoUsuario);
     modelo.campos.forEach((campo) => { if (dados[campo.nome]) inicial[campo.nome] = dados[campo.nome]; });
     Object.assign(inicial, { observacaoInterna: dados.observacaoInterna || "", nacionalidadePreenchidaManualmente: Boolean(dados.nacionalidadePreenchidaManualmente) });
@@ -445,7 +445,7 @@ export default function GeradorDocumentos({ responsavel, usuario, onSuccess, con
       onSuccess?.("Nome do modelo atualizado para toda a equipe.");
     } catch (erroSalvar) {
       console.error("Erro ao salvar o nome do modelo:", erroSalvar);
-      setErro("NÃ£o foi possÃ­vel salvar o nome compartilhado. Execute a configuraÃ§Ã£o de modelos jurÃ­dicos no Supabase e tente novamente.");
+      setErro("Não foi possível salvar o nome compartilhado. Execute a configuração de modelos jurídicos no Supabase e tente novamente.");
     } finally {
       setSalvandoNomeModelo(false);
     }
@@ -472,7 +472,7 @@ export default function GeradorDocumentos({ responsavel, usuario, onSuccess, con
   }
 
   function cancelarEdicao() {
-    if (!window.confirm("Descartar as alteraÃ§Ãµes deste documento?")) return;
+    if (!window.confirm("Descartar as alterações deste documento?")) return;
     limparFormulario();
   }
 
@@ -486,7 +486,7 @@ export default function GeradorDocumentos({ responsavel, usuario, onSuccess, con
   }
 
   async function arquivarNoSupabase(arquivos, registro) {
-    if (!dados.salvarNaPasta) return { registro, aviso: "O registro automÃ¡tico foi desativado; os arquivos estão disponíveis apenas para download nesta sessão." };
+    if (!dados.salvarNaPasta) return { registro, aviso: "O registro automático foi desativado; os arquivos estão disponíveis apenas para download nesta sessão." };
     const nomesArquivos = arquivos.map((arquivo) => arquivo.nome);
     const { data: salvo, error: salvarError } = await supabase.from("documentos_juridicos").insert({ nome_documento: registro.nomeDocumento, nome_arquivo: arquivos[0].nome, modelo_id: registro.modeloId, modelo_nome: registro.modeloNome, categoria: modeloSelecionado.categoriaNome, cliente_id: dados.contextoDocumento?.cliente?.id || null, processo_id: dados.contextoDocumento?.processo?.id || null, tipo_documento: modeloSelecionado.modo, cliente_nome: registro.cliente || null, cpf_cnpj: dados.cpfCnpj || null, numero_contrato: dados.numeroContrato || null, numero_processo: dados.numeroProcesso || null, link_pasta_cliente: dados.contextoDocumento?.cliente?.link_pasta_cliente || dados.contextoDocumento?.processo?.link_pasta_cliente || null, responsavel_nome: registro.responsavel, departamento: dados.departamento || null, destino: dados.destino || null, versao: registro.versao, status: "Gerado", assinado: false, arquivo_principal_path: null, arquivos_paths: [], metadata: { dados, arquivos: nomesArquivos, contextoDocumento: dados.contextoDocumento || null, armazenamento: "drive_externo", observacao_armazenamento: "Arquivo não armazenado no Supabase. Arquivamento oficial na pasta do cliente no Drive." } }).select("*").single();
     if (salvarError) throw salvarError;
@@ -496,8 +496,8 @@ export default function GeradorDocumentos({ responsavel, usuario, onSuccess, con
 
   async function handleGerarPdf(evento) {
     evento?.preventDefault(); setTocados(new Set(modeloSelecionado.campos.map((campo) => campo.nome)));
-    if (pendentes.length) { setErro(`Preencha ${pendentes.length} ${pendentes.length === 1 ? "campo obrigatÃ³rio pendente" : "campos obrigatÃ³rios pendentes"}.`); focarCampo(pendentes[0].nome); return; }
-    if (declaracaoIrpfInvalida) { setErro("Informe os exercÃ­cios da declaraÃ§Ã£o de isenÃ§Ã£o de Imposto de Renda."); document.getElementById("exercicios-conjunto")?.focus(); return; }
+    if (pendentes.length) { setErro(`Preencha ${pendentes.length} ${pendentes.length === 1 ? "campo obrigatório pendente" : "campos obrigatórios pendentes"}.`); focarCampo(pendentes[0].nome); return; }
+    if (declaracaoIrpfInvalida) { setErro("Informe os exercícios da declaração de isenção de Imposto de Renda."); document.getElementById("exercicios-conjunto")?.focus(); return; }
     setGerando(true); setErro("");
     try {
       const versao = duplicado ? versaoSugerida : Number(dados.versao) || 1;
@@ -505,7 +505,7 @@ export default function GeradorDocumentos({ responsavel, usuario, onSuccess, con
       const nomeDocumento = nomesParaGeracao[modeloSelecionado.modo];
       const dadosGeracao = { ...dados, versao, numeroDocumento };
       const arquivos = await gerarArquivos(dadosGeracao, modeloSelecionado, nomeDocumento, true, nomesParaGeracao); const criadoEm = new Date().toISOString();
-      const registroBase = { id: `local-${Date.now()}`, nomeDocumento, modeloId: modeloSelecionado.id, modeloNome: modeloSelecionado.nome, icone: modeloSelecionado.icone, cliente: dados.nomeCliente, responsavel: responsavel || "NÃ£o informado", criadoEm, versao, status: "Gerado", destino: dados.destino, metadata: { dados: dadosGeracao } };
+      const registroBase = { id: `local-${Date.now()}`, nomeDocumento, modeloId: modeloSelecionado.id, modeloNome: modeloSelecionado.nome, icone: modeloSelecionado.icone, cliente: dados.nomeCliente, responsavel: responsavel || "Não informado", criadoEm, versao, status: "Gerado", destino: dados.destino, metadata: { dados: dadosGeracao } };
       let arquivamento = { registro: registroBase, aviso: "" };
       try { arquivamento = await arquivarNoSupabase(arquivos, registroBase); } catch (archiveError) { console.warn("Documento gerado sem arquivamento remoto:", archiveError); }
       const registro = { ...arquivamento.registro, arquivos: arquivos.map((arquivo) => ({ nome: arquivo.nome })) };
@@ -513,7 +513,7 @@ export default function GeradorDocumentos({ responsavel, usuario, onSuccess, con
       setResultado({ ...registro, arquivos, aviso: arquivamento.aviso || `${modeloSelecionado.formato === "docx" ? "DOCX" : "PDF"} gerado para download. Arquive o arquivo final na pasta do cliente no Drive.`, numeroDocumento }); setPreviewAtualizadaEm(new Date());
       onDocumentoGerado?.({ ...registro, arquivos, aviso: arquivamento.aviso, numeroDocumento, documentoRemoto: registro.documentoRemoto || null, modelo: modeloSelecionado, dados: dadosGeracao });
       onSuccess?.(modeloSelecionado.modo === "procuracao" ? mensagemConjuntoGerado(listarDocumentosProcuracao(dados)) : `Documento ${modeloSelecionado.formato === "docx" ? "DOCX" : "PDF"} gerado com sucesso!`);
-    } catch (generationError) { console.error(generationError); setErro(generationError instanceof Error ? generationError.message : "NÃ£o foi possÃ­vel gerar o PDF. Revise os dados e tente novamente."); } finally { setGerando(false); }
+    } catch (generationError) { console.error(generationError); setErro(generationError instanceof Error ? generationError.message : "Não foi possível gerar o PDF. Revise os dados e tente novamente."); } finally { setGerando(false); }
   }
 
   async function abrirHistorico(item) { let link = item.link; if (!link && item.storagePath) { const { data } = await supabase.storage.from("documentos-juridicos").createSignedUrl(item.storagePath, 60 * 60); link = data?.signedUrl; } if (link) window.open(link, "_blank", "noopener,noreferrer"); }
@@ -521,29 +521,29 @@ export default function GeradorDocumentos({ responsavel, usuario, onSuccess, con
   async function copiarLink() { if (!resultado?.link) return; await navigator.clipboard.writeText(resultado.link); onSuccess?.("Link interno copiado."); }
   async function prepararAssinatura() { if (resultado?.id && !String(resultado.id).startsWith("local-")) await supabase.from("documentos_juridicos").update({ status: "Aguardando assinatura" }).eq("id", resultado.id); setResultado((atual) => ({ ...atual, status: "Aguardando assinatura" })); onStatusDocumento?.({ ...resultado, status: "Aguardando assinatura" }); onSuccess?.("Documento marcado como pronto para assinatura."); }
 
-  const razaoBloqueio = pendentes.length ? `Preencha os ${pendentes.length} campos obrigatÃ³rios pendentes para gerar o PDF.` : declaracaoIrpfInvalida ? "Informe os exercÃ­cios da declaraÃ§Ã£o de IRPF." : "";
+  const razaoBloqueio = pendentes.length ? `Preencha os ${pendentes.length} campos obrigatórios pendentes para gerar o PDF.` : declaracaoIrpfInvalida ? "Informe os exercícios da declaração de IRPF." : "";
 
   return <section className="legal-doc-workspace" ref={primeiraSecaoRef}>
-    {!online ? <div className="legal-doc-offline" role="alert">Sem conexÃ£o. O rascunho temporÃ¡rio permanece neste dispositivo por atÃ© 24 horas.</div> : null}
-    <header className="legal-doc-hero"><div><span className="eyebrow">Platino Workspace Administrativo</span><h1>Gerador de Documentos JurÃ­dicos</h1><p>Selecione um modelo, preencha as informaÃ§Ãµes necessÃ¡rias e revise o documento antes de gerar o arquivo final.</p></div><div className="legal-doc-hero-badge"><DocumentCategoryIcon name="shield" size={22} /><span><small>Ambiente controlado</small><strong>Documentos rastreÃ¡veis</strong></span></div></header>
+    {!online ? <div className="legal-doc-offline" role="alert">Sem conexão. O rascunho temporário permanece neste dispositivo por até 24 horas.</div> : null}
+    <header className="legal-doc-hero"><div><span className="eyebrow">Platino Workspace Administrativo</span><h1>Gerador de Documentos Jurídicos</h1><p>Selecione um modelo, preencha as informações necessárias e revise o documento antes de gerar o arquivo final.</p></div><div className="legal-doc-hero-badge"><DocumentCategoryIcon name="shield" size={22} /><span><small>Ambiente controlado</small><strong>Documentos rastreáveis</strong></span></div></header>
     <EtapasDocumento etapaAtual={etapaAtual} />
     <div className="legal-doc-layout"><main className="legal-doc-main">
-      <section className="legal-doc-section legal-doc-model-selected"><div className="legal-doc-section-heading"><div><span className="eyebrow">Etapa 1</span><h2>Modelo selecionado</h2></div><button type="button" className="legal-doc-change-model" onClick={() => setBibliotecaAberta(true)}><DocumentModelIcon size={20} /><span><strong>Escolher outro modelo</strong><small>Ver todos os modelos disponÃ­veis</small></span><b aria-hidden="true">â†’</b></button></div><div className="legal-doc-selected-card"><span className="model-card-icon large"><DocumentModelIcon size={46} /></span><div><span>{modeloSelecionado.categoriaNome}</span><h3>{modeloSelecionado.nome}</h3><p>{modeloSelecionado.descricao}</p></div><div className="legal-doc-selected-meta"><span>{modeloSelecionado.campos.filter((campo) => campo.obrigatorio).length} campos obrigatÃ³rios</span><span>â‰ˆ {modeloSelecionado.minutos} minutos</span></div></div></section>
+      <section className="legal-doc-section legal-doc-model-selected"><div className="legal-doc-section-heading"><div><span className="eyebrow">Etapa 1</span><h2>Modelo selecionado</h2></div><button type="button" className="legal-doc-change-model" onClick={() => setBibliotecaAberta(true)}><DocumentModelIcon size={20} /><span><strong>Escolher outro modelo</strong><small>Ver todos os modelos disponíveis</small></span><b aria-hidden="true">→</b></button></div><div className="legal-doc-selected-card"><span className="model-card-icon large"><DocumentModelIcon size={46} /></span><div><span>{modeloSelecionado.categoriaNome}</span><h3>{modeloSelecionado.nome}</h3><p>{modeloSelecionado.descricao}</p></div><div className="legal-doc-selected-meta"><span>{modeloSelecionado.campos.filter((campo) => campo.obrigatorio).length} campos obrigatórios</span><span>≈ {modeloSelecionado.minutos} minutos</span></div></div></section>
       <form onSubmit={(evento) => evento.preventDefault()} noValidate>
-        <section className="legal-doc-section"><div className="legal-doc-section-heading"><div><span className="eyebrow">Etapa 2</span><h2>IdentificaÃ§Ã£o do arquivo</h2><p>O arquivo Ã© nomeado automaticamente com o modelo escolhido e os dados do cliente.</p></div><span className="legal-doc-required-note">* Campos obrigatÃ³rios</span></div>
-          <div className="legal-doc-name-suggestion legal-doc-model-name"><div><span>Nome do modelo na biblioteca</span><strong>{modeloSelecionado.nome}</strong><small>Este Ã© o nome que a equipe utiliza para localizar e selecionar este documento.</small></div>{gestor ? <button type="button" className="btn-secondary compact" onClick={() => { setNomeModeloEmEdicao(modeloSelecionado.nome); setEditandoNomeModelo((aberto) => !aberto); }}>{editandoNomeModelo ? "Cancelar" : "Renomear modelo"}</button> : null}</div>
-          {gestor && editandoNomeModelo ? <div className="legal-doc-model-name-editor"><label className="legal-doc-field wide" htmlFor="nomeModelo"><span>Nome exibido para toda a equipe</span><input id="nomeModelo" value={nomeModeloEmEdicao} onChange={(evento) => setNomeModeloEmEdicao(evento.target.value)} maxLength="100" placeholder="Ex.: ProcuraÃ§Ã£o" /></label><button type="button" className="btn-primary compact" disabled={salvandoNomeModelo} onClick={salvarNomeDoModelo}>{salvandoNomeModelo ? "Salvandoâ€¦" : "Salvar nome"}</button></div> : null}
+        <section className="legal-doc-section"><div className="legal-doc-section-heading"><div><span className="eyebrow">Etapa 2</span><h2>Identificação do arquivo</h2><p>O arquivo é nomeado automaticamente com o modelo escolhido e os dados do cliente.</p></div><span className="legal-doc-required-note">* Campos obrigatórios</span></div>
+          <div className="legal-doc-name-suggestion legal-doc-model-name"><div><span>Nome do modelo na biblioteca</span><strong>{modeloSelecionado.nome}</strong><small>Este é o nome que a equipe utiliza para localizar e selecionar este documento.</small></div>{gestor ? <button type="button" className="btn-secondary compact" onClick={() => { setNomeModeloEmEdicao(modeloSelecionado.nome); setEditandoNomeModelo((aberto) => !aberto); }}>{editandoNomeModelo ? "Cancelar" : "Renomear modelo"}</button> : null}</div>
+          {gestor && editandoNomeModelo ? <div className="legal-doc-model-name-editor"><label className="legal-doc-field wide" htmlFor="nomeModelo"><span>Nome exibido para toda a equipe</span><input id="nomeModelo" value={nomeModeloEmEdicao} onChange={(evento) => setNomeModeloEmEdicao(evento.target.value)} maxLength="100" placeholder="Ex.: Procuração" /></label><button type="button" className="btn-primary compact" disabled={salvandoNomeModelo} onClick={salvarNomeDoModelo}>{salvandoNomeModelo ? "Salvando…" : "Salvar nome"}</button></div> : null}
           <div className="legal-doc-name-suggestion"><div><span>Nome do arquivo gerado automaticamente</span><strong>{nomeSugerido || modeloSelecionado.nome}</strong><small>O nome inclui dados do cliente e a data, sem precisar ser digitado pela equipe.</small></div></div>
-          {duplicado ? <div className="legal-doc-duplicate-warning"><span>!</span><div><strong>JÃ¡ existe um documento com nome semelhante.</strong><p>Ao gerar, serÃ¡ criada automaticamente a VersÃ£o {String(versaoSugerida).padStart(2, "0")}.</p></div></div> : null}
+          {duplicado ? <div className="legal-doc-duplicate-warning"><span>!</span><div><strong>Já existe um documento com nome semelhante.</strong><p>Ao gerar, será criada automaticamente a Versão {String(versaoSugerida).padStart(2, "0")}.</p></div></div> : null}
           <div className="legal-doc-file-preview"><span>Nome do arquivo</span><code>{nomeArquivo}</code></div>
-          <div className="legal-doc-identification-grid"><section><div className="legal-doc-subsection-heading"><span>1</span><div><h3>ReferÃªncias principais</h3><p>Use apenas os identificadores disponÃ­veis para este atendimento.</p></div></div><div className="legal-doc-control-grid compact"><label className="legal-doc-field"><span>Data de emissÃ£o *</span><input type="date" name="dataEmissao" value={dados.dataEmissao || ""} onChange={atualizarCampo} required /></label><label className="legal-doc-field"><span>CPF ou CNPJ</span><input name="cpfCnpj" value={dados.cpfCnpj || ""} onChange={atualizarCampo} onBlur={marcarTocado} placeholder="000.000.000-00" /></label><label className="legal-doc-field wide"><span>NÃºmero do contrato</span><input name="numeroContrato" value={dados.numeroContrato || ""} onChange={atualizarCampo} /></label></div></section></div>
-          <details className="legal-doc-control-details"><summary><span>InformaÃ§Ãµes de controle e arquivamento</span><small>Opcional â€” abrir somente quando precisar</small></summary><div className="legal-doc-control-grid"><label className="legal-doc-field"><span>NÃºmero do processo</span><input name="numeroProcesso" value={dados.numeroProcesso || ""} onChange={atualizarCampo} /></label><label className="legal-doc-field"><span>ResponsÃ¡vel pela geraÃ§Ã£o</span><input value={responsavel || ""} readOnly /></label><label className="legal-doc-field"><span>Departamento</span><select name="departamento" value={dados.departamento || ""} onChange={atualizarCampo}><option>Administrativo</option><option>JurÃ­dico</option><option>Processual</option><option>SupervisÃ£o</option></select></label><label className="legal-doc-field wide"><span>ObservaÃ§Ã£o interna</span><textarea name="observacaoInterna" value={dados.observacaoInterna || ""} onChange={atualizarCampo} rows="3" placeholder="Contexto interno opcional. Este texto nÃ£o serÃ¡ incluÃ­do no documento." /></label></div><div className="legal-doc-destination"><label><input type="checkbox" name="salvarNaPasta" checked={Boolean(dados.salvarNaPasta)} onChange={atualizarCampo} /><span><strong>Registrar geraÃ§Ã£o no workspace</strong><small>O arquivo gerado não será armazenado no sistema. Arquive a versão final no Drive do cliente.</small></span></label><div><span>Destino</span><input name="destino" value={dados.destino || ""} onChange={atualizarCampo} aria-label="Destino de arquivamento" /></div></div></details>
+          <div className="legal-doc-identification-grid"><section><div className="legal-doc-subsection-heading"><span>1</span><div><h3>Referências principais</h3><p>Use apenas os identificadores disponíveis para este atendimento.</p></div></div><div className="legal-doc-control-grid compact"><label className="legal-doc-field"><span>Data de emissão *</span><input type="date" name="dataEmissao" value={dados.dataEmissao || ""} onChange={atualizarCampo} required /></label><label className="legal-doc-field"><span>CPF ou CNPJ</span><input name="cpfCnpj" value={dados.cpfCnpj || ""} onChange={atualizarCampo} onBlur={marcarTocado} placeholder="000.000.000-00" /></label><label className="legal-doc-field wide"><span>Número do contrato</span><input name="numeroContrato" value={dados.numeroContrato || ""} onChange={atualizarCampo} /></label></div></section></div>
+          <details className="legal-doc-control-details"><summary><span>Informações de controle e arquivamento</span><small>Opcional — abrir somente quando precisar</small></summary><div className="legal-doc-control-grid"><label className="legal-doc-field"><span>Número do processo</span><input name="numeroProcesso" value={dados.numeroProcesso || ""} onChange={atualizarCampo} /></label><label className="legal-doc-field"><span>Responsável pela geração</span><input value={responsavel || ""} readOnly /></label><label className="legal-doc-field"><span>Departamento</span><select name="departamento" value={dados.departamento || ""} onChange={atualizarCampo}><option>Administrativo</option><option>Jurídico</option><option>Processual</option><option>Supervisão</option></select></label><label className="legal-doc-field wide"><span>Observação interna</span><textarea name="observacaoInterna" value={dados.observacaoInterna || ""} onChange={atualizarCampo} rows="3" placeholder="Contexto interno opcional. Este texto não será incluído no documento." /></label></div><div className="legal-doc-destination"><label><input type="checkbox" name="salvarNaPasta" checked={Boolean(dados.salvarNaPasta)} onChange={atualizarCampo} /><span><strong>Registrar geração no workspace</strong><small>O arquivo gerado não será armazenado no sistema. Arquive a versão final no Drive do cliente.</small></span></label><div><span>Destino</span><input name="destino" value={dados.destino || ""} onChange={atualizarCampo} aria-label="Destino de arquivamento" /></div></div></details>
         </section>
-        <section className="legal-doc-section"><div className="legal-doc-section-heading"><div><span className="eyebrow">Etapa 3</span><h2>Dados necessÃ¡rios para este modelo</h2><p>Os campos estÃ£o agrupados. Abra uma seÃ§Ã£o de cada vez e preencha somente o que for necessÃ¡rio.</p></div></div>{grupos.map((grupo, indice) => <GrupoCampos key={`${modeloSelecionado.id}-${grupo.id}`} grupo={grupo} dados={dados} tocados={tocados} onChange={atualizarCampo} onBlur={marcarTocado} modeloId={modeloSelecionado.id} abertoInicial={indice === 0} />)}
-          {modeloSelecionado.modo === "procuracao" ? <section className="legal-doc-bundle"><div><span className="eyebrow">Conjunto documental</span><h3>Gerar declaraÃ§Ãµes com a ProcuraÃ§Ã£o</h3><p>Os mesmos dados serÃ£o reutilizados nos arquivos selecionados.</p></div><label><input type="checkbox" name="gerarHipossuficiencia" checked={Boolean(dados.gerarHipossuficiencia)} onChange={atualizarCampo} /><span><strong>DeclaraÃ§Ã£o de HipossuficiÃªncia</strong><small>JustiÃ§a gratuita</small></span></label><label><input type="checkbox" name="gerarIsencaoIrpf" checked={Boolean(dados.gerarIsencaoIrpf)} onChange={atualizarCampo} /><span><strong>DeclaraÃ§Ã£o de IsenÃ§Ã£o de IRPF</strong><small>IsenÃ§Ã£o de imposto de renda</small></span></label>{dados.gerarIsencaoIrpf ? <label className="legal-doc-field"><span>ExercÃ­cios da isenÃ§Ã£o *</span><input id="exercicios-conjunto" name="exercicios" value={dados.exercicios || ""} onChange={atualizarCampo} placeholder="2024, 2025 e 2026" /></label> : null}<p>{documentosProcuracao.length} {documentosProcuracao.length === 1 ? "PDF serÃ¡ gerado" : "PDFs serÃ£o gerados"}.</p></section> : null}
+        <section className="legal-doc-section"><div className="legal-doc-section-heading"><div><span className="eyebrow">Etapa 3</span><h2>Dados necessários para este modelo</h2><p>Os campos estão agrupados. Abra uma seção de cada vez e preencha somente o que for necessário.</p></div></div>{grupos.map((grupo, indice) => <GrupoCampos key={`${modeloSelecionado.id}-${grupo.id}`} grupo={grupo} dados={dados} tocados={tocados} onChange={atualizarCampo} onBlur={marcarTocado} modeloId={modeloSelecionado.id} abertoInicial={indice === 0} />)}
+          {modeloSelecionado.modo === "procuracao" ? <section className="legal-doc-bundle"><div><span className="eyebrow">Conjunto documental</span><h3>Gerar declarações com a Procuração</h3><p>Os mesmos dados serão reutilizados nos arquivos selecionados.</p></div><label><input type="checkbox" name="gerarHipossuficiencia" checked={Boolean(dados.gerarHipossuficiencia)} onChange={atualizarCampo} /><span><strong>Declaração de Hipossuficiência</strong><small>Justiça gratuita</small></span></label><label><input type="checkbox" name="gerarIsencaoIrpf" checked={Boolean(dados.gerarIsencaoIrpf)} onChange={atualizarCampo} /><span><strong>Declaração de Isenção de IRPF</strong><small>Isenção de imposto de renda</small></span></label>{dados.gerarIsencaoIrpf ? <label className="legal-doc-field"><span>Exercícios da isenção *</span><input id="exercicios-conjunto" name="exercicios" value={dados.exercicios || ""} onChange={atualizarCampo} placeholder="2024, 2025 e 2026" /></label> : null}<p>{documentosProcuracao.length} {documentosProcuracao.length === 1 ? "PDF será gerado" : "PDFs serão gerados"}.</p></section> : null}
         </section>
         <div className="legal-doc-support-grid"><PainelProgresso total={obrigatorios.length} preenchidos={preenchidos} pendentes={pendentes} onVerPendentes={() => pendentes[0] && focarCampo(pendentes[0].nome)} /><AssistentePreenchimento dados={dados} pendentes={pendentes} errosVisiveis={errosVisiveis} onCorrigir={focarCampo} /></div>{erro ? <p className="legal-doc-form-error" role="alert">{erro}</p> : null}
-        <div className="legal-doc-action-bar"><div><button type="button" className="btn-secondary" onClick={salvarRascunho}>Salvar rascunho por 24h</button><button type="button" className="legal-doc-cancel" onClick={cancelarEdicao}>Cancelar</button>{salvoEm ? <span className={online ? "saved" : "offline"}>Rascunho temporÃ¡rio salvo Ã s {salvoEm.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}</span> : null}</div><div><button type="button" className="btn-secondary" onClick={() => setPreviewFullscreen(true)}>Revisar documento</button><span className="legal-doc-generate-wrap"><button type="button" className="btn-primary" disabled={!podeGerar} onClick={() => handleGerarPdf()}>{gerando ? "Gerando arquivosâ€¦" : `Gerar ${modeloSelecionado.modo === "procuracao" ? `${documentosProcuracao.length} ` : ""}${modeloSelecionado.formato === "docx" ? "DOCX" : `PDF${modeloSelecionado.modo === "procuracao" && documentosProcuracao.length > 1 ? "s" : ""}`}`}</button>{razaoBloqueio ? <small>{razaoBloqueio}</small> : null}</span></div></div>
+        <div className="legal-doc-action-bar"><div><button type="button" className="btn-secondary" onClick={salvarRascunho}>Salvar rascunho por 24h</button><button type="button" className="legal-doc-cancel" onClick={cancelarEdicao}>Cancelar</button>{salvoEm ? <span className={online ? "saved" : "offline"}>Rascunho temporário salvo Ã s {salvoEm.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}</span> : null}</div><div><button type="button" className="btn-secondary" onClick={() => setPreviewFullscreen(true)}>Revisar documento</button><span className="legal-doc-generate-wrap"><button type="button" className="btn-primary" disabled={!podeGerar} onClick={() => handleGerarPdf()}>{gerando ? "Gerando arquivos…" : `Gerar ${modeloSelecionado.modo === "procuracao" ? `${documentosProcuracao.length} ` : ""}${modeloSelecionado.formato === "docx" ? "DOCX" : `PDF${modeloSelecionado.modo === "procuracao" && documentosProcuracao.length > 1 ? "s" : ""}`}`}</button>{razaoBloqueio ? <small>{razaoBloqueio}</small> : null}</span></div></div>
       </form>
     </main><aside className="legal-doc-preview-column"><PainelPrevia modelo={modeloSelecionado} nomeDocumento={nomeSugerido} numeroDocumento={numeroDocumento} atualizadoEm={previewAtualizadaEm} gerando={gerando || previewPdfGerando} pdfUrl={previewPdfUrl} erroPrevia={previewPdfErro} onFullscreen={() => setPreviewFullscreen(true)} onRefresh={() => setPreviewVersao((versao) => versao + 1)} /></aside></div>
     <DocumentosRecentes documentos={historico} busca={buscaHistorico} onBusca={setBuscaHistorico} onOpen={abrirHistorico} onDuplicate={(item) => carregarRegistro(item, false)} onVersion={(item) => carregarRegistro(item, true)} />
