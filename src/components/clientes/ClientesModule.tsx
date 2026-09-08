@@ -286,7 +286,7 @@ export default function ClientesModule({ usuario, showToast }: Props) {
 
     const operacao = clienteEditando
       ? supabase.from("clientes").update(payload).eq("id", clienteEditando.id).select("*").single()
-      : supabase.from("clientes").insert({ ...payload, created_by: usuario.email || usuario.nome || null }).select("*").single();
+      : supabase.from("clientes").insert(payload).select("*").single();
 
     const { data, error } = await operacao;
     setSalvando(false);
