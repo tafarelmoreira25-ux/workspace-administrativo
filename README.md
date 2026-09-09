@@ -69,6 +69,31 @@ Execute também `supabase/documentos_juridicos_workspace.sql` para o gerador de 
 
 Execute `supabase/esteira_processual_platino.sql` para habilitar a nova Esteira Processual PLATINO, depois de concluir a limpeza das tabelas antigas de processos.
 
+## Comunicação por Gmail e revisão com Gemini
+
+Na ficha do cliente, o botão **Preparar e-mail** cria mensagens a partir de
+modelos, relaciona opcionalmente um processo, permite copiar o texto e abre a
+tela de composição do Gmail. O envio permanece sempre sob confirmação humana.
+Quando marcada, a preparação é registrada em `processual_atendimentos` como
+rascunho, sem afirmar que a mensagem foi enviada.
+
+O botão **Analisar e-mail/PDF** aceita texto colado e um PDF de até 8 MB. O
+Gemini devolve resumo, pedido, dados extraídos, pendências, eventual prazo
+mencionado e pontos para conferência. Nada é salvo até o usuário confirmar.
+
+A revisão pelo Gemini é executada exclusivamente na Edge Function
+`assistente-juridico`; a chave não é exposta no bundle do navegador. Para
+ativá-la, associe o projeto com a CLI do Supabase e execute:
+
+```bash
+npx supabase secrets set GEMINI_API_KEY=SUA_CHAVE GEMINI_MODEL=gemini-3.8-flash
+npx supabase functions deploy assistente-juridico
+```
+
+Use um projeto Gemini com faturamento e tratamento de dados adequado a
+informações jurídicas. A resposta da IA é apenas uma sugestão e precisa ser
+revisada antes do envio.
+
 ## Recursos disponíveis
 
 Login e recuperação de senha, início, documentos PDF, Esteira Processual PLATINO, treinamentos, planner pessoal e consulta de feedbacks.

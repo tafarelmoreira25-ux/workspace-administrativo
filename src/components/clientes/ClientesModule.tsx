@@ -1,6 +1,8 @@
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { supabase } from "../../lib/supabase";
 import GeradorDocumentos from "../../GeradorDocumentos";
+import EmailComposer from "../comunicacao/EmailComposer";
+import ContentAnalyzer from "../comunicacao/ContentAnalyzer";
 
 type Cliente = {
   id: string | number;
@@ -152,6 +154,9 @@ export default function ClientesModule({ usuario, showToast }: Props) {
   const [abaFicha, setAbaFicha] = useState("resumo");
   const [modalAberto, setModalAberto] = useState(false);
   const [geradorAberto, setGeradorAberto] = useState(false);
+  const [emailAberto, setEmailAberto] = useState(false);
+  const [analisadorAberto, setAnalisadorAberto] = useState(false);
+  const [processoEmail, setProcessoEmail] = useState<ProcessoResumo | null>(null);
   const [clienteEditando, setClienteEditando] = useState<Cliente | null>(null);
   const [formulario, setFormulario] = useState(() => criarFormulario(null, usuario.nome || ""));
   const [carregando, setCarregando] = useState(true);
@@ -245,6 +250,25 @@ export default function ClientesModule({ usuario, showToast }: Props) {
     });
   }, [atendimentos, clienteAberto]);
 
+  const historicoDoCliente = useMemo(() => {
+    const eventosAtendimento = atendimentosDoCliente.map((atendimento) => ({
+      id: `atendimento-${atendimento.id}`,
+      titulo: `${atendimento.canal} · ${atendimento.tipo || "Atendimento"}`,
+      descricao: atendimento.descricao,
+      data: atendimento.created_at || `${atendimento.data}T${atendimento.hora || "00:00"}`,
+      responsavel: atendimento.responsavel,
+    }));
+    const eventosDocumento = documentosDoCliente.map((documento) => ({
+      id: `documento-${documento.id}`,
+      titulo: `Documento · ${documento.nome_documento}`,
+      descricao: `${documento.modelo_nome} · ${documento.status || "Gerado"}`,
+      data: documento.created_at,
+      responsavel: documento.responsavel_nome,
+    }));
+    return [...eventosAtendimento, ...eventosDocumento]
+      .sort((a, b) => String(b.data || "").localeCompare(String(a.data || "")));
+  }, [atendimentosDoCliente, documentosDoCliente]);
+
   function abrirNovoCliente() {
     setClienteEditando(null);
     setFormulario(criarFormulario(null, usuario.nome || ""));
@@ -283,6 +307,15 @@ export default function ClientesModule({ usuario, showToast }: Props) {
       setDocumentos((atuais) => [resultado.documentoRemoto as DocumentoResumo, ...atuais.filter((item) => item.id !== resultado.documentoRemoto?.id)]);
     }
     avisar("Documento vinculado ao cliente.");
+  }
+
+  function abrirEmail(processo?: ProcessoResumo | null) {
+    setProcessoEmail(processo || null);
+    setEmailAberto(true);
+  }
+
+  function registrarAtendimentoEmail(atendimento: AtendimentoResumo) {
+    setAtendimentos((atuais) => [atendimento, ...atuais.filter((item) => item.id !== atendimento.id)]);
   }
 
   async function salvarCliente(evento: FormEvent<HTMLFormElement>) {
@@ -475,6 +508,11 @@ export default function ClientesModule({ usuario, showToast }: Props) {
               <button type="button" className="drawer-close" onClick={() => setClienteAberto(null)} aria-label="Fechar ficha">×</button>
               <span className="eyebrow">Ficha do cliente</span>
               <h3>{clienteAberto.nome_completo}</h3>
+              <div className="cliente-quick-actions">
+                <button type="button" className="btn-primary compact" onClick={() => abrirEmail()}>Preparar e-mail</button>
+                <button type="button" className="btn-secondary compact" onClick={() => setAnalisadorAberto(true)}>Analisar e-mail/PDF</button>
+                <button type="button" className="btn-secondary compact" onClick={() => abrirEdicao(clienteAberto)}>Editar cadastro</button>
+              </div>
               <dl className="cliente-ficha-topo">
                 <div><dt>CPF</dt><dd>{clienteAberto.cpf || "—"}</dd></div>
                 <div><dt>ID CRM</dt><dd>{clienteAberto.id_crm || "—"}</dd></div>
@@ -518,7 +556,7 @@ export default function ClientesModule({ usuario, showToast }: Props) {
                   {processosDoCliente.length === 0 ? <div className="empty-row">Nenhum processo cadastrado.</div> : (
                     <div className="clientes-table-wrap compact-table">
                       <table className="clientes-table">
-                        <thead><tr><th>Processo</th><th>Réu</th><th>Banco</th><th>Situação</th><th>Fase</th><th>Resultado</th><th>Responsável</th></tr></thead>
+                        <thead><tr><th>Processo</th><th>Réu</th><th>Banco</th><th>Situação</th><th>Fase</th><th>Resultado</th><th>Responsável</th><th>Ações</th></tr></thead>
                         <tbody>{processosDoCliente.map((processo) => (
                           <tr key={processo.id}>
                             <td>{processo.numero_processo || "Pendente"}</td>
@@ -528,6 +566,7 @@ export default function ClientesModule({ usuario, showToast }: Props) {
                             <td>{processo.fase_atual || "—"}</td>
                             <td>{processo.resultado || processo.status_judicial || "—"}</td>
                             <td>{processo.responsavel || "—"}</td>
+                            <td><button type="button" className="btn-secondary compact" onClick={() => abrirEmail(processo)}>E-mail</button></td>
                           </tr>
                         ))}</tbody>
                       </table>
@@ -576,8 +615,18 @@ export default function ClientesModule({ usuario, showToast }: Props) {
               {abaFicha === "historico" ? (
                 <section className="ficha-section">
                   <h4>Histórico geral do cliente</h4>
-                  <div className="history-note">Preparado para eventos gerais do cliente. Os andamentos de cada processo continuarão separados em suas próprias movimentações.</div>
-                  <div className="empty-row">Nenhum evento geral cadastrado.</div>
+                  <div className="history-note">Reúne atendimentos, comunicações preparadas e documentos. Os andamentos processuais permanecem separados em suas próprias movimentações.</div>
+                  {historicoDoCliente.length === 0 ? <div className="empty-row">Nenhum evento geral cadastrado.</div> : (
+                    <div className="document-list">
+                      {historicoDoCliente.map((evento) => (
+                        <article key={evento.id}>
+                          <strong>{evento.titulo}</strong>
+                          <span>{evento.descricao}</span>
+                          <small>{formatarDataHora(evento.data)} · {evento.responsavel || "Responsável não informado"}</small>
+                        </article>
+                      ))}
+                    </div>
+                  )}
                 </section>
               ) : null}
             </div>
@@ -629,6 +678,29 @@ export default function ClientesModule({ usuario, showToast }: Props) {
             />
           </section>
         </div>
+      ) : null}
+
+      {emailAberto && clienteAberto ? (
+        <EmailComposer
+          cliente={clienteAberto}
+          processos={processosDoCliente}
+          processoInicial={processoEmail}
+          usuario={usuario}
+          onClose={() => setEmailAberto(false)}
+          onRegistrado={registrarAtendimentoEmail}
+          showToast={avisar}
+        />
+      ) : null}
+
+      {analisadorAberto && clienteAberto ? (
+        <ContentAnalyzer
+          cliente={clienteAberto}
+          processos={processosDoCliente}
+          usuario={usuario}
+          onClose={() => setAnalisadorAberto(false)}
+          onRegistrado={registrarAtendimentoEmail}
+          showToast={avisar}
+        />
       ) : null}
 
       {importacaoAberta ? (

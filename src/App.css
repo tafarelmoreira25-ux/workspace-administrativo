@@ -2301,6 +2301,13 @@ textarea:focus {
   line-height: 1.25;
 }
 
+.cliente-quick-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0 0 12px;
+}
+
 .drawer-close {
   position: absolute;
   top: 10px;
@@ -2483,6 +2490,83 @@ textarea:focus {
 .cliente-modal h3 {
   margin: 4px 0 0;
   font-size: 18px;
+}
+
+.email-composer {
+  width: min(880px, 100%);
+}
+
+.content-analyzer {
+  width: min(840px, 100%);
+}
+
+.email-composer-body {
+  overflow: auto;
+}
+
+.email-safety-note {
+  margin: 16px 16px 0;
+  padding: 10px 12px;
+  color: #344054;
+  background: #f8fafc;
+  border: 1px solid #dfe5ee;
+  border-left: 3px solid var(--accent);
+  border-radius: 8px;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.email-fields textarea {
+  min-height: 260px;
+  resize: vertical;
+  line-height: 1.55;
+}
+
+.email-history-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 16px 16px;
+  color: #475467;
+  font-size: 12px;
+}
+
+.email-history-option input {
+  width: 16px;
+  height: 16px;
+  margin: 0;
+}
+
+.email-composer-actions {
+  flex-wrap: wrap;
+}
+
+.selected-file {
+  color: var(--accent);
+  font-size: 11px;
+}
+
+.analysis-result {
+  margin: 0 16px 16px;
+  padding: 14px;
+  background: #fbfcfd;
+  border: 1px solid #dfe5ee;
+  border-radius: 8px;
+}
+
+.analysis-result h4 {
+  margin: 0 0 10px;
+  font-size: 13px;
+}
+
+.analysis-result pre {
+  margin: 0;
+  color: #344054;
+  font: inherit;
+  font-size: 12px;
+  line-height: 1.55;
+  white-space: pre-wrap;
+  word-break: break-word;
 }
 
 .cliente-form-grid {
