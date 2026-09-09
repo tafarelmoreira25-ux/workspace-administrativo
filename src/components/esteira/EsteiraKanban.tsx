@@ -189,7 +189,7 @@ export default function EsteiraKanban({
   const protocolos = useMemo(() => {
     const termo = normalizar(busca);
     return processos.filter((processo) => (
-      processo.fase_atual !== "Arquivado" && processo.fase_atual !== "Improcedente"
+      processo.origem_registro === "encaminhamento_processual"
     )).filter((processo) => {
       if (!termo) return true;
       return [
@@ -222,8 +222,8 @@ export default function EsteiraKanban({
     const nome = formulario.nome_cliente.trim();
     const banco = formulario.banco_reu.trim();
 
-    if (!nome || !banco) {
-      showToast("Informe cliente e instituição financeira.");
+    if (!nome) {
+      showToast("Informe o cliente.");
       return;
     }
 
@@ -261,7 +261,7 @@ export default function EsteiraKanban({
       nome_cliente: nome,
       cpf_cliente: formulario.cpf_cliente.trim() || null,
       banco_reu: banco,
-      autor_reu: `${nome} X ${banco}`,
+      autor_reu: banco ? `${nome} X ${banco}` : nome,
       produto: formulario.produto.trim() || null,
       numero_contrato: formulario.numero_contrato.trim() || null,
       motivo_ajuizamento: formulario.motivo_ajuizamento,
@@ -367,55 +367,34 @@ export default function EsteiraKanban({
         </div>
       </div>
 
-      <div className="protocolos-data-grid-wrap">
-        <table className="protocolos-data-grid">
-          <thead>
-            <tr>
-              <th>Cliente</th>
-              <th>CPF</th>
-              <th>ID</th>
-              <th>Banco</th>
-              <th>Etapa atual</th>
-              <th>Documentação</th>
-              <th>Procuração</th>
-              <th>Elite</th>
-              <th>Pasta retornada</th>
-              <th>SLA</th>
-              <th>Protocolo</th>
-              <th>Responsável</th>
-            </tr>
-          </thead>
-          <tbody>
-            {protocolos.length === 0 ? (
-              <tr><td colSpan={12}><div className="empty-row">Nenhum protocolo cadastrado.</div></td></tr>
-            ) : protocolos.map((processo) => {
-              const prazo = calcularPrazoElite(processo.data_envio_elite);
-              const classe = classeSla(prazo.sinalizacao);
-              return (
-                <tr key={processo.id} onDoubleClick={() => abrirEdicao(processo)}>
-                  <td><button type="button" className="link-cell" onClick={() => abrirEdicao(processo)}>{processo.nome_cliente}</button><small>{processo.produto || "Produto não informado"}</small></td>
-                  <td>{processo.cpf_cliente || "—"}</td>
-                  <td>{processo.id_crm || processo.pasta_cliente_id || "—"}</td>
-                  <td>{processo.banco_reu || "—"}</td>
-                  <td><span className="table-chip">{etapaAtual(processo)}</span></td>
-                  <td>{processo.documentacao_status || processo.status_documentos || "Pendente"}</td>
-                  <td>{processo.procuracao_status || processo.status_procuracao || "Elaborando"}</td>
-                  <td>{processo.documentos_elite_status || "Pendente"}<small>{formatarDataHora(processo.data_envio_elite)}</small></td>
-                  <td>{processo.pasta_retorno_status || (processo.pasta_retornada ? "Retornada" : "Não retornada")}</td>
-                  <td>
-                    <div className={`sla-cell ${classe}`}>
-                      <span>{prazo.rotulo}</span>
-                      <i><b style={{ width: `${prazo.percentual}%` }} /></i>
-                      <small>{processo.sla_dias_uteis_utilizados ? `${processo.sla_dias_uteis_utilizados} dias usados` : prazo.dataLimite ? `${prazo.diasUteisDecorridos} decorridos · ${prazo.diasUteisRestantes} restantes` : "Não iniciado"}</small>
-                    </div>
-                  </td>
-                  <td>{processo.numero_processo || "Aguardando"}</td>
-                  <td>{processo.responsavel || "—"}</td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
+      <div className="protocolos-kanban">
+        {(["A Fazer", "Fazendo", "Concluído"] as const).map((coluna) => {
+          const itens = protocolos.filter((processo) => {
+            if (processo.numero_processo || processo.protocolo_status === "Liberado") return coluna === "Concluído";
+            const fazendo = Boolean(processo.data_envio_elite || processo.pasta_retornada || processo.documentacao_status === "Regular" || processo.status_documentos === "Regular");
+            return coluna === (fazendo ? "Fazendo" : "A Fazer");
+          });
+          return <section className="protocolo-kanban-coluna" key={coluna}>
+            <header><h3>{coluna}</h3><span>{itens.length}</span></header>
+            <button className="kanban-nova-atividade" onClick={abrirNovoCadastro} type="button">+ Novo protocolo</button>
+            <div className="protocolo-kanban-lista">
+              {itens.map((processo) => {
+                const prazo = calcularPrazoElite(processo.data_envio_elite);
+                return <article className="protocolo-kanban-card" key={processo.id}>
+                  <header><strong>{processo.nome_cliente}</strong><button type="button" onClick={() => abrirEdicao(processo)}>Editar</button></header>
+                  <span>{processo.banco_reu || "Instituição não informada"}</span>
+                  <div className="protocolo-card-status"><small>Documentação</small><b>{processo.documentacao_status || processo.status_documentos || "Pendente"}</b></div>
+                  <div className="protocolo-card-status"><small>Procuração</small><b>{processo.procuracao_status || processo.status_procuracao || "Pendente"}</b></div>
+                  <div className="protocolo-card-status"><small>Etapa</small><b>{etapaAtual(processo)}</b></div>
+                  {processo.data_envio_elite && <div className={`sla-cell ${classeSla(prazo.sinalizacao)}`}><span>{prazo.rotulo}</span><small>Início: {formatarDataHora(processo.data_envio_elite)} · {prazo.diasUteisDecorridos} decorridos · {prazo.diasUteisRestantes} restantes</small></div>}
+                  {processo.pasta_retornada && <em>Retornado para correção{processo.pasta_retorno_motivo ? `: ${processo.pasta_retorno_motivo}` : ""}</em>}
+                  {processo.numero_processo && <code>{processo.numero_processo}</code>}
+                </article>;
+              })}
+              {!itens.length && <p className="kanban-vazio">Nenhum protocolo nesta etapa.</p>}
+            </div>
+          </section>;
+        })}
       </div>
 
       {modalAberto && (

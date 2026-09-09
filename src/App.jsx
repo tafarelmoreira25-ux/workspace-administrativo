@@ -1,17 +1,15 @@
 import { lazy, Suspense, useCallback, useEffect, useState } from "react";
 import { supabase } from "./lib/supabase";
 import { resolverTipoAcesso } from "./lib/userAccess";
-import MeuPlanner from "./MeuPlanner";
 import TreinamentosOperacionais from "./components/TreinamentosOperacionais";
 import "./App.css";
 const GeradorDocumentos = lazy(() => import("./GeradorDocumentos"));
 const EsteiraProcessualPlatino = lazy(() => import("./components/esteira/EsteiraProcessualPlatino"));
 const ClientesModule = lazy(() => import("./components/clientes/ClientesModule"));
 const OperacionalProcessualModule = lazy(() => import("./components/operacional/OperacionalProcessualModule"));
-const DocumentosAcervo = lazy(() => import("./components/documentos/DocumentosAcervo"));
 const GerencialProcessualModule = lazy(() => import("./components/gerencial/GerencialProcessualModule"));
 const GlobalSearch = lazy(() => import("./components/gerencial/GlobalSearch"));
-const CarteiraProcessual = lazy(() => import("./CarteiraProcessual"));
+const DashboardModule = lazy(() => import("./components/dashboard/DashboardModule"));
 const ADMIN_EMAIL = (import.meta.env.VITE_ADMIN_EMAIL || "tafarel@platino.com").toLowerCase();
 const TEMPO_LIMITE_INICIALIZACAO_MS = 8_000;
 function limitarTempo(promise, tempoMs, mensagem) {
@@ -138,7 +136,10 @@ function NavItem({ active, icon, children, onClick, disabled = false }) {
   );
 }
 
-function AreaTrabalho({ usuario, admin }) {
+function AreaTrabalho({ usuario, admin, onNavigate }) {
+  if (onNavigate) {
+    return <Suspense fallback={<section className="panel">Carregando área de trabalho...</section>}><DashboardModule usuario={usuario} onNavigate={onNavigate} /></Suspense>;
+  }
   const primeiroNome = usuario.nome?.split(" ")[0] || "equipe";
   const indicadores = [
     ["Tarefas de hoje", "0", "Fila operacional preparada"],
@@ -501,11 +502,6 @@ function Workspace({ usuario, onLogout, showToast }) {
   }, [usuario.id, showToast]);
   const permissoes = usuario.permissoes || {};
   const admin = usuario.tipo === "admin";
-  const setorNormalizado = String(usuario.setor || usuario.cargo || "")
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .toLowerCase();
-  const podeEditarCarteira = admin || setorNormalizado === "administrativo";
   const podeVerDocumentos = admin || permissoes.documentos !== false;
   const podeVerProcessual = admin || permissoes.esteira_processual !== false;
   const navGroups = [
@@ -514,23 +510,15 @@ function Workspace({ usuario, onLogout, showToast }) {
       itens: [
         ["inicio", "Área de Trabalho", "dashboard"],
         ["clientes", "Clientes", "clientes"],
-        ...(podeVerProcessual ? [["esteira-processual", "Processual", "esteira"]] : []),
-        ["processual-visao", "Visão Geral", "indicadores"],
-        ["processual-protocolos", "Protocolos", "protocolo"],
-        ["processual-processos", "Processos", "documentos"],
-        ...(podeVerProcessual ? [["carteira-historica", "Carteira histórica", "documentos"]] : []),
-        ["processual-prazos", "Prazos", "prazos"],
-        ["processual-ocorrencias", "Ocorrências", "ocorrencias"],
-        ["atendimentos", "Atendimentos", "feedback"],
-        ["agenda", "Agenda e Prazos", "agenda"],
+        ...(podeVerProcessual ? [["processual-protocolos", "Protocolos", "protocolo"], ["processual-processos", "Processual", "esteira"]] : []),
+        ["agenda", "Agenda e Atendimentos", "agenda"],
       ],
     },
     {
       titulo: "Produção",
       itens: [
-        ...(podeVerDocumentos ? [["documentos", "Gerador de Documentos", "documentos"], ["documentos-arquivo", "Documentos", "protocolo"]] : []),
-        ["indicadores", "Indicadores", "indicadores"],
-        ["alertas", "Alertas", "alertas"],
+        ...(podeVerDocumentos ? [["documentos", "Documentos", "documentos"]] : []),
+        ["gestao", "Gestão", "indicadores"],
         ["treinamentos", "Treinamentos", "treinamento"],
       ],
     },
@@ -591,19 +579,17 @@ function Workspace({ usuario, onLogout, showToast }) {
           <div className="user-chip"><strong>{usuario.nome}</strong><span>{usuario.email}</span></div>
         </div>
       </header>
-      {aba === "inicio" && <><AreaTrabalho usuario={usuario} admin={admin} />{!admin && permissoes.planner !== false && <MeuPlanner funcionariaLogadaId={usuario.id} />}</>}
+      {aba === "inicio" && <AreaTrabalho usuario={usuario} admin={admin} onNavigate={navegar} />}
       {aba === "clientes" && <Suspense fallback={<section className="panel">Carregando clientes...</section>}><ClientesModule usuario={usuario} showToast={showToast} /></Suspense>}
       {aba === "documentos" && <Suspense fallback={<section className="panel">Carregando documentos...</section>}><GeradorDocumentos usuario={usuario} responsavel={usuario.nome} onSuccess={showToast} /></Suspense>}
-      {aba === "esteira-processual" && <Suspense fallback={<section className="panel">Carregando esteira processual...</section>}><EsteiraProcessualPlatino usuario={usuario} showToast={showToast} /></Suspense>}
       {aba === "processual-protocolos" && <Suspense fallback={<section className="panel">Carregando protocolos...</section>}><EsteiraProcessualPlatino usuario={usuario} showToast={showToast} initialView="protocolos" /></Suspense>}
       {aba === "processual-processos" && <Suspense fallback={<section className="panel">Carregando processos...</section>}><EsteiraProcessualPlatino usuario={usuario} showToast={showToast} initialView="processos" /></Suspense>}
-      {aba === "carteira-historica" && <Suspense fallback={<section className="panel">Carregando carteira histórica...</section>}><CarteiraProcessual podeEditar={podeEditarCarteira} showToast={showToast} /></Suspense>}
       {aba === "processual-prazos" && <Suspense fallback={<section className="panel">Carregando prazos...</section>}><OperacionalProcessualModule usuario={usuario} showToast={showToast} initialView="agenda" /></Suspense>}
       {aba === "processual-visao" && <Suspense fallback={<section className="panel">Carregando visão geral...</section>}><GerencialProcessualModule usuario={usuario} showToast={showToast} initialView="indicadores" /></Suspense>}
       {aba === "processual-ocorrencias" && <Suspense fallback={<section className="panel">Carregando ocorrências...</section>}><GerencialProcessualModule usuario={usuario} showToast={showToast} initialView="ocorrencias" /></Suspense>}
       {aba === "atendimentos" && <Suspense fallback={<section className="panel">Carregando atendimentos...</section>}><OperacionalProcessualModule usuario={usuario} showToast={showToast} initialView="atendimentos" /></Suspense>}
       {aba === "agenda" && <Suspense fallback={<section className="panel">Carregando agenda...</section>}><OperacionalProcessualModule usuario={usuario} showToast={showToast} initialView="agenda" /></Suspense>}
-      {aba === "documentos-arquivo" && <Suspense fallback={<section className="panel">Carregando documentos...</section>}><DocumentosAcervo usuario={usuario} showToast={showToast} /></Suspense>}
+      {aba === "gestao" && <Suspense fallback={<section className="panel">Carregando gestão...</section>}><GerencialProcessualModule usuario={usuario} showToast={showToast} initialView="indicadores" /></Suspense>}
       {aba === "indicadores" && <Suspense fallback={<section className="panel">Carregando indicadores...</section>}><GerencialProcessualModule usuario={usuario} showToast={showToast} initialView="indicadores" /></Suspense>}
       {aba === "alertas" && <Suspense fallback={<section className="panel">Carregando alertas...</section>}><GerencialProcessualModule usuario={usuario} showToast={showToast} initialView="alertas" /></Suspense>}
       {aba === "treinamentos" && <TreinamentosOperacionais usuario={usuario} />}

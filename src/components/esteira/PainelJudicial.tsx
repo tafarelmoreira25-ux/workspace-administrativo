@@ -1,6 +1,7 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { supabase } from "../../lib/supabase";
 import GeradorDocumentos from "../../GeradorDocumentos";
+import Pagination from "../common/Pagination";
 import {
   type FaseProcessual,
   type MovimentacaoProcessual,
@@ -332,6 +333,7 @@ export default function PainelJudicial({
   const [comunicacaoCanal, setComunicacaoCanal] = useState("WhatsApp");
   const [comunicacaoObservacao, setComunicacaoObservacao] = useState("");
   const [salvando, setSalvando] = useState(false);
+  const [pagina, setPagina] = useState(1);
 
   const bancos = useMemo(() => ["Todos", ...Array.from(new Set(processos.map((p) => p.banco_reu).filter(Boolean))) as string[]], [processos]);
   const responsaveis = useMemo(() => ["Todos", ...Array.from(new Set(processos.map((p) => p.responsavel).filter(Boolean))) as string[]], [processos]);
@@ -339,7 +341,7 @@ export default function PainelJudicial({
 
   const processosFiltrados = useMemo(() => {
     const termo = normalizar(busca);
-    return processos.filter((processo) => {
+    return processos.filter((processo) => Boolean(processo.numero_processo?.trim())).filter((processo) => {
       const situacao = situacaoDoProcesso(processo);
       const fase = faseDoProcesso(processo);
       const resultado = resultadoDoProcesso(processo);
@@ -372,6 +374,8 @@ export default function PainelJudicial({
         boolFiltro(recursal, filtros.recursal);
     });
   }, [busca, filtros, processos]);
+
+  useEffect(() => { setPagina(1); }, [busca, filtros]);
 
   useEffect(() => {
     setFicha(criarFicha(processoAberto, usuario?.nome || ""));
@@ -890,12 +894,12 @@ export default function PainelJudicial({
     .join("\n");
 
   return (
-    <div className="painel-judicial processos-module">
+    <div className={`painel-judicial processos-module ${fichaAberta ? "ficha-processo-aberta" : ""}`}>
       <div className="judicial-toolbar processos-toolbar">
         <div>
           <span className="eyebrow">Processos</span>
           <h2>Controle jurídico da carteira processual</h2>
-          <p>Processos protocolados e pastas ainda pendentes de protocolo em uma visão única.</p>
+          <p>Somente processos judiciais já distribuídos ou protocolados.</p>
         </div>
         <label>
           <span>Busca</span>
@@ -941,7 +945,7 @@ export default function PainelJudicial({
           <tbody>
             {processosFiltrados.length === 0 ? (
               <tr><td colSpan={12}>Nenhum processo encontrado.</td></tr>
-            ) : processosFiltrados.map((processo) => {
+            ) : processosFiltrados.slice((pagina - 1) * 30, pagina * 30).map((processo) => {
               const situacao = situacaoDoProcesso(processo);
               const fase = faseDoProcesso(processo);
               const resultado = resultadoDoProcesso(processo);
@@ -965,9 +969,10 @@ export default function PainelJudicial({
           </tbody>
         </table>
       </div>
+      <Pagination pagina={pagina} total={processosFiltrados.length} tamanho={30} onChange={setPagina} rotulo="processos" />
 
       {fichaAberta && (
-        <aside className="judicial-drawer process-drawer" aria-label="Ficha do processo">
+        <section className="judicial-drawer process-drawer process-page-view" aria-label="Ficha do processo">
           <form className="judicial-drawer-panel process-ficha" onSubmit={salvarProcesso}>
             <button className="modal-close" onClick={() => { setProcessoAberto(null); setModalCadastro(false); }} type="button">×</button>
             <header className="process-ficha-header">
@@ -1182,7 +1187,7 @@ export default function PainelJudicial({
               <div><button className="btn-secondary" onClick={() => { setProcessoAberto(null); setModalCadastro(false); }} type="button">Fechar</button><button className="btn-primary" disabled={salvando} type="submit">{salvando ? "Salvando..." : "Salvar processo"}</button></div>
             </footer>
           </form>
-        </aside>
+        </section>
       )}
       {geradorAberto && processoAberto ? (
         <div className="document-generator-backdrop">

@@ -18,7 +18,7 @@ function contarPorFase(processos: Processo[], fase: string) {
 }
 
 export default function EsteiraProcessualPlatino({ usuario, showToast, initialView = "protocolos" }: Props) {
-  const [visualizacao, setVisualizacao] = useState<Visualizacao>(initialView);
+  const [visualizacao] = useState<Visualizacao>(initialView);
   const [processos, setProcessos] = useState<Processo[]>([]);
   const [carregando, setCarregando] = useState(true);
 
@@ -106,21 +106,7 @@ export default function EsteiraProcessualPlatino({ usuario, showToast, initialVi
         ))}
       </div>
 
-      <div className="esteira-tabs" role="tablist" aria-label="Abas do módulo Processual">
-        <button
-          className={visualizacao === "protocolos" ? "active" : ""}
-          onClick={() => setVisualizacao("protocolos")}
-          type="button"
-        >
-          Protocolos
-        </button>
-        <button
-          className={visualizacao === "processos" ? "active" : ""}
-          onClick={() => setVisualizacao("processos")}
-          type="button"
-        >
-          Processos
-        </button>
+      <div className="esteira-tabs">
         <button className="ghost" onClick={carregarProcessos} type="button">
           Atualizar
         </button>

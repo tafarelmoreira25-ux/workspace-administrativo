@@ -3,6 +3,7 @@ import { supabase } from "../../lib/supabase";
 import GeradorDocumentos from "../../GeradorDocumentos";
 import EmailComposer from "../comunicacao/EmailComposer";
 import ContentAnalyzer from "../comunicacao/ContentAnalyzer";
+import Pagination from "../common/Pagination";
 
 type Cliente = {
   id: string | number;
@@ -89,6 +90,12 @@ const FORMULARIO_INICIAL = {
   observacoes: "",
 };
 
+const CLIENTES_POR_PAGINA = 30;
+
+function termoPostgrest(valor: string) {
+  return valor.trim().replace(/[,()"']/g, " ").replace(/\s+/g, " ").slice(0, 120);
+}
+
 function normalizarBusca(valor = "") {
   return String(valor)
     .normalize("NFD")
@@ -150,6 +157,9 @@ export default function ClientesModule({ usuario, showToast }: Props) {
   const [documentos, setDocumentos] = useState<DocumentoResumo[]>([]);
   const [atendimentos, setAtendimentos] = useState<AtendimentoResumo[]>([]);
   const [busca, setBusca] = useState("");
+  const [buscaAplicada, setBuscaAplicada] = useState("");
+  const [pagina, setPagina] = useState(1);
+  const [totalClientes, setTotalClientes] = useState(0);
   const [clienteAberto, setClienteAberto] = useState<Cliente | null>(null);
   const [abaFicha, setAbaFicha] = useState("resumo");
   const [modalAberto, setModalAberto] = useState(false);
@@ -160,6 +170,7 @@ export default function ClientesModule({ usuario, showToast }: Props) {
   const [clienteEditando, setClienteEditando] = useState<Cliente | null>(null);
   const [formulario, setFormulario] = useState(() => criarFormulario(null, usuario.nome || ""));
   const [carregando, setCarregando] = useState(true);
+  const [carregandoFicha, setCarregandoFicha] = useState(false);
   const [salvando, setSalvando] = useState(false);
   const [erro, setErro] = useState("");
   const [importacaoAberta, setImportacaoAberta] = useState(false);
@@ -175,45 +186,71 @@ export default function ClientesModule({ usuario, showToast }: Props) {
   const carregarDados = useCallback(async () => {
     setCarregando(true);
     setErro("");
+    const termo = termoPostgrest(buscaAplicada);
+    let clientesPorProcesso: Array<string | number> = [];
 
-    const [clientesResultado, processosResultado, documentosResultado, atendimentosResultado] = await Promise.allSettled([
-      supabase.from("clientes").select("*").order("updated_at", { ascending: false }).limit(2000),
-      supabase.from("processos").select("id, cliente_id, nome_cliente, cpf_cliente, reu, banco_reu, numero_processo, fase_atual, situacao, resultado, status_judicial, justica_gratuita, responsavel, updated_at").order("updated_at", { ascending: false }).limit(1200),
-      supabase.from("documentos_juridicos").select("id, nome_documento, modelo_nome, cliente_nome, cpf_cnpj, numero_processo, responsavel_nome, status, created_at").order("created_at", { ascending: false }).limit(500),
-      supabase.from("processual_atendimentos").select("*").order("data", { ascending: false }).limit(500),
-    ]);
+    if (termo) {
+      const { data: encontrados } = await supabase
+        .from("processos")
+        .select("cliente_id")
+        .ilike("numero_processo", `%${termo}%`)
+        .not("cliente_id", "is", null)
+        .limit(500);
+      clientesPorProcesso = [...new Set((encontrados || []).map((item) => item.cliente_id).filter(Boolean))] as Array<string | number>;
+    }
 
-    if (clientesResultado.status === "fulfilled" && !clientesResultado.value.error) {
-      setClientes((clientesResultado.value.data || []) as Cliente[]);
+    let consulta = supabase.from("clientes").select("*", { count: "exact" });
+    if (termo) {
+      const filtros = [
+        `nome_completo.ilike.%${termo}%`,
+        `cpf.ilike.%${termo}%`,
+        `id_crm.ilike.%${termo}%`,
+      ];
+      if (clientesPorProcesso.length) filtros.push(`id.in.(${clientesPorProcesso.join(",")})`);
+      consulta = consulta.or(filtros.join(","));
+    }
+
+    const inicio = (pagina - 1) * CLIENTES_POR_PAGINA;
+    const { data, count, error } = await consulta
+      .order("nome_completo", { ascending: true })
+      .range(inicio, inicio + CLIENTES_POR_PAGINA - 1);
+
+    if (error) {
+      setErro(`Não foi possível carregar clientes: ${error.message}`);
+      setCarregando(false);
+      return;
+    }
+
+    const paginaClientes = (data || []) as Cliente[];
+    setClientes(paginaClientes);
+    setTotalClientes(count || 0);
+    const ids = paginaClientes.map((cliente) => cliente.id);
+    if (ids.length) {
+      const { data: processosPagina } = await supabase
+        .from("processos")
+        .select("id, cliente_id, nome_cliente, cpf_cliente, reu, banco_reu, numero_processo, fase_atual, situacao, resultado, status_judicial, justica_gratuita, responsavel, updated_at")
+        .in("cliente_id", ids)
+        .order("updated_at", { ascending: false });
+      setProcessos((processosPagina || []) as ProcessoResumo[]);
     } else {
-      const detalhe = clientesResultado.status === "fulfilled" ? clientesResultado.value.error?.message : clientesResultado.reason?.message;
-      setErro(`Não foi possível carregar clientes. Confira se a migration de clientes foi executada. ${detalhe || ""}`.trim());
+      setProcessos([]);
     }
-
-    if (processosResultado.status === "fulfilled" && !processosResultado.value.error) {
-      setProcessos((processosResultado.value.data || []) as ProcessoResumo[]);
-    }
-
-    if (documentosResultado.status === "fulfilled" && !documentosResultado.value.error) {
-      setDocumentos((documentosResultado.value.data || []) as DocumentoResumo[]);
-    }
-
-    if (atendimentosResultado.status === "fulfilled" && !atendimentosResultado.value.error) {
-      setAtendimentos((atendimentosResultado.value.data || []) as AtendimentoResumo[]);
-    }
-
     setCarregando(false);
-  }, []);
+  }, [buscaAplicada, pagina]);
 
   useEffect(() => {
     carregarDados();
   }, [carregarDados]);
 
-  const clientesFiltrados = useMemo(() => {
-    const termo = normalizarBusca(busca);
-    if (!termo) return clientes;
-    return clientes.filter((cliente) => normalizarBusca(`${cliente.nome_completo} ${cliente.cpf || ""} ${cliente.id_crm || ""}`).includes(termo));
-  }, [busca, clientes]);
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      setPagina(1);
+      setBuscaAplicada(busca);
+    }, 350);
+    return () => window.clearTimeout(timer);
+  }, [busca]);
+
+  const clientesFiltrados = clientes;
 
   const processosDoCliente = useMemo(() => {
     if (!clienteAberto) return [];
@@ -281,9 +318,19 @@ export default function ClientesModule({ usuario, showToast }: Props) {
     setModalAberto(true);
   }
 
-  function abrirFicha(cliente: Cliente) {
+  async function abrirFicha(cliente: Cliente) {
     setClienteAberto(cliente);
     setAbaFicha("resumo");
+    setCarregandoFicha(true);
+    const [processosResultado, documentosResultado, atendimentosResultado] = await Promise.allSettled([
+      supabase.from("processos").select("id, cliente_id, nome_cliente, cpf_cliente, reu, banco_reu, numero_processo, fase_atual, situacao, resultado, status_judicial, justica_gratuita, responsavel, updated_at").eq("cliente_id", cliente.id).order("updated_at", { ascending: false }),
+      supabase.from("documentos_juridicos").select("id, nome_documento, modelo_nome, cliente_nome, cpf_cnpj, numero_processo, responsavel_nome, status, created_at").eq("cliente_id", cliente.id).order("created_at", { ascending: false }).limit(300),
+      supabase.from("processual_atendimentos").select("*").eq("cliente_id", cliente.id).order("data", { ascending: false }).limit(300),
+    ]);
+    if (processosResultado.status === "fulfilled" && !processosResultado.value.error) setProcessos((processosResultado.value.data || []) as ProcessoResumo[]);
+    if (documentosResultado.status === "fulfilled" && !documentosResultado.value.error) setDocumentos((documentosResultado.value.data || []) as DocumentoResumo[]);
+    if (atendimentosResultado.status === "fulfilled" && !atendimentosResultado.value.error) setAtendimentos((atendimentosResultado.value.data || []) as AtendimentoResumo[]);
+    setCarregandoFicha(false);
   }
 
   function contextoDocumentoCliente() {
@@ -450,7 +497,7 @@ export default function ClientesModule({ usuario, showToast }: Props) {
       </header>
 
       <div className="clientes-layout">
-        <section className="clientes-list-panel">
+        {!clienteAberto ? <section className="clientes-list-panel">
           <div className="clientes-toolbar">
             <label>
               <span>Buscar por nome, CPF ou ID</span>
@@ -500,12 +547,13 @@ export default function ClientesModule({ usuario, showToast }: Props) {
               </tbody>
             </table>
           </div>
-        </section>
+          <Pagination pagina={pagina} total={totalClientes} tamanho={CLIENTES_POR_PAGINA} onChange={setPagina} rotulo="clientes" />
+        </section> : null}
 
         {clienteAberto ? (
-          <aside className="cliente-ficha-panel">
+          <section className="cliente-ficha-panel cliente-ficha-page">
             <header>
-              <button type="button" className="drawer-close" onClick={() => setClienteAberto(null)} aria-label="Fechar ficha">×</button>
+              <button type="button" className="cliente-back-button" onClick={() => { setClienteAberto(null); carregarDados(); }}>← Voltar para clientes</button>
               <span className="eyebrow">Ficha do cliente</span>
               <h3>{clienteAberto.nome_completo}</h3>
               <div className="cliente-quick-actions">
@@ -532,6 +580,7 @@ export default function ClientesModule({ usuario, showToast }: Props) {
             </nav>
 
             <div className="cliente-ficha-content">
+              {carregandoFicha ? <div className="empty-row">Carregando informações da ficha...</div> : null}
               {abaFicha === "resumo" ? (
                 <section className="ficha-section">
                   <h4>Resumo cadastral</h4>
@@ -630,7 +679,7 @@ export default function ClientesModule({ usuario, showToast }: Props) {
                 </section>
               ) : null}
             </div>
-          </aside>
+          </section>
         ) : null}
       </div>
 
