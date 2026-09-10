@@ -90,7 +90,7 @@ function UiIcon({ name, size = 20 }) {
   const paths = {
     dashboard: <><rect x="3" y="3" width="7" height="7" rx="2" /><rect x="14" y="3" width="7" height="7" rx="2" /><rect x="3" y="14" width="7" height="7" rx="2" /><rect x="14" y="14" width="7" height="7" rx="2" /></>,
     equipe: <><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M22 21v-2a4 4 0 0 0-3-3.87" /><path d="M16 3.13a4 4 0 0 1 0 7.75" /></>,
-    clientes: <><path d="M16 11a4 4 0 1 0-8 0" /><path d="M4 21a8 8 0 0 1 16 0" /><circle cx="12" cy="7" r="3" /></>,
+    clientes: <><circle cx="12" cy="8" r="4" /><path d="M4 21a8 8 0 0 1 16 0" /></>,
     documentos: <><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z" /><path d="M14 2v6h6" /><path d="M8 13h8" /><path d="M8 17h6" /></>,
     planner: <><rect x="3" y="5" width="18" height="16" rx="2" /><path d="M16 3v4" /><path d="M8 3v4" /><path d="M3 11h18" /><path d="m8 16 2 2 4-4" /></>,
     feedback: <><path d="M21 15a4 4 0 0 1-4 4H8l-5 3V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4Z" /><path d="M8 9h8" /><path d="M8 13h5" /></>,
@@ -473,7 +473,7 @@ function Workspace({ usuario, onLogout, showToast }) {
         </div>
         <div className="topbar-actions">
           <button type="button" className="icon-button" aria-label="Notificações"><UiIcon name="sino" size={18} /></button>
-          <button type="button" className="account-avatar" onClick={() => setMenuContaAberto((atual) => !atual)} aria-label="Abrir menu da conta" title="Conta">{usuario.nome?.trim()?.[0]?.toUpperCase() || "U"}</button>
+          <button type="button" className="account-avatar" onClick={() => setMenuContaAberto((atual) => !atual)} aria-label="Abrir menu da conta" title="Conta"><img src="/assets/platino-profile-avatar.png" alt="Perfil Platino Assessoria" /></button>
           {menuContaAberto ? <div className="account-menu"><div className="account-menu-identity"><strong>{usuario.nome || "Usuário"}</strong><span>{usuario.email || "Conta autenticada"}</span></div>{admin ? <button type="button" onClick={() => navegar("administracao")}>Configurações</button> : null}<button type="button" onClick={onLogout}>Sair</button></div> : null}
         </div>
       </header>

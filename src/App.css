@@ -1516,6 +1516,11 @@ p {
   stroke-width: 1.8;
 }
 
+.nav-item.active-tab .ui-icon {
+  color: var(--accent) !important;
+  filter: none !important;
+}
+
 .sidebar-logout {
   min-height: 36px !important;
   margin-top: auto;
@@ -2370,12 +2375,15 @@ textarea:focus {
 /* Navegação compacta e ficha centralizada */
 .app-layout.menu-recolhido { grid-template-columns: 76px minmax(0, 1fr); }
 .sidebar-collapse { position: absolute; right: -13px; top: 66px; z-index: 3; width: 27px; height: 27px; border: 1px solid var(--line); border-radius: 50%; background: #fff; color: #344054; cursor: pointer; box-shadow: 0 3px 9px rgba(16, 24, 40, .12); }
+.sidebar { overflow: visible !important; }
+.sidebar nav { min-height: 0; overflow-x: hidden; overflow-y: auto; }
 .sidebar.recolhida { width: 76px !important; padding-inline: 10px; overflow: visible; }
 .sidebar.recolhida .brand { justify-content: center; padding-inline: 0; }
 .sidebar.recolhida .brand > div, .sidebar.recolhida .nav-group > span, .sidebar.recolhida .nav-item > span { display: none; }
 .sidebar.recolhida .nav-item { justify-content: center !important; padding-inline: 8px !important; }
 .sidebar.recolhida nav { overflow: visible; }
-.account-avatar { align-items: center; background: #153f72; border: 0; border-radius: 50%; color: #fff; cursor: pointer; display: flex; font-weight: 800; height: 36px; justify-content: center; width: 36px; }
+.account-avatar { align-items: center; background: #fff; border: 1px solid #d8e2ef; border-radius: 50%; color: #fff; cursor: pointer; display: flex; font-weight: 800; height: 40px; justify-content: center; overflow: hidden; padding: 0; width: 40px; }
+.account-avatar img { display: block; height: 100%; object-fit: cover; width: 100%; }
 .topbar-actions { position: relative; }
 .account-menu { background: #fff; border: 1px solid var(--line); border-radius: 9px; box-shadow: 0 12px 28px rgba(16, 24, 40, .14); display: grid; min-width: 150px; padding: 6px; position: absolute; right: 0; top: 44px; z-index: 250; }
 .account-menu-identity { border-bottom: 1px solid var(--line); display: grid; gap: 2px; margin-bottom: 4px; padding: 8px 10px 10px; }

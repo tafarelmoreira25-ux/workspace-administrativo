@@ -1388,7 +1388,7 @@
 
 .protocolo-timeline {
   display: grid;
-  grid-template-columns: repeat(8, minmax(0, 1fr));
+  grid-template-columns: repeat(9, minmax(0, 1fr));
   gap: 0;
   margin: 14px 0;
   padding: 10px;
@@ -1397,7 +1397,7 @@
   border-radius: 9px;
 }
 
-.protocolo-timeline span {
+.protocolo-timeline button {
   position: relative;
   min-height: 28px;
   display: flex;
@@ -1411,15 +1411,24 @@
   text-align: center;
   text-transform: uppercase;
   letter-spacing: .02em;
+  background: transparent;
+  border: 0;
+  cursor: pointer;
 }
 
-.protocolo-timeline span:last-child {
+.protocolo-timeline button:last-child {
   border-right: 0;
 }
 
-.protocolo-timeline span.done {
+.protocolo-timeline button.done {
   color: #2557d6;
   background: #eef3ff;
+}
+
+.protocolo-timeline button.active {
+  color: #fff;
+  background: #153f72;
+  box-shadow: inset 0 -3px 0 #5ca8ff;
 }
 
 .protocolo-form-section {
@@ -1430,6 +1439,7 @@
   background: #fff;
   border: 1px solid #edf0f4;
   border-radius: 9px;
+  min-height: 220px;
 }
 
 .protocolo-form-section h4 {
@@ -1478,11 +1488,38 @@
   font-size: 11px;
 }
 
+.protocolo-sla-resumo {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(130px, 1fr));
+  gap: 10px;
+}
+
+.protocolo-sla-resumo > div {
+  display: grid;
+  gap: 5px;
+  padding: 12px;
+  background: #f8fafc;
+  border: 1px solid #e4e9f0;
+  border-radius: 8px;
+}
+
+.protocolo-sla-resumo span {
+  color: #667085;
+  font-size: 10px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.protocolo-step-actions {
+  display: flex;
+  gap: 8px;
+}
+
 .protocolo-modal-actions {
   position: sticky;
   bottom: 0;
   display: flex;
-  justify-content: flex-end;
+  justify-content: space-between;
   gap: 8px;
   margin: 14px -2px 0;
   padding: 12px 0 2px;
@@ -1504,9 +1541,13 @@
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  .protocolo-timeline span {
+  .protocolo-timeline button {
     border-right: 0;
     border-bottom: 1px solid #e5e9ef;
+  }
+
+  .protocolo-sla-resumo {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 
@@ -1846,6 +1887,7 @@
 .protocolo-kanban-card { background: #fff; border: 1px solid #dfe5eb; border-radius: 10px; box-shadow: 0 3px 12px rgba(22, 44, 70, .05); display: grid; gap: 9px; padding: 13px; }
 .protocolo-kanban-card > header { align-items: start; display: flex; gap: 8px; justify-content: space-between; }
 .protocolo-kanban-card > header button { background: none; border: 0; color: #1763a6; cursor: pointer; font-size: .72rem; font-weight: 700; }
+.protocolo-card-actions { display: flex; gap: 5px; }
 .protocolo-kanban-card > span { color: #6a7887; font-size: .76rem; }
 .protocolo-card-status { align-items: center; display: flex; gap: 8px; justify-content: space-between; }
 .protocolo-card-status small { color: #718091; }
@@ -1853,6 +1895,19 @@
 .protocolo-kanban-card em { background: #fff3d8; border-radius: 6px; color: #8a5b00; font-size: .7rem; font-style: normal; padding: 7px; }
 .protocolo-kanban-card code { color: #174f82; font-size: .7rem; overflow-wrap: anywhere; }
 .kanban-vazio { color: #778493; font-size: .78rem; padding: 20px 8px; text-align: center; }
+
+.protocolo-visualizacao { display: grid; gap: 16px; width: min(820px, calc(100vw - 36px)); }
+.protocolo-visualizacao > p { color: #667085; margin: -10px 0 0; }
+.protocolo-view-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+.protocolo-view-grid > div { background: #f8fafc; border: 1px solid #e4e9f0; border-radius: 8px; display: grid; gap: 5px; padding: 11px; }
+.protocolo-view-grid span { color: #667085; font-size: 10px; font-weight: 800; text-transform: uppercase; }
+.protocolo-view-grid strong { color: #17243a; font-size: 13px; }
+.protocolo-view-alert, .protocolo-view-observacoes { border: 1px solid #e4e9f0; border-radius: 8px; display: grid; gap: 7px; padding: 13px; }
+.protocolo-view-alert { background: #fff8e7; border-color: #f2d79a; }
+.protocolo-view-alert h4, .protocolo-view-observacoes h4 { margin: 0; }
+.protocolo-view-alert p, .protocolo-view-observacoes p { margin: 0; white-space: pre-wrap; }
+.protocolo-view-alert small { color: #7a5810; }
+.protocolo-visualizacao footer { display: flex; justify-content: flex-end; gap: 8px; }
 
 .ficha-processo-aberta > .judicial-toolbar,
 .ficha-processo-aberta > .processos-filters,
@@ -1863,4 +1918,5 @@
 
 @media (max-width: 980px) {
   .protocolos-kanban { grid-template-columns: 1fr; }
+  .protocolo-view-grid { grid-template-columns: 1fr; }
 }

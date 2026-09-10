@@ -44,6 +44,9 @@ type ProcessoResumo = {
   vara?: string | null;
   data_distribuicao?: string | null;
   observacoes?: string | null;
+  documentacao_status?: string | null;
+  procuracao_status?: string | null;
+  protocolo_status?: string | null;
   updated_at?: string | null;
 };
 
@@ -282,6 +285,7 @@ export default function ClientesModule({ usuario, showToast, buscaExterna, onOpe
       return mesmoId || mesmoCpf || mesmoNome;
     });
   }, [clienteAberto, processos]);
+  const protocoloDoCliente = processosDoCliente.find((processo) => !processo.numero_processo);
 
   const documentosDoCliente = useMemo(() => {
     if (!clienteAberto) return [];
@@ -342,7 +346,7 @@ export default function ClientesModule({ usuario, showToast, buscaExterna, onOpe
     setAbaFicha("resumo");
     setCarregandoFicha(true);
     const [processosResultado, documentosResultado, atendimentosResultado, historicosResultado] = await Promise.allSettled([
-      supabase.from("processos").select("id, cliente_id, nome_cliente, cpf_cliente, reu, banco_reu, numero_processo, fase_atual, situacao, resultado, status_judicial, justica_gratuita, responsavel, tipo_acao, tribunal, comarca, vara, data_distribuicao, observacoes, updated_at").eq("cliente_id", cliente.id).order("updated_at", { ascending: false }),
+      supabase.from("processos").select("id, cliente_id, nome_cliente, cpf_cliente, reu, banco_reu, numero_processo, fase_atual, situacao, resultado, status_judicial, justica_gratuita, responsavel, tipo_acao, tribunal, comarca, vara, data_distribuicao, observacoes, documentacao_status, procuracao_status, protocolo_status, updated_at").eq("cliente_id", cliente.id).order("updated_at", { ascending: false }),
       supabase.from("documentos_juridicos").select("id, nome_documento, modelo_nome, cliente_nome, cpf_cnpj, numero_processo, responsavel_nome, status, created_at").eq("cliente_id", cliente.id).order("created_at", { ascending: false }).limit(300),
       supabase.from("processual_atendimentos").select("*").eq("cliente_id", cliente.id).order("data", { ascending: false }).limit(300),
       supabase.from("clientes_historico").select("*").eq("cliente_id", cliente.id).order("created_at", { ascending: false }).limit(300),
@@ -657,6 +661,7 @@ export default function ClientesModule({ usuario, showToast, buscaExterna, onOpe
                     <div><dt>RG</dt><dd>{clienteAberto.rg || "—"}</dd></div>
                     <div><dt>Nascimento</dt><dd>{formatarData(clienteAberto.data_nascimento)}</dd></div>
                     <div><dt>Endereço</dt><dd>{clienteAberto.endereco || "—"}</dd></div>
+                    <div><dt>Situação processual</dt><dd>{protocoloDoCliente ? `${protocoloDoCliente.fase_atual || "Encaminhamento pendente"} · Documentação ${protocoloDoCliente.documentacao_status || "pendente"}` : processosDoCliente.length ? "Processo judicial cadastrado" : "Sem protocolo ou processo"}</dd></div>
                     <div><dt>Observações</dt><dd>{clienteAberto.observacoes || "Nenhuma observação cadastrada."}</dd></div>
                   </dl>
                 </section>
@@ -673,7 +678,7 @@ export default function ClientesModule({ usuario, showToast, buscaExterna, onOpe
                   {processosDoCliente.length === 0 ? <div className="empty-row">Nenhum processo cadastrado.</div> : (
                     <div className="clientes-table-wrap compact-table">
                       <table className="clientes-table">
-                        <thead><tr><th>Processo</th><th>Réu</th><th>Banco</th><th>Situação</th><th>Fase</th><th>Resultado</th><th>Responsável</th><th>Ações</th></tr></thead>
+                        <thead><tr><th>Processo</th><th>Réu</th><th>Banco</th><th>Situação</th><th>Fase</th><th>Resultado</th><th>Observações</th><th>Responsável</th><th>Ações</th></tr></thead>
                         <tbody>{processosDoCliente.map((processo) => (
                           <tr key={processo.id}>
                             <td>{processo.numero_processo || "Pendente"}</td>
@@ -682,6 +687,7 @@ export default function ClientesModule({ usuario, showToast, buscaExterna, onOpe
                             <td><span className="table-chip">{processo.situacao || (processo.numero_processo ? "Protocolado" : "Pendente")}</span></td>
                             <td>{processo.fase_atual || "—"}</td>
                             <td>{processo.resultado || processo.status_judicial || "—"}</td>
+                            <td>{processo.observacoes || "—"}</td>
                             <td>{processo.responsavel || "—"}</td>
                             <td><div className="table-actions"><button type="button" className="btn-secondary compact" onClick={() => editarProcesso(processo)}>Editar processo</button>{processo.numero_processo && onOpenProcess ? <button type="button" className="btn-secondary compact" onClick={() => onOpenProcess(processo.id)}>Abrir processo</button> : null}<button type="button" className="btn-secondary compact" onClick={() => abrirEmail(processo)}>E-mail</button></div></td>
                           </tr>

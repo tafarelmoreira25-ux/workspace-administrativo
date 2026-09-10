@@ -32,7 +32,8 @@ const STATUS_RETORNO = ["Não retornada", "Retornada", "Em regularização", "Re
 const IMPACTO_SLA = ["não altera", "pausa", "reinicia"];
 const STATUS_PROTOCOLO = ["Aguardando", "Liberado"];
 
-const TIMELINE = [
+const ETAPAS_FORMULARIO = [
+  ["dados", "Encaminhamento"],
   ["documentacao", "Documentação"],
   ["procuracao", "Procuração"],
   ["crm", "CRM"],
@@ -41,7 +42,9 @@ const TIMELINE = [
   ["retorno", "Pasta retornada"],
   ["protocolo", "Protocolo"],
   ["distribuicao", "Distribuição"],
-];
+] as const;
+
+type EtapaFormulario = (typeof ETAPAS_FORMULARIO)[number][0];
 
 function formatarData(data: Date | string | null | undefined) {
   if (!data) return "—";
@@ -133,6 +136,7 @@ function etapaAtual(processo: Processo): FaseProcessual {
 }
 
 function timelineConcluida(chave: string, processo: Processo) {
+  if (chave === "dados") return Boolean(processo.nome_cliente && processo.banco_reu);
   if (chave === "documentacao") return processo.documentacao_status === "Regular" || processo.status_documentos === "Regular";
   if (chave === "procuracao") return [processo.procuracao_status, processo.declaracao_hipossuficiencia_status].some((status) => status === "Assinado");
   if (chave === "crm") return processo.crm_documentos_status === "Concluído";
@@ -142,6 +146,19 @@ function timelineConcluida(chave: string, processo: Processo) {
   if (chave === "protocolo") return processo.protocolo_status === "Liberado" || Boolean(processo.numero_processo);
   if (chave === "distribuicao") return Boolean(processo.numero_processo);
   return false;
+}
+
+function etapaFormularioInicial(processo?: Processo | null): EtapaFormulario {
+  if (!processo) return "dados";
+  if (processo.numero_processo) return "distribuicao";
+  if (processo.protocolo_status === "Liberado") return "protocolo";
+  if (["Retornada", "Em regularização", "Reenviada"].includes(processo.pasta_retorno_status || "")) return "retorno";
+  if (processo.data_envio_elite) return "sla";
+  if (processo.documentos_elite_status === "Enviado") return "elite";
+  if (processo.crm_documentos_status === "Concluído") return "crm";
+  if ([processo.procuracao_status, processo.declaracao_hipossuficiencia_status, processo.declaracao_ir_status].some((status) => status === "Assinado")) return "procuracao";
+  if (processo.documentacao_status && processo.documentacao_status !== "Pendente") return "documentacao";
+  return "dados";
 }
 
 function classeSla(sinalizacao: string) {
@@ -186,8 +203,10 @@ export default function EsteiraKanban({
 }: Props) {
   const [modalAberto, setModalAberto] = useState(false);
   const [processoEditando, setProcessoEditando] = useState<Processo | null>(null);
+  const [processoVisualizando, setProcessoVisualizando] = useState<Processo | null>(null);
   const [formulario, setFormulario] = useState(criarFormulario(null, usuario?.nome || ""));
   const [salvando, setSalvando] = useState(false);
+  const [etapaFormulario, setEtapaFormulario] = useState<EtapaFormulario>("dados");
 
   const protocolos = useMemo(() => {
     const termo = normalizar(busca);
@@ -209,13 +228,63 @@ export default function EsteiraKanban({
   function abrirNovoCadastro() {
     setProcessoEditando(null);
     setFormulario(criarFormulario(null, usuario?.nome || ""));
+    setEtapaFormulario("dados");
     setModalAberto(true);
   }
 
   function abrirEdicao(processo: Processo) {
     setProcessoEditando(processo);
     setFormulario(criarFormulario(processo, usuario?.nome || ""));
+    setEtapaFormulario(etapaFormularioInicial(processo));
     setModalAberto(true);
+  }
+
+  async function garantirClienteDoProtocolo(nome: string) {
+    const cpf = formulario.cpf_cliente.trim();
+    const idCrm = formulario.id_crm.trim();
+    let cliente = null;
+
+    if (processoEditando?.cliente_id) {
+      const resultado = await supabase.from("clientes").select("*").eq("id", processoEditando.cliente_id).maybeSingle();
+      if (resultado.error) throw resultado.error;
+      cliente = resultado.data;
+    }
+
+    if (!cliente && idCrm) {
+      const resultado = await supabase.from("clientes").select("*").eq("id_crm", idCrm).limit(2);
+      if (resultado.error) throw resultado.error;
+      if (resultado.data?.length === 1) cliente = resultado.data[0];
+    }
+
+    if (!cliente && cpf) {
+      const resultado = await supabase.from("clientes").select("*").eq("cpf", cpf).limit(2);
+      if (resultado.error) throw resultado.error;
+      if (resultado.data?.length === 1) cliente = resultado.data[0];
+    }
+
+    if (!cliente) {
+      const resultado = await supabase.from("clientes").select("*").ilike("nome_completo", nome).limit(2);
+      if (resultado.error) throw resultado.error;
+      if (resultado.data?.length === 1) cliente = resultado.data[0];
+    }
+
+    const dadosCliente = {
+      nome,
+      nome_completo: nome,
+      cpf: cpf || cliente?.cpf || null,
+      id_crm: idCrm || cliente?.id_crm || null,
+      link_pasta_cliente: formulario.link_pasta_cliente.trim() || cliente?.link_pasta_cliente || null,
+      telefone: cliente?.telefone || null,
+      responsavel: formulario.responsavel.trim() || cliente?.responsavel || usuario?.nome || null,
+      updated_by: usuario?.email || usuario?.nome || null,
+    };
+
+    const operacao = cliente
+      ? supabase.from("clientes").update(dadosCliente).eq("id", cliente.id)
+      : supabase.from("clientes").insert({ ...dadosCliente, origem: "Protocolo", created_by: usuario?.email || usuario?.nome || null });
+    const resultado = await operacao.select("*").single();
+    if (resultado.error) throw resultado.error;
+    return resultado.data;
   }
 
   async function salvarCadastro(evento: FormEvent<HTMLFormElement>) {
@@ -228,8 +297,23 @@ export default function EsteiraKanban({
       return;
     }
 
+    if (etapaFormulario === "dados" && !banco) {
+      showToast("Informe a instituição financeira nos dados do encaminhamento.");
+      return;
+    }
+
     if (formulario.protocolo_status === "Liberado" && (!formulario.numero_processo.trim() || !formulario.protocolo_data_liberacao)) {
       showToast("Para liberar o protocolo, informe número do processo e data de liberação.");
+      return;
+    }
+
+    setSalvando(true);
+    let clienteVinculado;
+    try {
+      clienteVinculado = await garantirClienteDoProtocolo(nome);
+    } catch (error) {
+      setSalvando(false);
+      showToast(`Não foi possível vincular o protocolo ao cadastro do cliente: ${error instanceof Error ? error.message : "erro desconhecido"}`);
       return;
     }
 
@@ -256,6 +340,8 @@ export default function EsteiraKanban({
     }
 
     const payload = {
+      cliente_id: clienteVinculado.id,
+      cliente: nome,
       pasta_cliente_id: formulario.id_crm.trim() || null,
       link_pasta_cliente: formulario.link_pasta_cliente.trim() || null,
       id_crm: formulario.id_crm.trim() || null,
@@ -301,6 +387,7 @@ export default function EsteiraKanban({
       pasta_retorno_observacao: formulario.pasta_retorno_observacao.trim() || null,
       pasta_retorno_impacto_sla: formulario.pasta_retorno_impacto_sla,
       protocolo_status: formulario.protocolo_status,
+      numero: formulario.numero_processo.trim() || null,
       numero_processo: formulario.numero_processo.trim() || null,
       protocolo_data_liberacao: protocoloDataLiberacao,
       data_protocolo_liberado: dataProtocoloLiberado,
@@ -317,7 +404,6 @@ export default function EsteiraKanban({
       updated_by: usuario?.email || usuario?.nome || null,
     };
 
-    setSalvando(true);
     const query = processoEditando
       ? supabase.from("processos").update(payload).eq("id", processoEditando.id)
       : supabase.from("processos").insert({ ...payload, created_by: usuario?.email || usuario?.nome || null });
@@ -340,11 +426,30 @@ export default function EsteiraKanban({
       await registrarAuditoria(String(data.id), usuario?.email || usuario?.nome || "Usuário", [["Encaminhamento", "", "Criado"]]);
     }
 
+
+    if (data?.id) {
+      const observacao = formulario.observacoes.trim();
+      const descricaoHistorico = [
+        `Etapa: ${payload.fase_atual || "Encaminhamento pendente"}`,
+        `Documentação: ${formulario.documentacao_status}`,
+        `Procuração: ${formulario.procuracao_status}`,
+        `Elite: ${formulario.documentos_elite_status}`,
+        `Protocolo: ${formulario.protocolo_status}`,
+        observacao ? `Observações: ${observacao}` : null,
+      ].filter(Boolean).join(" · ");
+      const historico = await supabase.from("clientes_historico").insert({ cliente_id: clienteVinculado.id, processo_id: data.id, tipo: "protocolo", descricao: descricaoHistorico, origem: "Módulo Protocolos", created_by: usuario?.email || usuario?.nome || null });
+      if (historico.error) showToast(`Protocolo salvo, mas o histórico do cliente não pôde ser atualizado: ${historico.error.message}`);
+    }
+
     onProcessoAtualizado(data as Processo);
     setModalAberto(false);
     setProcessoEditando(null);
     showToast("Protocolo salvo.");
   }
+
+  const indiceEtapa = ETAPAS_FORMULARIO.findIndex(([chave]) => chave === etapaFormulario);
+  const etapaAnterior = indiceEtapa > 0 ? ETAPAS_FORMULARIO[indiceEtapa - 1][0] : null;
+  const proximaEtapa = indiceEtapa < ETAPAS_FORMULARIO.length - 1 ? ETAPAS_FORMULARIO[indiceEtapa + 1][0] : null;
 
   return (
     <div className="protocolos-view protocolos-grid-view">
@@ -382,7 +487,7 @@ export default function EsteiraKanban({
               {itens.map((processo) => {
                 const prazo = calcularPrazoElite(processo.data_envio_elite);
                 return <article className="protocolo-kanban-card" key={processo.id}>
-                  <header><strong>{processo.nome_cliente}</strong><button type="button" onClick={() => abrirEdicao(processo)}>Editar</button></header>
+                  <header><strong>{processo.nome_cliente}</strong><div className="protocolo-card-actions"><button type="button" onClick={() => setProcessoVisualizando(processo)}>Ver</button><button type="button" onClick={() => abrirEdicao(processo)}>Editar</button></div></header>
                   <span>{processo.banco_reu || "Instituição não informada"}</span>
                   <div className="protocolo-card-status"><small>Documentação</small><b>{processo.documentacao_status || processo.status_documentos || "Pendente"}</b></div>
                   <div className="protocolo-card-status"><small>Procuração</small><b>{processo.procuracao_status || processo.status_procuracao || "Pendente"}</b></div>
@@ -398,6 +503,8 @@ export default function EsteiraKanban({
         })}
       </div>
 
+      {processoVisualizando ? <div className="esteira-modal-backdrop" role="presentation"><section className="esteira-modal protocolo-visualizacao" role="dialog" aria-modal="true" aria-label="Visualização do protocolo"><button className="modal-close" onClick={() => setProcessoVisualizando(null)} type="button">×</button><span className="eyebrow">Protocolo</span><h3>{processoVisualizando.nome_cliente}</h3><p>{processoVisualizando.banco_reu || "Instituição não informada"}</p><div className="protocolo-view-grid"><div><span>Etapa atual</span><strong>{etapaAtual(processoVisualizando)}</strong></div><div><span>Documentação</span><strong>{processoVisualizando.documentacao_status || "Pendente"}</strong></div><div><span>Procuração</span><strong>{processoVisualizando.procuracao_status || "Pendente"}</strong></div><div><span>Elite</span><strong>{processoVisualizando.documentos_elite_status || "Pendente"}</strong></div><div><span>Status do protocolo</span><strong>{processoVisualizando.protocolo_status || "Aguardando"}</strong></div><div><span>Responsável</span><strong>{processoVisualizando.responsavel || "Não informado"}</strong></div></div>{processoVisualizando.documentacao_status === "Irregular" ? <section className="protocolo-view-alert"><h4>Irregularidade documental</h4><p>{processoVisualizando.documentacao_motivo || "Motivo não informado"}</p><small>{processoVisualizando.documentacao_faltantes ? `Documentos faltantes: ${processoVisualizando.documentacao_faltantes}` : "Documentos faltantes não informados"}</small></section> : null}<section className="protocolo-view-observacoes"><h4>Observações</h4><p>{processoVisualizando.observacoes || processoVisualizando.documentacao_observacao || processoVisualizando.pasta_retorno_observacao || "Nenhuma observação registrada."}</p></section><footer><button className="btn-secondary" onClick={() => setProcessoVisualizando(null)} type="button">Fechar</button><button className="btn-primary" onClick={() => { const atual = processoVisualizando; setProcessoVisualizando(null); abrirEdicao(atual); }} type="button">Editar protocolo</button></footer></section></div> : null}
+
       {modalAberto && (
         <div className="esteira-modal-backdrop" role="presentation">
           <form className="esteira-modal protocolo-modal protocolo-modal-wide" onSubmit={salvarCadastro}>
@@ -406,12 +513,17 @@ export default function EsteiraKanban({
             <h3>{processoEditando ? processoEditando.nome_cliente : "Encaminhar cliente para ajuizamento"}</h3>
 
             <div className="protocolo-timeline" aria-label="Esteira de ajuizamento">
-              {TIMELINE.map(([chave, rotulo]) => (
-                <span className={processoEditando && timelineConcluida(chave, { ...processoEditando, ...formulario } as Processo) ? "done" : ""} key={chave}>{rotulo}</span>
+              {ETAPAS_FORMULARIO.map(([chave, rotulo]) => (
+                <button
+                  className={`${etapaFormulario === chave ? "active" : ""} ${processoEditando && timelineConcluida(chave, { ...processoEditando, ...formulario } as Processo) ? "done" : ""}`}
+                  key={chave}
+                  onClick={() => setEtapaFormulario(chave)}
+                  type="button"
+                >{rotulo}</button>
               ))}
             </div>
 
-            <section className="protocolo-form-section">
+            {etapaFormulario === "dados" ? <section className="protocolo-form-section">
               <h4>Dados do encaminhamento</h4>
               <div className="protocolo-modal-grid">
                 <label><span>Cliente *</span><input value={formulario.nome_cliente} onChange={(e) => setFormulario((f) => ({ ...f, nome_cliente: e.target.value }))} /></label>
@@ -425,9 +537,9 @@ export default function EsteiraKanban({
                 <label><span>Responsável</span><input value={formulario.responsavel} onChange={(e) => setFormulario((f) => ({ ...f, responsavel: e.target.value }))} /></label>
                 <label className="wide"><span>Observação</span><textarea rows={2} value={formulario.observacoes} onChange={(e) => setFormulario((f) => ({ ...f, observacoes: e.target.value }))} /></label>
               </div>
-            </section>
+            </section> : null}
 
-            <section className="protocolo-form-section">
+            {etapaFormulario === "documentacao" ? <section className="protocolo-form-section">
               <h4>Documentação</h4>
               <div className="protocolo-modal-grid">
                 <label><span>Status</span><select value={formulario.documentacao_status} onChange={(e) => setFormulario((f) => ({ ...f, documentacao_status: e.target.value }))}>{STATUS_DOCUMENTACAO.map((item) => <option key={item}>{item}</option>)}</select></label>
@@ -439,9 +551,9 @@ export default function EsteiraKanban({
                   <label className="wide"><span>Observação</span><textarea rows={2} value={formulario.documentacao_observacao} onChange={(e) => setFormulario((f) => ({ ...f, documentacao_observacao: e.target.value }))} /></label>
                 </> : null}
               </div>
-            </section>
+            </section> : null}
 
-            <section className="protocolo-form-section">
+            {etapaFormulario === "procuracao" ? <section className="protocolo-form-section">
               <h4>Procurações e declarações</h4>
               <div className="protocolo-modal-grid">
                 <label><span>Procuração</span><select value={formulario.procuracao_status} onChange={(e) => setFormulario((f) => ({ ...f, procuracao_status: e.target.value }))}>{STATUS_PROCURACAO.map((item) => <option key={item}>{item}</option>)}</select></label>
@@ -449,21 +561,36 @@ export default function EsteiraKanban({
                 <label><span>Declaração de IR</span><select value={formulario.declaracao_ir_status} onChange={(e) => setFormulario((f) => ({ ...f, declaracao_ir_status: e.target.value }))}>{STATUS_PROCURACAO.map((item) => <option key={item}>{item}</option>)}</select></label>
                 <label className="wide"><span>Outros configuráveis</span><input value={formulario.procuracoes_outros} onChange={(e) => setFormulario((f) => ({ ...f, procuracoes_outros: e.target.value }))} placeholder="Ex.: declaração adicional, termo específico..." /></label>
               </div>
-            </section>
+            </section> : null}
 
-            <section className="protocolo-form-section">
-              <h4>CRM, Elite e SLA</h4>
+            {etapaFormulario === "crm" ? <section className="protocolo-form-section">
+              <h4>Conferência no CRM</h4>
               <div className="protocolo-modal-grid">
                 <label><span>Documentos conferidos/anexados no Drive</span><select value={formulario.crm_documentos_status} onChange={(e) => setFormulario((f) => ({ ...f, crm_documentos_status: e.target.value }))}>{STATUS_CRM.map((item) => <option key={item}>{item}</option>)}</select></label>
+                <div className="sla-preview"><span>Armazenamento</span><strong>Google Drive</strong><small>O sistema registra apenas a conferência. Os arquivos permanecem na pasta oficial do cliente.</small></div>
+              </div>
+            </section> : null}
+
+            {etapaFormulario === "elite" ? <section className="protocolo-form-section">
+              <h4>Encaminhamento à Elite</h4>
+              <div className="protocolo-modal-grid">
                 <label><span>Elite</span><select value={formulario.documentos_elite_status} onChange={(e) => setFormulario((f) => ({ ...f, documentos_elite_status: e.target.value }))}>{STATUS_ELITE.map((item) => <option key={item}>{item}</option>)}</select></label>
                 <div className="sla-preview">
                   <span>Enviado</span><strong>{formatarDataHora(processoEditando?.data_envio_elite)}</strong>
-                  <small>O sistema registra a conferência; os arquivos permanecem na pasta do cliente no Drive. Ao marcar Enviado, o SLA de 20 dias úteis inicia automaticamente.</small>
+                  <small>Ao marcar como Enviado e salvar, o SLA de 20 dias úteis inicia automaticamente.</small>
                 </div>
               </div>
-            </section>
+            </section> : null}
 
-            <section className="protocolo-form-section">
+            {etapaFormulario === "sla" ? <section className="protocolo-form-section">
+              <h4>Controle do SLA</h4>
+              {processoEditando?.data_envio_elite ? (() => {
+                const prazo = calcularPrazoElite(processoEditando.data_envio_elite);
+                return <div className="protocolo-sla-resumo"><div><span>Data inicial</span><strong>{formatarDataHora(processoEditando.data_envio_elite)}</strong></div><div><span>Dias úteis decorridos</span><strong>{prazo.diasUteisDecorridos}</strong></div><div><span>Prazo restante</span><strong>{prazo.diasUteisRestantes}</strong></div><div><span>Data prevista</span><strong>{formatarData(prazo.dataPrevista)}</strong></div><div><span>Situação</span><strong className={`sla-status ${classeSla(prazo.sinalizacao)}`}>{prazo.rotulo}</strong></div></div>;
+              })() : <div className="empty-row">O SLA começará quando o encaminhamento à Elite for marcado como Enviado e salvo.</div>}
+            </section> : null}
+
+            {etapaFormulario === "retorno" ? <section className="protocolo-form-section">
               <h4>Pasta retornada</h4>
               <div className="protocolo-modal-grid">
                 <label><span>Status</span><select value={formulario.pasta_retorno_status} onChange={(e) => setFormulario((f) => ({ ...f, pasta_retorno_status: e.target.value }))}>{STATUS_RETORNO.map((item) => <option key={item}>{item}</option>)}</select></label>
@@ -476,25 +603,35 @@ export default function EsteiraKanban({
                 <label><span>Data do reenvio</span><input type="date" value={formulario.pasta_retorno_data_reenvio} onChange={(e) => setFormulario((f) => ({ ...f, pasta_retorno_data_reenvio: e.target.value }))} /></label>
                 <label className="wide"><span>Descrição/observação</span><textarea rows={2} value={formulario.pasta_retorno_descricao || formulario.pasta_retorno_observacao} onChange={(e) => setFormulario((f) => ({ ...f, pasta_retorno_descricao: e.target.value, pasta_retorno_observacao: e.target.value }))} /></label>
               </div>
-            </section>
+            </section> : null}
 
-            <section className="protocolo-form-section">
-              <h4>Protocolo e distribuição</h4>
+            {etapaFormulario === "protocolo" ? <section className="protocolo-form-section">
+              <h4>Liberação do protocolo</h4>
               <div className="protocolo-modal-grid">
                 <label><span>Status do protocolo</span><select value={formulario.protocolo_status} onChange={(e) => setFormulario((f) => ({ ...f, protocolo_status: e.target.value }))}>{STATUS_PROTOCOLO.map((item) => <option key={item}>{item}</option>)}</select></label>
                 <label><span>Número do processo *</span><input value={formulario.numero_processo} onChange={(e) => setFormulario((f) => ({ ...f, numero_processo: e.target.value }))} /></label>
                 <label><span>Data da liberação *</span><input type="datetime-local" value={formulario.protocolo_data_liberacao} onChange={(e) => setFormulario((f) => ({ ...f, protocolo_data_liberacao: e.target.value }))} /></label>
+              </div>
+            </section> : null}
+
+            {etapaFormulario === "distribuicao" ? <section className="protocolo-form-section">
+              <h4>Dados da distribuição</h4>
+              <div className="protocolo-modal-grid">
                 <label><span>Tribunal</span><input value={formulario.tribunal} onChange={(e) => setFormulario((f) => ({ ...f, tribunal: e.target.value }))} /></label>
                 <label><span>Comarca</span><input value={formulario.comarca} onChange={(e) => setFormulario((f) => ({ ...f, comarca: e.target.value }))} /></label>
                 <label><span>Vara</span><input value={formulario.vara} onChange={(e) => setFormulario((f) => ({ ...f, vara: e.target.value }))} /></label>
                 <label><span>Link do processo</span><input value={formulario.link_consulta} onChange={(e) => setFormulario((f) => ({ ...f, link_consulta: e.target.value }))} placeholder="Link de consulta no tribunal" /></label>
                 <label><span>Data da distribuição</span><input type="date" value={formulario.data_distribuicao} onChange={(e) => setFormulario((f) => ({ ...f, data_distribuicao: e.target.value }))} /></label>
               </div>
-            </section>
+            </section> : null}
 
             <footer className="protocolo-modal-actions">
               <button className="btn-secondary" onClick={() => setModalAberto(false)} type="button">Cancelar</button>
-              <button className="btn-primary" disabled={salvando} type="submit">{salvando ? "Salvando..." : "Salvar protocolo"}</button>
+              <div className="protocolo-step-actions">
+                {etapaAnterior ? <button className="btn-secondary" onClick={() => setEtapaFormulario(etapaAnterior)} type="button">Anterior</button> : null}
+                {proximaEtapa ? <button className="btn-secondary" onClick={() => setEtapaFormulario(proximaEtapa)} type="button">Próxima etapa</button> : null}
+                <button className="btn-primary" disabled={salvando} type="submit">{salvando ? "Salvando..." : `Salvar ${ETAPAS_FORMULARIO[indiceEtapa][1]}`}</button>
+              </div>
             </footer>
           </form>
         </div>
