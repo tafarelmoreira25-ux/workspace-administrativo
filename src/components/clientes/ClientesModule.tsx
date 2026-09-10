@@ -364,10 +364,10 @@ export default function ClientesModule({ usuario, showToast, buscaExterna, onOpe
     if (!clienteAberto) return;
     const numero = limparTexto(processoForm.numero_processo);
     const payload = {
-      cliente_id: clienteAberto.id, nome_cliente: clienteAberto.nome_completo, cpf_cliente: clienteAberto.cpf,
+      cliente_id: clienteAberto.id, cliente: clienteAberto.nome_completo, nome_cliente: clienteAberto.nome_completo, cpf_cliente: clienteAberto.cpf,
       autor: clienteAberto.nome_completo, reu: limparTexto(processoForm.reu), banco_reu: limparTexto(processoForm.banco_reu),
       autor_reu: processoForm.reu.trim() ? `${clienteAberto.nome_completo} X ${processoForm.reu.trim()}` : clienteAberto.nome_completo,
-      numero_processo: numero, tipo_acao: limparTexto(processoForm.tipo_acao), tribunal: limparTexto(processoForm.tribunal),
+      numero, numero_processo: numero, tipo_acao: limparTexto(processoForm.tipo_acao), tribunal: limparTexto(processoForm.tribunal),
       comarca: limparTexto(processoForm.comarca), vara: limparTexto(processoForm.vara), data_distribuicao: processoForm.data_distribuicao || null,
       responsavel: limparTexto(processoForm.responsavel), situacao: processoForm.situacao || null, observacoes: limparTexto(processoForm.observacoes),
       fase_atual: numero ? "Tramitando" : "Solicitado para Ajuizamento", origem_registro: numero ? "manual" : "encaminhamento_processual",
@@ -444,6 +444,7 @@ export default function ClientesModule({ usuario, showToast, buscaExterna, onOpe
 
     setSalvando(true);
     const payload = {
+      nome: formulario.nome_completo.trim(),
       nome_completo: formulario.nome_completo.trim(),
       cpf: limparTexto(formulario.cpf),
       rg: limparTexto(formulario.rg),

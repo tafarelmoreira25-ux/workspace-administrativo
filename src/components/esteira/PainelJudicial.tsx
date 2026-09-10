@@ -436,6 +436,7 @@ export default function PainelJudicial({
     }
     const payload = {
       cliente_id: limpar(ficha.cliente_id),
+      cliente: ficha.nome_cliente.trim(),
       nome_cliente: ficha.nome_cliente.trim(),
       cpf_cliente: limpar(ficha.cpf_cliente),
       id_crm: limpar(ficha.id_crm),
@@ -450,6 +451,7 @@ export default function PainelJudicial({
       ].filter(Boolean).join(" X "),
       produto: limpar(ficha.produto),
       numero_contrato: limpar(ficha.numero_contrato),
+      numero: limpar(ficha.numero_processo),
       numero_processo: limpar(ficha.numero_processo),
       data_distribuicao: ficha.data_distribuicao || null,
       tribunal: limpar(ficha.tribunal),
