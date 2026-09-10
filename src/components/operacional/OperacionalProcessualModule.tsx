@@ -1,9 +1,11 @@
 import { type Dispatch, type FormEvent, type SetStateAction, useCallback, useEffect, useMemo, useState } from "react";
 import { supabase } from "../../lib/supabase";
+import GerencialProcessualModule from "../gerencial/GerencialProcessualModule";
+import Pagination from "../common/Pagination";
 import "./operacionalProcessual.css";
 
 type Usuario = { nome?: string; email?: string };
-type View = "tarefas" | "agenda" | "atendimentos";
+type View = "tarefas" | "agenda" | "atendimentos" | "ocorrencias";
 type Tarefa = {
   id: string;
   titulo: string;
@@ -141,6 +143,7 @@ export default function OperacionalProcessualModule({ usuario, showToast, initia
   const [atendimentoForm, setAtendimentoForm] = useState(() => criarAtendimentoForm(usuario));
   const [carregando, setCarregando] = useState(true);
   const [salvando, setSalvando] = useState(false);
+  const [paginaLista, setPaginaLista] = useState(1);
   const [erro, setErro] = useState("");
 
   const avisar = useCallback((mensagem: string) => {
@@ -165,6 +168,7 @@ export default function OperacionalProcessualModule({ usuario, showToast, initia
   }, []);
 
   useEffect(() => { carregarDados(); }, [carregarDados]);
+  useEffect(() => { setPaginaLista(1); }, [busca, view, agendaView]);
 
   const processosFiltrados = useMemo(() => {
     const termo = normalizar(tarefaForm.cliente || atendimentoForm.cliente);
@@ -313,13 +317,14 @@ export default function OperacionalProcessualModule({ usuario, showToast, initia
       <header className="module-page-header">
         <div>
           <span className="eyebrow">Operação processual</span>
-          <h2>{view === "atendimentos" ? "Atendimentos" : view === "tarefas" ? "Tarefas" : "Agenda e Prazos"}</h2>
+          <h2>Agenda e Atividades</h2>
           <p>Controle de tarefas, compromissos, prazos e contatos vinculados a clientes e processos.</p>
         </div>
         <div className="operacional-tabs">
           <button className={view === "tarefas" ? "active" : ""} onClick={() => setView("tarefas")} type="button">Tarefas</button>
           <button className={view === "agenda" ? "active" : ""} onClick={() => setView("agenda")} type="button">Agenda</button>
           <button className={view === "atendimentos" ? "active" : ""} onClick={() => setView("atendimentos")} type="button">Atendimentos</button>
+          <button className={view === "ocorrencias" ? "active" : ""} onClick={() => setView("ocorrencias")} type="button">Ocorrências</button>
         </div>
       </header>
 
@@ -334,7 +339,8 @@ export default function OperacionalProcessualModule({ usuario, showToast, initia
       {!carregando && view === "tarefas" ? (
         <div className="operacional-grid">
           <FormularioTarefa form={tarefaForm} setForm={setTarefaForm} processos={processosFiltrados} onSubmit={salvarTarefa} salvando={salvando} />
-          <ListaTarefas tarefas={tarefasFiltradas} onStatus={atualizarStatusTarefa} />
+          <ListaTarefas tarefas={tarefasFiltradas.slice((paginaLista - 1) * 30, paginaLista * 30)} onStatus={atualizarStatusTarefa} />
+          <Pagination pagina={paginaLista} total={tarefasFiltradas.length} tamanho={30} onChange={setPaginaLista} rotulo="atividades" />
         </div>
       ) : null}
 
@@ -343,17 +349,20 @@ export default function OperacionalProcessualModule({ usuario, showToast, initia
           <div className="agenda-tabs">{VISAO_AGENDA.map((item) => <button key={item} type="button" className={agendaView === item ? "active" : ""} onClick={() => setAgendaView(item)}>{item}</button>)}</div>
           <div className="event-type-row">{EVENTOS.map((item) => <span key={item}>{item}</span>)}</div>
           <div className="agenda-list">
-            {eventosAgenda.length === 0 ? <div className="empty-row">Nenhum evento encontrado para esta visão.</div> : eventosAgenda.map((evento) => <article key={evento.id}><strong>{evento.titulo}</strong><span>{evento.tipo} · {evento.cliente || "Cliente não informado"}</span><small>{formatarDataHora(evento.data, evento.hora)} · {evento.status} · {evento.responsavel || "Sem responsável"}</small></article>)}
+            {eventosAgenda.length === 0 ? <div className="empty-row">Nenhum evento encontrado para esta visão.</div> : eventosAgenda.slice((paginaLista - 1) * 30, paginaLista * 30).map((evento) => <article key={evento.id}><strong>{evento.titulo}</strong><span>{evento.tipo} · {evento.cliente || "Cliente não informado"}</span><small>{formatarDataHora(evento.data, evento.hora)} · {evento.status} · {evento.responsavel || "Sem responsável"}</small></article>)}
           </div>
+          <Pagination pagina={paginaLista} total={eventosAgenda.length} tamanho={30} onChange={setPaginaLista} rotulo="eventos" />
         </section>
       ) : null}
 
       {!carregando && view === "atendimentos" ? (
         <div className="operacional-grid">
           <FormularioAtendimento form={atendimentoForm} setForm={setAtendimentoForm} processos={processosFiltrados} onSubmit={salvarAtendimento} salvando={salvando} />
-          <ListaAtendimentos atendimentos={atendimentosFiltrados} />
+          <ListaAtendimentos atendimentos={atendimentosFiltrados.slice((paginaLista - 1) * 30, paginaLista * 30)} />
+          <Pagination pagina={paginaLista} total={atendimentosFiltrados.length} tamanho={30} onChange={setPaginaLista} rotulo="atendimentos" />
         </div>
       ) : null}
+      {!carregando && view === "ocorrencias" ? <GerencialProcessualModule usuario={usuario} showToast={showToast} initialView="ocorrencias" /> : null}
     </section>
   );
 }

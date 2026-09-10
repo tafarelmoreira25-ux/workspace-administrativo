@@ -10,6 +10,7 @@ const OperacionalProcessualModule = lazy(() => import("./components/operacional/
 const GerencialProcessualModule = lazy(() => import("./components/gerencial/GerencialProcessualModule"));
 const GlobalSearch = lazy(() => import("./components/gerencial/GlobalSearch"));
 const DashboardModule = lazy(() => import("./components/dashboard/DashboardModule"));
+const CarteiraProcessual = lazy(() => import("./CarteiraProcessual"));
 const ADMIN_EMAIL = (import.meta.env.VITE_ADMIN_EMAIL || "tafarel@platino.com").toLowerCase();
 const TEMPO_LIMITE_INICIALIZACAO_MS = 8_000;
 function limitarTempo(promise, tempoMs, mensagem) {
@@ -129,121 +130,15 @@ function UiIcon({ name, size = 20 }) {
 
 function NavItem({ active, icon, children, onClick, disabled = false }) {
   return (
-    <button className={`nav-item ${active ? "active-tab" : ""}`} disabled={disabled} onClick={onClick}>
+    <button className={`nav-item ${active ? "active-tab" : ""}`} disabled={disabled} onClick={onClick} title={String(children)}>
       <UiIcon name={icon} size={18} />
       <span>{children}</span>
     </button>
   );
 }
 
-function AreaTrabalho({ usuario, admin, onNavigate }) {
-  if (onNavigate) {
-    return <Suspense fallback={<section className="panel">Carregando área de trabalho...</section>}><DashboardModule usuario={usuario} onNavigate={onNavigate} /></Suspense>;
-  }
-  const primeiroNome = usuario.nome?.split(" ")[0] || "equipe";
-  const indicadores = [
-    ["Tarefas de hoje", "0", "Fila operacional preparada"],
-    ["Atrasadas", "0", "Sem pendências críticas"],
-    ["Protocolos no prazo", "0", "Monitoramento da Elite"],
-    ["Alertas ativos", "0", "Nenhum alerta novo"],
-  ];
-  const tabelas = [
-    {
-      titulo: "Tarefas de hoje",
-      colunas: ["Cliente", "Atividade", "Prazo", "Prioridade", "Responsável"],
-      vazio: "Nenhuma tarefa programada para hoje.",
-    },
-    {
-      titulo: "Próximos prazos",
-      colunas: ["Cliente", "Tipo", "Data limite", "Status", "Responsável"],
-      vazio: "Nenhum prazo próximo cadastrado.",
-    },
-    {
-      titulo: "Processos sem revisão",
-      colunas: ["Cliente", "Processo", "Última revisão", "Status", "Ação"],
-      vazio: "Nenhum processo pendente de revisão.",
-    },
-  ];
-  const alertas = [
-    "Protocolos atrasados",
-    "Pastas retornadas",
-    "Custas pendentes",
-    "Emendas pendentes",
-    "Reuniões do dia",
-  ];
-
-  return (
-    <section className="workspace-home">
-      <div className="workspace-heading">
-        <div>
-          <span className="eyebrow">Área de Trabalho</span>
-          <h2>O que exige atenção hoje</h2>
-          <p>Visão operacional para acompanhar prazos, protocolos, revisões e alertas do escritório.</p>
-        </div>
-        <div className="workspace-heading-meta">
-          <strong>{primeiroNome}</strong>
-          <span>{admin ? "Administrador" : "Operação"}</span>
-        </div>
-      </div>
-
-      <div className="workspace-kpis">
-        {indicadores.map(([titulo, valor, legenda]) => (
-          <article className="workspace-kpi" key={titulo}>
-            <span>{titulo}</span>
-            <strong>{valor}</strong>
-            <small>{legenda}</small>
-          </article>
-        ))}
-      </div>
-
-      <div className="workspace-grid">
-        <div className="workspace-main-column">
-          {tabelas.map((tabela) => (
-            <section className="workspace-table-card" key={tabela.titulo}>
-              <header>
-                <h3>{tabela.titulo}</h3>
-                <button type="button" className="btn-secondary compact">Ver todos</button>
-              </header>
-              <div className="dense-table-shell">
-                <table>
-                  <thead>
-                    <tr>{tabela.colunas.map((coluna) => <th key={coluna}>{coluna}</th>)}</tr>
-                  </thead>
-                  <tbody>
-                    <tr>
-                      <td colSpan={tabela.colunas.length}>
-                        <div className="empty-row">{tabela.vazio}</div>
-                      </td>
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
-            </section>
-          ))}
-        </div>
-
-        <aside className="workspace-side-column">
-          <section className="workspace-table-card">
-            <header>
-              <h3>Alertas</h3>
-              <span className="subtle-count">0 ativos</span>
-            </header>
-            <div className="alert-stack">
-              {alertas.map((alerta) => (
-                <article key={alerta}>
-                  <span />
-                  <div>
-                    <strong>{alerta}</strong>
-                    <small>Estado vazio preparado</small>
-                  </div>
-                </article>
-              ))}
-            </div>
-          </section>
-        </aside>
-      </div>
-    </section>
-  );
+function AreaTrabalho({ usuario, onNavigate }) {
+  return <Suspense fallback={<section className="panel">Carregando área de trabalho...</section>}><DashboardModule usuario={usuario} onNavigate={onNavigate} /></Suspense>;
 }
 
 function PlaceholderModulo({ titulo, descricao }) {
@@ -494,6 +389,10 @@ function RedefinirSenha({ onConcluida }) {
 
 function Workspace({ usuario, onLogout, showToast }) {
   const [aba, setAba] = useState("inicio");
+  const [buscaModulo, setBuscaModulo] = useState("");
+  const [menuRecolhido, setMenuRecolhido] = useState(() => window.localStorage.getItem("platino-menu-recolhido") === "1");
+  const [menuContaAberto, setMenuContaAberto] = useState(false);
+  const [processoSelecionadoId, setProcessoSelecionadoId] = useState(null);
   const [feedbacks, setFeedbacks] = useState([]);
   const carregarFeedbacks = useCallback(async () => {
     const { data, error } = await supabase.from("feedbacks").select("*").eq("funcionaria_id", usuario.id).order("created_at", { ascending: false });
@@ -510,47 +409,48 @@ function Workspace({ usuario, onLogout, showToast }) {
       itens: [
         ["inicio", "Área de Trabalho", "dashboard"],
         ["clientes", "Clientes", "clientes"],
-        ...(podeVerProcessual ? [["processual-protocolos", "Protocolos", "protocolo"], ["processual-processos", "Processual", "esteira"]] : []),
-        ["agenda", "Agenda e Atendimentos", "agenda"],
+        ...(podeVerProcessual ? [["processual-protocolos", "Protocolos", "protocolo"], ["processos", "Processos", "documentos"], ["processual", "Processual", "esteira"]] : []),
+        ["agenda-atividades", "Agenda e Atividades", "agenda"],
       ],
     },
     {
       titulo: "Produção",
       itens: [
-        ...(podeVerDocumentos ? [["documentos", "Documentos", "documentos"]] : []),
-        ["gestao", "Gestão", "indicadores"],
+        ...(podeVerDocumentos ? [["documentos", "Gerador de Documentos", "documentos"]] : []),
+        ["indicadores", "Indicadores", "indicadores"],
+        ["alertas", "Alertas", "alertas"],
         ["treinamentos", "Treinamentos", "treinamento"],
-      ],
-    },
-    {
-      titulo: "Administração",
-      itens: [
-        ["administracao", "Administração", "admin"],
-        ...(!admin ? [["feedbacks", "Meus feedbacks", "feedback"]] : []),
       ],
     },
   ];
   const abas = navGroups.flatMap((grupo) => grupo.itens);
   const rotuloAtual = abas.find(([id]) => id === aba)?.[1] || "Área de Trabalho";
   const placeholderTextos = {
-    "processual-visao": ["Visão Geral", "Painel executivo do Processual com distribuição, atrasos e acompanhamento da carteira."],
-    "processual-prazos": ["Prazos", "Calendário operacional de prazos, emendas, custas e retornos críticos."],
-    "processual-ocorrencias": ["Ocorrências", "Registro de impedimentos, pendências documentais e eventos relevantes."],
-    atendimentos: ["Atendimentos", "Histórico de contatos, retornos e solicitações relacionadas à carteira."],
-    agenda: ["Agenda e Prazos", "Agenda preparada para reuniões, vencimentos e próximos atos."],
-    "documentos-arquivo": ["Documentos", "Arquivo e rastreabilidade dos documentos gerados no workspace."],
-    indicadores: ["Indicadores", "Métricas operacionais e jurídicas para gestão do escritório."],
-    alertas: ["Alertas", "Central de riscos e pendências relevantes."],
     administracao: ["Administração", "Gestão administrativa preparada para permissões, usuários e parâmetros."],
   };
   function navegar(id) {
     setAba(id);
+    setBuscaModulo("");
     if (id === "feedbacks") carregarFeedbacks();
   }
 
-  return <div className="app-layout">
-    <aside className="sidebar">
+  function abrirProcessoNoProcessual(processoId) {
+    setProcessoSelecionadoId(processoId);
+    navegar("processual");
+  }
+
+  function alternarMenu() {
+    setMenuRecolhido((atual) => {
+      const proximo = !atual;
+      window.localStorage.setItem("platino-menu-recolhido", proximo ? "1" : "0");
+      return proximo;
+    });
+  }
+
+  return <div className={`app-layout ${menuRecolhido ? "menu-recolhido" : ""}`}>
+    <aside className={`sidebar ${menuRecolhido ? "recolhida" : ""}`}>
       <div className="brand"><img src="/assets/platino-orbital-logo.png" alt="Platino" className="brand-icon" /><div><strong>Processual</strong><span>Workspace</span></div></div>
+      <button className="sidebar-collapse" onClick={alternarMenu} type="button" title={menuRecolhido ? "Expandir menu" : "Recolher menu"} aria-label={menuRecolhido ? "Expandir menu" : "Recolher menu"}>{menuRecolhido ? "›" : "‹"}</button>
       <nav aria-label="Menu principal">
         {navGroups.map((grupo) => (
           <section className="nav-group" key={grupo.titulo}>
@@ -561,7 +461,6 @@ function Workspace({ usuario, onLogout, showToast }) {
           </section>
         ))}
       </nav>
-      <button className="sidebar-logout" onClick={onLogout}><UiIcon name="logout" /> Sair</button>
     </aside>
     <main className="main-content">
       <header className="topbar">
@@ -570,31 +469,26 @@ function Workspace({ usuario, onLogout, showToast }) {
           <p>Gestão operacional do escritório em um fluxo único.</p>
         </div>
         <div className="global-search">
-          <Suspense fallback={<><UiIcon name="busca" size={17} /><input type="search" placeholder="Buscar cliente, CPF, ID, processo ou banco..." aria-label="Busca global" /></>}>
-            <GlobalSearch />
-          </Suspense>
+          {aba === "clientes" ? <><UiIcon name="busca" size={17} /><input type="search" value={buscaModulo} onChange={(evento) => setBuscaModulo(evento.target.value)} placeholder="Buscar cliente, CPF, ID CRM ou processo..." aria-label="Buscar clientes" /></> : <Suspense fallback={<><UiIcon name="busca" size={17} /><input type="search" placeholder="Buscar cliente, CPF, ID, processo ou banco..." aria-label="Busca global" /></>}><GlobalSearch /></Suspense>}
         </div>
         <div className="topbar-actions">
           <button type="button" className="icon-button" aria-label="Notificações"><UiIcon name="sino" size={18} /></button>
-          <div className="user-chip"><strong>{usuario.nome}</strong><span>{usuario.email}</span></div>
+          <button type="button" className="account-avatar" onClick={() => setMenuContaAberto((atual) => !atual)} aria-label="Abrir menu da conta" title="Conta">{usuario.nome?.trim()?.[0]?.toUpperCase() || "U"}</button>
+          {menuContaAberto ? <div className="account-menu"><div className="account-menu-identity"><strong>{usuario.nome || "Usuário"}</strong><span>{usuario.email || "Conta autenticada"}</span></div>{admin ? <button type="button" onClick={() => navegar("administracao")}>Configurações</button> : null}<button type="button" onClick={onLogout}>Sair</button></div> : null}
         </div>
       </header>
-      {aba === "inicio" && <AreaTrabalho usuario={usuario} admin={admin} onNavigate={navegar} />}
-      {aba === "clientes" && <Suspense fallback={<section className="panel">Carregando clientes...</section>}><ClientesModule usuario={usuario} showToast={showToast} /></Suspense>}
+      {aba === "inicio" && <AreaTrabalho usuario={usuario} onNavigate={navegar} />}
+      {aba === "clientes" && <Suspense fallback={<section className="panel">Carregando clientes...</section>}><ClientesModule usuario={usuario} showToast={showToast} buscaExterna={buscaModulo} onOpenProcess={abrirProcessoNoProcessual} /></Suspense>}
       {aba === "documentos" && <Suspense fallback={<section className="panel">Carregando documentos...</section>}><GeradorDocumentos usuario={usuario} responsavel={usuario.nome} onSuccess={showToast} /></Suspense>}
       {aba === "processual-protocolos" && <Suspense fallback={<section className="panel">Carregando protocolos...</section>}><EsteiraProcessualPlatino usuario={usuario} showToast={showToast} initialView="protocolos" /></Suspense>}
-      {aba === "processual-processos" && <Suspense fallback={<section className="panel">Carregando processos...</section>}><EsteiraProcessualPlatino usuario={usuario} showToast={showToast} initialView="processos" /></Suspense>}
-      {aba === "processual-prazos" && <Suspense fallback={<section className="panel">Carregando prazos...</section>}><OperacionalProcessualModule usuario={usuario} showToast={showToast} initialView="agenda" /></Suspense>}
-      {aba === "processual-visao" && <Suspense fallback={<section className="panel">Carregando visão geral...</section>}><GerencialProcessualModule usuario={usuario} showToast={showToast} initialView="indicadores" /></Suspense>}
-      {aba === "processual-ocorrencias" && <Suspense fallback={<section className="panel">Carregando ocorrências...</section>}><GerencialProcessualModule usuario={usuario} showToast={showToast} initialView="ocorrencias" /></Suspense>}
-      {aba === "atendimentos" && <Suspense fallback={<section className="panel">Carregando atendimentos...</section>}><OperacionalProcessualModule usuario={usuario} showToast={showToast} initialView="atendimentos" /></Suspense>}
-      {aba === "agenda" && <Suspense fallback={<section className="panel">Carregando agenda...</section>}><OperacionalProcessualModule usuario={usuario} showToast={showToast} initialView="agenda" /></Suspense>}
-      {aba === "gestao" && <Suspense fallback={<section className="panel">Carregando gestão...</section>}><GerencialProcessualModule usuario={usuario} showToast={showToast} initialView="indicadores" /></Suspense>}
+      {aba === "processos" && <Suspense fallback={<section className="panel">Carregando processos...</section>}><EsteiraProcessualPlatino usuario={usuario} showToast={showToast} initialView="processos" /></Suspense>}
+      {aba === "processual" && <Suspense fallback={<section className="panel">Carregando Processual...</section>}><CarteiraProcessual showToast={showToast} usuario={usuario} processoInicialId={processoSelecionadoId} /></Suspense>}
+      {aba === "agenda-atividades" && <Suspense fallback={<section className="panel">Carregando agenda...</section>}><OperacionalProcessualModule usuario={usuario} showToast={showToast} initialView="agenda" /></Suspense>}
       {aba === "indicadores" && <Suspense fallback={<section className="panel">Carregando indicadores...</section>}><GerencialProcessualModule usuario={usuario} showToast={showToast} initialView="indicadores" /></Suspense>}
       {aba === "alertas" && <Suspense fallback={<section className="panel">Carregando alertas...</section>}><GerencialProcessualModule usuario={usuario} showToast={showToast} initialView="alertas" /></Suspense>}
       {aba === "treinamentos" && <TreinamentosOperacionais usuario={usuario} />}
       {aba === "feedbacks" && <section className="panel"><h2>Meus feedbacks</h2><button className="btn-secondary" onClick={carregarFeedbacks}>Atualizar</button><ListaFeedbacks feedbacks={feedbacks} /></section>}
-      {placeholderTextos[aba] && !["processual-prazos", "processual-visao", "processual-ocorrencias", "atendimentos", "agenda", "documentos-arquivo", "indicadores", "alertas"].includes(aba) && <PlaceholderModulo titulo={placeholderTextos[aba][0]} descricao={placeholderTextos[aba][1]} />}
+      {placeholderTextos[aba] && <PlaceholderModulo titulo={placeholderTextos[aba][0]} descricao={placeholderTextos[aba][1]} />}
     </main>
   </div>;
 }

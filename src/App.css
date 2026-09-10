@@ -2367,6 +2367,33 @@ textarea:focus {
   .dashboard-cabecalho { display: grid; }
 }
 
+/* Navegação compacta e ficha centralizada */
+.app-layout.menu-recolhido { grid-template-columns: 76px minmax(0, 1fr); }
+.sidebar-collapse { position: absolute; right: -13px; top: 66px; z-index: 3; width: 27px; height: 27px; border: 1px solid var(--line); border-radius: 50%; background: #fff; color: #344054; cursor: pointer; box-shadow: 0 3px 9px rgba(16, 24, 40, .12); }
+.sidebar.recolhida { width: 76px !important; padding-inline: 10px; overflow: visible; }
+.sidebar.recolhida .brand { justify-content: center; padding-inline: 0; }
+.sidebar.recolhida .brand > div, .sidebar.recolhida .nav-group > span, .sidebar.recolhida .nav-item > span { display: none; }
+.sidebar.recolhida .nav-item { justify-content: center !important; padding-inline: 8px !important; }
+.sidebar.recolhida nav { overflow: visible; }
+.account-avatar { align-items: center; background: #153f72; border: 0; border-radius: 50%; color: #fff; cursor: pointer; display: flex; font-weight: 800; height: 36px; justify-content: center; width: 36px; }
+.topbar-actions { position: relative; }
+.account-menu { background: #fff; border: 1px solid var(--line); border-radius: 9px; box-shadow: 0 12px 28px rgba(16, 24, 40, .14); display: grid; min-width: 150px; padding: 6px; position: absolute; right: 0; top: 44px; z-index: 250; }
+.account-menu-identity { border-bottom: 1px solid var(--line); display: grid; gap: 2px; margin-bottom: 4px; padding: 8px 10px 10px; }
+.account-menu-identity strong { color: #1d2939; font-size: 13px; }
+.account-menu-identity span { color: #667085; font-size: 11px; max-width: 230px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.account-menu button { background: transparent; border: 0; border-radius: 6px; color: #344054; cursor: pointer; padding: 9px 10px; text-align: left; }
+.account-menu button:hover { background: #f2f5f8; }
+.cliente-ficha-backdrop { align-items: center; background: rgba(15, 23, 42, .48); display: flex; inset: 0; justify-content: center; padding: 28px; position: fixed; z-index: 500; }
+.clientes-layout:has(.cliente-ficha-panel) { grid-template-columns: minmax(0, 1fr); }
+.cliente-ficha-backdrop .cliente-ficha-page { background: #fff; border-radius: 13px; grid-template-rows: auto auto minmax(0, 1fr); max-height: calc(100vh - 56px); max-width: 1280px; min-height: 0; overflow: hidden; position: relative; width: min(80vw, 1280px); }
+.cliente-ficha-backdrop .cliente-ficha-content { min-height: 0; overflow-y: auto; }
+.clientes-toolbar > span { color: #667085; font-size: 12px; font-weight: 700; }
+
+@media (max-width: 900px) {
+  .cliente-ficha-backdrop { padding: 12px; }
+  .cliente-ficha-backdrop .cliente-ficha-page { max-height: calc(100vh - 24px); width: 96vw; }
+}
+
 .table-pagination {
   min-height: 58px;
   display: flex;

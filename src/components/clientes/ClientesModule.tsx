@@ -25,7 +25,7 @@ type Cliente = {
 };
 
 type ProcessoResumo = {
-  id: string;
+  id: string | number;
   cliente_id?: string | null;
   nome_cliente?: string | null;
   cpf_cliente?: string | null;
@@ -38,6 +38,12 @@ type ProcessoResumo = {
   status_judicial?: string | null;
   justica_gratuita?: string | null;
   responsavel?: string | null;
+  tipo_acao?: string | null;
+  tribunal?: string | null;
+  comarca?: string | null;
+  vara?: string | null;
+  data_distribuicao?: string | null;
+  observacoes?: string | null;
   updated_at?: string | null;
 };
 
@@ -72,7 +78,11 @@ type AtendimentoResumo = {
 type Props = {
   usuario: { nome?: string; email?: string };
   showToast?: (message: string) => void;
+  buscaExterna?: string;
+  onOpenProcess?: (processoId: string | number) => void;
 };
+
+type HistoricoResumo = { id: string; tipo: string; descricao: string; origem?: string | null; processo_id?: string | null; created_at: string; created_by?: string | null };
 
 type ImportacaoCliente = { nome_completo: string; origem: string; status: "novo" | "existente" | "possivel" | "invalido"; motivo?: string };
 
@@ -91,6 +101,8 @@ const FORMULARIO_INICIAL = {
 };
 
 const CLIENTES_POR_PAGINA = 30;
+const PROCESSO_FORM_INICIAL = { id: "", numero_processo: "", reu: "", banco_reu: "", tipo_acao: "", tribunal: "", comarca: "", vara: "", data_distribuicao: "", responsavel: "", situacao: "Em andamento", observacoes: "" };
+const ATENDIMENTO_FORM_INICIAL = { id: "", tipo: "Retorno", data: new Date().toISOString().slice(0, 10), hora: "", canal: "Telefone", descricao: "", responsavel: "" };
 
 function termoPostgrest(valor: string) {
   return valor.trim().replace(/[,()"']/g, " ").replace(/\s+/g, " ").slice(0, 120);
@@ -151,12 +163,12 @@ function extrairNomeImportacao(linha: string) {
   return nome;
 }
 
-export default function ClientesModule({ usuario, showToast }: Props) {
+export default function ClientesModule({ usuario, showToast, buscaExterna, onOpenProcess }: Props) {
   const [clientes, setClientes] = useState<Cliente[]>([]);
   const [processos, setProcessos] = useState<ProcessoResumo[]>([]);
   const [documentos, setDocumentos] = useState<DocumentoResumo[]>([]);
   const [atendimentos, setAtendimentos] = useState<AtendimentoResumo[]>([]);
-  const [busca, setBusca] = useState("");
+  const [historicos, setHistoricos] = useState<HistoricoResumo[]>([]);
   const [buscaAplicada, setBuscaAplicada] = useState("");
   const [pagina, setPagina] = useState(1);
   const [totalClientes, setTotalClientes] = useState(0);
@@ -172,6 +184,12 @@ export default function ClientesModule({ usuario, showToast }: Props) {
   const [carregando, setCarregando] = useState(true);
   const [carregandoFicha, setCarregandoFicha] = useState(false);
   const [salvando, setSalvando] = useState(false);
+  const [processoForm, setProcessoForm] = useState(PROCESSO_FORM_INICIAL);
+  const [processoFormAberto, setProcessoFormAberto] = useState(false);
+  const [atendimentoForm, setAtendimentoForm] = useState(ATENDIMENTO_FORM_INICIAL);
+  const [atendimentoFormAberto, setAtendimentoFormAberto] = useState(false);
+  const [historicoFormAberto, setHistoricoFormAberto] = useState(false);
+  const [historicoDescricao, setHistoricoDescricao] = useState("");
   const [erro, setErro] = useState("");
   const [importacaoAberta, setImportacaoAberta] = useState(false);
   const [importacaoCarregando, setImportacaoCarregando] = useState(false);
@@ -245,10 +263,10 @@ export default function ClientesModule({ usuario, showToast }: Props) {
   useEffect(() => {
     const timer = window.setTimeout(() => {
       setPagina(1);
-      setBuscaAplicada(busca);
+      setBuscaAplicada(buscaExterna ?? "");
     }, 350);
     return () => window.clearTimeout(timer);
-  }, [busca]);
+  }, [buscaExterna]);
 
   const clientesFiltrados = clientes;
 
@@ -302,9 +320,10 @@ export default function ClientesModule({ usuario, showToast }: Props) {
       data: documento.created_at,
       responsavel: documento.responsavel_nome,
     }));
-    return [...eventosAtendimento, ...eventosDocumento]
+    const eventosManuais = historicos.map((registro) => ({ id: `historico-${registro.id}`, titulo: registro.tipo || "Registro manual", descricao: registro.descricao, data: registro.created_at, responsavel: registro.created_by }));
+    return [...eventosManuais, ...eventosAtendimento, ...eventosDocumento]
       .sort((a, b) => String(b.data || "").localeCompare(String(a.data || "")));
-  }, [atendimentosDoCliente, documentosDoCliente]);
+  }, [atendimentosDoCliente, documentosDoCliente, historicos]);
 
   function abrirNovoCliente() {
     setClienteEditando(null);
@@ -322,15 +341,66 @@ export default function ClientesModule({ usuario, showToast }: Props) {
     setClienteAberto(cliente);
     setAbaFicha("resumo");
     setCarregandoFicha(true);
-    const [processosResultado, documentosResultado, atendimentosResultado] = await Promise.allSettled([
-      supabase.from("processos").select("id, cliente_id, nome_cliente, cpf_cliente, reu, banco_reu, numero_processo, fase_atual, situacao, resultado, status_judicial, justica_gratuita, responsavel, updated_at").eq("cliente_id", cliente.id).order("updated_at", { ascending: false }),
+    const [processosResultado, documentosResultado, atendimentosResultado, historicosResultado] = await Promise.allSettled([
+      supabase.from("processos").select("id, cliente_id, nome_cliente, cpf_cliente, reu, banco_reu, numero_processo, fase_atual, situacao, resultado, status_judicial, justica_gratuita, responsavel, tipo_acao, tribunal, comarca, vara, data_distribuicao, observacoes, updated_at").eq("cliente_id", cliente.id).order("updated_at", { ascending: false }),
       supabase.from("documentos_juridicos").select("id, nome_documento, modelo_nome, cliente_nome, cpf_cnpj, numero_processo, responsavel_nome, status, created_at").eq("cliente_id", cliente.id).order("created_at", { ascending: false }).limit(300),
       supabase.from("processual_atendimentos").select("*").eq("cliente_id", cliente.id).order("data", { ascending: false }).limit(300),
+      supabase.from("clientes_historico").select("*").eq("cliente_id", cliente.id).order("created_at", { ascending: false }).limit(300),
     ]);
     if (processosResultado.status === "fulfilled" && !processosResultado.value.error) setProcessos((processosResultado.value.data || []) as ProcessoResumo[]);
     if (documentosResultado.status === "fulfilled" && !documentosResultado.value.error) setDocumentos((documentosResultado.value.data || []) as DocumentoResumo[]);
     if (atendimentosResultado.status === "fulfilled" && !atendimentosResultado.value.error) setAtendimentos((atendimentosResultado.value.data || []) as AtendimentoResumo[]);
+    if (historicosResultado.status === "fulfilled" && !historicosResultado.value.error) setHistoricos((historicosResultado.value.data || []) as HistoricoResumo[]);
     setCarregandoFicha(false);
+  }
+
+  function editarProcesso(processo?: ProcessoResumo) {
+    setProcessoForm(processo ? Object.fromEntries(Object.keys(PROCESSO_FORM_INICIAL).map((campo) => [campo, String(processo[campo as keyof ProcessoResumo] || "")])) as typeof PROCESSO_FORM_INICIAL : { ...PROCESSO_FORM_INICIAL, responsavel: usuario.nome || "" });
+    setProcessoFormAberto(true);
+  }
+
+  async function salvarProcessoCliente(evento: FormEvent<HTMLFormElement>) {
+    evento.preventDefault();
+    if (!clienteAberto) return;
+    const numero = limparTexto(processoForm.numero_processo);
+    const payload = {
+      cliente_id: clienteAberto.id, nome_cliente: clienteAberto.nome_completo, cpf_cliente: clienteAberto.cpf,
+      autor: clienteAberto.nome_completo, reu: limparTexto(processoForm.reu), banco_reu: limparTexto(processoForm.banco_reu),
+      autor_reu: processoForm.reu.trim() ? `${clienteAberto.nome_completo} X ${processoForm.reu.trim()}` : clienteAberto.nome_completo,
+      numero_processo: numero, tipo_acao: limparTexto(processoForm.tipo_acao), tribunal: limparTexto(processoForm.tribunal),
+      comarca: limparTexto(processoForm.comarca), vara: limparTexto(processoForm.vara), data_distribuicao: processoForm.data_distribuicao || null,
+      responsavel: limparTexto(processoForm.responsavel), situacao: processoForm.situacao || null, observacoes: limparTexto(processoForm.observacoes),
+      fase_atual: numero ? "Tramitando" : "Solicitado para Ajuizamento", origem_registro: numero ? "manual" : "encaminhamento_processual",
+      status_judicial: numero ? "TRAMITANDO" : null, updated_by: usuario.email || usuario.nome || null,
+    };
+    setSalvando(true);
+    const operacao = processoForm.id ? supabase.from("processos").update(payload).eq("id", processoForm.id) : supabase.from("processos").insert({ ...payload, created_by: usuario.email || usuario.nome || null });
+    const { data, error } = await operacao.select("*").single();
+    setSalvando(false);
+    if (error) { avisar(`Não foi possível salvar o processo: ${error.message}`); return; }
+    setProcessos((atuais) => [data as ProcessoResumo, ...atuais.filter((item) => String(item.id) !== String(data.id))]);
+    setProcessoFormAberto(false); avisar(numero ? "Processo salvo e disponível em Processos e Processual." : "Protocolo salvo para ajuizamento.");
+  }
+
+  function editarAtendimento(atendimento?: AtendimentoResumo) {
+    setAtendimentoForm(atendimento ? { id: String(atendimento.id), tipo: atendimento.tipo || "Atendimento", data: atendimento.data, hora: atendimento.hora || "", canal: atendimento.canal, descricao: atendimento.descricao, responsavel: atendimento.responsavel || "" } : { ...ATENDIMENTO_FORM_INICIAL, responsavel: usuario.nome || "" });
+    setAtendimentoFormAberto(true);
+  }
+
+  async function salvarAtendimentoCliente(evento: FormEvent<HTMLFormElement>) {
+    evento.preventDefault(); if (!clienteAberto || !atendimentoForm.descricao.trim()) return;
+    const payload = { cliente_id: clienteAberto.id, cliente_nome: clienteAberto.nome_completo, tipo: atendimentoForm.tipo, data: atendimentoForm.data, hora: atendimentoForm.hora || null, canal: atendimentoForm.canal, descricao: atendimentoForm.descricao.trim(), responsavel: atendimentoForm.responsavel || usuario.nome || null, created_by_nome: usuario.nome || usuario.email || null };
+    const operacao = atendimentoForm.id ? supabase.from("processual_atendimentos").update(payload).eq("id", atendimentoForm.id) : supabase.from("processual_atendimentos").insert(payload);
+    const { data, error } = await operacao.select("*").single();
+    if (error) { avisar(`Não foi possível salvar o atendimento: ${error.message}`); return; }
+    setAtendimentos((atuais) => [data as AtendimentoResumo, ...atuais.filter((item) => String(item.id) !== String(data.id))]); setAtendimentoFormAberto(false); avisar("Atendimento salvo.");
+  }
+
+  async function salvarHistoricoCliente(evento: FormEvent<HTMLFormElement>) {
+    evento.preventDefault(); if (!clienteAberto || !historicoDescricao.trim()) return;
+    const { data, error } = await supabase.from("clientes_historico").insert({ cliente_id: clienteAberto.id, tipo: "registro manual", descricao: historicoDescricao.trim(), origem: "Ficha do cliente", created_by: usuario.email || usuario.nome || null }).select("*").single();
+    if (error) { avisar(`Não foi possível salvar o histórico: ${error.message}`); return; }
+    setHistoricos((atuais) => [data as HistoricoResumo, ...atuais]); setHistoricoDescricao(""); setHistoricoFormAberto(false); avisar("Registro incluído no histórico.");
   }
 
   function contextoDocumentoCliente() {
@@ -497,12 +567,9 @@ export default function ClientesModule({ usuario, showToast }: Props) {
       </header>
 
       <div className="clientes-layout">
-        {!clienteAberto ? <section className="clientes-list-panel">
+        <section className="clientes-list-panel">
           <div className="clientes-toolbar">
-            <label>
-              <span>Buscar por nome, CPF ou ID</span>
-              <input value={busca} onChange={(evento) => setBusca(evento.target.value)} placeholder="Nome, CPF ou ID CRM" />
-            </label>
+            <span>{buscaAplicada ? `Resultados para “${buscaAplicada}”` : "Todos os clientes"}</span>
             <button type="button" className="btn-secondary" onClick={carregarDados}>Atualizar</button>
           </div>
 
@@ -548,10 +615,11 @@ export default function ClientesModule({ usuario, showToast }: Props) {
             </table>
           </div>
           <Pagination pagina={pagina} total={totalClientes} tamanho={CLIENTES_POR_PAGINA} onChange={setPagina} rotulo="clientes" />
-        </section> : null}
+        </section>
 
         {clienteAberto ? (
-          <section className="cliente-ficha-panel cliente-ficha-page">
+          <div className="cliente-ficha-backdrop" role="presentation" onMouseDown={(evento) => { if (evento.target === evento.currentTarget) setClienteAberto(null); }}>
+          <section className="cliente-ficha-panel cliente-ficha-page" role="dialog" aria-modal="true" aria-label={`Ficha de ${clienteAberto.nome_completo}`}>
             <header>
               <button type="button" className="cliente-back-button" onClick={() => { setClienteAberto(null); carregarDados(); }}>← Voltar para clientes</button>
               <span className="eyebrow">Ficha do cliente</span>
@@ -598,8 +666,7 @@ export default function ClientesModule({ usuario, showToast }: Props) {
                   <div className="ficha-section-actions">
                     <h4>Processos do cliente</h4>
                     <div>
-                      <button type="button" className="btn-secondary compact">Novo encaminhamento ao processual</button>
-                      <button type="button" className="btn-secondary compact">Cadastrar processo existente</button>
+                      <button type="button" className="btn-secondary compact" onClick={() => editarProcesso()}>Adicionar processo</button>
                     </div>
                   </div>
                   {processosDoCliente.length === 0 ? <div className="empty-row">Nenhum processo cadastrado.</div> : (
@@ -615,7 +682,7 @@ export default function ClientesModule({ usuario, showToast }: Props) {
                             <td>{processo.fase_atual || "—"}</td>
                             <td>{processo.resultado || processo.status_judicial || "—"}</td>
                             <td>{processo.responsavel || "—"}</td>
-                            <td><button type="button" className="btn-secondary compact" onClick={() => abrirEmail(processo)}>E-mail</button></td>
+                            <td><div className="table-actions"><button type="button" className="btn-secondary compact" onClick={() => editarProcesso(processo)}>Editar processo</button>{processo.numero_processo && onOpenProcess ? <button type="button" className="btn-secondary compact" onClick={() => onOpenProcess(processo.id)}>Abrir processo</button> : null}<button type="button" className="btn-secondary compact" onClick={() => abrirEmail(processo)}>E-mail</button></div></td>
                           </tr>
                         ))}</tbody>
                       </table>
@@ -626,14 +693,14 @@ export default function ClientesModule({ usuario, showToast }: Props) {
 
               {abaFicha === "atendimentos" ? (
                 <section className="ficha-section">
-                  <h4>Atendimentos</h4>
+                  <div className="ficha-section-actions"><h4>Atendimentos</h4><button type="button" className="btn-primary compact" onClick={() => editarAtendimento()}>Novo atendimento</button></div>
                   {atendimentosDoCliente.length === 0 ? <div className="empty-row">Nenhum atendimento cadastrado.</div> : (
                     <div className="document-list">
                       {atendimentosDoCliente.map((atendimento) => (
                         <article key={atendimento.id}>
                           <strong>{atendimento.canal} · {atendimento.tipo || "Atendimento"}</strong>
                           <span>{atendimento.descricao}</span>
-                          <small>{formatarDataHora(`${atendimento.data}T${atendimento.hora || "00:00"}`)} · {atendimento.responsavel || "Responsável não informado"}{atendimento.processo_numero ? ` · Processo ${atendimento.processo_numero}` : ""}</small>
+                          <small>{formatarDataHora(`${atendimento.data}T${atendimento.hora || "00:00"}`)} · {atendimento.responsavel || "Responsável não informado"}{atendimento.processo_numero ? ` · Processo ${atendimento.processo_numero}` : ""}</small><button type="button" className="btn-secondary compact" onClick={() => editarAtendimento(atendimento)}>Editar atendimento</button>
                         </article>
                       ))}
                     </div>
@@ -663,7 +730,7 @@ export default function ClientesModule({ usuario, showToast }: Props) {
 
               {abaFicha === "historico" ? (
                 <section className="ficha-section">
-                  <h4>Histórico geral do cliente</h4>
+                  <div className="ficha-section-actions"><h4>Histórico geral do cliente</h4><button type="button" className="btn-primary compact" onClick={() => setHistoricoFormAberto(true)}>Novo registro</button></div>
                   <div className="history-note">Reúne atendimentos, comunicações preparadas e documentos. Os andamentos processuais permanecem separados em suas próprias movimentações.</div>
                   {historicoDoCliente.length === 0 ? <div className="empty-row">Nenhum evento geral cadastrado.</div> : (
                     <div className="document-list">
@@ -680,6 +747,7 @@ export default function ClientesModule({ usuario, showToast }: Props) {
               ) : null}
             </div>
           </section>
+          </div>
         ) : null}
       </div>
 
@@ -728,6 +796,12 @@ export default function ClientesModule({ usuario, showToast }: Props) {
           </section>
         </div>
       ) : null}
+
+      {processoFormAberto && clienteAberto ? <div className="modal-backdrop"><form className="cliente-modal entidade-modal" onSubmit={salvarProcessoCliente}><header><div><span className="eyebrow">Processo do cliente</span><h3>{processoForm.id ? "Editar processo" : "Adicionar processo"}</h3></div><button type="button" className="drawer-close" onClick={() => setProcessoFormAberto(false)}>×</button></header><div className="cliente-form-grid"><label className="wide"><span>Número CNJ</span><input value={processoForm.numero_processo} onChange={(e) => setProcessoForm((f) => ({ ...f, numero_processo: e.target.value }))} placeholder="Pode ser incluído posteriormente" /></label><label><span>Réu</span><input value={processoForm.reu} onChange={(e) => setProcessoForm((f) => ({ ...f, reu: e.target.value }))} /></label><label><span>Banco</span><input value={processoForm.banco_reu} onChange={(e) => setProcessoForm((f) => ({ ...f, banco_reu: e.target.value }))} /></label><label><span>Ação</span><input value={processoForm.tipo_acao} onChange={(e) => setProcessoForm((f) => ({ ...f, tipo_acao: e.target.value }))} /></label><label><span>Tribunal</span><input value={processoForm.tribunal} onChange={(e) => setProcessoForm((f) => ({ ...f, tribunal: e.target.value }))} /></label><label><span>Comarca</span><input value={processoForm.comarca} onChange={(e) => setProcessoForm((f) => ({ ...f, comarca: e.target.value }))} /></label><label><span>Vara/Juízo</span><input value={processoForm.vara} onChange={(e) => setProcessoForm((f) => ({ ...f, vara: e.target.value }))} /></label><label><span>Distribuição</span><input type="date" value={processoForm.data_distribuicao} onChange={(e) => setProcessoForm((f) => ({ ...f, data_distribuicao: e.target.value }))} /></label><label><span>Responsável</span><input value={processoForm.responsavel} onChange={(e) => setProcessoForm((f) => ({ ...f, responsavel: e.target.value }))} /></label><label><span>Situação</span><input value={processoForm.situacao} onChange={(e) => setProcessoForm((f) => ({ ...f, situacao: e.target.value }))} /></label><label className="wide"><span>Observações</span><textarea rows={3} value={processoForm.observacoes} onChange={(e) => setProcessoForm((f) => ({ ...f, observacoes: e.target.value }))} /></label></div><footer><button type="button" className="btn-secondary" onClick={() => setProcessoFormAberto(false)}>Cancelar</button><button type="submit" className="btn-primary" disabled={salvando}>{salvando ? "Salvando..." : "Salvar processo"}</button></footer></form></div> : null}
+
+      {atendimentoFormAberto && clienteAberto ? <div className="modal-backdrop"><form className="cliente-modal entidade-modal" onSubmit={salvarAtendimentoCliente}><header><div><span className="eyebrow">Contato com cliente</span><h3>{atendimentoForm.id ? "Editar atendimento" : "Novo atendimento"}</h3></div><button type="button" className="drawer-close" onClick={() => setAtendimentoFormAberto(false)}>×</button></header><div className="cliente-form-grid"><label><span>Tipo</span><input value={atendimentoForm.tipo} onChange={(e) => setAtendimentoForm((f) => ({ ...f, tipo: e.target.value }))} /></label><label><span>Canal</span><input value={atendimentoForm.canal} onChange={(e) => setAtendimentoForm((f) => ({ ...f, canal: e.target.value }))} /></label><label><span>Data</span><input type="date" value={atendimentoForm.data} onChange={(e) => setAtendimentoForm((f) => ({ ...f, data: e.target.value }))} /></label><label><span>Horário</span><input type="time" value={atendimentoForm.hora} onChange={(e) => setAtendimentoForm((f) => ({ ...f, hora: e.target.value }))} /></label><label><span>Responsável</span><input value={atendimentoForm.responsavel} onChange={(e) => setAtendimentoForm((f) => ({ ...f, responsavel: e.target.value }))} /></label><label className="wide"><span>Assunto e observações *</span><textarea required rows={4} value={atendimentoForm.descricao} onChange={(e) => setAtendimentoForm((f) => ({ ...f, descricao: e.target.value }))} /></label></div><footer><button type="button" className="btn-secondary" onClick={() => setAtendimentoFormAberto(false)}>Cancelar</button><button type="submit" className="btn-primary">Salvar atendimento</button></footer></form></div> : null}
+
+      {historicoFormAberto && clienteAberto ? <div className="modal-backdrop"><form className="cliente-modal entidade-modal" onSubmit={salvarHistoricoCliente}><header><div><span className="eyebrow">Histórico do cliente</span><h3>Novo registro</h3></div><button type="button" className="drawer-close" onClick={() => setHistoricoFormAberto(false)}>×</button></header><div className="cliente-form-grid"><label className="wide"><span>Descrição *</span><textarea required rows={6} value={historicoDescricao} onChange={(e) => setHistoricoDescricao(e.target.value)} /></label></div><footer><button type="button" className="btn-secondary" onClick={() => setHistoricoFormAberto(false)}>Cancelar</button><button type="submit" className="btn-primary">Salvar no histórico</button></footer></form></div> : null}
 
       {emailAberto && clienteAberto ? (
         <EmailComposer

@@ -1,7 +1,6 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { supabase } from "../../lib/supabase";
 import GeradorDocumentos from "../../GeradorDocumentos";
-import Pagination from "../common/Pagination";
 import {
   type FaseProcessual,
   type MovimentacaoProcessual,
@@ -13,6 +12,8 @@ type Props = {
   onProcessoAtualizado: (processo: Processo) => void;
   showToast: (mensagem: string) => void;
   usuario?: { nome?: string; email?: string };
+  busca: string;
+  onBusca: (valor: string) => void;
 };
 
 type TarefaProcessual = {
@@ -296,8 +297,9 @@ export default function PainelJudicial({
   onProcessoAtualizado,
   showToast,
   usuario,
+  busca,
+  onBusca,
 }: Props) {
-  const [busca, setBusca] = useState("");
   const [filtros, setFiltros] = useState({
     situacao: "Todos",
     fase: "Todos",
@@ -333,7 +335,6 @@ export default function PainelJudicial({
   const [comunicacaoCanal, setComunicacaoCanal] = useState("WhatsApp");
   const [comunicacaoObservacao, setComunicacaoObservacao] = useState("");
   const [salvando, setSalvando] = useState(false);
-  const [pagina, setPagina] = useState(1);
 
   const bancos = useMemo(() => ["Todos", ...Array.from(new Set(processos.map((p) => p.banco_reu).filter(Boolean))) as string[]], [processos]);
   const responsaveis = useMemo(() => ["Todos", ...Array.from(new Set(processos.map((p) => p.responsavel).filter(Boolean))) as string[]], [processos]);
@@ -374,8 +375,6 @@ export default function PainelJudicial({
         boolFiltro(recursal, filtros.recursal);
     });
   }, [busca, filtros, processos]);
-
-  useEffect(() => { setPagina(1); }, [busca, filtros]);
 
   useEffect(() => {
     setFicha(criarFicha(processoAberto, usuario?.nome || ""));
@@ -903,7 +902,7 @@ export default function PainelJudicial({
         </div>
         <label>
           <span>Busca</span>
-          <input type="search" value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Cliente, CPF, ID, CNJ ou banco" />
+          <input type="search" value={busca} onChange={(e) => onBusca(e.target.value)} placeholder="Cliente, CPF, ID, CNJ, réu, banco ou ação" />
         </label>
         <button className="btn-primary" onClick={abrirCadastroExistente} type="button">Cadastrar processo existente</button>
       </div>
@@ -945,7 +944,7 @@ export default function PainelJudicial({
           <tbody>
             {processosFiltrados.length === 0 ? (
               <tr><td colSpan={12}>Nenhum processo encontrado.</td></tr>
-            ) : processosFiltrados.slice((pagina - 1) * 30, pagina * 30).map((processo) => {
+            ) : processosFiltrados.map((processo) => {
               const situacao = situacaoDoProcesso(processo);
               const fase = faseDoProcesso(processo);
               const resultado = resultadoDoProcesso(processo);
@@ -969,8 +968,6 @@ export default function PainelJudicial({
           </tbody>
         </table>
       </div>
-      <Pagination pagina={pagina} total={processosFiltrados.length} tamanho={30} onChange={setPagina} rotulo="processos" />
-
       {fichaAberta && (
         <section className="judicial-drawer process-drawer process-page-view" aria-label="Ficha do processo">
           <form className="judicial-drawer-panel process-ficha" onSubmit={salvarProcesso}>

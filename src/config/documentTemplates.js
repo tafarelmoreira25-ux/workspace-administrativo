@@ -620,11 +620,11 @@ export const DOCUMENT_TEMPLATES = [
   {
     id: "relatorio-atualizacao-processual",
     nome: "Relatório de Atualização Processual",
-    descricao: "Modelo oficial editável em DOCX. Os destaques amarelos do arquivo-base são removidos após o preenchimento.",
+    descricao: "Relatório profissional em PDF A4, com quebra de página e assinatura ao final.",
     modo: "relatorio-atualizacao-processual",
     titulo: "Relatório de Atualização Processual",
     identidadeVisual: true,
-    formato: "docx",
+    formato: "pdf",
     campos: [
       { nome: "numeroProcesso", rotulo: "Número do processo", obrigatorio: true },
       { nome: "dataDistribuicao", rotulo: "Data de distribuição", tipo: "date" },

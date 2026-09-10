@@ -213,3 +213,4 @@
     grid-template-columns: 1fr;
   }
 }
+.operacional-grid > .table-pagination { grid-column: 1 / -1; }

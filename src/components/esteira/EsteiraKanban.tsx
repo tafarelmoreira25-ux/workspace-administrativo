@@ -12,6 +12,8 @@ type Props = {
   onProcessoAtualizado: (processo: Processo) => void;
   showToast: (mensagem: string) => void;
   usuario?: { nome?: string; email?: string };
+  busca: string;
+  onBusca: (valor: string) => void;
 };
 
 const MOTIVOS_AJUIZAMENTO = [
@@ -179,8 +181,9 @@ export default function EsteiraKanban({
   onProcessoAtualizado,
   showToast,
   usuario,
+  busca,
+  onBusca,
 }: Props) {
-  const [busca, setBusca] = useState("");
   const [modalAberto, setModalAberto] = useState(false);
   const [processoEditando, setProcessoEditando] = useState<Processo | null>(null);
   const [formulario, setFormulario] = useState(criarFormulario(null, usuario?.nome || ""));
@@ -188,9 +191,7 @@ export default function EsteiraKanban({
 
   const protocolos = useMemo(() => {
     const termo = normalizar(busca);
-    return processos.filter((processo) => (
-      processo.origem_registro === "encaminhamento_processual"
-    )).filter((processo) => {
+    return processos.filter((processo) => {
       if (!termo) return true;
       return [
         processo.nome_cliente,
@@ -357,7 +358,7 @@ export default function EsteiraKanban({
           <input
             type="search"
             value={busca}
-            onChange={(evento) => setBusca(evento.target.value)}
+            onChange={(evento) => onBusca(evento.target.value)}
             placeholder="Cliente, CPF, ID, banco ou processo"
           />
         </label>

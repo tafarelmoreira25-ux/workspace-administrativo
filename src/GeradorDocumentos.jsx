@@ -159,9 +159,8 @@ async function gerarArquivos(dados, modelo, nomeDocumento, criarUrls = true, nom
   }
   let bytes;
   if (modelo.modo === "relatorio-atualizacao-processual") {
-    const { DOCX_MIME, gerarRelatorioAtualizacaoProcessualDocx } = await import("./lib/relatorioProcessualDocx");
-    bytes = await gerarRelatorioAtualizacaoProcessualDocx(dados);
-    return [criarArquivo(modelo.modo, `${base}.docx`, bytes, criarUrls, DOCX_MIME)];
+    const { gerarRelatorioAtualizacaoProcessualPdf } = await import("./lib/relatorioAtualizacaoProcessualPdf");
+    bytes = await gerarRelatorioAtualizacaoProcessualPdf(dados);
   } else if (modelo.modo === "notificacao-extrajudicial") {
     const { gerarNotificacaoExtrajudicialPdf } = await import("./lib/notificacaoExtrajudicialPdf"); bytes = await gerarNotificacaoExtrajudicialPdf(dados);
   } else if (modelo.modo === "contestacao-taxas-email") {
@@ -232,7 +231,7 @@ function AssistentePreenchimento({ dados, pendentes, errosVisiveis, onCorrigir }
 
 function PainelPrevia({ modelo, nomeDocumento, numeroDocumento, atualizadoEm, gerando, pdfUrl, erroPrevia, fullscreen, onFullscreen, onRefresh }) {
   const [zoom, setZoom] = useState(0.78);
-  const modeloDocx = modelo.formato === "docx";
+  const modeloDocx = false;
   const origem = pdfUrl ? `${pdfUrl}#zoom=${Math.round(zoom * 100)}&view=FitH` : "";
   return <section className={`legal-doc-preview-panel ${fullscreen ? "fullscreen" : ""}`}><header><div><span className="eyebrow">{modeloDocx ? "Modelo DOCX editável" : "Prévia do PDF — sem validade jurídica"}</span><h3>{nomeDocumento || modelo.nome}</h3><p>{modelo.nome} · {numeroDocumento}</p></div>{fullscreen ? <button type="button" className="legal-doc-preview-close" onClick={onFullscreen} aria-label="Fechar prévia">×</button> : null}</header><div className="legal-doc-preview-status"><span className={gerando ? "loading" : "ready"}>{gerando ? "Atualizando" : "Pronta para conferência"}</span><small>Atualizada {formatarDataHora(atualizadoEm)}</small></div>{modeloDocx ? null : <div className="legal-doc-preview-tools"><button type="button" onClick={() => setZoom((valor) => Math.max(.58, valor - .1))} aria-label="Diminuir zoom">−</button><span>{Math.round(zoom * 100)}%</span><button type="button" onClick={() => setZoom((valor) => Math.min(1.08, valor + .1))} aria-label="Aumentar zoom">+</button><i /><button type="button" onClick={onRefresh}>↻ <span>Atualizar</span></button><button type="button" onClick={onFullscreen}>⛶ <span>Tela cheia</span></button></div>}<div className="legal-doc-preview-render">{gerando ? <div className="legal-doc-preview-skeleton" aria-label="Atualizando prévia"><span /><span /><span /><span /><span /></div> : null}{origem ? <iframe className="legal-doc-pdf-preview" title={`Prévia fiel: ${nomeDocumento || modelo.nome}`} src={origem} /> : <div className="legal-doc-preview-placeholder">{erroPrevia || (modeloDocx ? "Gere o DOCX para conferir o arquivo editável." : "Preparando a prévia real do PDF…")}</div>}</div><footer><span>{modeloDocx ? "O arquivo gerado será um DOCX fiel ao modelo oficial enviado." : "Visualização do primeiro PDF que será gerado"}</span></footer></section>;
 }
