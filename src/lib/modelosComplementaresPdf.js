@@ -1,8 +1,8 @@
 import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
 
 const A4 = [595.28, 841.89];
+const A4_PAISAGEM = [841.89, 595.28];
 const MARGEM = 82;
-const LARGURA = A4[0] - MARGEM * 2;
 const AZUL = rgb(0, 56 / 255, 168 / 255);
 const AZUL_TITULO = rgb(23 / 255, 54 / 255, 93 / 255);
 
@@ -43,44 +43,57 @@ function criarLinhas(texto, fonte, tamanho, largura) {
   return linhas;
 }
 
-function criarPagina(pdf, fontes, titulo) {
-  const pagina = pdf.addPage(A4);
-  pagina.drawRectangle({ x: 0, y: 0, width: 24, height: A4[1], color: AZUL });
+async function carregarImagem(caminho) {
+  const resposta = await fetch(caminho);
+  if (!resposta.ok) return null;
+  return resposta.arrayBuffer();
+}
+
+function criarPagina(pdf, fontes, titulo, opcoes = {}) {
+  const tamanhoPagina = opcoes.tamanhoPagina || A4;
+  const margem = opcoes.margem ?? MARGEM;
+  const pagina = pdf.addPage(tamanhoPagina);
+  pagina.drawRectangle({ x: 0, y: 0, width: 24, height: tamanhoPagina[1], color: AZUL });
   const larguraTitulo = fontes.negrito.widthOfTextAtSize(titulo, 14);
   pagina.drawText(titulo, {
-    x: (A4[0] - larguraTitulo) / 2,
-    y: 755,
+    x: (tamanhoPagina[0] - larguraTitulo) / 2,
+    y: tamanhoPagina[1] - 87,
     size: 14,
     font: fontes.negrito,
     color: AZUL_TITULO,
   });
   pagina.drawLine({
-    start: { x: MARGEM, y: 738 },
-    end: { x: A4[0] - MARGEM, y: 738 },
+    start: { x: margem, y: tamanhoPagina[1] - 104 },
+    end: { x: tamanhoPagina[0] - margem, y: tamanhoPagina[1] - 104 },
     thickness: 1.2,
     color: rgb(0.62, 0.62, 0.62),
   });
   return pagina;
 }
 
-function escreverDocumento(pdf, fontes, titulo, blocos) {
-  let pagina = criarPagina(pdf, fontes, titulo);
-  let y = 704;
+function escreverDocumento(pdf, fontes, titulo, blocos, opcoesDocumento = {}) {
+  const tamanhoPagina = opcoesDocumento.tamanhoPagina || A4;
+  const margem = opcoesDocumento.margem ?? MARGEM;
+  const larguraTexto = tamanhoPagina[0] - margem * 2;
+  const yInicial = opcoesDocumento.yInicial ?? tamanhoPagina[1] - 138;
+  const yMinimo = opcoesDocumento.yMinimo ?? 72;
+  let pagina = criarPagina(pdf, fontes, titulo, opcoesDocumento);
+  let y = yInicial;
 
   const paragrafo = (texto, opcoes = {}) => {
     const fonte = opcoes.negrito ? fontes.negrito : fontes.normal;
     const tamanho = opcoes.tamanho || 10.5;
     const altura = opcoes.altura || 14;
-    const linhas = criarLinhas(texto, fonte, tamanho, LARGURA);
+    const linhas = criarLinhas(texto, fonte, tamanho, opcoes.largura || larguraTexto);
     linhas.forEach((linha) => {
-      if (y < 72) {
-        pagina = criarPagina(pdf, fontes, titulo);
-        y = 704;
+      if (y < yMinimo) {
+        pagina = criarPagina(pdf, fontes, titulo, opcoesDocumento);
+        y = yInicial;
       }
       if (linha) {
         const largura = fonte.widthOfTextAtSize(linha, tamanho);
         pagina.drawText(linha, {
-          x: opcoes.centralizar ? (A4[0] - largura) / 2 : MARGEM,
+          x: opcoes.centralizar ? (tamanhoPagina[0] - largura) / 2 : margem,
           y,
           size: tamanho,
           font: fonte,
@@ -103,13 +116,31 @@ function escreverDocumento(pdf, fontes, titulo, blocos) {
       campo(bloco.rotulo, bloco.valor);
     } else if (bloco.tipo === "assinatura") {
       y -= 12;
-      const larguraLinha = 245;
-      pagina.drawLine({
-        start: { x: (A4[0] - larguraLinha) / 2, y },
-        end: { x: (A4[0] + larguraLinha) / 2, y },
-        thickness: 0.8,
-        color: rgb(0, 0, 0),
-      });
+      const larguraLinha = bloco.largura || 245;
+      const xAssinatura = bloco.x ?? (tamanhoPagina[0] - larguraLinha) / 2;
+      const imagemAssinatura =
+        bloco.imagem ||
+        (opcoesDocumento.assinaturaEmpresa &&
+        String(bloco.nome || "").toUpperCase().includes("PLATINO")
+          ? opcoesDocumento.assinaturaEmpresa
+          : null);
+      if (imagemAssinatura) {
+        const alturaImagem = bloco.alturaImagem || 132;
+        const proporcaoLinha = bloco.proporcaoLinha ?? (524 - 307) / 524;
+        pagina.drawImage(imagemAssinatura, {
+          x: xAssinatura,
+          y: y - proporcaoLinha * alturaImagem,
+          width: larguraLinha,
+          height: alturaImagem,
+        });
+      } else {
+        pagina.drawLine({
+          start: { x: xAssinatura, y },
+          end: { x: xAssinatura + larguraLinha, y },
+          thickness: 0.8,
+          color: rgb(0, 0, 0),
+        });
+      }
       y -= 17;
       paragrafo(bloco.nome, { tamanho: 9.5, centralizar: true, espacoDepois: 18 });
     } else {
@@ -126,6 +157,13 @@ export async function gerarModeloComplementarPdf(dados, modelo) {
     normal: await pdf.embedFont(StandardFonts.TimesRoman),
     negrito: await pdf.embedFont(StandardFonts.TimesRomanBold),
   };
+  const assinaturaEmpresaBytes =
+    modelo.modo === "recibo-prestacao-servicos"
+      ? await carregarImagem("/modelos/termo-ciencia-seguranca-assinatura.png")
+      : null;
+  const assinaturaEmpresa = assinaturaEmpresaBytes
+    ? await pdf.embedPng(assinaturaEmpresaBytes)
+    : null;
   const cliente = dados.nomeCliente || "Nome do cliente";
   const cidade = dados.cidade || "São Paulo";
   const data = dataBrasileira(dados.dataEmissao);
@@ -193,5 +231,22 @@ export async function gerarModeloComplementarPdf(dados, modelo) {
     ];
   }
 
-  return escreverDocumento(pdf, fontes, modelo.titulo || modelo.nome, blocos).save();
+  const opcoesDocumento =
+    modelo.modo === "recibo-prestacao-servicos"
+      ? {
+          tamanhoPagina: A4_PAISAGEM,
+          margem: 74,
+          yInicial: A4_PAISAGEM[1] - 138,
+          yMinimo: 64,
+          assinaturaEmpresa,
+        }
+      : {};
+
+  return escreverDocumento(
+    pdf,
+    fontes,
+    modelo.titulo || modelo.nome,
+    blocos,
+    opcoesDocumento,
+  ).save();
 }

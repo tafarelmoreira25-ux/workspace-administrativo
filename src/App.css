@@ -2778,6 +2778,126 @@ textarea:focus {
   }
 }
 
+/* === Workspace canonical: viewport locked, module scroll isolated === */
+body:has(.app-layout) {
+  overflow: hidden;
+}
+
+.app-layout {
+  height: 100svh !important;
+  min-height: 0 !important;
+  overflow: hidden !important;
+}
+
+.sidebar {
+  height: 100svh !important;
+  max-height: 100svh !important;
+}
+
+.main-content {
+  height: 100svh !important;
+  min-height: 0 !important;
+  display: grid !important;
+  grid-template-rows: auto minmax(0, 1fr);
+  gap: 14px;
+  overflow: hidden !important;
+  padding: 14px 18px !important;
+}
+
+.topbar {
+  min-height: 52px !important;
+  margin: 0 !important;
+}
+
+.topbar h1 {
+  font-size: 20px !important;
+}
+
+.main-content > :not(.topbar) {
+  min-height: 0;
+  max-height: 100%;
+  overflow: auto;
+}
+
+.workspace-home,
+.clientes-workspace,
+.esteira-workspace,
+.dashboard-resumo,
+.planner-workspace {
+  min-height: 0;
+}
+
+.workspace-heading,
+.module-page-header,
+.dashboard-cabecalho {
+  padding: 14px !important;
+}
+
+.workspace-kpis,
+.dashboard-cards {
+  gap: 10px !important;
+}
+
+.workspace-kpi,
+.dashboard-card {
+  min-height: 92px !important;
+  padding: 12px !important;
+}
+
+.workspace-grid,
+.dashboard-listas {
+  min-height: 0;
+}
+
+.dense-table-shell,
+.clientes-table-wrap {
+  max-height: calc(100svh - 330px);
+  overflow: auto;
+}
+
+.cliente-ficha-panel {
+  max-height: calc(100svh - 28px) !important;
+}
+
+@media (max-width: 900px) {
+  body:has(.app-layout) {
+    overflow: auto;
+  }
+
+  .app-layout {
+    height: auto !important;
+    min-height: 100svh !important;
+    overflow: visible !important;
+  }
+
+  .sidebar {
+    height: auto !important;
+    max-height: none !important;
+  }
+
+  .main-content {
+    height: auto !important;
+    min-height: 0 !important;
+    display: block !important;
+    overflow: visible !important;
+    padding: 12px 10px 28px !important;
+  }
+
+  .main-content > :not(.topbar) {
+    max-height: none;
+    overflow: visible;
+  }
+
+  .topbar {
+    margin-bottom: 12px !important;
+  }
+
+  .dense-table-shell,
+  .clientes-table-wrap {
+    max-height: none;
+  }
+}
+
 /* === Login canonical (must remain last so legacy declarations cannot win) === */
 html,
 body,
