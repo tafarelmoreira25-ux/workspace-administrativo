@@ -285,6 +285,15 @@ function limpar(valor: string) {
   return texto || null;
 }
 
+function cadastroIncompleto(processo: Processo) {
+  return ![
+    processo.tipo_acao,
+    processo.reu || processo.banco_reu,
+    processo.tribunal || processo.vara || processo.comarca,
+    processo.responsavel,
+  ].every((valor) => String(valor || "").trim());
+}
+
 function badgeClass(valor: string) {
   if (["Encerrado", "Arquivado", "Improcedente"].includes(valor)) return "encerrado";
   if (["Pendente de protocolo", "Pendente", "Solicitada", "Prazo decorrido"].includes(valor)) return "pendente";
@@ -952,7 +961,7 @@ export default function PainelJudicial({
               const resultado = resultadoDoProcesso(processo);
               return (
                 <tr key={processo.id}>
-                  <td><strong>{processo.nome_cliente}</strong><small>{processo.cpf_cliente || processo.id_crm || "Sem CPF/ID"}</small></td>
+                  <td><strong>{processo.nome_cliente}</strong><small>{processo.cpf_cliente || processo.id_crm || "Sem CPF/ID"}</small>{cadastroIncompleto(processo) ? <span className="process-incomplete-tag">[Cadastro Incompleto]</span> : null}</td>
                   <td>{processo.numero_processo || "Pendente"}</td>
                   <td>{processo.reu || processo.banco_reu || "—"}</td>
                   <td>{processo.banco_reu || "—"}</td>
@@ -991,6 +1000,12 @@ export default function PainelJudicial({
 
             <div className="process-ficha-content">
               {abaFicha === "Resumo" ? <>
+                <section className="process-inline-summary" aria-label="Resumo editável do processo">
+                  <label><span>Ação</span><input value={ficha.tipo_acao} onChange={(e) => setFicha((f) => ({ ...f, tipo_acao: e.target.value }))} placeholder="Clique para preencher" /></label>
+                  <label><span>Réu</span><input value={ficha.reu} onChange={(e) => setFicha((f) => ({ ...f, reu: e.target.value, banco_reu: f.banco_reu || e.target.value }))} placeholder="Clique para preencher" /></label>
+                  <label><span>Tribunal/Juízo</span><input value={[ficha.tribunal, ficha.vara, ficha.comarca].filter(Boolean).join(" · ")} onChange={(e) => setFicha((f) => ({ ...f, tribunal: e.target.value }))} placeholder="Clique para preencher" /></label>
+                  <label><span>Responsável</span><input value={ficha.responsavel} onChange={(e) => setFicha((f) => ({ ...f, responsavel: e.target.value }))} placeholder="Clique para preencher" /></label>
+                </section>
                 <section className="process-form-section">
                   <h4>Informações principais</h4>
                   <div className="process-form-grid">
@@ -1074,7 +1089,7 @@ export default function PainelJudicial({
                     <label className="check-line wide"><input type="checkbox" checked={movimentacaoForm.criar_tarefa_relacionada} onChange={(e) => setMovimentacaoForm((f) => ({ ...f, criar_tarefa_relacionada: e.target.checked }))} /> Criar tarefa relacionada futuramente</label>
                     <div className="movement-actions"><button className="btn-primary" disabled={salvando} type="submit">Registrar movimentação</button></div>
                   </form>
-                  <TimelineProcessual movimentacoes={movimentacoes} filtro={timelineFiltro} onFiltro={setTimelineFiltro} onArquivar={arquivarMovimentacao} />
+                  <TimelineProcessual movimentacoes={movimentacoes} filtro={timelineFiltro} onFiltro={setTimelineFiltro} onArquivar={arquivarMovimentacao} onAdd={() => setAbaFicha("Movimentações")} />
                 </section>
               ) : null}
               {abaFicha === "Histórico" ? (
@@ -1093,7 +1108,7 @@ export default function PainelJudicial({
                     <input value={revisaoObservacao} onChange={(e) => setRevisaoObservacao(e.target.value)} placeholder="Observação opcional da revisão" />
                     <button className="btn-secondary" disabled={salvando || !processoAberto} onClick={registrarRevisaoInterna} type="button">Registrar revisão</button>
                   </div>
-                  <TimelineProcessual movimentacoes={movimentacoes} filtro={timelineFiltro} onFiltro={setTimelineFiltro} onArquivar={arquivarMovimentacao} />
+                  <TimelineProcessual movimentacoes={movimentacoes} filtro={timelineFiltro} onFiltro={setTimelineFiltro} onArquivar={arquivarMovimentacao} onAdd={() => setAbaFicha("Movimentações")} />
                 </section>
               ) : null}
               {abaFicha === "Tarefas e Prazos" ? (
@@ -1230,11 +1245,13 @@ function TimelineProcessual({
   filtro,
   onFiltro,
   onArquivar,
+  onAdd,
 }: {
   movimentacoes: MovimentacaoProcessual[];
   filtro: string;
   onFiltro: (filtro: string) => void;
   onArquivar: (movimentacao: MovimentacaoProcessual) => void;
+  onAdd: () => void;
 }) {
   const categorias = categoriaPorFiltro(filtro);
   const itens = movimentacoes.filter((movimentacao) => {
@@ -1253,7 +1270,7 @@ function TimelineProcessual({
         ))}
       </div>
       {itens.length === 0 ? (
-        <div className="empty-row">Nenhum evento registrado para este filtro.</div>
+        <div className="empty-row timeline-empty-cta"><span>Nenhum evento registrado para este filtro.</span><button className="btn-primary compact" type="button" onClick={onAdd}>Adicionar primeira movimentação</button></div>
       ) : (
         <div className="timeline-list">
           {itens.map((movimentacao) => {

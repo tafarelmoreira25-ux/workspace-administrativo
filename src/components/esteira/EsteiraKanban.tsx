@@ -31,6 +31,12 @@ const STATUS_ELITE = ["Pendente", "Enviado"];
 const STATUS_RETORNO = ["Não retornada", "Retornada", "Em regularização", "Reenviada"];
 const IMPACTO_SLA = ["não altera", "pausa", "reinicia"];
 const STATUS_PROTOCOLO = ["Aguardando", "Liberado"];
+const COLUNAS_PROTOCOLO = [
+  "Cadastro/Procuração",
+  "Aguardando Assinatura",
+  "Análise de Documentos",
+  "Distribuição",
+] as const;
 
 const ETAPAS_FORMULARIO = [
   ["dados", "Encaminhamento"],
@@ -168,6 +174,29 @@ function classeSla(sinalizacao: string) {
   return "neutro";
 }
 
+function colunaProtocolo(processo: Processo): (typeof COLUNAS_PROTOCOLO)[number] {
+  if (processo.numero_processo || processo.protocolo_status === "Liberado") return "Distribuição";
+  if ((processo.documentacao_status || processo.status_documentos) === "Irregular" || processo.pasta_retornada) return "Análise de Documentos";
+  if ([processo.procuracao_status, processo.status_procuracao, processo.declaracao_hipossuficiencia_status, processo.declaracao_ir_status].some((status) => status === "Aguardando assinatura" || status === "Pendente" || status === "Atrasado")) return "Aguardando Assinatura";
+  return "Cadastro/Procuração";
+}
+
+function diasNaEtapa(processo: Processo) {
+  const referencia = processo.updated_at || processo.sla_iniciado_em || processo.data_envio_elite || processo.created_at;
+  if (!referencia) return 0;
+  const inicio = new Date(referencia).getTime();
+  if (Number.isNaN(inicio)) return 0;
+  return Math.max(0, Math.floor((Date.now() - inicio) / 86400000));
+}
+
+function classeSlaCard(processo: Processo) {
+  if ((processo.documentacao_status || processo.status_documentos) === "Irregular" || processo.pasta_retorno_impacto_sla === "pausa") return "sla-pausado";
+  const dias = diasNaEtapa(processo);
+  if (dias >= 7) return "sla-card-critico";
+  if (dias >= 4) return "sla-card-alerta";
+  return "";
+}
+
 function campoMudou(a: unknown, b: unknown) {
   return String(a || "") !== String(b || "");
 }
@@ -294,11 +323,6 @@ export default function EsteiraKanban({
 
     if (!nome) {
       showToast("Informe o cliente.");
-      return;
-    }
-
-    if (etapaFormulario === "dados" && !banco) {
-      showToast("Informe a instituição financeira nos dados do encaminhamento.");
       return;
     }
 
@@ -469,32 +493,34 @@ export default function EsteiraKanban({
         </label>
         <div className="protocolos-actions">
           <button className="btn-primary" onClick={abrirNovoCadastro} type="button">Novo encaminhamento</button>
-          <button className="btn-secondary" onClick={abrirNovoCadastro} type="button">Cadastrar processo existente</button>
         </div>
       </div>
 
       <div className="protocolos-kanban">
-        {(["A Fazer", "Fazendo", "Concluído"] as const).map((coluna) => {
-          const itens = protocolos.filter((processo) => {
-            if (processo.numero_processo || processo.protocolo_status === "Liberado") return coluna === "Concluído";
-            const fazendo = Boolean(processo.data_envio_elite || processo.pasta_retornada || processo.documentacao_status === "Regular" || processo.status_documentos === "Regular");
-            return coluna === (fazendo ? "Fazendo" : "A Fazer");
-          });
+        {COLUNAS_PROTOCOLO.map((coluna) => {
+          const itens = protocolos.filter((processo) => colunaProtocolo(processo) === coluna);
           return <section className="protocolo-kanban-coluna" key={coluna}>
             <header><h3>{coluna}</h3><span>{itens.length}</span></header>
             <button className="kanban-nova-atividade" onClick={abrirNovoCadastro} type="button">+ Novo protocolo</button>
             <div className="protocolo-kanban-lista">
               {itens.map((processo) => {
                 const prazo = calcularPrazoElite(processo.data_envio_elite);
-                return <article className="protocolo-kanban-card" key={processo.id}>
+                const dias = diasNaEtapa(processo);
+                return <article className={`protocolo-kanban-card ${classeSlaCard(processo)}`} key={processo.id}>
                   <header><strong>{processo.nome_cliente}</strong><div className="protocolo-card-actions"><button type="button" onClick={() => setProcessoVisualizando(processo)}>Ver</button><button type="button" onClick={() => abrirEdicao(processo)}>Editar</button></div></header>
                   <span>{processo.banco_reu || "Instituição não informada"}</span>
+                  <div className="protocolo-card-tags">
+                    <small>{dias ? `${dias} dia${dias === 1 ? "" : "s"} na etapa` : "Entrada recente"}</small>
+                    {(processo.documentacao_status || processo.status_documentos) === "Irregular" ? <b>[Documento Irregular]</b> : null}
+                    {processo.pasta_retorno_impacto_sla === "pausa" ? <b>[SLA pausado]</b> : null}
+                  </div>
                   <div className="protocolo-card-status"><small>Documentação</small><b>{processo.documentacao_status || processo.status_documentos || "Pendente"}</b></div>
                   <div className="protocolo-card-status"><small>Procuração</small><b>{processo.procuracao_status || processo.status_procuracao || "Pendente"}</b></div>
                   <div className="protocolo-card-status"><small>Etapa</small><b>{etapaAtual(processo)}</b></div>
                   {processo.data_envio_elite && <div className={`sla-cell ${classeSla(prazo.sinalizacao)}`}><span>{prazo.rotulo}</span><small>Início: {formatarDataHora(processo.data_envio_elite)} · {prazo.diasUteisDecorridos} decorridos · {prazo.diasUteisRestantes} restantes</small></div>}
                   {processo.pasta_retornada && <em>Retornado para correção{processo.pasta_retorno_motivo ? `: ${processo.pasta_retorno_motivo}` : ""}</em>}
                   {processo.numero_processo && <code>{processo.numero_processo}</code>}
+                  {!processo.numero_processo ? <button className="converter-processo-btn" type="button" onClick={() => abrirEdicao(processo)}>Converter em Processo</button> : null}
                 </article>;
               })}
               {!itens.length && <p className="kanban-vazio">Nenhum protocolo nesta etapa.</p>}

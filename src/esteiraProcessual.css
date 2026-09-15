@@ -1877,14 +1877,17 @@
     display: grid;
   }
 }
-.protocolos-kanban { align-items: start; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
+.protocolos-kanban { align-items: start; display: grid; grid-template-columns: repeat(4, minmax(240px, 1fr)); gap: 16px; }
 .protocolo-kanban-coluna { background: #f3f5f7; border: 1px solid #e2e7ed; border-radius: 14px; min-width: 0; padding: 12px; }
 .protocolo-kanban-coluna > header { align-items: center; display: flex; justify-content: space-between; padding: 2px 3px 10px; }
 .protocolo-kanban-coluna > header h3 { font-size: .95rem; margin: 0; }
 .protocolo-kanban-coluna > header span { background: #1976d2; border-radius: 20px; color: #fff; font-size: .7rem; min-width: 21px; padding: 4px 7px; text-align: center; }
 .kanban-nova-atividade { background: #fff; border: 1px solid #e3e8ee; border-radius: 8px; color: #315473; cursor: pointer; font-size: .75rem; font-weight: 800; padding: 10px; width: 100%; }
 .protocolo-kanban-lista { display: grid; gap: 10px; margin-top: 10px; }
-.protocolo-kanban-card { background: #fff; border: 1px solid #dfe5eb; border-radius: 10px; box-shadow: 0 3px 12px rgba(22, 44, 70, .05); display: grid; gap: 9px; padding: 13px; }
+.protocolo-kanban-card { background: #fff; border: 1px solid #dfe5eb; border-left: 4px solid #9aa9b8; border-radius: 10px; box-shadow: 0 3px 12px rgba(22, 44, 70, .05); display: grid; gap: 9px; padding: 13px; }
+.protocolo-kanban-card.sla-card-alerta { border-left-color: #d99a20; }
+.protocolo-kanban-card.sla-card-critico { border-left-color: #c24135; }
+.protocolo-kanban-card.sla-pausado { border-left-color: #6b7280; background: #fbfcfd; }
 .protocolo-kanban-card > header { align-items: start; display: flex; gap: 8px; justify-content: space-between; }
 .protocolo-kanban-card > header button { background: none; border: 0; color: #1763a6; cursor: pointer; font-size: .72rem; font-weight: 700; }
 .protocolo-card-actions { display: flex; gap: 5px; }
@@ -1892,6 +1895,12 @@
 .protocolo-card-status { align-items: center; display: flex; gap: 8px; justify-content: space-between; }
 .protocolo-card-status small { color: #718091; }
 .protocolo-card-status b { background: #edf3f8; border-radius: 12px; font-size: .68rem; padding: 4px 7px; text-align: right; }
+.protocolo-card-tags { align-items: center; display: flex; flex-wrap: wrap; gap: 6px; }
+.protocolo-card-tags small,
+.protocolo-card-tags b { border-radius: 999px; font-size: .68rem; padding: 4px 7px; }
+.protocolo-card-tags small { background: #eef4fa; color: #556575; }
+.protocolo-card-tags b { background: #fff1c2; color: #755800; }
+.converter-processo-btn { background: #123d7f; border: 0; border-radius: 8px; color: #fff; cursor: pointer; font-size: .74rem; font-weight: 800; padding: 9px 10px; }
 .protocolo-kanban-card em { background: #fff3d8; border-radius: 6px; color: #8a5b00; font-size: .7rem; font-style: normal; padding: 7px; }
 .protocolo-kanban-card code { color: #174f82; font-size: .7rem; overflow-wrap: anywhere; }
 .kanban-vazio { color: #778493; font-size: .78rem; padding: 20px 8px; text-align: center; }
@@ -1915,8 +1924,14 @@
 .ficha-processo-aberta > .pagination-bar { display: none; }
 .process-page-view { background: transparent; inset: auto; position: static; width: 100%; }
 .process-page-view .judicial-drawer-panel { border: 1px solid #dfe5eb; border-radius: 14px; box-shadow: none; max-height: none; min-height: calc(100vh - 150px); overflow: visible; width: 100%; }
+.process-incomplete-tag { background: #fff0bc; border-radius: 999px; color: #805b00; display: inline-block; font-size: 10px; font-weight: 800; margin-top: 5px; padding: 4px 7px; }
+.process-inline-summary { display: grid; gap: 10px; grid-template-columns: repeat(4, minmax(0, 1fr)); margin-bottom: 14px; }
+.process-inline-summary label { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 10px; }
+.process-inline-summary input { background: #fff; min-width: 0; }
+.timeline-empty-cta { align-items: center; display: flex; gap: 12px; justify-content: space-between; }
 
 @media (max-width: 980px) {
-  .protocolos-kanban { grid-template-columns: 1fr; }
+  .protocolos-kanban,
+  .process-inline-summary { grid-template-columns: 1fr; }
   .protocolo-view-grid { grid-template-columns: 1fr; }
 }
