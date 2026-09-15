@@ -290,6 +290,10 @@
 .processual-timeline article::before { background: #dbe4ed; content: ""; left: 139px; position: absolute; top: 9px; bottom: -4px; width: 1px; }
 .processual-timeline article::after { background: #1763a6; border: 3px solid #e4eff9; border-radius: 50%; content: ""; height: 9px; left: 135px; position: absolute; top: 5px; width: 9px; }
 .processual-timeline article > div { display: grid; gap: 5px; padding-left: 18px; }
+.processual-timeline article > div > header { align-items: center; display: flex; gap: 10px; justify-content: space-between; }
+.processual-timeline .timeline-automatico::after { background: #2f9e72; border-color: #e1f4ea; }
+.timeline-badge { background: #e8f7ef; border: 1px solid #bfe7d0; border-radius: 999px; color: #18724b !important; font-size: 10px !important; font-weight: 800; padding: 4px 8px; white-space: nowrap; }
+.processual-timeline .timeline-automatico > div { background: #fbfefc; border: 1px solid #e2f1e8; border-radius: 9px; padding: 12px 14px 12px 18px; }
 .processual-timeline time, .processual-timeline small, .processual-timeline span { color: #667085; font-size: 12px; }
 .processual-timeline p { margin: 0; white-space: pre-wrap; }
 
@@ -298,4 +302,20 @@
   .processual-resumo { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .movimentacao-grid { grid-template-columns: 1fr; }
   .movimentacao-grid .wide { grid-column: auto; }
+}
+.process-status-select {
+  max-width: 230px;
+  border: 1px solid #d9e3ef;
+  border-radius: 8px;
+  background: #fff;
+  color: #17365d;
+  font: inherit;
+  font-weight: 700;
+  padding: 8px 28px 8px 10px;
+  cursor: pointer;
+}
+
+.process-status-select:focus {
+  outline: 2px solid #2f80ed;
+  outline-offset: 2px;
 }

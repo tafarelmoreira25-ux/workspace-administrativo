@@ -64,7 +64,7 @@ type DocumentoProcessual = {
   comunicado_canal?: string | null;
 };
 
-const SITUACOES = ["Pendente de protocolo", "Em andamento", "Suspenso / Sobrestado", "Encerrado"];
+const SITUACOES = ["TRAMITANDO", "ARQUIVADO", "BAIXA DEFINITIVA", "SENTENÇA PROCEDENTE", "SENTENÇA IMPROCEDENTE", "REDISTRIBUIÇÃO", "JULGADO"];
 const FASES_JUDICIAIS = [
   "Pré-ajuizamento",
   "Distribuição",

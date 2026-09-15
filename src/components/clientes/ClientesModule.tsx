@@ -82,6 +82,7 @@ type Props = {
   usuario: { nome?: string; email?: string };
   showToast?: (message: string) => void;
   buscaExterna?: string;
+  clienteInicialId?: string | number | null;
   onOpenProcess?: (processoId: string | number) => void;
 };
 
@@ -166,7 +167,7 @@ function extrairNomeImportacao(linha: string) {
   return nome;
 }
 
-export default function ClientesModule({ usuario, showToast, buscaExterna, onOpenProcess }: Props) {
+export default function ClientesModule({ usuario, showToast, buscaExterna, clienteInicialId, onOpenProcess }: Props) {
   const [clientes, setClientes] = useState<Cliente[]>([]);
   const [processos, setProcessos] = useState<ProcessoResumo[]>([]);
   const [documentos, setDocumentos] = useState<DocumentoResumo[]>([]);
@@ -270,6 +271,13 @@ export default function ClientesModule({ usuario, showToast, buscaExterna, onOpe
     }, 350);
     return () => window.clearTimeout(timer);
   }, [buscaExterna]);
+
+  useEffect(() => {
+    if (!clienteInicialId) return;
+    void supabase.from("clientes").select("*").eq("id", clienteInicialId).maybeSingle().then(({ data }) => {
+      if (data) void abrirFicha(data as Cliente);
+    });
+  }, [clienteInicialId]);
 
   const clientesFiltrados = clientes;
 

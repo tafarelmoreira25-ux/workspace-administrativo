@@ -79,7 +79,7 @@ function valorNumerico(valor: any) { return typeof valor === "number" ? valor : 
 function ocultarMetricaZerada(nome: string, valor: any) { return valorNumerico(valor) === 0 && METRICAS_SECUNDARIAS_ZERADAS.has(nome); }
 function destinoMetrica(nome: string): { id: string; opcoes?: NavigateOptions } | null {
   if (nome === "Processos sem revisão" || nome === "Processos sem revisÃ£o") return { id: "processos", opcoes: { filtros: { semRevisao: "Sim" }, status: "sem_revisao" } };
-  if (["Atrasados", "Pastas retornadas", "Custas", "Emendas", "Tarefas atrasadas", "Prazos vencidos"].includes(nome)) return { id: "alertas" };
+  if (["Atrasados", "Pastas retornadas", "Custas", "Emendas", "Tarefas atrasadas", "Prazos vencidos"].includes(nome)) return { id: "indicadores" };
   return null;
 }
 
@@ -197,11 +197,10 @@ export default function GerencialProcessualModule({ usuario, showToast, initialV
   }
 
   return <section className="gerencial-module">
-    <header className="module-page-header"><div><span className="eyebrow">Controle gerencial</span><h2>{view === "ocorrencias" ? "Ocorrências" : view === "alertas" ? "Central de Alertas" : "Indicadores"}</h2><p>Auditoria operacional, riscos, etiquetas automáticas e visão executiva da carteira.</p></div><div className="gerencial-tabs"><button className={view === "indicadores" ? "active" : ""} onClick={() => setView("indicadores")} type="button">Indicadores</button><button className={view === "alertas" ? "active" : ""} onClick={() => setView("alertas")} type="button">Alertas</button><button className={view === "ocorrencias" ? "active" : ""} onClick={() => setView("ocorrencias")} type="button">Ocorrências</button></div></header>
+    <header className="module-page-header"><div><span className="eyebrow">Controle gerencial</span><h2>{view === "ocorrencias" ? "Ocorrências" : "Indicadores"}</h2><p>Auditoria operacional, riscos e visão executiva da carteira.</p></div><div className="gerencial-tabs"><button className={view === "indicadores" ? "active" : ""} onClick={() => setView("indicadores")} type="button">Indicadores</button><button className={view === "ocorrencias" ? "active" : ""} onClick={() => setView("ocorrencias")} type="button">Ocorrências</button></div></header>
     <div className="gerencial-toolbar"><input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Pesquisar cliente, processo, banco, ocorrência ou alerta..." /><button className="btn-secondary" onClick={carregar} type="button">Atualizar</button></div>
     {carregando ? <div className="panel">Carregando controle gerencial...</div> : null}
     {!carregando && view === "indicadores" ? <Indicadores indicadores={indicadores} onNavigate={onNavigate} /> : null}
-    {!carregando && view === "alertas" ? <Alertas alertas={alertas} totalSemRevisao={totalSemRevisao} /> : null}
     {!carregando && view === "ocorrencias" ? <Ocorrencias ocorrencias={ocorrenciasFiltradas} custas={custas} processos={processosOpcao} ocorrenciaForm={ocorrenciaForm} setOcorrenciaForm={setOcorrenciaForm} custaForm={custaForm} setCustaForm={setCustaForm} onOcorrencia={salvarOcorrencia} onCusta={salvarCusta} /> : null}
   </section>;
 }

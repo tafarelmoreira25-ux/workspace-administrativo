@@ -13,6 +13,23 @@ const DashboardModule = lazy(() => import("./components/dashboard/DashboardModul
 const CarteiraProcessual = lazy(() => import("./CarteiraProcessual"));
 const ADMIN_EMAIL = (import.meta.env.VITE_ADMIN_EMAIL || "tafarel@platino.com").toLowerCase();
 const TEMPO_LIMITE_INICIALIZACAO_MS = 8_000;
+
+function normalizarDataColada(valor, tipo) {
+  const texto = String(valor || "").trim();
+  const partes = texto.match(/^(\d{1,2})[\/.\-](\d{1,2})[\/.\-](\d{4})$/);
+  let data = texto.match(/^(\d{4})[\-\/.](\d{1,2})[\-\/.](\d{1,2})$/);
+  let iso;
+  if (partes) iso = `${partes[3]}-${partes[2].padStart(2, "0")}-${partes[1].padStart(2, "0")}`;
+  else if (data) iso = `${data[1]}-${data[2].padStart(2, "0")}-${data[3].padStart(2, "0")}`;
+  else return "";
+
+  const objeto = new Date(`${iso}T00:00:00`);
+  if (Number.isNaN(objeto.getTime()) || objeto.toISOString().slice(0, 10) !== iso) return "";
+  if (tipo !== "datetime-local") return iso;
+  const hora = texto.match(/(?:[T\s])(\d{1,2}):(\d{2})(?::(\d{2}))?/);
+  return `${iso}T${hora ? `${hora[1].padStart(2, "0")}:${hora[2]}${hora[3] ? `:${hora[3]}` : ""}` : "00:00"}`;
+}
+
 function limitarTempo(promise, tempoMs, mensagem) {
   let temporizador;
   const limite = new Promise((_, rejeitar) => {
@@ -393,6 +410,7 @@ function Workspace({ usuario, onLogout, showToast }) {
   const [menuRecolhido, setMenuRecolhido] = useState(() => window.localStorage.getItem("platino-menu-recolhido") === "1");
   const [menuContaAberto, setMenuContaAberto] = useState(false);
   const [processoSelecionadoId, setProcessoSelecionadoId] = useState(null);
+  const [clienteSelecionadoId, setClienteSelecionadoId] = useState(null);
   const [processosFiltroInicial, setProcessosFiltroInicial] = useState({});
   const [feedbacks, setFeedbacks] = useState([]);
   const carregarFeedbacks = useCallback(async () => {
@@ -419,7 +437,6 @@ function Workspace({ usuario, onLogout, showToast }) {
       itens: [
         ...(podeVerDocumentos ? [["documentos", "Gerador de Documentos", "documentos"]] : []),
         ["indicadores", "Indicadores", "indicadores"],
-        ["alertas", "Alertas", "alertas"],
         ["treinamentos", "Treinamentos", "treinamento"],
       ],
     },
@@ -438,12 +455,20 @@ function Workspace({ usuario, onLogout, showToast }) {
     } else {
       setProcessosFiltroInicial({});
     }
+    if (id === "clientes") setClienteSelecionadoId(opcoes.clienteId || null);
+    else setClienteSelecionadoId(null);
     if (id === "feedbacks") carregarFeedbacks();
   }
 
   function abrirProcessoNoProcessual(processoId) {
     setProcessoSelecionadoId(processoId);
     navegar("processual");
+  }
+
+  function selecionarResultadoBusca(resultado) {
+    if (resultado.grupo === "Clientes") navegar("clientes", { clienteId: resultado.id });
+    else if (resultado.grupo === "Processos") { setProcessoSelecionadoId(resultado.id); navegar("processual"); }
+    else navegar("documentos");
   }
 
   function alternarMenu() {
@@ -476,7 +501,7 @@ function Workspace({ usuario, onLogout, showToast }) {
           <p>Gestão operacional do escritório em um fluxo único.</p>
         </div>
         <div className="global-search">
-          {aba === "clientes" ? <><UiIcon name="busca" size={17} /><input type="search" value={buscaModulo} onChange={(evento) => setBuscaModulo(evento.target.value)} placeholder="Buscar cliente, CPF, ID CRM ou processo..." aria-label="Buscar clientes" /></> : <Suspense fallback={<><UiIcon name="busca" size={17} /><input type="search" placeholder="Buscar cliente, CPF, ID, processo ou banco..." aria-label="Busca global" /></>}><GlobalSearch /></Suspense>}
+          {aba === "clientes" ? <><UiIcon name="busca" size={17} /><input type="search" value={buscaModulo} onChange={(evento) => setBuscaModulo(evento.target.value)} placeholder="Buscar cliente, CPF, ID CRM ou processo..." aria-label="Buscar clientes" /></> : <Suspense fallback={<><UiIcon name="busca" size={17} /><input type="search" placeholder="Buscar cliente, CPF, ID, processo ou banco..." aria-label="Busca global" /></>}><GlobalSearch onSelect={selecionarResultadoBusca} /></Suspense>}
         </div>
         <div className="topbar-actions">
           <button type="button" className="icon-button" aria-label="Notificações"><UiIcon name="sino" size={18} /></button>
@@ -485,14 +510,13 @@ function Workspace({ usuario, onLogout, showToast }) {
         </div>
       </header>
       {aba === "inicio" && <AreaTrabalho usuario={usuario} onNavigate={navegar} />}
-      {aba === "clientes" && <Suspense fallback={<section className="panel">Carregando clientes...</section>}><ClientesModule usuario={usuario} showToast={showToast} buscaExterna={buscaModulo} onOpenProcess={abrirProcessoNoProcessual} /></Suspense>}
+      {aba === "clientes" && <Suspense fallback={<section className="panel">Carregando clientes...</section>}><ClientesModule usuario={usuario} showToast={showToast} buscaExterna={buscaModulo} clienteInicialId={clienteSelecionadoId} onOpenProcess={abrirProcessoNoProcessual} /></Suspense>}
       {aba === "documentos" && <Suspense fallback={<section className="panel">Carregando documentos...</section>}><GeradorDocumentos usuario={usuario} responsavel={usuario.nome} onSuccess={showToast} /></Suspense>}
       {aba === "processual-protocolos" && <Suspense fallback={<section className="panel">Carregando protocolos...</section>}><EsteiraProcessualPlatino usuario={usuario} showToast={showToast} initialView="protocolos" /></Suspense>}
       {aba === "processos" && <Suspense fallback={<section className="panel">Carregando processos...</section>}><EsteiraProcessualPlatino usuario={usuario} showToast={showToast} initialView="processos" initialFilters={processosFiltroInicial} /></Suspense>}
       {aba === "processual" && <Suspense fallback={<section className="panel">Carregando Processual...</section>}><CarteiraProcessual showToast={showToast} usuario={usuario} processoInicialId={processoSelecionadoId} /></Suspense>}
       {aba === "agenda-atividades" && <Suspense fallback={<section className="panel">Carregando agenda...</section>}><OperacionalProcessualModule usuario={usuario} showToast={showToast} initialView="agenda" /></Suspense>}
       {aba === "indicadores" && <Suspense fallback={<section className="panel">Carregando indicadores...</section>}><GerencialProcessualModule usuario={usuario} showToast={showToast} initialView="indicadores" onNavigate={navegar} /></Suspense>}
-      {aba === "alertas" && <Suspense fallback={<section className="panel">Carregando alertas...</section>}><GerencialProcessualModule usuario={usuario} showToast={showToast} initialView="alertas" onNavigate={navegar} /></Suspense>}
       {aba === "treinamentos" && <TreinamentosOperacionais usuario={usuario} />}
       {aba === "feedbacks" && <section className="panel"><h2>Meus feedbacks</h2><button className="btn-secondary" onClick={carregarFeedbacks}>Atualizar</button><ListaFeedbacks feedbacks={feedbacks} /></section>}
       {placeholderTextos[aba] && <PlaceholderModulo titulo={placeholderTextos[aba][0]} descricao={placeholderTextos[aba][1]} />}
@@ -517,6 +541,23 @@ export default function App() {
   const handleLogout = useCallback(async () => {
     await supabase.auth.signOut();
     setUsuarioLogado(null);
+  }, []);
+
+  useEffect(() => {
+    function aceitarColagemDeData(evento) {
+      const campo = evento.target;
+      if (!(campo instanceof HTMLInputElement) || !["date", "datetime-local"].includes(campo.type)) return;
+      const texto = evento.clipboardData?.getData("text") || "";
+      const valor = normalizarDataColada(texto, campo.type);
+      if (!valor) return;
+      evento.preventDefault();
+      const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")?.set;
+      setter?.call(campo, valor);
+      campo.dispatchEvent(new Event("input", { bubbles: true }));
+      campo.dispatchEvent(new Event("change", { bubbles: true }));
+    }
+    document.addEventListener("paste", aceitarColagemDeData);
+    return () => document.removeEventListener("paste", aceitarColagemDeData);
   }, []);
 
   useEffect(() => {

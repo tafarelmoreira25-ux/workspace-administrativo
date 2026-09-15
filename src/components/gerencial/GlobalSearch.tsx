@@ -1,11 +1,12 @@
-import { useEffect, useMemo, useState } from "react";
+﻿import { useEffect, useMemo, useState } from "react";
 import { supabase } from "../../lib/supabase";
 
 type Resultado = { id: string; grupo: "Clientes" | "Processos" | "Documentos" | "Atendimentos"; titulo: string; subtitulo: string; detalhe?: string };
+type Props = { onSelect?: (resultado: Resultado) => void };
 
 function normalizar(valor = "") { return String(valor).normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim(); }
 
-export default function GlobalSearch() {
+export default function GlobalSearch({ onSelect }: Props) {
   const [termo, setTermo] = useState("");
   const [debounced, setDebounced] = useState("");
   const [resultados, setResultados] = useState<Resultado[]>([]);
@@ -33,7 +34,7 @@ export default function GlobalSearch() {
       if (clientes.status === "fulfilled" && !clientes.value.error) lista.push(...(clientes.value.data || []).map((c: any) => ({ id: c.id, grupo: "Clientes" as const, titulo: c.nome_completo, subtitulo: c.cpf || c.id_crm || "Cliente", detalhe: c.telefone })));
       if (processos.status === "fulfilled" && !processos.value.error) lista.push(...(processos.value.data || []).map((p: any) => ({ id: p.id, grupo: "Processos" as const, titulo: p.nome_cliente, subtitulo: p.numero_processo || "Pendente de protocolo", detalhe: p.banco_reu })));
       if (documentos.status === "fulfilled" && !documentos.value.error) lista.push(...(documentos.value.data || []).map((d: any) => ({ id: d.id, grupo: "Documentos" as const, titulo: d.nome_documento, subtitulo: d.cliente_nome || d.modelo_nome, detalhe: d.numero_processo })));
-      if (atendimentos.status === "fulfilled" && !atendimentos.value.error) lista.push(...(atendimentos.value.data || []).map((a: any) => ({ id: a.id, grupo: "Atendimentos" as const, titulo: a.cliente_nome, subtitulo: `${a.canal} · ${a.processo_numero || "sem processo"}`, detalhe: a.descricao })));
+      if (atendimentos.status === "fulfilled" && !atendimentos.value.error) lista.push(...(atendimentos.value.data || []).map((a: any) => ({ id: a.id, grupo: "Atendimentos" as const, titulo: a.cliente_nome, subtitulo: `${a.canal} Â· ${a.processo_numero || "sem processo"}`, detalhe: a.descricao })));
       setResultados(lista);
       setCarregando(false);
     }
@@ -46,6 +47,6 @@ export default function GlobalSearch() {
     return ["Clientes", "Processos", "Documentos", "Atendimentos"].map((grupo) => ({ grupo, itens: resultados.filter((item) => item.grupo === grupo && (!termoNormalizado || normalizar(`${item.titulo} ${item.subtitulo} ${item.detalhe || ""}`).includes(termoNormalizado))) }));
   }, [debounced, resultados]);
 
-  return <div className="real-search"><span className="real-search-icon" aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><path d="m21 21-4.35-4.35m1.35-5.15a6.5 6.5 0 1 1-13 0 6.5 6.5 0 0 1 13 0Z" /></svg></span><input value={termo} onChange={(e) => setTermo(e.target.value)} type="search" placeholder="Buscar cliente, CPF, ID, processo ou banco..." aria-label="Busca global" />{termo.trim().length >= 2 ? <div className="global-search-results"><header>{carregando ? "Buscando..." : `${resultados.length} resultado(s)`}</header>{grupos.map(({ grupo, itens }) => itens.length ? <section key={grupo}><strong>{grupo}</strong>{itens.map((item) => <article key={`${item.grupo}-${item.id}`}><span>{item.titulo}</span><small>{item.subtitulo}{item.detalhe ? ` · ${item.detalhe}` : ""}</small></article>)}</section> : null)}{!carregando && resultados.length === 0 ? <p>Nenhum resultado encontrado.</p> : null}</div> : null}</div>;
+  return <div className="real-search"><span className="real-search-icon" aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><path d="m21 21-4.35-4.35m1.35-5.15a6.5 6.5 0 1 1-13 0 6.5 6.5 0 0 1 13 0Z" /></svg></span><input value={termo} onChange={(e) => setTermo(e.target.value)} type="search" placeholder="Buscar cliente, CPF, ID, processo ou banco..." aria-label="Busca global" />{termo.trim().length >= 2 ? <div className="global-search-results"><header>{carregando ? "Buscando..." : `${resultados.length} resultado(s)`}</header>{grupos.map(({ grupo, itens }) => itens.length ? <section key={grupo}><strong>{grupo}</strong>{itens.map((item) => <button className="global-search-result" type="button" key={`${item.grupo}-${item.id}`} onClick={() => onSelect?.(item)}><span>{item.titulo}</span><small>{item.subtitulo}{item.detalhe ? ` Â· ${item.detalhe}` : ""}</small></button>)}</section> : null)}{!carregando && resultados.length === 0 ? <p>Nenhum resultado encontrado.</p> : null}</div> : null}</div>;
 }
 
