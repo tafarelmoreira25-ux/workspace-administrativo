@@ -28,6 +28,7 @@ export default function CarteiraProcessual({ showToast, usuario, processoInicial
   const [tarefas, setTarefas] = useState([]);
   const [registrando, setRegistrando] = useState(false);
   const [salvando, setSalvando] = useState(false);
+  const [salvandoInformacoes, setSalvandoInformacoes] = useState(false);
   const [movimento, setMovimento] = useState(() => ({ ...MOVIMENTO_INICIAL, responsavel: usuario?.nome || "" }));
   const [acao, setAcao] = useState(ACAO_INICIAL);
   const processoInicialCarregado = useRef(null);
@@ -76,6 +77,26 @@ export default function CarteiraProcessual({ showToast, usuario, processoInicial
     }
   }
 
+  async function salvarInformacoes(dados) {
+    if (!processo) return false;
+    setSalvandoInformacoes(true);
+    const payload = Object.fromEntries(
+      ["tipo_acao", "reu", "tribunal", "vara", "comarca", "responsavel"]
+        .map((campo) => [campo, dados[campo].trim() || null]),
+    );
+    payload.updated_by = usuario?.email || usuario?.nome || null;
+    const { data, error } = await supabase.from("processos").update(payload).eq("id", processo.id).select("*").single();
+    setSalvandoInformacoes(false);
+    if (error) {
+      showToast?.(`Não foi possível salvar as informações do processo: ${error.message}`);
+      return false;
+    }
+    setProcesso(data);
+    setRegistros((atuais) => atuais.map((registro) => registro.id === data.id ? { ...registro, ...data } : registro));
+    showToast?.("Informações do processo atualizadas.");
+    return true;
+  }
+
   const timeline = useMemo(() => {
     const itensReais = [
     ...movimentacoes.map((item) => ({ id: `m-${item.id}`, data: item.data_andamento || item.data_registro, titulo: item.titulo || item.tipo || "Movimentação registrada", descricao: item.descricao, detalhe: item.proxima_providencia, responsavel: item.responsavel || item.created_by_nome, origem: item.origem || "manual" })),
@@ -108,13 +129,47 @@ export default function CarteiraProcessual({ showToast, usuario, processoInicial
     setMovimento({ ...MOVIMENTO_INICIAL, responsavel: usuario?.nome || "" }); setAcao(ACAO_INICIAL); setRegistrando(false); setSalvando(false); showToast?.("Movimentação registrada e histórico atualizado.");
   }
 
-  if (processo) return <FichaProcessual processo={processo} timeline={timeline} registrando={registrando} setRegistrando={setRegistrando} movimento={movimento} setMovimento={setMovimento} acao={acao} setAcao={setAcao} concluir={concluirMovimentacao} salvando={salvando} voltar={() => { setProcesso(null); setRegistrando(false); }} />;
+  if (processo) return <FichaProcessual processo={processo} timeline={timeline} registrando={registrando} setRegistrando={setRegistrando} movimento={movimento} setMovimento={setMovimento} acao={acao} setAcao={setAcao} concluir={concluirMovimentacao} salvando={salvando} salvarInformacoes={salvarInformacoes} salvandoInformacoes={salvandoInformacoes} voltar={() => { setProcesso(null); setRegistrando(false); }} />;
 
   return <section className="portfolio-process-section"><div className="process-status-section-heading"><div><span>Acompanhamento dos processos judiciais</span><h2>Processual</h2><p>Movimentações, publicações, atividades e histórico dos processos já protocolados.</p></div><button type="button" onClick={carregar}>Atualizar</button></div><div className="process-status-filters"><input type="search" value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar nome, CPF, ID CRM, CNJ, réu, banco ou ação..." /></div>{carregando ? <p className="process-status-empty">Carregando processos...</p> : registros.length ? <div className="portfolio-process-list">{registros.map((item) => <article className="portfolio-process-card" key={item.id}><div className="process-status-card-heading"><div><span>Cliente</span><h3>{item.nome_cliente}</h3></div><select className="process-status-select" aria-label={`Status do processo de ${item.nome_cliente}`} value={item.situacao || "TRAMITANDO"} onChange={(e) => void alterarStatus(item, e.target.value)}>{STATUS_PROCESSO.map((status) => <option key={status} value={status}>{status}</option>)}</select></div><div className="portfolio-process-details"><div><span>Processo</span><strong>{item.numero_processo}</strong></div><div><span>Réu</span><strong>{item.reu || item.banco_reu || "Não informado"}</strong></div><div><span>Ação</span><strong>{item.tipo_acao || "Não informada"}</strong></div><div><span>Última atualização</span><strong>{dataHora(item.ultima_movimentacao_data || item.updated_at)}</strong></div></div>{item.ultima_movimentacao ? <p className="process-status-card-note">{item.ultima_movimentacao}</p> : null}<div className="process-status-card-footer"><small>Cadastro disponível para acompanhamento, inclusive quando encerrado.</small><button type="button" onClick={() => abrirProcesso(item)}>Abrir acompanhamento</button></div></article>)}</div> : <div className="process-status-empty">Nenhum processo judicial cadastrado.</div>}<Pagination pagina={pagina} total={total} tamanho={PAGE_SIZE} onChange={setPagina} rotulo="processos" /></section>;
 }
 
-function FichaProcessual({ processo, timeline, registrando, setRegistrando, movimento, setMovimento, acao, setAcao, concluir, salvando, voltar }) {
-  return <section className="processual-ficha"><header><button className="btn-secondary" onClick={voltar} type="button">← Voltar ao Processual</button><div><span className="eyebrow">Processual</span><h2>{processo.nome_cliente}</h2><p>{processo.numero_processo}</p></div><button className="btn-primary" onClick={() => setRegistrando(true)} type="button">Registrar movimentação/publicação</button></header><div className="processual-resumo"><div><span>Ação</span><strong>{processo.tipo_acao || "Não informada"}</strong></div><div><span>Réu</span><strong>{processo.reu || processo.banco_reu || "Não informado"}</strong></div><div><span>Tribunal/Juízo</span><strong>{[processo.tribunal, processo.vara, processo.comarca].filter(Boolean).join(" · ") || "Não informado"}</strong></div><div><span>Responsável</span><strong>{processo.responsavel || "Não informado"}</strong></div></div><nav className="processual-tabs"><span>Resumo</span><span>Atividades</span><span className="active">Histórico</span></nav>{registrando ? <FormularioMovimentacao movimento={movimento} setMovimento={setMovimento} acao={acao} setAcao={setAcao} concluir={concluir} salvando={salvando} cancelar={() => setRegistrando(false)} /> : null}<section className="processual-timeline"><h3>Histórico cronológico</h3>{timeline.length ? timeline.map((item) => <article className={`timeline-item timeline-${item.origem === "escavador" ? "automatico" : "manual"}`} key={item.id}><time>{dataHora(item.data)}</time><div><header><strong>{item.titulo}</strong>{item.origem === "escavador" ? <span className="timeline-badge">Captura Automática</span> : null}</header>{item.descricao ? <p>{item.descricao}</p> : null}{item.detalhe ? <span>{item.detalhe}</span> : null}<small>Responsável: {item.responsavel || "Não informado"}</small></div></article>) : <div className="empty-row">Nenhuma movimentação registrada.</div>}</section></section>;
+function FichaProcessual({ processo, timeline, registrando, setRegistrando, movimento, setMovimento, acao, setAcao, concluir, salvando, salvarInformacoes, salvandoInformacoes, voltar }) {
+  const [editandoInformacoes, setEditandoInformacoes] = useState(false);
+  const [informacoes, setInformacoes] = useState(null);
+
+  function iniciarEdicao() {
+    setInformacoes({
+      tipo_acao: processo.tipo_acao || "",
+      reu: processo.reu || processo.banco_reu || "",
+      tribunal: processo.tribunal || "",
+      vara: processo.vara || "",
+      comarca: processo.comarca || "",
+      responsavel: processo.responsavel || "",
+    });
+    setEditandoInformacoes(true);
+  }
+
+  async function concluirEdicao(evento) {
+    evento.preventDefault();
+    if (await salvarInformacoes(informacoes)) setEditandoInformacoes(false);
+  }
+
+  return <section className="processual-ficha">
+    <header><button className="btn-secondary" onClick={voltar} disabled={salvandoInformacoes} type="button">← Voltar ao Processual</button><div><span className="eyebrow">Processual</span><h2>{processo.nome_cliente}</h2><p>{processo.numero_processo}</p></div><button className="btn-primary" onClick={() => setRegistrando(true)} type="button">Registrar movimentação/publicação</button></header>
+    <div className="processual-resumo-heading"><h3>Informações do processo</h3><button className="btn-secondary" onClick={iniciarEdicao} disabled={editandoInformacoes || salvandoInformacoes} aria-expanded={editandoInformacoes} type="button">Editar informações</button></div>
+    <div className="processual-resumo"><div><span>Ação</span><strong>{processo.tipo_acao || "Não informada"}</strong></div><div><span>Réu</span><strong>{processo.reu || processo.banco_reu || "Não informado"}</strong></div><div><span>Tribunal/Juízo</span><strong>{[processo.tribunal, processo.vara, processo.comarca].filter(Boolean).join(" · ") || "Não informado"}</strong></div><div><span>Responsável</span><strong>{processo.responsavel || "Não informado"}</strong></div></div>
+    {editandoInformacoes ? <form className="processual-dados-form" onSubmit={concluirEdicao}>
+      <h3>Editar informações do processo</h3>
+      <div className="processual-dados-grid">
+        {[["tipo_acao", "Ação"], ["reu", "Réu"], ["tribunal", "Tribunal"], ["vara", "Vara/Juízo"], ["comarca", "Comarca"], ["responsavel", "Responsável"]].map(([campo, rotulo]) => <label key={campo}><span>{rotulo}</span><input value={informacoes[campo]} onChange={(e) => setInformacoes((atuais) => ({ ...atuais, [campo]: e.target.value }))} placeholder="Clique para preencher" /></label>)}
+      </div>
+      <footer><button className="btn-secondary" onClick={() => setEditandoInformacoes(false)} disabled={salvandoInformacoes} type="button">Cancelar</button><button className="btn-primary" disabled={salvandoInformacoes} type="submit">{salvandoInformacoes ? "Salvando..." : "Salvar informações"}</button></footer>
+    </form> : null}
+    <nav className="processual-tabs"><span>Resumo</span><span>Atividades</span><span className="active">Histórico</span></nav>
+    {registrando ? <FormularioMovimentacao movimento={movimento} setMovimento={setMovimento} acao={acao} setAcao={setAcao} concluir={concluir} salvando={salvando} cancelar={() => setRegistrando(false)} /> : null}
+    <section className="processual-timeline"><h3>Histórico cronológico</h3>{timeline.length ? timeline.map((item) => <article className={`timeline-item timeline-${item.origem === "escavador" ? "automatico" : "manual"}`} key={item.id}><time>{dataHora(item.data)}</time><div><header><strong>{item.titulo}</strong>{item.origem === "escavador" ? <span className="timeline-badge">Captura Automática</span> : null}</header>{item.descricao ? <p>{item.descricao}</p> : null}{item.detalhe ? <span>{item.detalhe}</span> : null}<small>Responsável: {item.responsavel || "Não informado"}</small></div></article>) : <div className="empty-row">Nenhuma movimentação registrada.</div>}</section>
+  </section>;
 }
 
 function FormularioMovimentacao({ movimento, setMovimento, acao, setAcao, concluir, salvando, cancelar }) {
