@@ -11,11 +11,12 @@ type Props = {
   usuario?: { nome?: string; email?: string };
   showToast?: (mensagem: string) => void;
   initialView?: Visualizacao;
+  initialFilters?: Record<string, string>;
 };
 
 type Visualizacao = "protocolos" | "processos";
 
-export default function EsteiraProcessualPlatino({ usuario, showToast, initialView = "protocolos" }: Props) {
+export default function EsteiraProcessualPlatino({ usuario, showToast, initialView = "protocolos", initialFilters }: Props) {
   const [visualizacao] = useState<Visualizacao>(initialView);
   const [processos, setProcessos] = useState<Processo[]>([]);
   const [carregando, setCarregando] = useState(true);
@@ -94,6 +95,7 @@ export default function EsteiraProcessualPlatino({ usuario, showToast, initialVi
           usuario={usuario}
           busca={busca}
           onBusca={setBusca}
+          initialFilters={initialFilters}
         />
       )}
       {!carregando ? <Pagination pagina={pagina} total={total} tamanho={30} onChange={setPagina} rotulo={visualizacao === "protocolos" ? "protocolos" : "processos"} /> : null}

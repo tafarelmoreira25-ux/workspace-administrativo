@@ -393,6 +393,7 @@ function Workspace({ usuario, onLogout, showToast }) {
   const [menuRecolhido, setMenuRecolhido] = useState(() => window.localStorage.getItem("platino-menu-recolhido") === "1");
   const [menuContaAberto, setMenuContaAberto] = useState(false);
   const [processoSelecionadoId, setProcessoSelecionadoId] = useState(null);
+  const [processosFiltroInicial, setProcessosFiltroInicial] = useState({});
   const [feedbacks, setFeedbacks] = useState([]);
   const carregarFeedbacks = useCallback(async () => {
     const { data, error } = await supabase.from("feedbacks").select("*").eq("funcionaria_id", usuario.id).order("created_at", { ascending: false });
@@ -428,9 +429,15 @@ function Workspace({ usuario, onLogout, showToast }) {
   const placeholderTextos = {
     administracao: ["Administração", "Gestão administrativa preparada para permissões, usuários e parâmetros."],
   };
-  function navegar(id) {
+  function navegar(id, opcoes = {}) {
     setAba(id);
     setBuscaModulo("");
+    if (id === "processos") {
+      setProcessosFiltroInicial(opcoes.filtros || {});
+      if (opcoes.status) window.history.replaceState({}, "", `#processos?status=${opcoes.status}`);
+    } else {
+      setProcessosFiltroInicial({});
+    }
     if (id === "feedbacks") carregarFeedbacks();
   }
 
@@ -481,11 +488,11 @@ function Workspace({ usuario, onLogout, showToast }) {
       {aba === "clientes" && <Suspense fallback={<section className="panel">Carregando clientes...</section>}><ClientesModule usuario={usuario} showToast={showToast} buscaExterna={buscaModulo} onOpenProcess={abrirProcessoNoProcessual} /></Suspense>}
       {aba === "documentos" && <Suspense fallback={<section className="panel">Carregando documentos...</section>}><GeradorDocumentos usuario={usuario} responsavel={usuario.nome} onSuccess={showToast} /></Suspense>}
       {aba === "processual-protocolos" && <Suspense fallback={<section className="panel">Carregando protocolos...</section>}><EsteiraProcessualPlatino usuario={usuario} showToast={showToast} initialView="protocolos" /></Suspense>}
-      {aba === "processos" && <Suspense fallback={<section className="panel">Carregando processos...</section>}><EsteiraProcessualPlatino usuario={usuario} showToast={showToast} initialView="processos" /></Suspense>}
+      {aba === "processos" && <Suspense fallback={<section className="panel">Carregando processos...</section>}><EsteiraProcessualPlatino usuario={usuario} showToast={showToast} initialView="processos" initialFilters={processosFiltroInicial} /></Suspense>}
       {aba === "processual" && <Suspense fallback={<section className="panel">Carregando Processual...</section>}><CarteiraProcessual showToast={showToast} usuario={usuario} processoInicialId={processoSelecionadoId} /></Suspense>}
       {aba === "agenda-atividades" && <Suspense fallback={<section className="panel">Carregando agenda...</section>}><OperacionalProcessualModule usuario={usuario} showToast={showToast} initialView="agenda" /></Suspense>}
-      {aba === "indicadores" && <Suspense fallback={<section className="panel">Carregando indicadores...</section>}><GerencialProcessualModule usuario={usuario} showToast={showToast} initialView="indicadores" /></Suspense>}
-      {aba === "alertas" && <Suspense fallback={<section className="panel">Carregando alertas...</section>}><GerencialProcessualModule usuario={usuario} showToast={showToast} initialView="alertas" /></Suspense>}
+      {aba === "indicadores" && <Suspense fallback={<section className="panel">Carregando indicadores...</section>}><GerencialProcessualModule usuario={usuario} showToast={showToast} initialView="indicadores" onNavigate={navegar} /></Suspense>}
+      {aba === "alertas" && <Suspense fallback={<section className="panel">Carregando alertas...</section>}><GerencialProcessualModule usuario={usuario} showToast={showToast} initialView="alertas" onNavigate={navegar} /></Suspense>}
       {aba === "treinamentos" && <TreinamentosOperacionais usuario={usuario} />}
       {aba === "feedbacks" && <section className="panel"><h2>Meus feedbacks</h2><button className="btn-secondary" onClick={carregarFeedbacks}>Atualizar</button><ListaFeedbacks feedbacks={feedbacks} /></section>}
       {placeholderTextos[aba] && <PlaceholderModulo titulo={placeholderTextos[aba][0]} descricao={placeholderTextos[aba][1]} />}

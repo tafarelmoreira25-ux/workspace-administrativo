@@ -107,11 +107,32 @@
   gap: 8px;
 }
 
-.metric-list article {
+.metric-list article,
+.metric-list button {
   padding: 10px;
   border: 1px solid #edf0f4;
   border-radius: 7px;
   background: #fbfcfd;
+}
+
+.metric-list button {
+  width: 100%;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.metric-card-clickable {
+  transition: border-color .18s ease, box-shadow .18s ease, transform .18s ease;
+}
+
+.metric-card-clickable:hover,
+.metric-card-clickable:focus-visible {
+  border-color: #cbd9ff;
+  box-shadow: 0 10px 24px rgba(37, 87, 214, .12);
+  outline: none;
+  transform: translateY(-1px);
 }
 
 .metric-list span,

@@ -13,12 +13,39 @@ type Atendimento = Record<string, any>;
 type Ocorrencia = Record<string, any>;
 type Custa = Record<string, any>;
 
-type Props = { usuario: Usuario; showToast?: (mensagem: string) => void; initialView?: View };
+type NavigateOptions = { filtros?: Record<string, string>; status?: string };
+type NavigateHandler = (id: string, opcoes?: NavigateOptions) => void;
+
+type Props = { usuario: Usuario; showToast?: (mensagem: string) => void; initialView?: View; onNavigate?: NavigateHandler };
 
 const CATEGORIAS_OCORRENCIA = ["Custas", "Documentação", "Emenda", "Prazo", "Pasta retornada", "Falha operacional", "Falha cliente", "Falha prestador", "Divergência documental", "Comunicação", "Outro"];
 const RESPONSABILIDADES = ["Cliente", "Platino", "Elite", "Advogado", "Terceiro", "Não identificado"];
 const STATUS_CUSTAS = ["Pendente", "Cliente informado", "Pago", "Não pago", "Vencido", "Dispensado"];
 const TIPOS_ALERTA = ["SLA", "Prazo", "Processo", "Documento", "Custas", "Tarefa", "Pasta retornada", "Revisão", "Atendimento"];
+const METRICAS_SECUNDARIAS_ZERADAS = new Set([
+  "Elite",
+  "Próximo SLA",
+  "PrÃ³ximo SLA",
+  "Pastas retornadas",
+  "Suspensos",
+  "Parciais",
+  "Extintos sem mérito",
+  "Extintos sem mÃ©rito",
+  "Recursais",
+  "Custas",
+  "Emendas",
+  "Relatórios enviados",
+  "RelatÃ³rios enviados",
+  "Tarefas atrasadas",
+  "Prazos cumpridos",
+  "Prazos vencidos",
+  "Cliente",
+  "Platino",
+  "Advogado",
+  "Terceiro",
+  "Não identificado",
+  "NÃ£o identificado",
+]);
 
 function hoje() { return new Date().toISOString().slice(0, 10); }
 function limpar(valor: string) { const texto = valor.trim(); return texto || null; }
@@ -48,8 +75,15 @@ function etiquetaProcesso(processo: Processo) {
 }
 
 function prioridadeAlerta(alerta: { prioridade: number }) { return alerta.prioridade >= 90 ? "crítica" : alerta.prioridade >= 70 ? "alta" : alerta.prioridade >= 45 ? "média" : "baixa"; }
+function valorNumerico(valor: any) { return typeof valor === "number" ? valor : Number(String(valor).replace("%", "").replace(",", ".")) || 0; }
+function ocultarMetricaZerada(nome: string, valor: any) { return valorNumerico(valor) === 0 && METRICAS_SECUNDARIAS_ZERADAS.has(nome); }
+function destinoMetrica(nome: string): { id: string; opcoes?: NavigateOptions } | null {
+  if (nome === "Processos sem revisão" || nome === "Processos sem revisÃ£o") return { id: "processos", opcoes: { filtros: { semRevisao: "Sim" }, status: "sem_revisao" } };
+  if (["Atrasados", "Pastas retornadas", "Custas", "Emendas", "Tarefas atrasadas", "Prazos vencidos"].includes(nome)) return { id: "alertas" };
+  return null;
+}
 
-export default function GerencialProcessualModule({ usuario, showToast, initialView = "indicadores" }: Props) {
+export default function GerencialProcessualModule({ usuario, showToast, initialView = "indicadores", onNavigate }: Props) {
   const [view, setView] = useState<View>(initialView);
   const [processos, setProcessos] = useState<Processo[]>([]);
   const [tarefas, setTarefas] = useState<Tarefa[]>([]);
@@ -166,16 +200,23 @@ export default function GerencialProcessualModule({ usuario, showToast, initialV
     <header className="module-page-header"><div><span className="eyebrow">Controle gerencial</span><h2>{view === "ocorrencias" ? "Ocorrências" : view === "alertas" ? "Central de Alertas" : "Indicadores"}</h2><p>Auditoria operacional, riscos, etiquetas automáticas e visão executiva da carteira.</p></div><div className="gerencial-tabs"><button className={view === "indicadores" ? "active" : ""} onClick={() => setView("indicadores")} type="button">Indicadores</button><button className={view === "alertas" ? "active" : ""} onClick={() => setView("alertas")} type="button">Alertas</button><button className={view === "ocorrencias" ? "active" : ""} onClick={() => setView("ocorrencias")} type="button">Ocorrências</button></div></header>
     <div className="gerencial-toolbar"><input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Pesquisar cliente, processo, banco, ocorrência ou alerta..." /><button className="btn-secondary" onClick={carregar} type="button">Atualizar</button></div>
     {carregando ? <div className="panel">Carregando controle gerencial...</div> : null}
-    {!carregando && view === "indicadores" ? <Indicadores indicadores={indicadores} processos={processos} /> : null}
+    {!carregando && view === "indicadores" ? <Indicadores indicadores={indicadores} onNavigate={onNavigate} /> : null}
     {!carregando && view === "alertas" ? <Alertas alertas={alertas} totalSemRevisao={totalSemRevisao} /> : null}
     {!carregando && view === "ocorrencias" ? <Ocorrencias ocorrencias={ocorrenciasFiltradas} custas={custas} processos={processosOpcao} ocorrenciaForm={ocorrenciaForm} setOcorrenciaForm={setOcorrenciaForm} custaForm={custaForm} setCustaForm={setCustaForm} onOcorrencia={salvarOcorrencia} onCusta={salvarCusta} /> : null}
   </section>;
 }
 
-function Indicadores({ indicadores, processos }: { indicadores: any; processos: Processo[] }) {
-  return <div className="indicator-grid"><GrupoIndicador titulo="Protocolos" itens={indicadores.protocolos} /><GrupoIndicador titulo="Processos" itens={indicadores.processos} /><GrupoIndicador titulo="Qualidade" itens={indicadores.qualidade} /><GrupoIndicador titulo="Operação" itens={indicadores.operacao} /><section className="gerencial-card wide"><h3>Etiquetas automáticas</h3><div className="tag-board">{processos.flatMap((p) => etiquetaProcesso(p).map((tag) => ({ tag, processo: p }))).slice(0, 80).map(({ tag, processo }, index) => <span key={`${processo.id}-${tag}-${index}`}>{tag} · {processo.nome_cliente}</span>)}{processos.every((p) => etiquetaProcesso(p).length === 0) ? <div className="empty-row">Nenhuma etiqueta automática ativa.</div> : null}</div></section></div>;
+function Indicadores({ indicadores, onNavigate }: { indicadores: any; onNavigate?: NavigateHandler }) {
+  return <div className="indicator-grid"><GrupoIndicador titulo="Protocolos" itens={indicadores.protocolos} onNavigate={onNavigate} /><GrupoIndicador titulo="Processos" itens={indicadores.processos} onNavigate={onNavigate} /><GrupoIndicador titulo="Qualidade" itens={indicadores.qualidade} onNavigate={onNavigate} /><GrupoIndicador titulo="Operação" itens={indicadores.operacao} onNavigate={onNavigate} /></div>;
 }
-function GrupoIndicador({ titulo, itens }: { titulo: string; itens: Array<[string, any]> }) { return <section className="gerencial-card"><h3>{titulo}</h3><div className="metric-list">{itens.map(([nome, valor]) => <article key={nome}><span>{nome}</span><strong>{valor}</strong></article>)}</div></section>; }
+function GrupoIndicador({ titulo, itens, onNavigate }: { titulo: string; itens: Array<[string, any]>; onNavigate?: NavigateHandler }) {
+  const visiveis = itens.filter(([nome, valor]) => !ocultarMetricaZerada(nome, valor));
+  return <section className="gerencial-card"><h3>{titulo}</h3><div className="metric-list">{visiveis.length === 0 ? <div className="empty-row">Sem métricas ativas.</div> : visiveis.map(([nome, valor]) => {
+    const destino = destinoMetrica(nome);
+    const conteudo = <><span>{nome}</span><strong>{valor}</strong></>;
+    return destino && onNavigate ? <button className="metric-card metric-card-clickable" key={nome} type="button" onClick={() => onNavigate(destino.id, destino.opcoes)}>{conteudo}</button> : <article className="metric-card" key={nome}>{conteudo}</article>;
+  })}</div></section>;
+}
 function Alertas({ alertas, totalSemRevisao }: { alertas: Array<{ id: string; tipo: string; titulo: string; detalhe: string; prioridade: number; entidade: string; entidadeId?: string }>; totalSemRevisao: number }) {
   const [selecionado, setSelecionado] = useState<typeof alertas[number] | null>(null);
   return <div className="alert-layout"><section className="gerencial-card"><h3>Alertas por prioridade · {totalSemRevisao} processos sem revisão</h3><div className="alert-list">{alertas.length === 0 ? <div className="empty-row">Nenhum alerta ativo.</div> : alertas.map((alerta) => <article key={alerta.id} className={prioridadeAlerta(alerta)}><div><span>{alerta.tipo}</span><strong>{alerta.titulo}</strong><small>{alerta.detalhe}</small></div><button className="btn-secondary compact" type="button" onClick={() => setSelecionado(alerta)}>Abrir {alerta.entidade}</button></article>)}</div></section>{selecionado ? <aside className="gerencial-card alert-detail"><span className="eyebrow">Registro relacionado</span><h3>{selecionado.titulo}</h3><p>{selecionado.detalhe}</p><dl><div><dt>Tipo</dt><dd>{selecionado.tipo}</dd></div><div><dt>Prioridade</dt><dd>{prioridadeAlerta(selecionado)}</dd></div><div><dt>Entidade</dt><dd>{selecionado.entidade}</dd></div><div><dt>ID</dt><dd>{selecionado.entidadeId || selecionado.id}</dd></div></dl><button className="btn-secondary compact" type="button" onClick={() => setSelecionado(null)}>Fechar</button></aside> : null}</div>;

@@ -14,6 +14,7 @@ type Props = {
   usuario?: { nome?: string; email?: string };
   busca: string;
   onBusca: (valor: string) => void;
+  initialFilters?: Record<string, string>;
 };
 
 type TarefaProcessual = {
@@ -120,6 +121,21 @@ const PRIORIDADES_TAREFA = ["Baixa", "Normal", "Alta", "Crítica"];
 const STATUS_TAREFA = ["Pendente", "Em andamento", "Concluída", "Cancelada", "Atrasada"];
 const CANAIS_ATENDIMENTO = ["WhatsApp", "Telefone", "E-mail", "Reunião", "Presencial", "Outro"];
 const STATUS_DOCUMENTO = ["Gerado", "Aguardando assinatura", "Assinado", "Anexado", "Enviado", "Substituído", "Cancelado"];
+const FILTROS_PADRAO = {
+  situacao: "Todos",
+  fase: "Todos",
+  resultado: "Todos",
+  banco: "Todos",
+  responsavel: "Todos",
+  justica: "Todos",
+  emenda: "Todos",
+  comPendencia: "Todos",
+  custas: "Todos",
+  pastaRetornada: "Todos",
+  semRevisao: "Todos",
+  encerrado: "Todos",
+  recursal: "Todos",
+};
 
 function criarMovimentacaoForm() {
   return {
@@ -308,22 +324,9 @@ export default function PainelJudicial({
   usuario,
   busca,
   onBusca,
+  initialFilters,
 }: Props) {
-  const [filtros, setFiltros] = useState({
-    situacao: "Todos",
-    fase: "Todos",
-    resultado: "Todos",
-    banco: "Todos",
-    responsavel: "Todos",
-    justica: "Todos",
-    emenda: "Todos",
-    comPendencia: "Todos",
-    custas: "Todos",
-    pastaRetornada: "Todos",
-    semRevisao: "Todos",
-    encerrado: "Todos",
-    recursal: "Todos",
-  });
+  const [filtros, setFiltros] = useState(() => ({ ...FILTROS_PADRAO, ...initialFilters }));
   const [processoAberto, setProcessoAberto] = useState<Processo | null>(null);
   const [modalCadastro, setModalCadastro] = useState(false);
   const [ficha, setFicha] = useState(criarFicha(null, usuario?.nome || ""));
@@ -348,6 +351,12 @@ export default function PainelJudicial({
   const bancos = useMemo(() => ["Todos", ...Array.from(new Set(processos.map((p) => p.banco_reu).filter(Boolean))) as string[]], [processos]);
   const responsaveis = useMemo(() => ["Todos", ...Array.from(new Set(processos.map((p) => p.responsavel).filter(Boolean))) as string[]], [processos]);
   const custas = useMemo(() => ["Todos", ...Array.from(new Set(processos.map((p) => p.custas_status).filter(Boolean))) as string[]], [processos]);
+
+  useEffect(() => {
+    if (initialFilters && Object.keys(initialFilters).length > 0) {
+      setFiltros((atuais) => ({ ...atuais, ...initialFilters }));
+    }
+  }, [initialFilters]);
 
   const processosFiltrados = useMemo(() => {
     const termo = normalizar(busca);
