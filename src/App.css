@@ -47,6 +47,8 @@ p { color: var(--muted); line-height: 1.65; }
 .login-card::before { content: ''; position: absolute; inset: 1px; border-radius: inherit; background: linear-gradient(135deg, rgba(255,255,255,.82), transparent 35%, rgba(141,187,255,.14)); pointer-events: none; }
 .login-card > * { position: relative; z-index: 1; }
 .login-brand { display: flex; align-items: center; gap: 16px; margin-bottom: 42px; }
+.login-logo-image { display: block; width: 54px; height: 54px; border-radius: 50%; object-fit: cover; flex: 0 0 auto; }
+.login-form > .login-logo-image { margin: 0 auto 24px; }
 .login-brand div span, .login-brand div strong { display: block; }
 .login-brand div strong { color: #0f2a55; font-size: 31px; font-weight: 700; letter-spacing: 8px; line-height: .95; }
 .login-brand div span { margin-top: 8px; color: #243b61; font-size: 9px; font-weight: 800; letter-spacing: 2.8px; text-transform: uppercase; }
@@ -2361,6 +2363,14 @@ textarea:focus {
 .dashboard-listas article div { display: grid; gap: 3px; min-width: 0; }
 .dashboard-listas article strong, .dashboard-listas article span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .dashboard-listas article span, .dashboard-listas time, .dashboard-listas p { color: var(--muted); font-size: .76rem; }
+.dashboard-empty-agenda { align-items: center; display: flex; flex-direction: column; gap: 10px; justify-content: center; min-height: 132px; text-align: center; }
+.dashboard-empty-agenda p { margin: 0; }
+.calendar-illustration { background: #fff; border: 2px solid #8fb4df; border-radius: 8px; box-shadow: 0 6px 14px rgba(34, 91, 151, .12); display: block; height: 54px; overflow: hidden; position: relative; width: 60px; }
+.calendar-illustration::before { background: #dcecff; content: ""; display: block; height: 14px; width: 100%; }
+.calendar-illustration::after { background: repeating-linear-gradient(90deg, transparent 0 12px, #c9dcf2 12px 13px), repeating-linear-gradient(0deg, transparent 0 11px, #c9dcf2 11px 12px); content: ""; inset: 22px 7px 6px; position: absolute; }
+.calendar-illustration span::before, .calendar-illustration span::after { background: #4d82bd; border-radius: 3px; content: ""; height: 8px; position: absolute; top: -5px; width: 4px; z-index: 1; }
+.calendar-illustration span::before { left: 14px; }
+.calendar-illustration span::after { right: 14px; }
 
 @media (max-width: 1100px) {
   .dashboard-cards { grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -2466,6 +2476,45 @@ textarea:focus {
   border-radius: 7px;
   cursor: pointer;
   font-size: 18px;
+}
+
+/* Ajustes finais de responsividade para componentes carregados por cada módulo. */
+*, *::before, *::after { box-sizing: border-box; }
+img, svg, video, canvas { max-width: 100%; }
+button, input, select, textarea { max-width: 100%; }
+.main-content { overflow-x: hidden; }
+.gerencial-table, .data-table, .table-wrap { max-width: 100%; overflow-x: auto; }
+
+@media (max-width: 900px) {
+  .main-content { padding-inline: 16px; }
+  .module-page-header, .process-status-section-heading, .processual-ficha > header { align-items: stretch; display: flex; flex-direction: column; }
+  .module-page-header > *, .processual-ficha > header > * { max-width: 100%; }
+  .gerencial-tabs { flex-wrap: wrap; }
+  .processual-resumo { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .cliente-ficha-backdrop .cliente-ficha-page { width: min(96vw, 760px); }
+}
+
+@media (max-width: 600px) {
+  .main-content { padding: 10px 8px 28px; }
+  .topbar, .panel, .module-page-header { border-radius: 14px; padding: 14px; }
+  .topbar h1 { font-size: 20px; }
+  .topbar-actions { align-self: stretch; display: flex; }
+  .global-search, .global-search input, .real-search { min-width: 0; width: 100%; }
+  .global-search-results { left: 0; max-width: 100vw; right: auto; width: 100%; }
+  .sidebar { margin-inline: 6px; width: calc(100% - 12px) !important; }
+  .sidebar nav { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .processual-resumo, .movimentacao-grid, .cliente-form-grid, .gerencial-form-grid { grid-template-columns: 1fr; }
+  .processual-resumo > div, .movimentacao-grid .wide { grid-column: auto; }
+  .processual-timeline { padding: 12px; }
+  .processual-timeline article { gap: 8px; grid-template-columns: 1fr; padding-left: 24px; }
+  .processual-timeline article::before { left: 7px; top: 28px; }
+  .processual-timeline article::after { left: 2px; top: 5px; }
+  .processual-timeline article > div { padding-left: 0; }
+  .processual-timeline article > div > header { align-items: flex-start; flex-direction: column; }
+  .timeline-badge { white-space: normal; }
+  .cliente-ficha-backdrop { padding: 6px; }
+  .cliente-ficha-backdrop .cliente-ficha-page { max-height: calc(100vh - 12px); width: 100%; }
+  .table-pagination { align-items: stretch; flex-direction: column; }
 }
 
 .cliente-ficha-topo,

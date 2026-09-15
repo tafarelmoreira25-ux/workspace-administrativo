@@ -446,6 +446,16 @@ export default function PainelJudicial({
     setModalCadastro(false);
   }
 
+  async function alterarSituacaoNaLista(processo: Processo, situacao: string) {
+    const anterior = processo.situacao;
+    setProcessos((atuais) => atuais.map((item) => item.id === processo.id ? { ...item, situacao } : item));
+    const { error } = await supabase.from("processos").update({ situacao, updated_by: usuario?.email || usuario?.nome || null }).eq("id", processo.id);
+    if (error) {
+      setProcessos((atuais) => atuais.map((item) => item.id === processo.id ? { ...item, situacao: anterior } : item));
+      showToast(`NÃ£o foi possÃ­vel alterar a situaÃ§Ã£o: ${error.message}`);
+    }
+  }
+
   async function salvarProcesso(evento: FormEvent<HTMLFormElement>) {
     evento.preventDefault();
     if (!ficha.nome_cliente.trim()) {
@@ -974,7 +984,7 @@ export default function PainelJudicial({
                   <td>{processo.numero_processo || "Pendente"}</td>
                   <td>{processo.reu || processo.banco_reu || "—"}</td>
                   <td>{processo.banco_reu || "—"}</td>
-                  <td><span className={`process-badge ${badgeClass(situacao)}`}>{situacao}</span></td>
+                  <td><select className="process-status-inline-select" aria-label={`SituaÃ§Ã£o do processo de ${processo.nome_cliente}`} value={processo.situacao || SITUACOES[0]} onChange={(e) => void alterarSituacaoNaLista(processo, e.target.value)}>{SITUACOES.map((opcao) => <option key={opcao} value={opcao}>{opcao}</option>)}</select></td>
                   <td>{fase}</td>
                   <td>{resultado}</td>
                   <td><span className="truncate-cell">{processo.ultima_movimentacao || "—"}</span></td>

@@ -297,6 +297,7 @@ function Login({ onLogin }) {
 
       <section className="glass-card login-card" aria-label="Login Platino equipe">
         <form className="login-form" onSubmit={fazerLogin}>
+          <img className="login-logo-image" src="/assets/platino-login-logo.png" alt="Platino" />
           <label className="glass-field floating-field">
             <span className="sr-only">E-mail corporativo</span>
             <div className="glass-input">
@@ -391,7 +392,7 @@ function RedefinirSenha({ onConcluida }) {
   return (
     <div className="login-page login-page-liquid">
       <section className="glass-card login-card" aria-label="Criar nova senha">
-        <div className="login-brand"><div><strong>Platino equipe</strong><span>Workspace Administrativo</span></div></div>
+        <div className="login-brand"><img className="login-logo-image" src="/assets/platino-login-logo.png" alt="Platino" /><div><strong>Platino equipe</strong><span>Workspace Administrativo</span></div></div>
         <div className="login-heading"><span>Recuperação de acesso</span><h1>Crie uma nova senha</h1><p>Use pelo menos 8 caracteres.</p></div>
         <form className="login-form" onSubmit={salvarNovaSenha}>
           <label className="glass-field"><span>Nova senha</span><div className="glass-input"><UiIcon name="logout" size={20} /><input autoComplete="new-password" onChange={(evento) => setSenha(evento.target.value)} required type="password" value={senha} /></div></label>
@@ -622,6 +623,7 @@ export default function App() {
         <div className="login-page login-page-liquid">
           <section className="glass-card login-card loading-card" aria-label="Carregando Platino equipe">
             <div className="login-brand">
+              <img className="login-logo-image" src="/assets/platino-login-logo.png" alt="Platino" />
               <div>
                 <strong>Platino equipe</strong>
                 <span>Workspace Administrativo</span>
