@@ -266,6 +266,8 @@
 .processual-ficha { display: grid; gap: 16px; }
 .processual-ficha > header { align-items: center; background: #fff; border: 1px solid #e4e9ef; border-radius: 12px; display: grid; gap: 18px; grid-template-columns: auto 1fr auto; padding: 18px; }
 .processual-ficha > header h2, .processual-ficha > header p { margin: 2px 0; }
+.processual-actions { display: flex; flex-wrap: wrap; gap: 8px; justify-content: flex-end; }
+.processual-actions .btn-secondary:disabled { cursor: wait; opacity: .62; }
 .processual-resumo { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
 .processual-resumo > div { background: #fff; border: 1px solid #e4e9ef; border-radius: 9px; display: grid; gap: 5px; padding: 13px; }
 .processual-resumo span { color: #667085; font-size: 11px; text-transform: uppercase; }
@@ -299,6 +301,7 @@
 
 @media (max-width: 900px) {
   .processual-ficha > header { grid-template-columns: 1fr; }
+  .processual-actions { justify-content: flex-start; }
   .processual-resumo { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .movimentacao-grid { grid-template-columns: 1fr; }
   .movimentacao-grid .wide { grid-column: auto; }
