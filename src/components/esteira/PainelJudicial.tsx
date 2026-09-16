@@ -961,9 +961,7 @@ export default function PainelJudicial({
               <th>Processo</th>
               <th>Réu</th>
               <th>Banco</th>
-              <th>Situação</th>
-              <th>Fase</th>
-              <th>Resultado</th>
+              <th>Status</th>
               <th>Última movimentação</th>
               <th>Última revisão</th>
               <th>Próximo prazo</th>
@@ -973,7 +971,7 @@ export default function PainelJudicial({
           </thead>
           <tbody>
             {processosFiltrados.length === 0 ? (
-              <tr><td colSpan={12}>Nenhum processo encontrado.</td></tr>
+              <tr><td colSpan={10}>Nenhum processo encontrado.</td></tr>
             ) : processosFiltrados.map((processo) => {
               const situacao = situacaoDoProcesso(processo);
               const fase = faseDoProcesso(processo);
@@ -984,9 +982,7 @@ export default function PainelJudicial({
                   <td>{processo.numero_processo || "Pendente"}</td>
                   <td>{processo.reu || processo.banco_reu || "—"}</td>
                   <td>{processo.banco_reu || "—"}</td>
-                  <td><select className="process-status-inline-select" aria-label={`SituaÃ§Ã£o do processo de ${processo.nome_cliente}`} value={processo.situacao || SITUACOES[0]} onChange={(e) => void alterarSituacaoNaLista(processo, e.target.value)}>{SITUACOES.map((opcao) => <option key={opcao} value={opcao}>{opcao}</option>)}</select></td>
-                  <td>{fase}</td>
-                  <td>{resultado}</td>
+                  <td><div className="process-status-cell"><select className="process-status-inline-select" aria-label={`Situação do processo de ${processo.nome_cliente}`} value={processo.situacao || SITUACOES[0]} onChange={(e) => void alterarSituacaoNaLista(processo, e.target.value)}>{SITUACOES.map((opcao) => <option key={opcao} value={opcao}>{opcao}</option>)}</select>{fase !== situacao || resultado !== situacao ? <small>{fase !== situacao ? fase : null}{fase !== situacao && resultado !== situacao ? " · " : null}{resultado !== situacao ? resultado : null}</small> : null}</div></td>
                   <td><span className="truncate-cell">{processo.ultima_movimentacao || "—"}</span></td>
                   <td>{formatarData(processo.ultima_revisao)}</td>
                   <td>{formatarData(processo.proximo_prazo)}</td>

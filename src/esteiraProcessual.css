@@ -1599,7 +1599,7 @@
 }
 
 .processos-table {
-  min-width: 1500px;
+  min-width: 1280px;
 }
 
 .processos-table th {
@@ -1608,6 +1608,8 @@
   z-index: 2;
 }
 
+.process-status-cell { display: grid; gap: 5px; min-width: 150px; }
+.process-status-cell small { color: #667085; font-size: 11px; line-height: 1.35; }
 .process-status-inline-select { max-width: 210px; border: 1px solid #d6e1ee; border-radius: 7px; background: #fff; color: #17365d; cursor: pointer; font: inherit; font-size: 12px; font-weight: 800; padding: 7px 26px 7px 8px; }
 .process-status-inline-select:focus { outline: 2px solid #2f80ed; outline-offset: 1px; }
 .process-badge {
