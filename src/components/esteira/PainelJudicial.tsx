@@ -1003,13 +1003,19 @@ export default function PainelJudicial({
           <form className="judicial-drawer-panel process-ficha" onSubmit={salvarProcesso}>
             <button className="modal-close" onClick={() => { setProcessoAberto(null); setModalCadastro(false); }} type="button">×</button>
             <header className="process-ficha-header">
-              <span className="eyebrow">Ficha do processo</span>
-              <h3>{ficha.nome_cliente || "Novo processo existente"}</h3>
-              <p>{ficha.numero_processo || "Número CNJ pendente"}</p>
-              <div className="process-badge-row">
-                <span className={`process-badge ${badgeClass(ficha.situacao)}`}>{ficha.situacao}</span>
-                <span className={`process-badge ${badgeClass(ficha.fase_judicial)}`}>{ficha.fase_judicial}</span>
-                <span className={`process-badge ${badgeClass(ficha.resultado)}`}>{ficha.resultado}</span>
+              <div className="process-ficha-heading">
+                <span className="eyebrow">Cadastro processual</span>
+                <h3>{modalCadastro ? "Novo Processo" : "Ficha Processual"}</h3>
+                <p>Cadastre e organize as principais informações do processo.</p>
+                <div className="process-badge-row">
+                  <span className={`process-badge ${badgeClass(ficha.situacao)}`}>{ficha.situacao}</span>
+                  <span className={`process-badge ${badgeClass(ficha.fase_judicial)}`}>{ficha.fase_judicial}</span>
+                  <span className={`process-badge ${badgeClass(ficha.resultado)}`}>{ficha.resultado}</span>
+                </div>
+              </div>
+              <div className="process-ficha-header-actions">
+                <button className="btn-secondary" onClick={() => { setProcessoAberto(null); setModalCadastro(false); }} type="button">Cancelar</button>
+                <button className="btn-primary" disabled={salvando} type="submit">{salvando ? "Salvando..." : "Salvar Processo"}</button>
               </div>
             </header>
 
@@ -1019,46 +1025,75 @@ export default function PainelJudicial({
 
             <div className="process-ficha-content">
               {abaFicha === "Resumo" ? <>
-                <section className="process-inline-summary" aria-label="Resumo editável do processo">
-                  <label><span>Ação</span><input value={ficha.tipo_acao} onChange={(e) => setFicha((f) => ({ ...f, tipo_acao: e.target.value }))} placeholder="Clique para preencher" /></label>
-                  <label><span>Réu</span><input value={ficha.reu} onChange={(e) => setFicha((f) => ({ ...f, reu: e.target.value, banco_reu: f.banco_reu || e.target.value }))} placeholder="Clique para preencher" /></label>
-                  <label><span>Tribunal/Juízo</span><input value={[ficha.tribunal, ficha.vara, ficha.comarca].filter(Boolean).join(" · ")} onChange={(e) => setFicha((f) => ({ ...f, tribunal: e.target.value }))} placeholder="Clique para preencher" /></label>
-                  <label><span>Responsável</span><input value={ficha.responsavel} onChange={(e) => setFicha((f) => ({ ...f, responsavel: e.target.value }))} placeholder="Clique para preencher" /></label>
+                <section className="process-inline-summary" aria-label="Dados processuais">
+                  <div className="process-section-heading"><h4>Dados Processuais</h4></div>
+                  <div className="process-summary-grid">
+                    <label className="span-4"><span>Ação</span><input value={ficha.tipo_acao} onChange={(e) => setFicha((f) => ({ ...f, tipo_acao: e.target.value }))} placeholder="Clique para preencher" /></label>
+                    <label className="span-4"><span>Réu</span><input value={ficha.reu} onChange={(e) => setFicha((f) => ({ ...f, reu: e.target.value, banco_reu: f.banco_reu || e.target.value }))} placeholder="Clique para preencher" /></label>
+                    <label className="span-2"><span>Tribunal / Juízo</span><input value={[ficha.tribunal, ficha.vara, ficha.comarca].filter(Boolean).join(" · ")} onChange={(e) => setFicha((f) => ({ ...f, tribunal: e.target.value }))} placeholder="Clique para preencher" /></label>
+                    <label className="span-2"><span>Responsável</span><input value={ficha.responsavel} onChange={(e) => setFicha((f) => ({ ...f, responsavel: e.target.value }))} placeholder="Clique para preencher" /></label>
+                  </div>
                 </section>
-                <section className="process-form-section">
-                  <h4>Informações principais</h4>
-                  <div className="process-form-grid">
-                    <label><span>Cliente *</span><input value={ficha.nome_cliente} onChange={(e) => setFicha((f) => ({ ...f, nome_cliente: e.target.value }))} /></label>
-                    <label><span>CPF</span><input value={ficha.cpf_cliente} onChange={(e) => setFicha((f) => ({ ...f, cpf_cliente: e.target.value }))} /></label>
-                    <label><span>ID CRM</span><input value={ficha.id_crm} onChange={(e) => setFicha((f) => ({ ...f, id_crm: e.target.value }))} /></label>
-                    <label><span>Link da pasta no Drive</span><input value={ficha.link_pasta_cliente} onChange={(e) => setFicha((f) => ({ ...f, link_pasta_cliente: e.target.value }))} placeholder="Pasta do cliente no Drive" /></label>
-                    <label><span>Autor</span><input value={ficha.autor} onChange={(e) => setFicha((f) => ({ ...f, autor: e.target.value }))} /></label>
-                    <label><span>Réu</span><input value={ficha.reu} onChange={(e) => setFicha((f) => ({ ...f, reu: e.target.value }))} /></label>
-                    <label><span>Banco</span><input value={ficha.banco_reu} onChange={(e) => setFicha((f) => ({ ...f, banco_reu: e.target.value }))} /></label>
-                    <label><span>Produto</span><input value={ficha.produto} onChange={(e) => setFicha((f) => ({ ...f, produto: e.target.value }))} /></label>
-                    <label><span>Contrato</span><input value={ficha.numero_contrato} onChange={(e) => setFicha((f) => ({ ...f, numero_contrato: e.target.value }))} /></label>
-                    <label><span>Número CNJ</span><input value={ficha.numero_processo} onChange={(e) => setFicha((f) => ({ ...f, numero_processo: e.target.value }))} /></label>
-                    <label><span>Distribuição</span><input type="date" value={ficha.data_distribuicao} onChange={(e) => setFicha((f) => ({ ...f, data_distribuicao: e.target.value }))} /></label>
-                    <label><span>Tribunal</span><input value={ficha.tribunal} onChange={(e) => setFicha((f) => ({ ...f, tribunal: e.target.value }))} /></label>
-                    <label><span>Comarca</span><input value={ficha.comarca} onChange={(e) => setFicha((f) => ({ ...f, comarca: e.target.value }))} /></label>
-                    <label><span>Vara</span><input value={ficha.vara} onChange={(e) => setFicha((f) => ({ ...f, vara: e.target.value }))} /></label>
-                    <label><span>Tipo de ação</span><input value={ficha.tipo_acao} onChange={(e) => setFicha((f) => ({ ...f, tipo_acao: e.target.value }))} /></label>
-                    <label><span>Responsável</span><input value={ficha.responsavel} onChange={(e) => setFicha((f) => ({ ...f, responsavel: e.target.value }))} /></label>
-                    <label><span>Link da consulta</span><input value={ficha.link_consulta} onChange={(e) => setFicha((f) => ({ ...f, link_consulta: e.target.value }))} /></label>
-                    <label><span>Situação</span><select value={ficha.situacao} onChange={(e) => setFicha((f) => ({ ...f, situacao: e.target.value }))}>{SITUACOES.map((o) => <option key={o}>{o}</option>)}</select></label>
-                    <label><span>Fase</span><select value={ficha.fase_judicial} onChange={(e) => setFicha((f) => ({ ...f, fase_judicial: e.target.value }))}>{FASES_JUDICIAIS.map((o) => <option key={o}>{o}</option>)}</select></label>
-                    <label><span>Resultado</span><select value={ficha.resultado} onChange={(e) => setFicha((f) => ({ ...f, resultado: e.target.value }))}>{RESULTADOS.map((o) => <option key={o}>{o}</option>)}</select></label>
-                    <label><span>Justiça gratuita</span><select value={ficha.justica_gratuita} onChange={(e) => setFicha((f) => ({ ...f, justica_gratuita: e.target.value }))}>{JUSTICA_GRATUITA.map((o) => <option key={o}>{o}</option>)}</select></label>
-                    <label><span>Emenda</span><select value={ficha.emenda_status} onChange={(e) => setFicha((f) => ({ ...f, emenda_status: e.target.value }))}>{EMENDA.map((o) => <option key={o}>{o}</option>)}</select></label>
-                    <label><span>Próximo prazo</span><input type="date" value={ficha.proximo_prazo} onChange={(e) => setFicha((f) => ({ ...f, proximo_prazo: e.target.value }))} /></label>
-                    <label><span>Última revisão</span><input type="date" value={ficha.ultima_revisao} onChange={(e) => setFicha((f) => ({ ...f, ultima_revisao: e.target.value }))} /></label>
-                    <label><span>Próxima revisão</span><input type="date" value={ficha.proxima_revisao} onChange={(e) => setFicha((f) => ({ ...f, proxima_revisao: e.target.value }))} /></label>
-                    <label><span>Custas</span><input value={ficha.custas_status} onChange={(e) => setFicha((f) => ({ ...f, custas_status: e.target.value }))} /></label>
-                    <label className="check-line"><input type="checkbox" checked={ficha.com_pendencia} onChange={(e) => setFicha((f) => ({ ...f, com_pendencia: e.target.checked }))} /> Com pendência</label>
-                    <label className="check-line"><input type="checkbox" checked={ficha.pasta_retornada} onChange={(e) => setFicha((f) => ({ ...f, pasta_retornada: e.target.checked }))} /> Pasta retornada</label>
-                    <label className="check-line"><input type="checkbox" checked={ficha.sem_revisao} onChange={(e) => setFicha((f) => ({ ...f, sem_revisao: e.target.checked }))} /> Sem revisão</label>
-                    <label className="check-line"><input type="checkbox" checked={ficha.recursal} onChange={(e) => setFicha((f) => ({ ...f, recursal: e.target.checked }))} /> Recursal</label>
-                    <label className="wide"><span>Observações</span><textarea rows={3} value={ficha.observacoes} onChange={(e) => setFicha((f) => ({ ...f, observacoes: e.target.value }))} /></label>
+                <section className="process-form-section process-card-section">
+                  <div className="process-section-heading"><h4>Identificação do Processo</h4></div>
+                  <div className="process-form-grid process-twelve-grid">
+                    <label className="span-5 highlight-field"><span>Número do processo *</span><input value={ficha.numero_processo} onChange={(e) => setFicha((f) => ({ ...f, numero_processo: e.target.value }))} placeholder="0000000-00.0000.0.00.0000" /></label>
+                    <label className="span-3"><span>Tribunal *</span><input value={ficha.tribunal} onChange={(e) => setFicha((f) => ({ ...f, tribunal: e.target.value }))} /></label>
+                    <label className="span-2"><span>Comarca</span><input value={ficha.comarca} onChange={(e) => setFicha((f) => ({ ...f, comarca: e.target.value }))} /></label>
+                    <label className="span-2"><span>Vara</span><input value={ficha.vara} onChange={(e) => setFicha((f) => ({ ...f, vara: e.target.value }))} /></label>
+                    <label className="span-3"><span>Distribuição</span><input type="date" value={ficha.data_distribuicao} onChange={(e) => setFicha((f) => ({ ...f, data_distribuicao: e.target.value }))} /></label>
+                    <label className="span-4"><span>Tipo de ação</span><input value={ficha.tipo_acao} onChange={(e) => setFicha((f) => ({ ...f, tipo_acao: e.target.value }))} /></label>
+                    <label className="span-5"><span>Link da consulta processual</span><input value={ficha.link_consulta} onChange={(e) => setFicha((f) => ({ ...f, link_consulta: e.target.value }))} placeholder="https://" /></label>
+                  </div>
+                </section>
+                <section className="process-form-section process-card-section">
+                  <div className="process-section-heading"><h4>Partes e Envolvidos</h4></div>
+                  <div className="process-form-grid process-twelve-grid">
+                    <label className="span-4"><span>Cliente *</span><input value={ficha.nome_cliente} onChange={(e) => setFicha((f) => ({ ...f, nome_cliente: e.target.value }))} /></label>
+                    <label className="span-2"><span>CPF</span><input value={ficha.cpf_cliente} onChange={(e) => setFicha((f) => ({ ...f, cpf_cliente: e.target.value }))} /></label>
+                    <label className="span-3"><span>Autor</span><input value={ficha.autor} onChange={(e) => setFicha((f) => ({ ...f, autor: e.target.value }))} /></label>
+                    <label className="span-3"><span>Réu</span><input value={ficha.reu} onChange={(e) => setFicha((f) => ({ ...f, reu: e.target.value }))} /></label>
+                    <label className="span-3"><span>Banco</span><input value={ficha.banco_reu} onChange={(e) => setFicha((f) => ({ ...f, banco_reu: e.target.value }))} /></label>
+                    <label className="span-3"><span>Contrato / CNPJ</span><input value={ficha.numero_contrato} onChange={(e) => setFicha((f) => ({ ...f, numero_contrato: e.target.value }))} /></label>
+                    <label className="span-3"><span>Produto</span><input value={ficha.produto} onChange={(e) => setFicha((f) => ({ ...f, produto: e.target.value }))} /></label>
+                    <label className="span-3"><span>ID CRM</span><input value={ficha.id_crm} onChange={(e) => setFicha((f) => ({ ...f, id_crm: e.target.value }))} /></label>
+                  </div>
+                </section>
+                <section className="process-form-section process-card-section">
+                  <div className="process-section-heading"><h4>Status Processual</h4></div>
+                  <div className="process-form-grid process-twelve-grid">
+                    <label className="span-3"><span>Situação</span><select value={ficha.situacao} onChange={(e) => setFicha((f) => ({ ...f, situacao: e.target.value }))}>{SITUACOES.map((o) => <option key={o}>{o}</option>)}</select></label>
+                    <label className="span-3"><span>Fase</span><select value={ficha.fase_judicial} onChange={(e) => setFicha((f) => ({ ...f, fase_judicial: e.target.value }))}>{FASES_JUDICIAIS.map((o) => <option key={o}>{o}</option>)}</select></label>
+                    <label className="span-3"><span>Resultado</span><select value={ficha.resultado} onChange={(e) => setFicha((f) => ({ ...f, resultado: e.target.value }))}>{RESULTADOS.map((o) => <option key={o}>{o}</option>)}</select></label>
+                    <label className="span-3"><span>Justiça gratuita</span><select value={ficha.justica_gratuita} onChange={(e) => setFicha((f) => ({ ...f, justica_gratuita: e.target.value }))}>{JUSTICA_GRATUITA.map((o) => <option key={o}>{o}</option>)}</select></label>
+                    <label className="span-3"><span>Emenda</span><select value={ficha.emenda_status} onChange={(e) => setFicha((f) => ({ ...f, emenda_status: e.target.value }))}>{EMENDA.map((o) => <option key={o}>{o}</option>)}</select></label>
+                    <label className="span-3"><span>Custas</span><input value={ficha.custas_status} onChange={(e) => setFicha((f) => ({ ...f, custas_status: e.target.value }))} /></label>
+                  </div>
+                </section>
+                <section className="process-form-section process-card-section">
+                  <div className="process-section-heading"><h4>Prazos e Controle</h4></div>
+                  <div className="process-form-grid process-twelve-grid">
+                    <label className="span-4"><span>Próximo prazo</span><input type="date" value={ficha.proximo_prazo} onChange={(e) => setFicha((f) => ({ ...f, proximo_prazo: e.target.value }))} /></label>
+                    <label className="span-4"><span>Última revisão</span><input type="date" value={ficha.ultima_revisao} onChange={(e) => setFicha((f) => ({ ...f, ultima_revisao: e.target.value }))} /></label>
+                    <label className="span-4"><span>Próxima revisão</span><input type="date" value={ficha.proxima_revisao} onChange={(e) => setFicha((f) => ({ ...f, proxima_revisao: e.target.value }))} /></label>
+                  </div>
+                  <div className="process-control-options">
+                    <label className="check-line"><input type="checkbox" checked={ficha.com_pendencia} onChange={(e) => setFicha((f) => ({ ...f, com_pendencia: e.target.checked }))} /> <span>Com pendência</span></label>
+                    <label className="check-line"><input type="checkbox" checked={ficha.pasta_retornada} onChange={(e) => setFicha((f) => ({ ...f, pasta_retornada: e.target.checked }))} /> <span>Pasta retornada</span></label>
+                    <label className="check-line"><input type="checkbox" checked={ficha.sem_revisao} onChange={(e) => setFicha((f) => ({ ...f, sem_revisao: e.target.checked }))} /> <span>Sem revisão</span></label>
+                    <label className="check-line"><input type="checkbox" checked={ficha.recursal} onChange={(e) => setFicha((f) => ({ ...f, recursal: e.target.checked }))} /> <span>Recursal</span></label>
+                  </div>
+                </section>
+                <section className="process-form-section process-card-section">
+                  <div className="process-section-heading"><h4>Documentação / Links</h4></div>
+                  <div className="process-form-grid process-twelve-grid">
+                    <label className="span-12"><span>Link da pasta no Drive</span><input value={ficha.link_pasta_cliente} onChange={(e) => setFicha((f) => ({ ...f, link_pasta_cliente: e.target.value }))} placeholder="https://drive.google.com/..." /></label>
+                  </div>
+                </section>
+                <section className="process-form-section process-card-section">
+                  <div className="process-section-heading"><h4>Observações</h4></div>
+                  <div className="process-form-grid process-twelve-grid">
+                    <label className="span-12 observations-field"><span>Observações</span><textarea rows={6} value={ficha.observacoes} onChange={(e) => setFicha((f) => ({ ...f, observacoes: e.target.value }))} placeholder="Registre informações relevantes sobre o processo..." /></label>
                   </div>
                 </section>
                 <aside className="process-next-actions">

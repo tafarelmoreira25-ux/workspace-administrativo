@@ -268,9 +268,21 @@
 .processual-ficha > header h2, .processual-ficha > header p { margin: 2px 0; }
 .processual-actions { display: flex; flex-wrap: wrap; gap: 8px; justify-content: flex-end; }
 .processual-actions .btn-secondary:disabled { cursor: wait; opacity: .62; }
+.processual-resumo-heading { align-items: center; display: flex; gap: 12px; justify-content: space-between; }
+.processual-resumo-heading h3 { font-size: 14px; margin: 0; }
+.processual-resumo-heading .btn-secondary { padding: 9px 14px; }
 .processual-resumo { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
 .processual-resumo > div { background: #fff; border: 1px solid #e4e9ef; border-radius: 9px; display: grid; gap: 5px; padding: 13px; }
 .processual-resumo span { color: #667085; font-size: 11px; text-transform: uppercase; }
+.processual-resumo strong { overflow-wrap: anywhere; }
+.processual-dados-form { background: #fff; border: 1px solid #dce4ed; border-radius: 12px; display: grid; gap: 16px; padding: 20px; }
+.processual-dados-form h3 { font-size: 15px; margin: 0; }
+.processual-dados-grid { display: grid; gap: 12px; grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.processual-dados-grid label { display: grid; gap: 5px; min-width: 0; }
+.processual-dados-grid label > span { color: #475467; font-size: 12px; font-weight: 700; }
+.processual-dados-grid input { border: 1px solid #d5dce5; border-radius: 7px; font: inherit; padding: 10px; width: 100%; }
+.processual-dados-form footer { display: flex; flex-wrap: wrap; gap: 9px; justify-content: flex-end; }
+.processual-dados-form button:disabled, .processual-resumo-heading button:disabled { cursor: not-allowed; opacity: .6; }
 .processual-tabs { border-bottom: 1px solid #dfe5ec; display: flex; gap: 24px; }
 .processual-tabs span { color: #667085; padding: 10px 2px; }
 .processual-tabs .active { border-bottom: 2px solid #174f82; color: #174f82; font-weight: 800; }
@@ -303,8 +315,13 @@
   .processual-ficha > header { grid-template-columns: 1fr; }
   .processual-actions { justify-content: flex-start; }
   .processual-resumo { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .processual-dados-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .movimentacao-grid { grid-template-columns: 1fr; }
   .movimentacao-grid .wide { grid-column: auto; }
+}
+@media (max-width: 600px) {
+  .processual-resumo-heading { align-items: stretch; flex-direction: column; }
+  .processual-dados-grid { grid-template-columns: 1fr; }
 }
 .process-status-select {
   max-width: 230px;
