@@ -6,6 +6,7 @@ import {
   type MovimentacaoProcessual,
   type Processo,
 } from "../../lib/esteiraProcessual";
+import { sincronizarClienteDoProcesso } from "../../lib/processDataSync";
 
 type Props = {
   processos: Processo[];
@@ -523,6 +524,9 @@ export default function PainelJudicial({
     }
 
     const salvo = data as Processo;
+    void sincronizarClienteDoProcesso(supabase, salvo, usuario).catch((erro) => {
+      console.warn("Falha ao sincronizar cliente/processo", erro);
+    });
     onProcessoAtualizado(salvo);
     setProcessoAberto(salvo);
     setModalCadastro(false);

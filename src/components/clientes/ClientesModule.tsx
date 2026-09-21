@@ -4,6 +4,7 @@ import GeradorDocumentos from "../../GeradorDocumentos";
 import EmailComposer from "../comunicacao/EmailComposer";
 import ContentAnalyzer from "../comunicacao/ContentAnalyzer";
 import Pagination from "../common/Pagination";
+import { sincronizarClienteDoProcesso, sincronizarProcessosDoCliente } from "../../lib/processDataSync";
 
 type Cliente = {
   id: string | number;
@@ -390,6 +391,9 @@ export default function ClientesModule({ usuario, showToast, buscaExterna, clien
     const { data, error } = await operacao.select("*").single();
     setSalvando(false);
     if (error) { avisar(`Não foi possível salvar o processo: ${error.message}`); return; }
+    void sincronizarClienteDoProcesso(supabase, data as ProcessoResumo, usuario).catch((erro) => {
+      console.warn("Falha ao sincronizar cliente/processo", erro);
+    });
     setProcessos((atuais) => [data as ProcessoResumo, ...atuais.filter((item) => String(item.id) !== String(data.id))]);
     setProcessoFormAberto(false); avisar(numero ? "Processo salvo e disponível em Processos e Processual." : "Protocolo salvo para ajuizamento.");
   }
@@ -484,6 +488,9 @@ export default function ClientesModule({ usuario, showToast, buscaExterna, clien
     }
 
     const clienteSalvo = data as Cliente;
+    void sincronizarProcessosDoCliente(supabase, clienteSalvo, usuario).catch((erro) => {
+      console.warn("Falha ao sincronizar processos do cliente", erro);
+    });
     setClientes((atuais) => {
       const semAtual = atuais.filter((cliente) => String(cliente.id) !== String(clienteSalvo.id));
       return [clienteSalvo, ...semAtual];

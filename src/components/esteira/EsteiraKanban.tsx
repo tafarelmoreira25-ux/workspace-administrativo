@@ -6,6 +6,7 @@ import {
   calcularPrazoElite,
   contarDiasUteisEntre,
 } from "../../lib/esteiraProcessual";
+import { sincronizarClienteDoProcesso } from "../../lib/processDataSync";
 
 type Props = {
   processos: Processo[];
@@ -465,6 +466,9 @@ export default function EsteiraKanban({
       if (historico.error) showToast(`Protocolo salvo, mas o histórico do cliente não pôde ser atualizado: ${historico.error.message}`);
     }
 
+    void sincronizarClienteDoProcesso(supabase, data as Processo, usuario).catch((erro) => {
+      console.warn("Falha ao sincronizar cliente/processo", erro);
+    });
     onProcessoAtualizado(data as Processo);
     setModalAberto(false);
     setProcessoEditando(null);
