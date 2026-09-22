@@ -35,6 +35,7 @@ export default function CarteiraProcessual({ showToast, usuario, processoInicial
   const [salvandoInformacoes, setSalvandoInformacoes] = useState(false);
   const [cadastroAberto, setCadastroAberto] = useState(false);
   const [salvandoCadastro, setSalvandoCadastro] = useState(false);
+  const [cadastroErro, setCadastroErro] = useState("");
   const [novoProcesso, setNovoProcesso] = useState(() => ({ ...NOVO_PROCESSO_INICIAL, responsavel: usuario?.nome || "" }));
   const [movimento, setMovimento] = useState(() => ({ ...MOVIMENTO_INICIAL, responsavel: usuario?.nome || "" }));
   const [acao, setAcao] = useState(ACAO_INICIAL);
@@ -158,6 +159,7 @@ export default function CarteiraProcessual({ showToast, usuario, processoInicial
 
   function abrirCadastro() {
     setNovoProcesso({ ...NOVO_PROCESSO_INICIAL, responsavel: usuario?.nome || "" });
+    setCadastroErro("");
     setCadastroAberto(true);
   }
 
@@ -168,28 +170,34 @@ export default function CarteiraProcessual({ showToast, usuario, processoInicial
     const numeroProcesso = judicial ? novoProcesso.numero_processo.trim() : "";
     const tipoAcao = novoProcesso.tipo_acao.trim();
     if (!nomeCliente || !tipoAcao || (judicial && !numeroProcesso)) {
-      showToast?.(`Informe o cliente, a ação${judicial ? " e o número do processo" : ""}.`);
+      const mensagem = `Informe o cliente, a ação${judicial ? " e o número do processo" : ""}.`;
+      setCadastroErro(mensagem);
+      showToast?.(mensagem);
       return;
     }
 
+    setCadastroErro("");
     setSalvandoCadastro(true);
     if (judicial) {
       const duplicado = await supabase.from("processos").select("id").eq("numero_processo", numeroProcesso).limit(1).maybeSingle();
       if (duplicado.error) {
         setSalvandoCadastro(false);
-        showToast?.(`Não foi possível validar o número do processo: ${duplicado.error.message}`);
+        const mensagem = `Não foi possível validar o número do processo: ${duplicado.error.message}`;
+        setCadastroErro(mensagem);
+        showToast?.(mensagem);
         return;
       }
       if (duplicado.data) {
         setSalvandoCadastro(false);
-        showToast?.("Já existe um processo cadastrado com esse número.");
+        const mensagem = "Já existe um processo cadastrado com esse número.";
+        setCadastroErro(mensagem);
+        showToast?.(mensagem);
         return;
       }
     }
 
     const parteContraria = novoProcesso.reu.trim() || novoProcesso.banco_reu.trim();
     const payload = {
-      cliente: nomeCliente,
       nome_cliente: nomeCliente,
       cpf_cliente: novoProcesso.cpf_cliente.trim() || null,
       id_crm: novoProcesso.id_crm.trim() || null,
@@ -198,7 +206,6 @@ export default function CarteiraProcessual({ showToast, usuario, processoInicial
       reu: parteContraria || null,
       banco_reu: novoProcesso.banco_reu.trim() || parteContraria || null,
       autor_reu: parteContraria ? `${nomeCliente} X ${parteContraria}` : nomeCliente,
-      numero: numeroProcesso || null,
       numero_processo: numeroProcesso || null,
       tipo_acao: tipoAcao,
       tribunal: judicial ? novoProcesso.tribunal.trim() || null : null,
@@ -206,15 +213,6 @@ export default function CarteiraProcessual({ showToast, usuario, processoInicial
       vara: judicial ? novoProcesso.vara.trim() || null : null,
       data_distribuicao: novoProcesso.data_distribuicao || null,
       responsavel: novoProcesso.responsavel.trim() || usuario?.nome || null,
-      situacao: "Em andamento",
-      fase_atual: "Tramitando",
-      fase_judicial: judicial ? "Distribuição" : "Pré-ajuizamento",
-      resultado: "Sem julgamento",
-      status_judicial: judicial ? "TRAMITANDO" : "EXTRAJUDICIAL",
-      justica_gratuita: "Não Solicitada",
-      emenda_status: judicial ? "Não solicitada" : "Não se aplica",
-      emenda_inicial: judicial ? "Não solicitada" : "Não se aplica",
-      protocolo_status: judicial ? "Liberado" : "Aguardando",
       observacoes: novoProcesso.observacoes.trim() || null,
       origem_registro: judicial ? "acao_judicial_manual" : "acao_extrajudicial_manual",
       updated_by: usuario?.email || usuario?.nome || null,
@@ -222,7 +220,9 @@ export default function CarteiraProcessual({ showToast, usuario, processoInicial
     const { data, error } = await supabase.from("processos").insert(payload).select("*").single();
     if (error) {
       setSalvandoCadastro(false);
-      showToast?.(`Não foi possível cadastrar: ${error.message}`);
+      const mensagem = `Não foi possível cadastrar: ${error.message}`;
+      setCadastroErro(mensagem);
+      showToast?.(mensagem);
       return;
     }
 
@@ -232,6 +232,7 @@ export default function CarteiraProcessual({ showToast, usuario, processoInicial
     setTotal((atual) => atual + 1);
     setCadastroAberto(false);
     setSalvandoCadastro(false);
+    setCadastroErro("");
     setNovoProcesso({ ...NOVO_PROCESSO_INICIAL, responsavel: usuario?.nome || "" });
     showToast?.(judicial ? "Processo judicial cadastrado." : "Ação extrajudicial cadastrada.");
     await abrirProcesso(processoSalvo);
@@ -309,7 +310,7 @@ export default function CarteiraProcessual({ showToast, usuario, processoInicial
       })}</div> : <div className="process-status-empty">Nenhum processo ou ação cadastrado.</div>}
       <Pagination pagina={pagina} total={total} tamanho={PAGE_SIZE} onChange={setPagina} rotulo="registros" />
     </section>
-    {cadastroAberto ? <FormularioNovoProcesso form={novoProcesso} setForm={setNovoProcesso} salvando={salvandoCadastro} onSubmit={cadastrarProcesso} onClose={() => setCadastroAberto(false)} /> : null}
+    {cadastroAberto ? <FormularioNovoProcesso form={novoProcesso} setForm={setNovoProcesso} salvando={salvandoCadastro} erro={cadastroErro} onSubmit={cadastrarProcesso} onClose={() => { setCadastroAberto(false); setCadastroErro(""); }} /> : null}
   </>;
 }
 
@@ -371,11 +372,12 @@ function FichaProcessual({ processo, timeline, registrando, setRegistrando, movi
   </section>;
 }
 
-function FormularioNovoProcesso({ form, setForm, salvando, onSubmit, onClose }) {
+function FormularioNovoProcesso({ form, setForm, salvando, erro, onSubmit, onClose }) {
   const judicial = form.natureza === "Judicial";
   return <div className="process-registration-backdrop" role="presentation">
     <form className="process-registration-modal" onSubmit={onSubmit} role="dialog" aria-modal="true" aria-labelledby="process-registration-title">
       <header><div><span className="eyebrow">Novo cadastro</span><h3 id="process-registration-title">Cadastrar processo ou ação</h3><p>Escolha a modalidade e informe os dados principais para iniciar o acompanhamento.</p></div><button aria-label="Fechar" disabled={salvando} onClick={onClose} type="button">×</button></header>
+      {erro ? <div className="process-registration-error" role="alert">{erro}</div> : null}
       <div className="process-registration-grid">
         <label><span>Modalidade *</span><select value={form.natureza} onChange={(e) => setForm((atual) => ({ ...atual, natureza: e.target.value }))}><option>Judicial</option><option>Extrajudicial</option></select></label>
         <label className="span-2"><span>Cliente *</span><input required value={form.nome_cliente} onChange={(e) => setForm((atual) => ({ ...atual, nome_cliente: e.target.value }))} /></label>

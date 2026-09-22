@@ -299,6 +299,16 @@
   line-height: 1;
 }
 
+.process-registration-error {
+  background: #fff1f0;
+  border: 1px solid #fecdca;
+  border-radius: 8px;
+  color: #b42318;
+  font-size: 12px;
+  font-weight: 700;
+  padding: 11px 13px;
+}
+
 .process-registration-grid {
   display: grid;
   gap: 13px;
