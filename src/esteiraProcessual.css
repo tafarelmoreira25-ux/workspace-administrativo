@@ -1972,13 +1972,53 @@
 .process-ficha-header-actions {
   display: flex;
   flex-wrap: wrap;
-  gap: 10px;
+  gap: 6px;
   justify-content: flex-end;
 }
-.process-ficha-header-actions .btn-primary,
-.process-ficha-header-actions .btn-secondary {
-  min-height: 40px;
+.process-icon-action {
+  align-items: center;
+  background: #fff;
+  border: 1px solid #dce3ec;
   border-radius: 8px;
+  color: #526175;
+  cursor: pointer;
+  display: inline-flex;
+  font-size: 17px;
+  font-weight: 800;
+  height: 34px;
+  justify-content: center;
+  line-height: 1;
+  min-width: 34px;
+  padding: 0 9px;
+}
+.process-icon-action:hover {
+  background: #f5f8fc;
+  border-color: #bdc9d8;
+  color: #244f8d;
+}
+.process-icon-action.primary,
+.process-icon-action.process-add-action {
+  background: #eef3ff;
+  border-color: #d3def8;
+  color: #345bb8;
+}
+.process-icon-action:disabled {
+  cursor: wait;
+  opacity: .55;
+}
+.process-summary-editor {
+  border: 0;
+  display: contents;
+  margin: 0;
+  min-width: 0;
+  padding: 0;
+}
+.process-summary-editor:disabled input,
+.process-summary-editor:disabled select,
+.process-summary-editor:disabled textarea {
+  background: #f8fafc;
+  color: #445164;
+  cursor: default;
 }
 .process-ficha-tabs {
   position: sticky;
@@ -2237,11 +2277,6 @@
 
   .process-ficha-header-actions {
     justify-content: stretch;
-  }
-
-  .process-ficha-header-actions .btn-primary,
-  .process-ficha-header-actions .btn-secondary {
-    flex: 1;
   }
 
   .process-ficha-tabs {

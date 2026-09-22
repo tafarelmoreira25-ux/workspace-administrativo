@@ -279,7 +279,7 @@ export default function CarteiraProcessual({ showToast, usuario, processoInicial
       // O schema atual classifica eventos genéricos como "Outro". Isso evita
       // violar o CHECK legado enquanto o título mantém a natureza do evento.
       const tipoMap = { tarefa: "Tarefa interna", prazo: "Prazo processual", evento: "Outro", audiencia: "Audiência" };
-      const tarefaPayload = { cliente_id: processo.cliente_id, processo_id: processo.id, movimentacao_id: movimentoSalvo.id, cliente_nome: processo.nome_cliente, processo_numero: processo.numero_processo, titulo: acao.titulo.trim(), descricao: movimento.tratamento.trim() || null, tipo: tipoMap[acao.tipo] || "Tarefa interna", data: acao.data, horario: acao.hora || null, responsavel: movimento.responsavel || usuario?.nome || null, prioridade: acao.prioridade, status: "Pendente", observacao: movimento.observacao.trim() || null, created_by_nome: usuario?.nome || usuario?.email || null };
+      const tarefaPayload = { processo_id: processo.id, movimentacao_id: movimentoSalvo.id, cliente_nome: processo.nome_cliente, processo_numero: processo.numero_processo, titulo: acao.titulo.trim(), descricao: movimento.tratamento.trim() || null, tipo: tipoMap[acao.tipo] || "Tarefa interna", data: acao.data, horario: acao.hora || null, responsavel: movimento.responsavel || usuario?.nome || null, prioridade: acao.prioridade, status: "Pendente", observacao: movimento.observacao.trim() || null, created_by_nome: usuario?.nome || usuario?.email || null };
       const resultado = await supabase.from("processual_tarefas").insert(tarefaPayload).select("*").single();
       if (!resultado.error) tarefaSalva = resultado.data;
     }

@@ -330,6 +330,7 @@ export default function PainelJudicial({
   const [filtros, setFiltros] = useState(() => ({ ...FILTROS_PADRAO, ...initialFilters }));
   const [processoAberto, setProcessoAberto] = useState<Processo | null>(null);
   const [modalCadastro, setModalCadastro] = useState(false);
+  const [editandoFicha, setEditandoFicha] = useState(false);
   const [ficha, setFicha] = useState(criarFicha(null, usuario?.nome || ""));
   const [abaFicha, setAbaFicha] = useState("Resumo");
   const [movimentacoes, setMovimentacoes] = useState<MovimentacaoProcessual[]>([]);
@@ -439,12 +440,25 @@ export default function PainelJudicial({
   function abrirCadastroExistente() {
     setProcessoAberto(null);
     setFicha(criarFicha(null, usuario?.nome || ""));
+    setEditandoFicha(true);
     setModalCadastro(true);
   }
 
   function abrirFicha(processo: Processo) {
     setProcessoAberto(processo);
+    setEditandoFicha(false);
     setModalCadastro(false);
+  }
+
+  function fecharFicha() {
+    setProcessoAberto(null);
+    setModalCadastro(false);
+    setEditandoFicha(false);
+  }
+
+  function cancelarEdicaoFicha() {
+    setFicha(criarFicha(processoAberto, usuario?.nome || ""));
+    setEditandoFicha(false);
   }
 
   async function alterarSituacaoNaLista(processo: Processo, situacao: string) {
@@ -459,6 +473,7 @@ export default function PainelJudicial({
 
   async function salvarProcesso(evento: FormEvent<HTMLFormElement>) {
     evento.preventDefault();
+    if (processoAberto && !editandoFicha) return;
     if (!ficha.nome_cliente.trim()) {
       showToast("Informe o cliente.");
       return;
@@ -530,6 +545,7 @@ export default function PainelJudicial({
     onProcessoAtualizado(salvo);
     setProcessoAberto(salvo);
     setModalCadastro(false);
+    setEditandoFicha(false);
     showToast(processoAberto ? "Processo atualizado." : "Processo existente cadastrado.");
   }
 
@@ -673,7 +689,6 @@ export default function PainelJudicial({
     }
 
     const payload = {
-      cliente_id: processoAberto.cliente_id || null,
       processo_id: processoAberto.id,
       cliente_nome: processoAberto.nome_cliente,
       processo_numero: processoAberto.numero_processo,
@@ -744,7 +759,6 @@ export default function PainelJudicial({
 
     const dataRegistro = new Date(`${atendimentoForm.data}T${atendimentoForm.hora || "00:00"}`).toISOString();
     const payload = {
-      cliente_id: processoAberto.cliente_id || null,
       processo_id: processoAberto.id,
       cliente_nome: processoAberto.nome_cliente,
       processo_numero: processoAberto.numero_processo,
@@ -877,7 +891,6 @@ export default function PainelJudicial({
     }).eq("id", comunicandoDocumento.id).select("*").single();
     if (!error) {
       const atendimento = await supabase.from("processual_atendimentos").insert({
-        cliente_id: processoAberto.cliente_id || null,
         processo_id: processoAberto.id,
         cliente_nome: processoAberto.nome_cliente,
         processo_numero: processoAberto.numero_processo,
@@ -938,7 +951,7 @@ export default function PainelJudicial({
           <span>Busca</span>
           <input type="search" value={busca} onChange={(e) => onBusca(e.target.value)} placeholder="Cliente, CPF, ID, CNJ, réu, banco ou ação" />
         </label>
-        <button className="btn-primary" onClick={abrirCadastroExistente} type="button">Cadastrar processo existente</button>
+        <button className="process-icon-action process-add-action" aria-label="Cadastrar processo existente" title="Cadastrar processo existente" onClick={abrirCadastroExistente} type="button">+</button>
       </div>
 
       <section className="processos-filters">
@@ -991,7 +1004,7 @@ export default function PainelJudicial({
                   <td>{formatarData(processo.ultima_revisao)}</td>
                   <td>{formatarData(processo.proximo_prazo)}</td>
                   <td>{processo.responsavel || "—"}</td>
-                  <td><button className="btn-secondary compact" onClick={() => abrirFicha(processo)} type="button">Abrir ficha</button></td>
+                  <td><button className="process-icon-action" aria-label={`Abrir ficha de ${processo.nome_cliente}`} title="Abrir ficha" onClick={() => abrirFicha(processo)} type="button">›</button></td>
                 </tr>
               );
             })}
@@ -1001,12 +1014,11 @@ export default function PainelJudicial({
       {fichaAberta && (
         <section className="judicial-drawer process-drawer process-page-view" aria-label="Ficha do processo">
           <form className="judicial-drawer-panel process-ficha" onSubmit={salvarProcesso}>
-            <button className="modal-close" onClick={() => { setProcessoAberto(null); setModalCadastro(false); }} type="button">×</button>
+            <button className="modal-close" aria-label="Fechar ficha" title="Fechar" onClick={fecharFicha} type="button">×</button>
             <header className="process-ficha-header">
               <div className="process-ficha-heading">
                 <span className="eyebrow">Cadastro processual</span>
                 <h3>{modalCadastro ? "Novo Processo" : "Ficha Processual"}</h3>
-                <p>Cadastre e organize as principais informações do processo.</p>
                 <div className="process-badge-row">
                   <span className={`process-badge ${badgeClass(ficha.situacao)}`}>{ficha.situacao}</span>
                   <span className={`process-badge ${badgeClass(ficha.fase_judicial)}`}>{ficha.fase_judicial}</span>
@@ -1014,8 +1026,9 @@ export default function PainelJudicial({
                 </div>
               </div>
               <div className="process-ficha-header-actions">
-                <button className="btn-secondary" onClick={() => { setProcessoAberto(null); setModalCadastro(false); }} type="button">Cancelar</button>
-                <button className="btn-primary" disabled={salvando} type="submit">{salvando ? "Salvando..." : "Salvar Processo"}</button>
+                {!modalCadastro && !editandoFicha ? <button className="process-icon-action" aria-label="Editar processo" title="Editar processo" onClick={() => { setAbaFicha("Resumo"); setEditandoFicha(true); }} type="button">✎</button> : null}
+                {!modalCadastro && editandoFicha ? <button className="process-icon-action" aria-label="Cancelar edição" title="Cancelar edição" disabled={salvando} onClick={cancelarEdicaoFicha} type="button">×</button> : null}
+                {modalCadastro || editandoFicha ? <button className="process-icon-action primary" aria-label={modalCadastro ? "Cadastrar processo" : "Salvar alterações"} title={modalCadastro ? "Cadastrar processo" : "Salvar alterações"} disabled={salvando} type="submit">{salvando ? "…" : "✓"}</button> : null}
               </div>
             </header>
 
@@ -1024,7 +1037,7 @@ export default function PainelJudicial({
             </nav>
 
             <div className="process-ficha-content">
-              {abaFicha === "Resumo" ? <>
+              {abaFicha === "Resumo" ? <fieldset className="process-summary-editor" disabled={!modalCadastro && !editandoFicha}>
                 <section className="process-inline-summary" aria-label="Dados processuais">
                   <div className="process-section-heading"><h4>Dados Processuais</h4></div>
                   <div className="process-summary-grid">
@@ -1117,7 +1130,7 @@ export default function PainelJudicial({
                   <article><strong>Último atendimento</strong><span>{processoAberto?.ultimo_atendimento || "Não registrado"}</span></article>
                   <article><strong>Último relatório enviado</strong><span>{processoAberto?.ultimo_relatorio_enviado || "Não registrado"}</span></article>
                 </aside>
-              </> : null}
+              </fieldset> : null}
 
               {abaFicha === "Movimentações" ? (
                 <section className="process-form-section">
