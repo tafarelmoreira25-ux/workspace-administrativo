@@ -1678,17 +1678,6 @@
   font-size: 22px;
 }
 
-.process-ficha-header p {
-  font-size: 13px;
-}
-
-.process-badge-row {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  margin-top: 12px;
-}
-
 .process-ficha-tabs {
   display: flex;
   gap: 4px;

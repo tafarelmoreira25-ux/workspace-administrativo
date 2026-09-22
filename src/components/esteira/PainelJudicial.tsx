@@ -311,13 +311,6 @@ function cadastroIncompleto(processo: Processo) {
   ].every((valor) => String(valor || "").trim());
 }
 
-function badgeClass(valor: string) {
-  if (["Encerrado", "Arquivado", "Improcedente"].includes(valor)) return "encerrado";
-  if (["Pendente de protocolo", "Pendente", "Solicitada", "Prazo decorrido"].includes(valor)) return "pendente";
-  if (["Suspenso / Sobrestado", "Fase recursal"].includes(valor)) return "alerta";
-  return "andamento";
-}
-
 export default function PainelJudicial({
   processos,
   onProcessoAtualizado,
@@ -1019,11 +1012,6 @@ export default function PainelJudicial({
               <div className="process-ficha-heading">
                 <span className="eyebrow">Cadastro processual</span>
                 <h3>{modalCadastro ? "Novo Processo" : "Ficha Processual"}</h3>
-                <div className="process-badge-row">
-                  <span className={`process-badge ${badgeClass(ficha.situacao)}`}>{ficha.situacao}</span>
-                  <span className={`process-badge ${badgeClass(ficha.fase_judicial)}`}>{ficha.fase_judicial}</span>
-                  <span className={`process-badge ${badgeClass(ficha.resultado)}`}>{ficha.resultado}</span>
-                </div>
               </div>
               <div className="process-ficha-header-actions">
                 {!modalCadastro && !editandoFicha ? <button className="process-icon-action" aria-label="Editar processo" title="Editar processo" onClick={() => { setAbaFicha("Resumo"); setEditandoFicha(true); }} type="button">✎</button> : null}
