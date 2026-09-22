@@ -111,11 +111,72 @@ export default function CarteiraProcessual({ showToast, usuario, processoInicial
 
   const timeline = useMemo(() => {
     const itensReais = [
-    ...movimentacoes.map((item) => ({ id: `m-${item.id}`, data: item.data_andamento || item.data_registro, titulo: item.titulo || item.tipo || "Movimentação registrada", descricao: item.descricao, detalhe: item.proxima_providencia, responsavel: item.responsavel || item.created_by_nome, origem: item.origem || "manual" })),
+    ...movimentacoes.map((item) => ({ id: `m-${item.id}`, data: item.data_andamento || item.data_registro, titulo: item.titulo || item.tipo || "Movimentação registrada", descricao: item.descricao, detalhe: item.proxima_providencia, responsavel: item.responsavel || item.created_by_nome, origem: item.origem || "manual", movimentacao: item })),
     ...tarefas.map((item) => ({ id: `t-${item.id}`, data: item.created_at, titulo: `${item.tipo}: ${item.titulo}`, descricao: item.descricao || item.observacao, detalhe: `Prazo: ${dataBR(item.data)} · ${item.status}`, responsavel: item.responsavel })),
     ];
     return (itensReais.length ? itensReais : TIMELINE_MOCK).sort((a, b) => String(b.data).localeCompare(String(a.data)));
   }, [movimentacoes, tarefas]);
+
+  async function atualizarMovimentacao(movimentacao, alteracoes) {
+    if (!processo || !movimentacao?.id || !alteracoes.data) return false;
+    const dataRegistro = `${alteracoes.data}T12:00:00`;
+    const payload = {
+      data_registro: dataRegistro,
+      responsavel: alteracoes.responsavel.trim() || null,
+      ...(movimentacao.data_andamento ? { data_andamento: dataRegistro } : {}),
+    };
+    setSalvando(true);
+    const { data, error } = await supabase
+      .from("movimentacoes")
+      .update(payload)
+      .eq("id", movimentacao.id)
+      .eq("processo_id", processo.id)
+      .select("*")
+      .single();
+    setSalvando(false);
+    if (error) {
+      showToast?.(`Não foi possível modificar o registro: ${error.message}`);
+      return false;
+    }
+    setMovimentacoes((atuais) => atuais.map((item) => item.id === data.id ? data : item));
+    await supabase.from("processos_auditoria").insert({
+      processo_id: String(processo.id),
+      campo: "movimentação modificada",
+      valor_anterior: JSON.stringify({ data: movimentacao.data_andamento || movimentacao.data_registro, responsavel: movimentacao.responsavel }),
+      valor_novo: JSON.stringify({ data: data.data_andamento || data.data_registro, responsavel: data.responsavel }),
+      usuario: usuario?.nome || usuario?.email || null,
+    });
+    showToast?.("Registro modificado.");
+    return true;
+  }
+
+  async function excluirMovimentacao(movimentacao) {
+    if (!processo || !movimentacao?.id) return false;
+    if (!window.confirm("Excluir este registro do histórico?")) return false;
+    const excluidoEm = new Date().toISOString();
+    const excluidoPor = usuario?.nome || usuario?.email || null;
+    setSalvando(true);
+    const { error } = await supabase
+      .from("movimentacoes")
+      .update({ deleted_at: excluidoEm, deleted_by: excluidoPor })
+      .eq("id", movimentacao.id)
+      .eq("processo_id", processo.id);
+    setSalvando(false);
+    if (error) {
+      showToast?.(`Não foi possível excluir o registro: ${error.message}`);
+      return false;
+    }
+    setMovimentacoes((atuais) => atuais.filter((item) => item.id !== movimentacao.id));
+    await supabase.from("processos_auditoria").insert({
+      processo_id: String(processo.id),
+      campo: "movimentação excluída",
+      valor_anterior: JSON.stringify({ movimentacao_id: movimentacao.id, data_registro: movimentacao.data_registro, responsavel: movimentacao.responsavel }),
+      valor_novo: null,
+      usuario: excluidoPor,
+    });
+    showToast?.("Registro excluído do histórico.");
+    return true;
+  }
 
   async function concluirMovimentacao(evento) {
     evento.preventDefault();
@@ -141,14 +202,15 @@ export default function CarteiraProcessual({ showToast, usuario, processoInicial
     setMovimento({ ...MOVIMENTO_INICIAL, responsavel: usuario?.nome || "" }); setAcao(ACAO_INICIAL); setRegistrando(false); setSalvando(false); showToast?.("Movimentação registrada e histórico atualizado.");
   }
 
-  if (processo) return <FichaProcessual processo={processo} timeline={timeline} registrando={registrando} setRegistrando={setRegistrando} movimento={movimento} setMovimento={setMovimento} acao={acao} setAcao={setAcao} concluir={concluirMovimentacao} salvando={salvando} sincronizarDataJud={sincronizarDataJud} sincronizandoDataJud={sincronizandoDataJud} salvarInformacoes={salvarInformacoes} salvandoInformacoes={salvandoInformacoes} voltar={() => { setProcesso(null); setRegistrando(false); }} />;
+  if (processo) return <FichaProcessual processo={processo} timeline={timeline} registrando={registrando} setRegistrando={setRegistrando} movimento={movimento} setMovimento={setMovimento} acao={acao} setAcao={setAcao} concluir={concluirMovimentacao} atualizarMovimentacao={atualizarMovimentacao} excluirMovimentacao={excluirMovimentacao} salvando={salvando} sincronizarDataJud={sincronizarDataJud} sincronizandoDataJud={sincronizandoDataJud} salvarInformacoes={salvarInformacoes} salvandoInformacoes={salvandoInformacoes} voltar={() => { setProcesso(null); setRegistrando(false); }} />;
 
   return <section className="portfolio-process-section"><div className="process-status-section-heading"><div><span>Acompanhamento dos processos judiciais</span><h2>Processual</h2><p>Movimentações, publicações, atividades e histórico dos processos já protocolados.</p></div><button type="button" onClick={carregar}>Atualizar</button></div><div className="process-status-filters"><input type="search" value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar nome, CPF, ID CRM, CNJ, réu, banco ou ação..." /></div>{carregando ? <p className="process-status-empty">Carregando processos...</p> : registros.length ? <div className="portfolio-process-list">{registros.map((item) => <article className="portfolio-process-card" key={item.id}><div className="process-status-card-heading"><div><span>Cliente</span><h3>{item.nome_cliente}</h3></div><select className="process-status-select" aria-label={`Status do processo de ${item.nome_cliente}`} value={item.situacao || "TRAMITANDO"} onChange={(e) => void alterarStatus(item, e.target.value)}>{STATUS_PROCESSO.map((status) => <option key={status} value={status}>{status}</option>)}</select></div><div className="portfolio-process-details"><div><span>Processo</span><strong>{item.numero_processo}</strong></div><div><span>Réu</span><strong>{item.reu || item.banco_reu || "Não informado"}</strong></div><div><span>Ação</span><strong>{item.tipo_acao || "Não informada"}</strong></div><div><span>Última atualização</span><strong>{dataHora(item.ultima_movimentacao_data || item.updated_at)}</strong></div></div>{item.ultima_movimentacao ? <p className="process-status-card-note">{item.ultima_movimentacao}</p> : null}<div className="process-status-card-footer"><small>Cadastro disponível para acompanhamento, inclusive quando encerrado.</small><button type="button" onClick={() => abrirProcesso(item)}>Abrir acompanhamento</button></div></article>)}</div> : <div className="process-status-empty">Nenhum processo judicial cadastrado.</div>}<Pagination pagina={pagina} total={total} tamanho={PAGE_SIZE} onChange={setPagina} rotulo="processos" /></section>;
 }
 
-function FichaProcessual({ processo, timeline, registrando, setRegistrando, movimento, setMovimento, acao, setAcao, concluir, salvando, sincronizarDataJud, sincronizandoDataJud, salvarInformacoes, salvandoInformacoes, voltar }) {
+function FichaProcessual({ processo, timeline, registrando, setRegistrando, movimento, setMovimento, acao, setAcao, concluir, atualizarMovimentacao, excluirMovimentacao, salvando, sincronizarDataJud, sincronizandoDataJud, salvarInformacoes, salvandoInformacoes, voltar }) {
   const [editandoInformacoes, setEditandoInformacoes] = useState(false);
   const [informacoes, setInformacoes] = useState(null);
+  const [registroEditando, setRegistroEditando] = useState(null);
 
   function iniciarEdicao() {
     setInformacoes({
@@ -167,6 +229,24 @@ function FichaProcessual({ processo, timeline, registrando, setRegistrando, movi
     if (await salvarInformacoes(informacoes)) setEditandoInformacoes(false);
   }
 
+  function iniciarEdicaoRegistro(item) {
+    setRegistroEditando({
+      id: item.id,
+      movimentacao: item.movimentacao,
+      data: String(item.data || "").slice(0, 10),
+      responsavel: item.movimentacao.responsavel || item.movimentacao.created_by_nome || "",
+    });
+  }
+
+  async function concluirEdicaoRegistro(evento) {
+    evento.preventDefault();
+    if (await atualizarMovimentacao(registroEditando.movimentacao, registroEditando)) setRegistroEditando(null);
+  }
+
+  async function excluirRegistro(item) {
+    if (await excluirMovimentacao(item.movimentacao) && registroEditando?.id === item.id) setRegistroEditando(null);
+  }
+
   return <section className="processual-ficha">
     <header><button className="btn-secondary" onClick={voltar} disabled={salvandoInformacoes || sincronizandoDataJud} type="button">← Voltar ao Processual</button><div><span className="eyebrow">Processual</span><h2>{processo.nome_cliente}</h2><p>{processo.numero_processo}</p></div><div className="processual-actions"><button className="btn-secondary" disabled={sincronizandoDataJud} onClick={sincronizarDataJud} type="button">{sincronizandoDataJud ? "Consultando..." : "Consultar DataJud"}</button><button className="btn-primary" onClick={() => setRegistrando(true)} type="button">Registrar movimentação/publicação</button></div></header>
     <div className="processual-resumo-heading"><h3>Informações do processo</h3><button className="btn-secondary" onClick={iniciarEdicao} disabled={editandoInformacoes || salvandoInformacoes} aria-expanded={editandoInformacoes} type="button">Editar informações</button></div>
@@ -180,7 +260,7 @@ function FichaProcessual({ processo, timeline, registrando, setRegistrando, movi
     </form> : null}
     <nav className="processual-tabs"><span>Resumo</span><span>Atividades</span><span className="active">Histórico</span></nav>
     {registrando ? <FormularioMovimentacao movimento={movimento} setMovimento={setMovimento} acao={acao} setAcao={setAcao} concluir={concluir} salvando={salvando} cancelar={() => setRegistrando(false)} /> : null}
-    <section className="processual-timeline"><h3>Histórico cronológico</h3>{timeline.length ? timeline.map((item) => <article className={`timeline-item timeline-${["escavador", "datajud"].includes(item.origem) ? "automatico" : "manual"}`} key={item.id}><time>{dataHora(item.data)}</time><div><header><strong>{item.titulo}</strong>{["escavador", "datajud"].includes(item.origem) ? <span className="timeline-badge">{item.origem === "datajud" ? "DataJud/CNJ" : "Captura Automática"}</span> : null}</header>{item.descricao ? <p>{item.descricao}</p> : null}{item.detalhe ? <span>{item.detalhe}</span> : null}<small>Responsável: {item.responsavel || "Não informado"}</small></div></article>) : <div className="empty-row">Nenhuma movimentação registrada.</div>}</section>
+    <section className="processual-timeline"><h3>Histórico cronológico</h3>{timeline.length ? timeline.map((item) => <article className={`timeline-item timeline-${["escavador", "datajud"].includes(item.origem) ? "automatico" : "manual"}`} key={item.id}><time dateTime={item.data}>{dataBR(item.data)}</time><div><header><strong>{item.titulo}</strong><div className="timeline-header-actions">{["escavador", "datajud"].includes(item.origem) ? <span className="timeline-badge">{item.origem === "datajud" ? "DataJud/CNJ" : "Captura Automática"}</span> : null}{item.movimentacao ? <><button disabled={salvando} onClick={() => iniciarEdicaoRegistro(item)} type="button">Modificar</button><button className="danger" disabled={salvando} onClick={() => void excluirRegistro(item)} type="button">Excluir</button></> : null}</div></header>{registroEditando?.id === item.id ? <form className="timeline-edit-form" onSubmit={concluirEdicaoRegistro}><label><span>Data</span><input required type="date" value={registroEditando.data} onChange={(e) => setRegistroEditando((atual) => ({ ...atual, data: e.target.value }))} /></label><label><span>Responsável</span><input value={registroEditando.responsavel} onChange={(e) => setRegistroEditando((atual) => ({ ...atual, responsavel: e.target.value }))} /></label><div><button className="btn-secondary" disabled={salvando} onClick={() => setRegistroEditando(null)} type="button">Cancelar</button><button className="btn-primary" disabled={salvando} type="submit">{salvando ? "Salvando..." : "Salvar"}</button></div></form> : <>{item.descricao ? <p>{item.descricao}</p> : null}{item.detalhe ? <span>{item.detalhe}</span> : null}<small>Responsável: {item.responsavel || "Não informado"}</small></>}</div></article>) : <div className="empty-row">Nenhuma movimentação registrada.</div>}</section>
   </section>;
 }
 

@@ -305,11 +305,21 @@
 .processual-timeline article::after { background: #1763a6; border: 3px solid #e4eff9; border-radius: 50%; content: ""; height: 9px; left: 135px; position: absolute; top: 5px; width: 9px; }
 .processual-timeline article > div { display: grid; gap: 5px; padding-left: 18px; }
 .processual-timeline article > div > header { align-items: center; display: flex; gap: 10px; justify-content: space-between; }
+.timeline-header-actions { align-items: center; display: flex; flex-wrap: wrap; gap: 6px; justify-content: flex-end; }
+.timeline-header-actions button { background: transparent; border: 0; color: #1763a6; cursor: pointer; font: inherit; font-size: 11px; font-weight: 800; padding: 4px 5px; }
+.timeline-header-actions button.danger { color: #b42318; }
+.timeline-header-actions button:disabled { cursor: not-allowed; opacity: .55; }
 .processual-timeline .timeline-automatico::after { background: #2f9e72; border-color: #e1f4ea; }
 .timeline-badge { background: #e8f7ef; border: 1px solid #bfe7d0; border-radius: 999px; color: #18724b !important; font-size: 10px !important; font-weight: 800; padding: 4px 8px; white-space: nowrap; }
 .processual-timeline .timeline-automatico > div { background: #fbfefc; border: 1px solid #e2f1e8; border-radius: 9px; padding: 12px 14px 12px 18px; }
 .processual-timeline time, .processual-timeline small, .processual-timeline span { color: #667085; font-size: 12px; }
 .processual-timeline p { margin: 0; white-space: pre-wrap; }
+.timeline-edit-form { align-items: end; background: #f7f9fb; border: 1px solid #dce4ed; border-radius: 8px; display: grid; gap: 10px; grid-template-columns: minmax(150px, .5fr) minmax(220px, 1fr) auto; margin-top: 6px; padding: 12px; }
+.timeline-edit-form label { display: grid; gap: 5px; }
+.timeline-edit-form label > span { color: #475467; font-size: 12px; font-weight: 700; }
+.timeline-edit-form input { border: 1px solid #d5dce5; border-radius: 7px; font: inherit; min-width: 0; padding: 9px; width: 100%; }
+.timeline-edit-form > div { display: flex; gap: 7px; justify-content: flex-end; padding-left: 0 !important; }
+.timeline-edit-form button { padding: 9px 12px; }
 
 @media (max-width: 900px) {
   .processual-ficha > header { grid-template-columns: 1fr; }
@@ -318,6 +328,7 @@
   .processual-dados-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .movimentacao-grid { grid-template-columns: 1fr; }
   .movimentacao-grid .wide { grid-column: auto; }
+  .timeline-edit-form { align-items: stretch; grid-template-columns: 1fr; }
 }
 @media (max-width: 600px) {
   .processual-resumo-heading { align-items: stretch; flex-direction: column; }
