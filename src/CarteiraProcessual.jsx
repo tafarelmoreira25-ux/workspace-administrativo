@@ -371,6 +371,7 @@ function FichaProcessual({ processo, timeline, registrando, setRegistrando, movi
     </header>
     <div className="processual-resumo">
       <div><span>Ação</span><strong className="processual-action-id">{processo.nome_cliente}{processo.id_crm ? <> – <b>{processo.id_crm}</b></> : null}</strong></div>
+      {!extrajudicial ? <div><span>Número do processo</span><strong>{processo.numero_processo || "Não informado"}</strong></div> : null}
       <div><span>Especialista em direito bancário</span><strong>{processo.responsavel || "Não informado"}</strong></div>
       <div><span>Parte contrária</span><strong>{processo.reu || processo.banco_reu || "Não informada"}</strong></div>
     </div>
