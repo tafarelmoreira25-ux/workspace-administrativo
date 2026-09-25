@@ -1938,6 +1938,270 @@
   border-color: #e5e7eb;
   box-shadow: 0 18px 50px rgba(15, 23, 42, .06);
 }
+
+/* Progresso do encaminhamento inspirado no portal do cliente */
+.protocolo-visualizacao {
+  max-height: calc(100vh - 36px);
+  overflow-y: auto;
+  padding: 24px 28px !important;
+  width: min(760px, calc(100vw - 36px));
+}
+
+.protocolo-progress-heading {
+  align-items: flex-start;
+  border-bottom: 1px solid #e7ebf1;
+  display: flex;
+  justify-content: space-between;
+  margin-top: 8px;
+  padding-bottom: 14px;
+}
+
+.protocolo-progress-heading > div {
+  display: grid;
+  gap: 3px;
+}
+
+.protocolo-progress-heading small {
+  color: #667085;
+  font-size: 11px;
+}
+
+.protocolo-progress-heading > b {
+  color: #2458dc;
+  font-size: 25px;
+  line-height: 1;
+}
+
+.protocolo-progress-list {
+  display: grid;
+  padding: 5px 0 2px;
+}
+
+.protocolo-progress-list > div {
+  display: grid;
+  gap: 13px;
+  grid-template-columns: 30px minmax(0, 1fr);
+  min-height: 68px;
+  position: relative;
+}
+
+.protocolo-progress-list > div::before {
+  background: #dce3ec;
+  bottom: -1px;
+  content: "";
+  left: 14px;
+  position: absolute;
+  top: 28px;
+  width: 1px;
+}
+
+.protocolo-progress-list > div:last-child::before {
+  display: none;
+}
+
+.protocolo-progress-marker {
+  align-items: center;
+  align-self: start;
+  background: #fff;
+  border: 1px solid #cdd7e4;
+  border-radius: 50%;
+  color: #fff;
+  display: flex;
+  font-size: 11px;
+  font-weight: 900;
+  height: 26px;
+  justify-content: center;
+  position: relative;
+  width: 26px;
+  z-index: 1;
+}
+
+.protocolo-progress-list > div > div {
+  display: grid;
+  gap: 4px;
+  padding: 3px 0 15px;
+}
+
+.protocolo-progress-list strong {
+  color: #17243a;
+  font-size: 13px;
+}
+
+.protocolo-progress-list small {
+  color: #667085;
+  font-size: 11px;
+}
+
+.protocolo-progress-list .done .protocolo-progress-marker {
+  background: #f0fff7;
+  border-color: #36c77b;
+  color: #16a05d;
+}
+
+.protocolo-progress-list .current .protocolo-progress-marker {
+  background: #3d7cff;
+  border: 7px solid #eaf1ff;
+}
+
+.protocolo-progress-list .current strong {
+  color: #174ea6;
+}
+
+.protocolo-modal-wide {
+  display: grid;
+  grid-template-columns: minmax(220px, 260px) minmax(0, 1fr);
+  grid-template-rows: auto auto minmax(300px, auto) auto;
+  column-gap: 22px;
+}
+
+.protocolo-modal-wide > .eyebrow,
+.protocolo-modal-wide > h3,
+.protocolo-modal-wide > .protocolo-modal-actions {
+  grid-column: 1 / -1;
+}
+
+.protocolo-modal-wide > h3 {
+  margin-bottom: 3px;
+}
+
+.protocolo-modal-wide > .protocolo-timeline {
+  align-content: start;
+  grid-column: 1;
+  grid-row: 3;
+}
+
+.protocolo-modal-wide > .protocolo-form-section {
+  grid-column: 2;
+  grid-row: 3;
+}
+
+.protocolo-timeline {
+  background: #fbfcfe;
+  border-radius: 8px;
+  display: grid;
+  gap: 0;
+  grid-template-columns: 1fr;
+  margin: 12px 0 0;
+  padding: 14px 12px;
+}
+
+.protocolo-timeline button {
+  align-items: start;
+  border: 0;
+  display: grid;
+  gap: 10px;
+  grid-template-columns: 25px minmax(0, 1fr);
+  justify-content: stretch;
+  min-height: 58px;
+  padding: 0;
+  position: relative;
+  text-align: left;
+  text-transform: none;
+}
+
+.protocolo-timeline button::before {
+  background: #dce3ec;
+  bottom: 0;
+  content: "";
+  left: 12px;
+  position: absolute;
+  top: 24px;
+  width: 1px;
+}
+
+.protocolo-timeline button:last-child::before {
+  display: none;
+}
+
+.protocolo-timeline button > span {
+  align-items: center;
+  background: #fff;
+  border: 1px solid #cfd8e5;
+  border-radius: 50%;
+  color: #fff;
+  display: flex;
+  font-size: 10px;
+  height: 24px;
+  justify-content: center;
+  position: relative;
+  width: 24px;
+  z-index: 1;
+}
+
+.protocolo-timeline button > div {
+  display: grid;
+  gap: 2px;
+  padding: 2px 5px 10px 0;
+}
+
+.protocolo-timeline button strong {
+  color: #26364d;
+  font-size: 11px;
+}
+
+.protocolo-timeline button small {
+  color: #8491a3;
+  font-size: 9px;
+}
+
+.protocolo-timeline button.done,
+.protocolo-timeline button.active {
+  background: transparent;
+  box-shadow: none;
+}
+
+.protocolo-timeline button.done > span {
+  background: #effdf5;
+  border-color: #35c67a;
+  color: #159c59;
+}
+
+.protocolo-timeline button.active > span {
+  background: #3d7cff;
+  border: 6px solid #e9f1ff;
+}
+
+.protocolo-timeline button.active strong {
+  color: #174ea6;
+}
+
+@media (max-width: 980px) {
+  .protocolo-modal-wide {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto;
+  }
+
+  .protocolo-modal-wide > .eyebrow,
+  .protocolo-modal-wide > h3,
+  .protocolo-modal-wide > .protocolo-timeline,
+  .protocolo-modal-wide > .protocolo-form-section,
+  .protocolo-modal-wide > .protocolo-modal-actions {
+    grid-column: 1;
+    grid-row: auto;
+  }
+
+  .protocolo-timeline {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .protocolo-timeline button {
+    min-height: 66px;
+  }
+
+  .protocolo-timeline button::before {
+    display: none;
+  }
+}
+
+@media (max-width: 620px) {
+  .protocolo-timeline {
+    grid-template-columns: 1fr;
+  }
+
+  .protocolo-timeline button::before {
+    display: block;
+  }
+}
 .process-ficha {
   width: min(1320px, calc(100vw - 48px)) !important;
   max-width: 1320px !important;

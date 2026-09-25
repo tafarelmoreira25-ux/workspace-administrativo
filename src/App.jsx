@@ -414,7 +414,6 @@ function Workspace({ usuario, onLogout, showToast }) {
   const [menuContaAberto, setMenuContaAberto] = useState(false);
   const [processoSelecionadoId, setProcessoSelecionadoId] = useState(null);
   const [clienteSelecionadoId, setClienteSelecionadoId] = useState(null);
-  const [processosFiltroInicial, setProcessosFiltroInicial] = useState({});
   const [feedbacks, setFeedbacks] = useState([]);
   const carregarFeedbacks = useCallback(async () => {
     const { data, error } = await supabase.from("feedbacks").select("*").eq("funcionaria_id", usuario.id).order("created_at", { ascending: false });
@@ -432,7 +431,7 @@ function Workspace({ usuario, onLogout, showToast }) {
         ["inicio", "Área de Trabalho", "dashboard"],
         ["clientes", "Clientes", "clientes"],
         ["homologacao-quitacao", "Homologação e Quitação", "homologacao"],
-        ...(podeVerProcessual ? [["processual-protocolos", "Protocolos", "protocolo"], ["processos", "Processos", "documentos"], ["processual", "Processual", "esteira"]] : []),
+        ...(podeVerProcessual ? [["processual-protocolos", "Protocolos", "protocolo"], ["processual", "Processual", "esteira"]] : []),
         ["agenda-atividades", "Agenda e Atividades", "agenda"],
       ],
     },
@@ -451,14 +450,9 @@ function Workspace({ usuario, onLogout, showToast }) {
     administracao: ["Administração", "Gestão administrativa preparada para permissões, usuários e parâmetros."],
   };
   function navegar(id, opcoes = {}) {
+    if (id === "processos") id = "processual";
     setAba(id);
     setBuscaModulo("");
-    if (id === "processos") {
-      setProcessosFiltroInicial(opcoes.filtros || {});
-      if (opcoes.status) window.history.replaceState({}, "", `#processos?status=${opcoes.status}`);
-    } else {
-      setProcessosFiltroInicial({});
-    }
     if (id === "clientes") setClienteSelecionadoId(opcoes.clienteId || null);
     else setClienteSelecionadoId(null);
     if (id === "feedbacks") carregarFeedbacks();
@@ -518,7 +512,6 @@ function Workspace({ usuario, onLogout, showToast }) {
       {aba === "homologacao-quitacao" && <Suspense fallback={<section className="panel">Carregando Homologação e Quitação...</section>}><HomologacaoQuitacaoModule usuario={usuario} showToast={showToast} /></Suspense>}
       {aba === "documentos" && <Suspense fallback={<section className="panel">Carregando documentos...</section>}><GeradorDocumentos usuario={usuario} responsavel={usuario.nome} onSuccess={showToast} /></Suspense>}
       {aba === "processual-protocolos" && <Suspense fallback={<section className="panel">Carregando protocolos...</section>}><EsteiraProcessualPlatino usuario={usuario} showToast={showToast} initialView="protocolos" /></Suspense>}
-      {aba === "processos" && <Suspense fallback={<section className="panel">Carregando processos...</section>}><EsteiraProcessualPlatino usuario={usuario} showToast={showToast} initialView="processos" initialFilters={processosFiltroInicial} /></Suspense>}
       {aba === "processual" && <Suspense fallback={<section className="panel">Carregando Processual...</section>}><CarteiraProcessual showToast={showToast} usuario={usuario} processoInicialId={processoSelecionadoId} /></Suspense>}
       {aba === "agenda-atividades" && <Suspense fallback={<section className="panel">Carregando agenda...</section>}><OperacionalProcessualModule usuario={usuario} showToast={showToast} initialView="agenda" /></Suspense>}
       {aba === "indicadores" && <Suspense fallback={<section className="panel">Carregando indicadores...</section>}><GerencialProcessualModule usuario={usuario} showToast={showToast} initialView="indicadores" onNavigate={navegar} /></Suspense>}

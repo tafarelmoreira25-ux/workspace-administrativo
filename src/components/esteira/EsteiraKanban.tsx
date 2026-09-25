@@ -175,6 +175,22 @@ function classeSla(sinalizacao: string) {
   return "neutro";
 }
 
+function detalheEtapaProtocolo(chave: EtapaFormulario, processo: Processo) {
+  if (chave === "dados") return processo.banco_reu || "Dados iniciais do encaminhamento";
+  if (chave === "documentacao") return processo.documentacao_status || processo.status_documentos || "Pendente";
+  if (chave === "procuracao") return processo.procuracao_status || processo.status_procuracao || "Pendente";
+  if (chave === "crm") return processo.crm_documentos_status || "Pendente";
+  if (chave === "elite") return processo.documentos_elite_status || "Pendente";
+  if (chave === "sla") return processo.data_envio_elite ? `Iniciado em ${formatarData(processo.data_envio_elite)}` : "Aguardando envio";
+  if (chave === "retorno") return processo.pasta_retorno_status || "Não retornada";
+  if (chave === "protocolo") return processo.protocolo_status || "Aguardando";
+  return processo.numero_processo || "Aguardando distribuição";
+}
+
+function proximaEtapaPendente(processo: Processo) {
+  return ETAPAS_FORMULARIO.find(([chave]) => !timelineConcluida(chave, processo))?.[0] || null;
+}
+
 function colunaProtocolo(processo: Processo): (typeof COLUNAS_PROTOCOLO)[number] {
   if (processo.numero_processo || processo.protocolo_status === "Liberado") return "Distribuição";
   if ((processo.documentacao_status || processo.status_documentos) === "Irregular" || processo.pasta_retornada) return "Análise de Documentos";
@@ -523,7 +539,7 @@ export default function EsteiraKanban({
         })}
       </div>
 
-      {processoVisualizando ? <div className="esteira-modal-backdrop" role="presentation"><section className="esteira-modal protocolo-visualizacao" role="dialog" aria-modal="true" aria-label="Visualização do protocolo"><button className="modal-close" onClick={() => setProcessoVisualizando(null)} type="button">×</button><span className="eyebrow">Protocolo</span><h3>{processoVisualizando.nome_cliente}</h3><p>{processoVisualizando.banco_reu || "Instituição não informada"}</p><div className="protocolo-view-grid"><div><span>Etapa atual</span><strong>{etapaAtual(processoVisualizando)}</strong></div><div><span>Documentação</span><strong>{processoVisualizando.documentacao_status || "Pendente"}</strong></div><div><span>Procuração</span><strong>{processoVisualizando.procuracao_status || "Pendente"}</strong></div><div><span>Elite</span><strong>{processoVisualizando.documentos_elite_status || "Pendente"}</strong></div><div><span>Status do protocolo</span><strong>{processoVisualizando.protocolo_status || "Aguardando"}</strong></div><div><span>Responsável</span><strong>{processoVisualizando.responsavel || "Não informado"}</strong></div></div>{processoVisualizando.documentacao_status === "Irregular" ? <section className="protocolo-view-alert"><h4>Irregularidade documental</h4><p>{processoVisualizando.documentacao_motivo || "Motivo não informado"}</p><small>{processoVisualizando.documentacao_faltantes ? `Documentos faltantes: ${processoVisualizando.documentacao_faltantes}` : "Documentos faltantes não informados"}</small></section> : null}<section className="protocolo-view-observacoes"><h4>Observações</h4><p>{processoVisualizando.observacoes || processoVisualizando.documentacao_observacao || processoVisualizando.pasta_retorno_observacao || "Nenhuma observação registrada."}</p></section><footer><button className="btn-secondary" onClick={() => setProcessoVisualizando(null)} type="button">Fechar</button><button className="btn-primary" onClick={() => { const atual = processoVisualizando; setProcessoVisualizando(null); abrirEdicao(atual); }} type="button">Editar protocolo</button></footer></section></div> : null}
+      {processoVisualizando ? <div className="esteira-modal-backdrop" role="presentation"><section className="esteira-modal protocolo-visualizacao" role="dialog" aria-modal="true" aria-label="Visualização do protocolo"><button className="modal-close" onClick={() => setProcessoVisualizando(null)} type="button">×</button><span className="eyebrow">Progresso do encaminhamento</span><h3>{processoVisualizando.nome_cliente}</h3><p>{processoVisualizando.banco_reu || "Instituição não informada"}</p><div className="protocolo-progress-heading"><div><strong>Ordem de progresso</strong><small>Acompanhe a preparação para distribuição.</small></div><b>{Math.round((ETAPAS_FORMULARIO.filter(([chave]) => timelineConcluida(chave, processoVisualizando)).length / ETAPAS_FORMULARIO.length) * 100)}%</b></div><div className="protocolo-progress-list">{ETAPAS_FORMULARIO.map(([chave, rotulo]) => { const concluida = timelineConcluida(chave, processoVisualizando); const atual = chave === proximaEtapaPendente(processoVisualizando); return <div className={concluida ? "done" : atual ? "current" : "pending"} key={chave}><span className="protocolo-progress-marker">{concluida ? "✓" : ""}</span><div><strong>{rotulo}</strong><small>{detalheEtapaProtocolo(chave, processoVisualizando)}</small></div></div>; })}</div>{processoVisualizando.documentacao_status === "Irregular" ? <section className="protocolo-view-alert"><h4>Irregularidade documental</h4><p>{processoVisualizando.documentacao_motivo || "Motivo não informado"}</p><small>{processoVisualizando.documentacao_faltantes ? `Documentos faltantes: ${processoVisualizando.documentacao_faltantes}` : "Documentos faltantes não informados"}</small></section> : null}<section className="protocolo-view-observacoes"><h4>Observações</h4><p>{processoVisualizando.observacoes || processoVisualizando.documentacao_observacao || processoVisualizando.pasta_retorno_observacao || "Nenhuma observação registrada."}</p></section><footer><button className="btn-secondary" onClick={() => setProcessoVisualizando(null)} type="button">Fechar</button><button className="btn-primary" onClick={() => { const atual = processoVisualizando; setProcessoVisualizando(null); abrirEdicao(atual); }} type="button">Editar protocolo</button></footer></section></div> : null}
 
       {modalAberto && (
         <div className="esteira-modal-backdrop" role="presentation">
@@ -533,14 +549,11 @@ export default function EsteiraKanban({
             <h3>{processoEditando ? processoEditando.nome_cliente : "Encaminhar cliente para ajuizamento"}</h3>
 
             <div className="protocolo-timeline" aria-label="Esteira de ajuizamento">
-              {ETAPAS_FORMULARIO.map(([chave, rotulo]) => (
-                <button
-                  className={`${etapaFormulario === chave ? "active" : ""} ${processoEditando && timelineConcluida(chave, { ...processoEditando, ...formulario } as Processo) ? "done" : ""}`}
-                  key={chave}
-                  onClick={() => setEtapaFormulario(chave)}
-                  type="button"
-                >{rotulo}</button>
-              ))}
+              {ETAPAS_FORMULARIO.map(([chave, rotulo]) => {
+                const contexto = { ...(processoEditando || {}), ...formulario } as Processo;
+                const concluida = timelineConcluida(chave, contexto);
+                return <button className={`${etapaFormulario === chave ? "active" : ""} ${concluida ? "done" : ""}`} key={chave} onClick={() => setEtapaFormulario(chave)} type="button"><span>{concluida ? "✓" : ""}</span><div><strong>{rotulo}</strong><small>{concluida ? "Concluída" : etapaFormulario === chave ? "Em andamento" : "Aguardando"}</small></div></button>;
+              })}
             </div>
 
             {etapaFormulario === "dados" ? <section className="protocolo-form-section">
