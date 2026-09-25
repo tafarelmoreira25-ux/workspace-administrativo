@@ -1,0 +1,376 @@
+.homologacao-module {
+  display: grid;
+  gap: 14px;
+}
+
+.homologacao-toolbar {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid #e2e6ec;
+  border-radius: 8px;
+  background: #fff;
+}
+
+.homologacao-toolbar input,
+.homologacao-form input,
+.homologacao-form select,
+.homologacao-form textarea,
+.homologacao-top select {
+  width: 100%;
+  min-height: 34px;
+  border: 1px solid #d8dde6;
+  border-radius: 7px;
+  background: #fff;
+  color: #17243a;
+  font-size: 13px;
+  outline: none;
+}
+
+.homologacao-toolbar input,
+.homologacao-form input,
+.homologacao-form select,
+.homologacao-top select {
+  padding: 0 10px;
+}
+
+.homologacao-form textarea {
+  padding: 9px 10px;
+  resize: vertical;
+}
+
+.homologacao-layout {
+  display: grid;
+  grid-template-columns: minmax(280px, 360px) 1fr;
+  gap: 14px;
+  align-items: start;
+}
+
+.homologacao-list,
+.homologacao-ficha,
+.homologacao-card {
+  display: grid;
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid #e2e6ec;
+  border-radius: 8px;
+  background: #fff;
+}
+
+.homologacao-list {
+  max-height: calc(100vh - 230px);
+  overflow: auto;
+}
+
+.homologacao-row {
+  display: grid;
+  gap: 4px;
+  width: 100%;
+  padding: 11px;
+  border: 1px solid #edf0f4;
+  border-left: 3px solid #98a2b3;
+  border-radius: 7px;
+  background: #fbfcfd;
+  text-align: left;
+  cursor: pointer;
+}
+
+.homologacao-row.active {
+  border-color: #b9cbff;
+  border-left-color: #2557d6;
+  background: #f3f7ff;
+}
+
+.homologacao-row strong,
+.homologacao-card h3 {
+  margin: 0;
+  color: #17243a;
+  font-size: 14px;
+}
+
+.homologacao-row span,
+.homologacao-row small,
+.homologacao-row em {
+  color: #667085;
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.homologacao-row em {
+  color: #b42318;
+  font-style: normal;
+  font-weight: 800;
+}
+
+.homologacao-top {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(120px, 1fr));
+  gap: 8px;
+}
+
+.top-info,
+.homologacao-top label {
+  display: grid;
+  gap: 5px;
+  min-height: 66px;
+  padding: 9px;
+  border: 1px solid #edf0f4;
+  border-radius: 7px;
+  background: #fbfcfd;
+}
+
+.top-info span,
+.homologacao-top label span,
+.homologacao-form label span {
+  color: #667085;
+  font-size: 10px;
+  font-weight: 850;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+}
+
+.top-info strong {
+  color: #17243a;
+  font-size: 13px;
+  line-height: 1.25;
+}
+
+.top-info.alert {
+  border-color: #fecdca;
+  background: #fff5f3;
+}
+
+.homologacao-tabs,
+.section-actions,
+.report-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.homologacao-tabs {
+  justify-content: flex-start;
+}
+
+.homologacao-tabs button,
+.report-actions button {
+  min-height: 34px;
+  padding: 0 11px;
+  border: 1px solid #e2e6ec;
+  border-radius: 7px;
+  background: #fff;
+  color: #667085;
+  font-size: 12px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.homologacao-tabs button.active,
+.report-actions button:hover {
+  color: #2557d6;
+  border-color: #cbd9ff;
+  background: #eef4ff;
+}
+
+.homologacao-details {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(150px, 1fr));
+  gap: 10px;
+  margin: 0;
+}
+
+.homologacao-details div {
+  display: grid;
+  gap: 4px;
+  padding: 9px;
+  border: 1px solid #edf0f4;
+  border-radius: 7px;
+  background: #fbfcfd;
+}
+
+.homologacao-details dt {
+  color: #667085;
+  font-size: 10px;
+  font-weight: 850;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+}
+
+.homologacao-details dd {
+  margin: 0;
+  color: #17243a;
+  font-size: 13px;
+  line-height: 1.35;
+}
+
+.timeline,
+.proposal-grid,
+.document-list {
+  display: grid;
+  gap: 10px;
+}
+
+.timeline article,
+.proposal-grid article,
+.document-list article {
+  display: grid;
+  gap: 5px;
+  padding: 11px;
+  border: 1px solid #edf0f4;
+  border-left: 3px solid #2557d6;
+  border-radius: 7px;
+  background: #fbfcfd;
+}
+
+.timeline p,
+.proposal-grid p {
+  margin: 0;
+}
+
+.timeline span,
+.timeline small,
+.timeline p,
+.proposal-grid span,
+.proposal-grid small,
+.proposal-grid p,
+.document-list span,
+.document-list small {
+  color: #667085;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.timeline a,
+.proposal-grid a,
+.document-list a,
+.report-action {
+  color: #2557d6;
+  font-size: 12px;
+  font-weight: 850;
+  text-decoration: none;
+}
+
+.quitacao-status {
+  padding: 11px;
+  border: 1px solid #fedf89;
+  border-radius: 7px;
+  background: #fffbeb;
+  color: #92400e;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.quitacao-status.ok {
+  border-color: #abefc6;
+  background: #ecfdf3;
+  color: #067647;
+}
+
+.report-preview {
+  max-height: 620px;
+  overflow: auto;
+  margin: 0;
+  padding: 16px;
+  border: 1px solid #edf0f4;
+  border-radius: 8px;
+  background: #fbfcfd;
+  color: #17243a;
+  white-space: pre-wrap;
+  font: 13px/1.55 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+
+.homologacao-modal {
+  width: min(980px, calc(100vw - 28px));
+}
+
+.homologacao-form {
+  display: grid;
+  gap: 14px;
+}
+
+.homologacao-form .form-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(180px, 1fr));
+  gap: 10px;
+}
+
+.homologacao-form label {
+  display: grid;
+  gap: 6px;
+}
+
+.homologacao-form label.wide {
+  grid-column: 1 / -1;
+}
+
+.homologacao-form input[type="checkbox"] {
+  width: 18px;
+  min-height: 18px;
+}
+
+.homologacao-form footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.empty-state {
+  min-height: 220px;
+  place-items: center;
+  color: #667085;
+}
+
+@media print {
+  .sidebar,
+  .topbar,
+  .homologacao-toolbar,
+  .homologacao-list,
+  .homologacao-tabs,
+  .section-actions,
+  .module-page-header {
+    display: none !important;
+  }
+
+  .main-content,
+  .homologacao-layout,
+  .homologacao-ficha,
+  .homologacao-card {
+    display: block;
+    padding: 0;
+    border: 0;
+  }
+
+  .report-preview {
+    max-height: none;
+    border: 0;
+  }
+}
+
+@media (max-width: 1280px) {
+  .homologacao-top,
+  .homologacao-details {
+    grid-template-columns: repeat(3, minmax(140px, 1fr));
+  }
+}
+
+@media (max-width: 980px) {
+  .homologacao-layout,
+  .homologacao-toolbar,
+  .homologacao-form .form-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .homologacao-list {
+    max-height: none;
+  }
+}
+
+@media (max-width: 760px) {
+  .homologacao-top,
+  .homologacao-details {
+    grid-template-columns: 1fr;
+  }
+}

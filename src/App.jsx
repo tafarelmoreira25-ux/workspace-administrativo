@@ -11,6 +11,7 @@ const GerencialProcessualModule = lazy(() => import("./components/gerencial/Gere
 const GlobalSearch = lazy(() => import("./components/gerencial/GlobalSearch"));
 const DashboardModule = lazy(() => import("./components/dashboard/DashboardModule"));
 const CarteiraProcessual = lazy(() => import("./CarteiraProcessual"));
+const HomologacaoQuitacaoModule = lazy(() => import("./components/homologacao/HomologacaoQuitacaoModule"));
 const ADMIN_EMAIL = (import.meta.env.VITE_ADMIN_EMAIL || "tafarel@platino.com").toLowerCase();
 const TEMPO_LIMITE_INICIALIZACAO_MS = 8_000;
 
@@ -118,6 +119,7 @@ function UiIcon({ name, size = 20 }) {
     agenda: <><rect x="3" y="5" width="18" height="16" rx="2" /><path d="M16 3v4" /><path d="M8 3v4" /><path d="M3 10h18" /></>,
     indicadores: <><path d="M4 19V5" /><path d="M4 19h16" /><path d="M8 15l3-4 3 2 5-7" /></>,
     alertas: <><path d="M12 9v4" /><path d="M12 17h.01" /><path d="M10.3 3.9 2.8 17a2 2 0 0 0 1.7 3h15a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z" /></>,
+    homologacao: <><path d="M7 3h10a2 2 0 0 1 2 2v14l-4-2-3 2-3-2-4 2V5a2 2 0 0 1 2-2Z" /><path d="M9 8h6" /><path d="M9 12h6" /><path d="M9 16h3" /></>,
     busca: <><circle cx="11" cy="11" r="7" /><path d="m20 20-3.5-3.5" /></>,
     sino: <><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9" /><path d="M10 21h4" /></>,
     admin: <><path d="M12 2 4 5v6c0 5 3.4 9 8 11 4.6-2 8-6 8-11V5Z" /><path d="M9 12l2 2 4-5" /></>,
@@ -429,6 +431,7 @@ function Workspace({ usuario, onLogout, showToast }) {
       itens: [
         ["inicio", "Área de Trabalho", "dashboard"],
         ["clientes", "Clientes", "clientes"],
+        ["homologacao-quitacao", "Homologação e Quitação", "homologacao"],
         ...(podeVerProcessual ? [["processual-protocolos", "Protocolos", "protocolo"], ["processos", "Processos", "documentos"], ["processual", "Processual", "esteira"]] : []),
         ["agenda-atividades", "Agenda e Atividades", "agenda"],
       ],
@@ -512,6 +515,7 @@ function Workspace({ usuario, onLogout, showToast }) {
       </header>
       {aba === "inicio" && <AreaTrabalho usuario={usuario} onNavigate={navegar} />}
       {aba === "clientes" && <Suspense fallback={<section className="panel">Carregando clientes...</section>}><ClientesModule usuario={usuario} showToast={showToast} buscaExterna={buscaModulo} clienteInicialId={clienteSelecionadoId} onOpenProcess={abrirProcessoNoProcessual} /></Suspense>}
+      {aba === "homologacao-quitacao" && <Suspense fallback={<section className="panel">Carregando Homologação e Quitação...</section>}><HomologacaoQuitacaoModule usuario={usuario} showToast={showToast} /></Suspense>}
       {aba === "documentos" && <Suspense fallback={<section className="panel">Carregando documentos...</section>}><GeradorDocumentos usuario={usuario} responsavel={usuario.nome} onSuccess={showToast} /></Suspense>}
       {aba === "processual-protocolos" && <Suspense fallback={<section className="panel">Carregando protocolos...</section>}><EsteiraProcessualPlatino usuario={usuario} showToast={showToast} initialView="protocolos" /></Suspense>}
       {aba === "processos" && <Suspense fallback={<section className="panel">Carregando processos...</section>}><EsteiraProcessualPlatino usuario={usuario} showToast={showToast} initialView="processos" initialFilters={processosFiltroInicial} /></Suspense>}
