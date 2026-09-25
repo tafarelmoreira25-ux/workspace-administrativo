@@ -642,20 +642,22 @@ export default function ClientesModule({ usuario, showToast, buscaExterna, clien
           <section className="cliente-ficha-panel cliente-ficha-page" role="dialog" aria-modal="true" aria-label={`Ficha de ${clienteAberto.nome_completo}`}>
             <header>
               <button type="button" className="cliente-back-button" onClick={() => { setClienteAberto(null); carregarDados(); }}>← Voltar para clientes</button>
-              <span className="eyebrow">Ficha do cliente</span>
-              <h3>{clienteAberto.nome_completo}</h3>
-              <div className="cliente-quick-actions">
-                <button type="button" className="btn-primary compact" onClick={() => abrirEmail()}>Preparar e-mail</button>
-                <button type="button" className="btn-secondary compact" onClick={() => setAnalisadorAberto(true)}>Analisar e-mail/PDF</button>
-                <button type="button" className="btn-secondary compact" onClick={() => abrirEdicao(clienteAberto)}>Editar cadastro</button>
+              <div className="cliente-ficha-heading">
+                <div>
+                  <span className="eyebrow">Ficha do cliente</span>
+                  <h3>{clienteAberto.nome_completo}</h3>
+                </div>
+                <div className="cliente-quick-actions">
+                  <button type="button" className="btn-primary compact" onClick={() => abrirEmail()}>Preparar e-mail</button>
+                  <button type="button" className="btn-secondary compact" onClick={() => setAnalisadorAberto(true)}>Analisar e-mail/PDF</button>
+                  <button type="button" className="btn-secondary compact" onClick={() => abrirEdicao(clienteAberto)}>Editar cadastro</button>
+                </div>
               </div>
               <dl className="cliente-ficha-topo">
-                <div><dt>CPF</dt><dd>{clienteAberto.cpf || "—"}</dd></div>
-                <div><dt>ID CRM</dt><dd>{clienteAberto.id_crm || "—"}</dd></div>
-                <div><dt>Telefone</dt><dd>{clienteAberto.telefone || "—"}</dd></div>
-                <div><dt>E-mail</dt><dd>{clienteAberto.email || "—"}</dd></div>
-                <div><dt>Responsável</dt><dd>{clienteAberto.responsavel || "—"}</dd></div>
-                <div><dt>Pasta no Drive</dt><dd>{clienteAberto.link_pasta_cliente ? <a href={clienteAberto.link_pasta_cliente} target="_blank" rel="noreferrer">Abrir pasta</a> : "—"}</dd></div>
+                <div><dt>CPF</dt><dd>{clienteAberto.cpf || "Não informado"}</dd></div>
+                <div><dt>Telefone</dt><dd>{clienteAberto.telefone || "Não informado"}</dd></div>
+                <div><dt>E-mail</dt><dd>{clienteAberto.email || "Não informado"}</dd></div>
+                <div><dt>Responsável</dt><dd>{clienteAberto.responsavel || "Não definido"}</dd></div>
               </dl>
             </header>
 
@@ -671,14 +673,33 @@ export default function ClientesModule({ usuario, showToast, buscaExterna, clien
               {carregandoFicha ? <div className="empty-row">Carregando informações da ficha...</div> : null}
               {abaFicha === "resumo" ? (
                 <section className="ficha-section">
-                  <h4>Resumo cadastral</h4>
-                  <dl className="ficha-details">
-                    <div><dt>RG</dt><dd>{clienteAberto.rg || "—"}</dd></div>
-                    <div><dt>Nascimento</dt><dd>{formatarData(clienteAberto.data_nascimento)}</dd></div>
-                    <div><dt>Endereço</dt><dd>{clienteAberto.endereco || "—"}</dd></div>
-                    <div><dt>Situação processual</dt><dd>{protocoloDoCliente ? `${protocoloDoCliente.fase_atual || "Encaminhamento pendente"} · Documentação ${protocoloDoCliente.documentacao_status || "pendente"}` : processosDoCliente.length ? "Processo judicial cadastrado" : "Sem protocolo ou processo"}</dd></div>
-                    <div><dt>Observações</dt><dd>{clienteAberto.observacoes || "Nenhuma observação cadastrada."}</dd></div>
-                  </dl>
+                  <div className="ficha-resumo-grid">
+                    <section className="ficha-info-group">
+                      <header><span>01</span><h4>Dados cadastrais</h4></header>
+                      <dl className="ficha-details">
+                        <div><dt>RG</dt><dd>{clienteAberto.rg || "Não informado"}</dd></div>
+                        <div><dt>Data de nascimento</dt><dd>{clienteAberto.data_nascimento ? formatarData(clienteAberto.data_nascimento) : "Não informada"}</dd></div>
+                        <div><dt>ID no CRM</dt><dd>{clienteAberto.id_crm || "Não informado"}</dd></div>
+                      </dl>
+                    </section>
+
+                    <section className="ficha-info-group">
+                      <header><span>02</span><h4>Arquivos e acompanhamento</h4></header>
+                      <dl className="ficha-details">
+                        <div><dt>Pasta no Drive</dt><dd>{clienteAberto.link_pasta_cliente ? <a href={clienteAberto.link_pasta_cliente} target="_blank" rel="noreferrer">Abrir pasta do cliente</a> : "Não vinculada"}</dd></div>
+                        <div><dt>Processos cadastrados</dt><dd>{processosDoCliente.length}</dd></div>
+                        <div className="wide"><dt>Situação processual</dt><dd>{protocoloDoCliente ? `${protocoloDoCliente.fase_atual || "Encaminhamento pendente"} · Documentação ${protocoloDoCliente.documentacao_status || "pendente"}` : processosDoCliente.length ? "Processo judicial cadastrado" : "Sem protocolo ou processo"}</dd></div>
+                      </dl>
+                    </section>
+
+                    <section className="ficha-info-group ficha-info-group-wide">
+                      <header><span>03</span><h4>Endereço e observações</h4></header>
+                      <dl className="ficha-details ficha-details-notes">
+                        <div><dt>Endereço</dt><dd>{clienteAberto.endereco || "Não informado"}</dd></div>
+                        <div><dt>Observações</dt><dd>{clienteAberto.observacoes || "Nenhuma observação cadastrada."}</dd></div>
+                      </dl>
+                    </section>
+                  </div>
                 </section>
               ) : null}
 

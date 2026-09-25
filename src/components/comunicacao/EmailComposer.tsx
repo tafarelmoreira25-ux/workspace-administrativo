@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import { supabase } from "../../lib/supabase";
+import { mensagemErroFuncao } from "../../lib/functionError";
 import {
   EMAIL_TEMPLATES,
   criarContextoAssistente,
@@ -106,9 +107,8 @@ export default function EmailComposer({ cliente, processos, processoInicial, usu
     });
     setRevisando(false);
     if (error || !data?.conteudo) {
-      avisar(error?.message
-        ? `Gemini indisponível: ${error.message}`
-        : "Gemini ainda não está configurado no backend.");
+      const detalhe = error ? await mensagemErroFuncao(error) : data?.erro || "O Gemini não retornou um texto revisado.";
+      avisar(`Não foi possível revisar o texto: ${detalhe}`);
       return;
     }
     setAssunto(data.assunto || assunto);

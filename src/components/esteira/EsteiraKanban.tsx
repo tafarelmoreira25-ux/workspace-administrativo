@@ -229,7 +229,6 @@ export default function EsteiraKanban({
   showToast,
   usuario,
   busca,
-  onBusca,
 }: Props) {
   const [modalAberto, setModalAberto] = useState(false);
   const [processoEditando, setProcessoEditando] = useState<Processo | null>(null);
@@ -484,17 +483,7 @@ export default function EsteiraKanban({
       <div className="protocolos-toolbar protocolos-page-title">
         <div>
           <span className="eyebrow">Protocolos</span>
-          <h2>Controle de preparação, encaminhamento e liberação de processos judiciais.</h2>
         </div>
-        <label>
-          <span>Pesquisar</span>
-          <input
-            type="search"
-            value={busca}
-            onChange={(evento) => onBusca(evento.target.value)}
-            placeholder="Cliente, CPF, ID, banco ou processo"
-          />
-        </label>
         <div className="protocolos-actions">
           <button className="btn-primary" onClick={abrirNovoCadastro} type="button">Novo encaminhamento</button>
         </div>
@@ -505,26 +494,27 @@ export default function EsteiraKanban({
           const itens = protocolos.filter((processo) => colunaProtocolo(processo) === coluna);
           return <section className="protocolo-kanban-coluna" key={coluna}>
             <header><h3>{coluna}</h3><span>{itens.length}</span></header>
-            <button className="kanban-nova-atividade" onClick={abrirNovoCadastro} type="button">+ Novo protocolo</button>
             <div className="protocolo-kanban-lista">
               {itens.map((processo) => {
                 const prazo = calcularPrazoElite(processo.data_envio_elite);
                 const dias = diasNaEtapa(processo);
                 return <article className={`protocolo-kanban-card ${classeSlaCard(processo)}`} key={processo.id}>
-                  <header><strong>{processo.nome_cliente}</strong><div className="protocolo-card-actions"><button type="button" onClick={() => setProcessoVisualizando(processo)}>Ver</button><button type="button" onClick={() => abrirEdicao(processo)}>Editar</button></div></header>
-                  <span>{processo.banco_reu || "Instituição não informada"}</span>
-                  <div className="protocolo-card-tags">
-                    <small>{dias ? `${dias} dia${dias === 1 ? "" : "s"} na etapa` : "Entrada recente"}</small>
-                    {(processo.documentacao_status || processo.status_documentos) === "Irregular" ? <b>[Documento Irregular]</b> : null}
-                    {processo.pasta_retorno_impacto_sla === "pausa" ? <b>[SLA pausado]</b> : null}
-                  </div>
-                  <div className="protocolo-card-status"><small>Documentação</small><b>{processo.documentacao_status || processo.status_documentos || "Pendente"}</b></div>
-                  <div className="protocolo-card-status"><small>Procuração</small><b>{processo.procuracao_status || processo.status_procuracao || "Pendente"}</b></div>
-                  <div className="protocolo-card-status"><small>Etapa</small><b>{etapaAtual(processo)}</b></div>
-                  {processo.data_envio_elite && <div className={`sla-cell ${classeSla(prazo.sinalizacao)}`}><span>{prazo.rotulo}</span><small>Início: {formatarDataHora(processo.data_envio_elite)} · {prazo.diasUteisDecorridos} decorridos · {prazo.diasUteisRestantes} restantes</small></div>}
-                  {processo.pasta_retornada && <em>Retornado para correção{processo.pasta_retorno_motivo ? `: ${processo.pasta_retorno_motivo}` : ""}</em>}
-                  {processo.numero_processo && <code>{processo.numero_processo}</code>}
-                  {!processo.numero_processo ? <button className="converter-processo-btn" type="button" onClick={() => abrirEdicao(processo)}>Converter em Processo</button> : null}
+                  <button className="protocolo-ficha-main" type="button" onClick={() => setProcessoVisualizando(processo)}>
+                    <div className="protocolo-ficha-identidade">
+                      <strong>{processo.nome_cliente}</strong>
+                      <span>{processo.banco_reu || "Instituição não informada"}</span>
+                      {processo.numero_processo ? <code>{processo.numero_processo}</code> : null}
+                    </div>
+                    <div className="protocolo-ficha-status">
+                      <b>Em processo de distribuição</b>
+                      <small>{dias ? `${dias} dia${dias === 1 ? "" : "s"} na etapa` : "Entrada recente"}</small>
+                    </div>
+                    <div className="protocolo-ficha-meta">
+                      <span>{etapaAtual(processo)}</span>
+                      {processo.data_envio_elite ? <small>{prazo.rotulo}</small> : null}
+                    </div>
+                  </button>
+                  <button className="protocolo-editar-btn" type="button" onClick={() => abrirEdicao(processo)}>Editar</button>
                 </article>;
               })}
               {!itens.length && <p className="kanban-vazio">Nenhum protocolo nesta etapa.</p>}

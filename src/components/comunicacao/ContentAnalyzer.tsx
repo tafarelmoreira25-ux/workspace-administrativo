@@ -1,6 +1,7 @@
 import { ChangeEvent, useMemo, useState } from "react";
 import { supabase } from "../../lib/supabase";
 import { criarContextoAssistente } from "../../lib/emailWorkspace";
+import { mensagemErroFuncao } from "../../lib/functionError";
 
 type Cliente = { id: string | number; nome_completo: string; email?: string | null };
 type Processo = {
@@ -121,7 +122,8 @@ export default function ContentAnalyzer({ cliente, processos, usuario, onClose, 
     });
     setAnalisando(false);
     if (error || !data?.resumo) {
-      avisar(error?.message ? `Gemini indisponível: ${error.message}` : "Gemini ainda não está configurado no backend.");
+      const detalhe = error ? await mensagemErroFuncao(error) : data?.erro || "O Gemini não retornou uma análise válida.";
+      avisar(`Não foi possível analisar o conteúdo: ${detalhe}`);
       return;
     }
     setAnalise(data as Analise);
