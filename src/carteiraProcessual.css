@@ -405,6 +405,7 @@
 .processual-resumo > div { background: #fff; border: 1px solid #e4e9ef; border-radius: 9px; display: grid; gap: 5px; padding: 13px; }
 .processual-resumo span { color: #667085; font-size: 11px; text-transform: uppercase; }
 .processual-resumo strong { overflow-wrap: anywhere; }
+.processual-action-id b { color: #c62828; font-weight: 850; }
 .processual-dados-form { background: #fff; border: 1px solid #dce4ed; border-radius: 12px; display: grid; gap: 16px; padding: 20px; }
 .processual-dados-form h3 { font-size: 15px; margin: 0; }
 .processual-dados-grid { display: grid; gap: 12px; grid-template-columns: repeat(3, minmax(0, 1fr)); }
