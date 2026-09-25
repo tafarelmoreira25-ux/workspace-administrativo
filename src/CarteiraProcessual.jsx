@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "./lib/supabase";
+import { sincronizarClienteDoProcesso } from "./lib/processDataSync";
 import Pagination from "./components/common/Pagination";
 import "./carteiraProcessual.css";
 
 const PAGE_SIZE = 30;
-const STATUS_PROCESSO = ["TRAMITANDO", "ARQUIVADO", "BAIXA DEFINITIVA", "SENTENÇA PROCEDENTE", "SENTENÇA IMPROCEDENTE", "REDISTRIBUIÇÃO", "JULGADO"];
+const STATUS_PROCESSO = ["Em andamento", "Pendente de protocolo", "Suspenso / Sobrestado", "Encerrado", "TRAMITANDO", "ARQUIVADO", "BAIXA DEFINITIVA", "SENTENÇA PROCEDENTE", "SENTENÇA IMPROCEDENTE", "REDISTRIBUIÇÃO", "JULGADO"];
 const TIMELINE_MOCK = [
   { id: "mock-manual", data: "2026-09-14T09:30:00", titulo: "Registro interno", descricao: "Conferência manual do andamento e próximos passos.", detalhe: "Aguardando retorno da equipe", responsavel: "Equipe processual", origem: "manual" },
   { id: "mock-escavador-1", data: "2026-09-12T14:10:00", titulo: "Publicação identificada", descricao: "Nova publicação localizada no diário oficial.", detalhe: "Fonte: Escavador", responsavel: "Captura automática", origem: "escavador" },
@@ -12,9 +13,11 @@ const TIMELINE_MOCK = [
 ];
 const ACAO_INICIAL = { tipo: "nenhuma", titulo: "", data: "", hora: "", prioridade: "Normal" };
 const MOVIMENTO_INICIAL = { data: new Date().toISOString().slice(0, 10), tipo: "Publicação", conteudo: "", tratamento: "", observacao: "", responsavel: "" };
+const NOVO_PROCESSO_INICIAL = { natureza: "Judicial", nome_cliente: "", cpf_cliente: "", id_crm: "", numero_processo: "", tipo_acao: "", reu: "", banco_reu: "", tribunal: "", comarca: "", vara: "", data_distribuicao: "", responsavel: "", observacoes: "" };
 const limparBusca = (valor = "") => valor.trim().replace(/[,()"']/g, " ").replace(/\s+/g, " ").slice(0, 120);
 const dataHora = (valor) => valor ? new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeStyle: "short" }).format(new Date(valor)) : "—";
 const dataBR = (valor) => valor ? new Intl.DateTimeFormat("pt-BR").format(new Date(`${String(valor).slice(0, 10)}T12:00:00`)) : "—";
+const ehExtrajudicial = (registro) => registro?.origem_registro === "acao_extrajudicial_manual" || registro?.status_judicial === "EXTRAJUDICIAL";
 
 export default function CarteiraProcessual({ showToast, usuario, processoInicialId }) {
   const [registros, setRegistros] = useState([]);
@@ -30,6 +33,10 @@ export default function CarteiraProcessual({ showToast, usuario, processoInicial
   const [salvando, setSalvando] = useState(false);
   const [sincronizandoDataJud, setSincronizandoDataJud] = useState(false);
   const [salvandoInformacoes, setSalvandoInformacoes] = useState(false);
+  const [cadastroAberto, setCadastroAberto] = useState(false);
+  const [salvandoCadastro, setSalvandoCadastro] = useState(false);
+  const [cadastroErro, setCadastroErro] = useState("");
+  const [novoProcesso, setNovoProcesso] = useState(() => ({ ...NOVO_PROCESSO_INICIAL, responsavel: usuario?.nome || "" }));
   const [movimento, setMovimento] = useState(() => ({ ...MOVIMENTO_INICIAL, responsavel: usuario?.nome || "" }));
   const [acao, setAcao] = useState(ACAO_INICIAL);
   const processoInicialCarregado = useRef(null);
@@ -37,7 +44,7 @@ export default function CarteiraProcessual({ showToast, usuario, processoInicial
   const carregar = useCallback(async () => {
     setCarregando(true);
     const termo = limparBusca(buscaAplicada);
-    let consulta = supabase.from("processos").select("id,cliente_id,nome_cliente,cpf_cliente,id_crm,numero_processo,reu,banco_reu,tipo_acao,tribunal,comarca,vara,data_distribuicao,responsavel,situacao,status_judicial,ultima_movimentacao,ultima_movimentacao_data,ultima_revisao,updated_at", { count: "exact" }).not("numero_processo", "is", null).neq("numero_processo", "");
+    let consulta = supabase.from("processos").select("id,cliente_id,nome_cliente,cpf_cliente,id_crm,numero_processo,reu,banco_reu,tipo_acao,tribunal,comarca,vara,data_distribuicao,responsavel,situacao,status_judicial,ultima_movimentacao,ultima_movimentacao_data,ultima_revisao,origem_registro,observacoes,updated_at", { count: "exact" }).or("numero_processo.not.is.null,origem_registro.eq.acao_extrajudicial_manual");
     if (termo) consulta = consulta.or(`nome_cliente.ilike.%${termo}%,cpf_cliente.ilike.%${termo}%,id_crm.ilike.%${termo}%,numero_processo.ilike.%${termo}%,reu.ilike.%${termo}%,banco_reu.ilike.%${termo}%,tipo_acao.ilike.%${termo}%`);
     const inicio = (pagina - 1) * PAGE_SIZE;
     const { data, count, error } = await consulta.order("updated_at", { ascending: false }).range(inicio, inicio + PAGE_SIZE - 1);
@@ -53,7 +60,7 @@ export default function CarteiraProcessual({ showToast, usuario, processoInicial
     if (!processoInicialId || processoInicialCarregado.current === String(processoInicialId)) return;
     processoInicialCarregado.current = String(processoInicialId);
     void supabase.from("processos").select("*").eq("id", processoInicialId).maybeSingle().then(({ data, error }) => {
-      if (error || !data?.numero_processo?.trim()) showToast?.("O processo selecionado não está disponível para acompanhamento.");
+      if (error || (!data?.numero_processo?.trim() && !ehExtrajudicial(data))) showToast?.("O processo selecionado não está disponível para acompanhamento.");
       else void abrirProcesso(data);
     });
   }, [processoInicialId, showToast]);
@@ -111,11 +118,153 @@ export default function CarteiraProcessual({ showToast, usuario, processoInicial
 
   const timeline = useMemo(() => {
     const itensReais = [
-    ...movimentacoes.map((item) => ({ id: `m-${item.id}`, data: item.data_andamento || item.data_registro, titulo: item.titulo || item.tipo || "Movimentação registrada", descricao: item.descricao, detalhe: item.proxima_providencia, responsavel: item.responsavel || item.created_by_nome, origem: item.origem || "manual" })),
+    ...movimentacoes.map((item) => ({ id: `m-${item.id}`, data: item.data_andamento || item.data_registro, titulo: item.titulo || item.tipo || "Movimentação registrada", descricao: item.descricao, detalhe: item.proxima_providencia, responsavel: item.responsavel || item.created_by_nome, origem: item.origem || "manual", movimentacao: item })),
     ...tarefas.map((item) => ({ id: `t-${item.id}`, data: item.created_at, titulo: `${item.tipo}: ${item.titulo}`, descricao: item.descricao || item.observacao, detalhe: `Prazo: ${dataBR(item.data)} · ${item.status}`, responsavel: item.responsavel })),
     ];
     return (itensReais.length ? itensReais : TIMELINE_MOCK).sort((a, b) => String(b.data).localeCompare(String(a.data)));
   }, [movimentacoes, tarefas]);
+
+  async function atualizarMovimentacao(movimentacao, alteracoes) {
+    if (!processo || !movimentacao?.id || !alteracoes.data) return false;
+    const dataRegistro = `${alteracoes.data}T12:00:00`;
+    const payload = {
+      data_registro: dataRegistro,
+      responsavel: alteracoes.responsavel.trim() || null,
+      ...(movimentacao.data_andamento ? { data_andamento: dataRegistro } : {}),
+    };
+    setSalvando(true);
+    const { data, error } = await supabase
+      .from("movimentacoes")
+      .update(payload)
+      .eq("id", movimentacao.id)
+      .eq("processo_id", processo.id)
+      .select("*")
+      .single();
+    setSalvando(false);
+    if (error) {
+      showToast?.(`Não foi possível modificar o registro: ${error.message}`);
+      return false;
+    }
+    setMovimentacoes((atuais) => atuais.map((item) => item.id === data.id ? data : item));
+    await supabase.from("processos_auditoria").insert({
+      processo_id: String(processo.id),
+      campo: "movimentação modificada",
+      valor_anterior: JSON.stringify({ data: movimentacao.data_andamento || movimentacao.data_registro, responsavel: movimentacao.responsavel }),
+      valor_novo: JSON.stringify({ data: data.data_andamento || data.data_registro, responsavel: data.responsavel }),
+      usuario: usuario?.nome || usuario?.email || null,
+    });
+    showToast?.("Registro modificado.");
+    return true;
+  }
+
+  function abrirCadastro() {
+    setNovoProcesso({ ...NOVO_PROCESSO_INICIAL, responsavel: usuario?.nome || "" });
+    setCadastroErro("");
+    setCadastroAberto(true);
+  }
+
+  async function cadastrarProcesso(evento) {
+    evento.preventDefault();
+    const judicial = novoProcesso.natureza === "Judicial";
+    const nomeCliente = novoProcesso.nome_cliente.trim();
+    const numeroProcesso = judicial ? novoProcesso.numero_processo.trim() : "";
+    const tipoAcao = novoProcesso.tipo_acao.trim();
+    if (!nomeCliente || !tipoAcao || (judicial && !numeroProcesso)) {
+      const mensagem = `Informe o cliente, a ação${judicial ? " e o número do processo" : ""}.`;
+      setCadastroErro(mensagem);
+      showToast?.(mensagem);
+      return;
+    }
+
+    setCadastroErro("");
+    setSalvandoCadastro(true);
+    if (judicial) {
+      const duplicado = await supabase.from("processos").select("id").eq("numero_processo", numeroProcesso).limit(1).maybeSingle();
+      if (duplicado.error) {
+        setSalvandoCadastro(false);
+        const mensagem = `Não foi possível validar o número do processo: ${duplicado.error.message}`;
+        setCadastroErro(mensagem);
+        showToast?.(mensagem);
+        return;
+      }
+      if (duplicado.data) {
+        setSalvandoCadastro(false);
+        const mensagem = "Já existe um processo cadastrado com esse número.";
+        setCadastroErro(mensagem);
+        showToast?.(mensagem);
+        return;
+      }
+    }
+
+    const parteContraria = novoProcesso.reu.trim() || novoProcesso.banco_reu.trim();
+    const payload = {
+      nome_cliente: nomeCliente,
+      cpf_cliente: novoProcesso.cpf_cliente.trim() || null,
+      id_crm: novoProcesso.id_crm.trim() || null,
+      pasta_cliente_id: novoProcesso.id_crm.trim() || null,
+      autor: nomeCliente,
+      reu: parteContraria || null,
+      banco_reu: novoProcesso.banco_reu.trim() || parteContraria || null,
+      autor_reu: parteContraria ? `${nomeCliente} X ${parteContraria}` : nomeCliente,
+      numero_processo: numeroProcesso || null,
+      tipo_acao: tipoAcao,
+      tribunal: judicial ? novoProcesso.tribunal.trim() || null : null,
+      comarca: judicial ? novoProcesso.comarca.trim() || null : null,
+      vara: judicial ? novoProcesso.vara.trim() || null : null,
+      data_distribuicao: novoProcesso.data_distribuicao || null,
+      responsavel: novoProcesso.responsavel.trim() || usuario?.nome || null,
+      observacoes: novoProcesso.observacoes.trim() || null,
+      origem_registro: judicial ? "acao_judicial_manual" : "acao_extrajudicial_manual",
+      updated_by: usuario?.email || usuario?.nome || null,
+    };
+    const { data, error } = await supabase.from("processos").insert(payload).select("*").single();
+    if (error) {
+      setSalvandoCadastro(false);
+      const mensagem = `Não foi possível cadastrar: ${error.message}`;
+      setCadastroErro(mensagem);
+      showToast?.(mensagem);
+      return;
+    }
+
+    const cliente = await sincronizarClienteDoProcesso(supabase, data, usuario).catch(() => null);
+    const processoSalvo = cliente?.id ? { ...data, cliente_id: cliente.id } : data;
+    setRegistros((atuais) => [processoSalvo, ...atuais]);
+    setTotal((atual) => atual + 1);
+    setCadastroAberto(false);
+    setSalvandoCadastro(false);
+    setCadastroErro("");
+    setNovoProcesso({ ...NOVO_PROCESSO_INICIAL, responsavel: usuario?.nome || "" });
+    showToast?.(judicial ? "Processo judicial cadastrado." : "Ação extrajudicial cadastrada.");
+    await abrirProcesso(processoSalvo);
+  }
+
+  async function excluirMovimentacao(movimentacao) {
+    if (!processo || !movimentacao?.id) return false;
+    if (!window.confirm("Excluir este registro do histórico?")) return false;
+    const excluidoEm = new Date().toISOString();
+    const excluidoPor = usuario?.nome || usuario?.email || null;
+    setSalvando(true);
+    const { error } = await supabase
+      .from("movimentacoes")
+      .update({ deleted_at: excluidoEm, deleted_by: excluidoPor })
+      .eq("id", movimentacao.id)
+      .eq("processo_id", processo.id);
+    setSalvando(false);
+    if (error) {
+      showToast?.(`Não foi possível excluir o registro: ${error.message}`);
+      return false;
+    }
+    setMovimentacoes((atuais) => atuais.filter((item) => item.id !== movimentacao.id));
+    await supabase.from("processos_auditoria").insert({
+      processo_id: String(processo.id),
+      campo: "movimentação excluída",
+      valor_anterior: JSON.stringify({ movimentacao_id: movimentacao.id, data_registro: movimentacao.data_registro, responsavel: movimentacao.responsavel }),
+      valor_novo: null,
+      usuario: excluidoPor,
+    });
+    showToast?.("Registro excluído do histórico.");
+    return true;
+  }
 
   async function concluirMovimentacao(evento) {
     evento.preventDefault();
@@ -130,7 +279,7 @@ export default function CarteiraProcessual({ showToast, usuario, processoInicial
       // O schema atual classifica eventos genéricos como "Outro". Isso evita
       // violar o CHECK legado enquanto o título mantém a natureza do evento.
       const tipoMap = { tarefa: "Tarefa interna", prazo: "Prazo processual", evento: "Outro", audiencia: "Audiência" };
-      const tarefaPayload = { cliente_id: processo.cliente_id, processo_id: processo.id, movimentacao_id: movimentoSalvo.id, cliente_nome: processo.nome_cliente, processo_numero: processo.numero_processo, titulo: acao.titulo.trim(), descricao: movimento.tratamento.trim() || null, tipo: tipoMap[acao.tipo] || "Tarefa interna", data: acao.data, horario: acao.hora || null, responsavel: movimento.responsavel || usuario?.nome || null, prioridade: acao.prioridade, status: "Pendente", observacao: movimento.observacao.trim() || null, created_by_nome: usuario?.nome || usuario?.email || null };
+      const tarefaPayload = { processo_id: processo.id, movimentacao_id: movimentoSalvo.id, cliente_nome: processo.nome_cliente, processo_numero: processo.numero_processo, titulo: acao.titulo.trim(), descricao: movimento.tratamento.trim() || null, tipo: tipoMap[acao.tipo] || "Tarefa interna", data: acao.data, horario: acao.hora || null, responsavel: movimento.responsavel || usuario?.nome || null, prioridade: acao.prioridade, status: "Pendente", observacao: movimento.observacao.trim() || null, created_by_nome: usuario?.nome || usuario?.email || null };
       const resultado = await supabase.from("processual_tarefas").insert(tarefaPayload).select("*").single();
       if (!resultado.error) tarefaSalva = resultado.data;
     }
@@ -141,14 +290,35 @@ export default function CarteiraProcessual({ showToast, usuario, processoInicial
     setMovimento({ ...MOVIMENTO_INICIAL, responsavel: usuario?.nome || "" }); setAcao(ACAO_INICIAL); setRegistrando(false); setSalvando(false); showToast?.("Movimentação registrada e histórico atualizado.");
   }
 
-  if (processo) return <FichaProcessual processo={processo} timeline={timeline} registrando={registrando} setRegistrando={setRegistrando} movimento={movimento} setMovimento={setMovimento} acao={acao} setAcao={setAcao} concluir={concluirMovimentacao} salvando={salvando} sincronizarDataJud={sincronizarDataJud} sincronizandoDataJud={sincronizandoDataJud} salvarInformacoes={salvarInformacoes} salvandoInformacoes={salvandoInformacoes} voltar={() => { setProcesso(null); setRegistrando(false); }} />;
+  if (processo) return <FichaProcessual processo={processo} timeline={timeline} registrando={registrando} setRegistrando={setRegistrando} movimento={movimento} setMovimento={setMovimento} acao={acao} setAcao={setAcao} concluir={concluirMovimentacao} atualizarMovimentacao={atualizarMovimentacao} excluirMovimentacao={excluirMovimentacao} salvando={salvando} sincronizarDataJud={sincronizarDataJud} sincronizandoDataJud={sincronizandoDataJud} salvarInformacoes={salvarInformacoes} salvandoInformacoes={salvandoInformacoes} voltar={() => { setProcesso(null); setRegistrando(false); }} />;
 
-  return <section className="portfolio-process-section"><div className="process-status-section-heading"><div><span>Acompanhamento dos processos judiciais</span><h2>Processual</h2><p>Movimentações, publicações, atividades e histórico dos processos já protocolados.</p></div><button type="button" onClick={carregar}>Atualizar</button></div><div className="process-status-filters"><input type="search" value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar nome, CPF, ID CRM, CNJ, réu, banco ou ação..." /></div>{carregando ? <p className="process-status-empty">Carregando processos...</p> : registros.length ? <div className="portfolio-process-list">{registros.map((item) => <article className="portfolio-process-card" key={item.id}><div className="process-status-card-heading"><div><span>Cliente</span><h3>{item.nome_cliente}</h3></div><select className="process-status-select" aria-label={`Status do processo de ${item.nome_cliente}`} value={item.situacao || "TRAMITANDO"} onChange={(e) => void alterarStatus(item, e.target.value)}>{STATUS_PROCESSO.map((status) => <option key={status} value={status}>{status}</option>)}</select></div><div className="portfolio-process-details"><div><span>Processo</span><strong>{item.numero_processo}</strong></div><div><span>Réu</span><strong>{item.reu || item.banco_reu || "Não informado"}</strong></div><div><span>Ação</span><strong>{item.tipo_acao || "Não informada"}</strong></div><div><span>Última atualização</span><strong>{dataHora(item.ultima_movimentacao_data || item.updated_at)}</strong></div></div>{item.ultima_movimentacao ? <p className="process-status-card-note">{item.ultima_movimentacao}</p> : null}<div className="process-status-card-footer"><small>Cadastro disponível para acompanhamento, inclusive quando encerrado.</small><button type="button" onClick={() => abrirProcesso(item)}>Abrir acompanhamento</button></div></article>)}</div> : <div className="process-status-empty">Nenhum processo judicial cadastrado.</div>}<Pagination pagina={pagina} total={total} tamanho={PAGE_SIZE} onChange={setPagina} rotulo="processos" /></section>;
+  return <>
+    <section className="portfolio-process-section">
+      <div className="process-status-section-heading">
+        <div><span>Acompanhamento judicial e extrajudicial</span><h2>Processual</h2><p>Movimentações, publicações, atividades e histórico de processos e ações.</p></div>
+        <div className="process-status-heading-actions"><button className="primary" type="button" onClick={abrirCadastro}>Cadastrar processo/ação</button><button type="button" onClick={carregar}>Atualizar</button></div>
+      </div>
+      <div className="process-status-filters"><input type="search" value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar nome, CPF, ID CRM, CNJ, réu, banco ou ação..." /></div>
+      {carregando ? <p className="process-status-empty">Carregando processos...</p> : registros.length ? <div className="portfolio-process-list">{registros.map((item) => {
+        const extrajudicial = ehExtrajudicial(item);
+        return <article className="portfolio-process-card" key={item.id}>
+          <div className="process-status-card-heading"><div><span>{extrajudicial ? "Ação extrajudicial" : "Processo judicial"}</span><h3>{item.nome_cliente}</h3></div><select className="process-status-select" aria-label={`Status do processo de ${item.nome_cliente}`} value={item.situacao || "TRAMITANDO"} onChange={(e) => void alterarStatus(item, e.target.value)}>{STATUS_PROCESSO.map((status) => <option key={status} value={status}>{status}</option>)}</select></div>
+          <div className="portfolio-process-details"><div><span>{extrajudicial ? "Modalidade" : "Processo"}</span><strong>{extrajudicial ? "Extrajudicial" : item.numero_processo || "Não informado"}</strong></div><div><span>Parte contrária</span><strong>{item.reu || item.banco_reu || "Não informado"}</strong></div><div><span>Ação</span><strong>{item.tipo_acao || "Não informada"}</strong></div><div><span>Última atualização</span><strong>{dataHora(item.ultima_movimentacao_data || item.updated_at)}</strong></div></div>
+          {item.ultima_movimentacao ? <p className="process-status-card-note">{item.ultima_movimentacao}</p> : null}
+          <div className="process-status-card-footer"><small>Cadastro disponível para acompanhamento, inclusive quando encerrado.</small><button type="button" onClick={() => abrirProcesso(item)}>Abrir acompanhamento</button></div>
+        </article>;
+      })}</div> : <div className="process-status-empty">Nenhum processo ou ação cadastrado.</div>}
+      <Pagination pagina={pagina} total={total} tamanho={PAGE_SIZE} onChange={setPagina} rotulo="registros" />
+    </section>
+    {cadastroAberto ? <FormularioNovoProcesso form={novoProcesso} setForm={setNovoProcesso} salvando={salvandoCadastro} erro={cadastroErro} onSubmit={cadastrarProcesso} onClose={() => { setCadastroAberto(false); setCadastroErro(""); }} /> : null}
+  </>;
 }
 
-function FichaProcessual({ processo, timeline, registrando, setRegistrando, movimento, setMovimento, acao, setAcao, concluir, salvando, sincronizarDataJud, sincronizandoDataJud, salvarInformacoes, salvandoInformacoes, voltar }) {
+function FichaProcessual({ processo, timeline, registrando, setRegistrando, movimento, setMovimento, acao, setAcao, concluir, atualizarMovimentacao, excluirMovimentacao, salvando, sincronizarDataJud, sincronizandoDataJud, salvarInformacoes, salvandoInformacoes, voltar }) {
   const [editandoInformacoes, setEditandoInformacoes] = useState(false);
   const [informacoes, setInformacoes] = useState(null);
+  const [registroEditando, setRegistroEditando] = useState(null);
+  const extrajudicial = ehExtrajudicial(processo);
 
   function iniciarEdicao() {
     setInformacoes({
@@ -167,8 +337,26 @@ function FichaProcessual({ processo, timeline, registrando, setRegistrando, movi
     if (await salvarInformacoes(informacoes)) setEditandoInformacoes(false);
   }
 
+  function iniciarEdicaoRegistro(item) {
+    setRegistroEditando({
+      id: item.id,
+      movimentacao: item.movimentacao,
+      data: String(item.data || "").slice(0, 10),
+      responsavel: item.movimentacao.responsavel || item.movimentacao.created_by_nome || "",
+    });
+  }
+
+  async function concluirEdicaoRegistro(evento) {
+    evento.preventDefault();
+    if (await atualizarMovimentacao(registroEditando.movimentacao, registroEditando)) setRegistroEditando(null);
+  }
+
+  async function excluirRegistro(item) {
+    if (await excluirMovimentacao(item.movimentacao) && registroEditando?.id === item.id) setRegistroEditando(null);
+  }
+
   return <section className="processual-ficha">
-    <header><button className="btn-secondary" onClick={voltar} disabled={salvandoInformacoes || sincronizandoDataJud} type="button">← Voltar ao Processual</button><div><span className="eyebrow">Processual</span><h2>{processo.nome_cliente}</h2><p>{processo.numero_processo}</p></div><div className="processual-actions"><button className="btn-secondary" disabled={sincronizandoDataJud} onClick={sincronizarDataJud} type="button">{sincronizandoDataJud ? "Consultando..." : "Consultar DataJud"}</button><button className="btn-primary" onClick={() => setRegistrando(true)} type="button">Registrar movimentação/publicação</button></div></header>
+    <header><button className="btn-secondary" onClick={voltar} disabled={salvandoInformacoes || sincronizandoDataJud} type="button">← Voltar ao Processual</button><div><span className="eyebrow">{extrajudicial ? "Ação extrajudicial" : "Processo judicial"}</span><h2>{processo.nome_cliente}</h2><p>{extrajudicial ? processo.tipo_acao || "Extrajudicial" : processo.numero_processo}</p></div><div className="processual-actions">{!extrajudicial && processo.numero_processo ? <button className="btn-secondary" disabled={sincronizandoDataJud} onClick={sincronizarDataJud} type="button">{sincronizandoDataJud ? "Consultando..." : "Consultar DataJud"}</button> : null}<button className="btn-primary" onClick={() => setRegistrando(true)} type="button">Registrar movimentação/publicação</button></div></header>
     <div className="processual-resumo-heading"><h3>Informações do processo</h3><button className="btn-secondary" onClick={iniciarEdicao} disabled={editandoInformacoes || salvandoInformacoes} aria-expanded={editandoInformacoes} type="button">Editar informações</button></div>
     <div className="processual-resumo"><div><span>Ação</span><strong>{processo.tipo_acao || "Não informada"}</strong></div><div><span>Réu</span><strong>{processo.reu || processo.banco_reu || "Não informado"}</strong></div><div><span>Tribunal/Juízo</span><strong>{[processo.tribunal, processo.vara, processo.comarca].filter(Boolean).join(" · ") || "Não informado"}</strong></div><div><span>Responsável</span><strong>{processo.responsavel || "Não informado"}</strong></div></div>
     {editandoInformacoes ? <form className="processual-dados-form" onSubmit={concluirEdicao}>
@@ -180,8 +368,33 @@ function FichaProcessual({ processo, timeline, registrando, setRegistrando, movi
     </form> : null}
     <nav className="processual-tabs"><span>Resumo</span><span>Atividades</span><span className="active">Histórico</span></nav>
     {registrando ? <FormularioMovimentacao movimento={movimento} setMovimento={setMovimento} acao={acao} setAcao={setAcao} concluir={concluir} salvando={salvando} cancelar={() => setRegistrando(false)} /> : null}
-    <section className="processual-timeline"><h3>Histórico cronológico</h3>{timeline.length ? timeline.map((item) => <article className={`timeline-item timeline-${["escavador", "datajud"].includes(item.origem) ? "automatico" : "manual"}`} key={item.id}><time>{dataHora(item.data)}</time><div><header><strong>{item.titulo}</strong>{["escavador", "datajud"].includes(item.origem) ? <span className="timeline-badge">{item.origem === "datajud" ? "DataJud/CNJ" : "Captura Automática"}</span> : null}</header>{item.descricao ? <p>{item.descricao}</p> : null}{item.detalhe ? <span>{item.detalhe}</span> : null}<small>Responsável: {item.responsavel || "Não informado"}</small></div></article>) : <div className="empty-row">Nenhuma movimentação registrada.</div>}</section>
+    <section className="processual-timeline"><h3>Histórico cronológico</h3>{timeline.length ? timeline.map((item) => <article className={`timeline-item timeline-${["escavador", "datajud"].includes(item.origem) ? "automatico" : "manual"}`} key={item.id}><time dateTime={item.data}>{dataBR(item.data)}</time><div><header><strong>{item.titulo}</strong><div className="timeline-header-actions">{["escavador", "datajud"].includes(item.origem) ? <span className="timeline-badge">{item.origem === "datajud" ? "DataJud/CNJ" : "Captura Automática"}</span> : null}{item.movimentacao ? <><button disabled={salvando} onClick={() => iniciarEdicaoRegistro(item)} type="button">Modificar</button><button className="danger" disabled={salvando} onClick={() => void excluirRegistro(item)} type="button">Excluir</button></> : null}</div></header>{registroEditando?.id === item.id ? <form className="timeline-edit-form" onSubmit={concluirEdicaoRegistro}><label><span>Data</span><input required type="date" value={registroEditando.data} onChange={(e) => setRegistroEditando((atual) => ({ ...atual, data: e.target.value }))} /></label><label><span>Responsável</span><input value={registroEditando.responsavel} onChange={(e) => setRegistroEditando((atual) => ({ ...atual, responsavel: e.target.value }))} /></label><div><button className="btn-secondary" disabled={salvando} onClick={() => setRegistroEditando(null)} type="button">Cancelar</button><button className="btn-primary" disabled={salvando} type="submit">{salvando ? "Salvando..." : "Salvar"}</button></div></form> : <>{item.descricao ? <p>{item.descricao}</p> : null}{item.detalhe ? <span>{item.detalhe}</span> : null}<small>Responsável: {item.responsavel || "Não informado"}</small></>}</div></article>) : <div className="empty-row">Nenhuma movimentação registrada.</div>}</section>
   </section>;
+}
+
+function FormularioNovoProcesso({ form, setForm, salvando, erro, onSubmit, onClose }) {
+  const judicial = form.natureza === "Judicial";
+  return <div className="process-registration-backdrop" role="presentation">
+    <form className="process-registration-modal" onSubmit={onSubmit} role="dialog" aria-modal="true" aria-labelledby="process-registration-title">
+      <header><div><span className="eyebrow">Novo cadastro</span><h3 id="process-registration-title">Cadastrar processo ou ação</h3><p>Escolha a modalidade e informe os dados principais para iniciar o acompanhamento.</p></div><button aria-label="Fechar" disabled={salvando} onClick={onClose} type="button">×</button></header>
+      {erro ? <div className="process-registration-error" role="alert">{erro}</div> : null}
+      <div className="process-registration-grid">
+        <label><span>Modalidade *</span><select value={form.natureza} onChange={(e) => setForm((atual) => ({ ...atual, natureza: e.target.value }))}><option>Judicial</option><option>Extrajudicial</option></select></label>
+        <label className="span-2"><span>Cliente *</span><input required value={form.nome_cliente} onChange={(e) => setForm((atual) => ({ ...atual, nome_cliente: e.target.value }))} /></label>
+        <label><span>CPF/CNPJ</span><input value={form.cpf_cliente} onChange={(e) => setForm((atual) => ({ ...atual, cpf_cliente: e.target.value }))} /></label>
+        <label><span>ID CRM</span><input value={form.id_crm} onChange={(e) => setForm((atual) => ({ ...atual, id_crm: e.target.value }))} /></label>
+        {judicial ? <label className="span-2"><span>Número do processo *</span><input required value={form.numero_processo} onChange={(e) => setForm((atual) => ({ ...atual, numero_processo: e.target.value }))} placeholder="0000000-00.0000.0.00.0000" /></label> : <div className="process-registration-help span-2"><strong>Ação extrajudicial</strong><span>Não é necessário informar número CNJ. O cadastro ficará disponível normalmente no histórico processual.</span></div>}
+        <label className="span-2"><span>{judicial ? "Tipo de ação" : "Ação/assunto"} *</span><input required value={form.tipo_acao} onChange={(e) => setForm((atual) => ({ ...atual, tipo_acao: e.target.value }))} /></label>
+        <label><span>Parte contrária</span><input value={form.reu} onChange={(e) => setForm((atual) => ({ ...atual, reu: e.target.value }))} /></label>
+        <label><span>Banco/instituição</span><input value={form.banco_reu} onChange={(e) => setForm((atual) => ({ ...atual, banco_reu: e.target.value }))} /></label>
+        <label><span>{judicial ? "Data de distribuição" : "Data de início"}</span><input type="date" value={form.data_distribuicao} onChange={(e) => setForm((atual) => ({ ...atual, data_distribuicao: e.target.value }))} /></label>
+        <label><span>Responsável</span><input value={form.responsavel} onChange={(e) => setForm((atual) => ({ ...atual, responsavel: e.target.value }))} /></label>
+        {judicial ? <><label><span>Tribunal</span><input value={form.tribunal} onChange={(e) => setForm((atual) => ({ ...atual, tribunal: e.target.value }))} /></label><label><span>Comarca</span><input value={form.comarca} onChange={(e) => setForm((atual) => ({ ...atual, comarca: e.target.value }))} /></label><label><span>Vara/Juízo</span><input value={form.vara} onChange={(e) => setForm((atual) => ({ ...atual, vara: e.target.value }))} /></label></> : null}
+        <label className="wide"><span>Observações</span><textarea rows={4} value={form.observacoes} onChange={(e) => setForm((atual) => ({ ...atual, observacoes: e.target.value }))} /></label>
+      </div>
+      <footer><button className="btn-secondary" disabled={salvando} onClick={onClose} type="button">Cancelar</button><button className="btn-primary" disabled={salvando} type="submit">{salvando ? "Salvando..." : judicial ? "Cadastrar processo" : "Cadastrar ação"}</button></footer>
+    </form>
+  </div>;
 }
 
 function FormularioMovimentacao({ movimento, setMovimento, acao, setAcao, concluir, salvando, cancelar }) {

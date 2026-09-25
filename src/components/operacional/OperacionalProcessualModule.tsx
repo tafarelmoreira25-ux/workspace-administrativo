@@ -208,6 +208,7 @@ export default function OperacionalProcessualModule({ usuario, showToast, initia
 
   async function salvarTarefa(evento: FormEvent<HTMLFormElement>) {
     evento.preventDefault();
+    setErro("");
     if (!tarefaForm.titulo.trim()) {
       avisar("Informe o título da tarefa.");
       return;
@@ -218,7 +219,6 @@ export default function OperacionalProcessualModule({ usuario, showToast, initia
     const { data, error } = await supabase.from("processual_tarefas").insert({
       titulo: tarefaForm.titulo.trim(),
       descricao: limpar(tarefaForm.descricao),
-      cliente_id: processo?.cliente_id || null,
       processo_id: processo?.id || null,
       cliente_nome: clienteNome,
       processo_numero: processo?.numero_processo || null,
@@ -235,7 +235,9 @@ export default function OperacionalProcessualModule({ usuario, showToast, initia
     setSalvando(false);
 
     if (error) {
-      avisar(`Não foi possível criar a tarefa: ${error.message}`);
+      const mensagem = `Não foi possível criar a tarefa: ${error.message}`;
+      setErro(mensagem);
+      avisar(mensagem);
       return;
     }
     setTarefas((atuais) => [...atuais, data as Tarefa]);
@@ -259,6 +261,7 @@ export default function OperacionalProcessualModule({ usuario, showToast, initia
 
   async function salvarAtendimento(evento: FormEvent<HTMLFormElement>) {
     evento.preventDefault();
+    setErro("");
     if (!atendimentoForm.cliente.trim() && !atendimentoForm.processo_id) {
       avisar("Informe o cliente ou selecione um processo.");
       return;
@@ -270,7 +273,6 @@ export default function OperacionalProcessualModule({ usuario, showToast, initia
     const processo = processoSelecionado(atendimentoForm.processo_id);
     const clienteNome = atendimentoForm.cliente.trim() || processo?.nome_cliente || "Cliente não informado";
     const payload = {
-      cliente_id: processo?.cliente_id || null,
       processo_id: processo?.id || null,
       cliente_nome: clienteNome,
       processo_numero: processo?.numero_processo || null,
@@ -304,7 +306,9 @@ export default function OperacionalProcessualModule({ usuario, showToast, initia
     setSalvando(false);
 
     if (error) {
-      avisar(`Não foi possível registrar o atendimento: ${error.message}`);
+      const mensagem = `Não foi possível registrar o atendimento: ${error.message}`;
+      setErro(mensagem);
+      avisar(mensagem);
       return;
     }
     setAtendimentos((atuais) => [data as Atendimento, ...atuais]);

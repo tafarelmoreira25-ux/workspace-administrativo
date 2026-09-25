@@ -97,6 +97,7 @@ export default function GerencialProcessualModule({ usuario, showToast, initialV
   const [carregando, setCarregando] = useState(true);
   const [ocorrenciaForm, setOcorrenciaForm] = useState(() => criarOcorrenciaForm(usuario));
   const [custaForm, setCustaForm] = useState(() => criarCustaForm(usuario));
+  const [erroOperacao, setErroOperacao] = useState("");
 
   const avisar = useCallback((mensagem: string) => showToast?.(mensagem), [showToast]);
 
@@ -174,31 +175,50 @@ export default function GerencialProcessualModule({ usuario, showToast, initialV
 
   async function salvarOcorrencia(evento: FormEvent<HTMLFormElement>) {
     evento.preventDefault();
-    if (!ocorrenciaForm.descricao.trim()) { avisar("Descreva a ocorrência."); return; }
+    setErroOperacao("");
+    if (!ocorrenciaForm.descricao.trim()) { const mensagem = "Descreva a ocorrência."; setErroOperacao(mensagem); avisar(mensagem); return; }
     const processo = processosPorId.get(ocorrenciaForm.processo_id);
-    const payload = { ...ocorrenciaForm, processo_id: ocorrenciaForm.processo_id || null, cliente_id: processo?.cliente_id || null, cliente_nome: processo?.nome_cliente || null, resolvido: Boolean(ocorrenciaForm.resolvido), data_resolucao: ocorrenciaForm.resolvido ? ocorrenciaForm.data_resolucao || hoje() : null, created_by_nome: usuario.nome || usuario.email || null };
+    const payload = {
+      processo_id: ocorrenciaForm.processo_id || null,
+      cliente_nome: processo?.nome_cliente || null,
+      categoria: ocorrenciaForm.categoria,
+      data: ocorrenciaForm.data,
+      descricao: ocorrenciaForm.descricao.trim(),
+      responsabilidade: ocorrenciaForm.responsabilidade,
+      impacto: limpar(ocorrenciaForm.impacto),
+      providencia: limpar(ocorrenciaForm.providencia),
+      prazo: ocorrenciaForm.prazo || null,
+      resolvido: Boolean(ocorrenciaForm.resolvido),
+      data_resolucao: ocorrenciaForm.resolvido ? ocorrenciaForm.data_resolucao || hoje() : null,
+      evidencia: limpar(ocorrenciaForm.evidencia),
+      anexo_url: limpar(ocorrenciaForm.anexo_url),
+      responsavel: limpar(ocorrenciaForm.responsavel) || usuario.nome || null,
+      created_by_nome: usuario.nome || usuario.email || null,
+    };
     const { data, error } = await supabase.from("processual_ocorrencias").insert(payload).select("*").single();
     if (!error && processo?.id) await supabase.from("movimentacoes").insert({ processo_id: processo.id, categoria: "Ocorrência", titulo: ocorrenciaForm.categoria, descricao: ocorrenciaForm.descricao, descricao_tecnica: ocorrenciaForm.descricao, responsavel: ocorrenciaForm.responsavel || usuario.nome || null, fonte: "Ocorrências", importancia: ocorrenciaForm.impacto?.toLowerCase().includes("alto") ? "Crítico" : "Normal", anexo_url: ocorrenciaForm.anexo_url || null, origem: "manual", created_by_nome: usuario.nome || usuario.email || null });
     if (!error) await supabase.from("processual_auditoria_geral").insert({ usuario: usuario.nome || usuario.email || null, acao: "criar_ocorrencia", entidade: "processual_ocorrencias", entidade_id: data?.id || null, antes: null, depois: data || payload });
-    if (error) { avisar(`Não foi possível salvar a ocorrência: ${error.message}`); return; }
+    if (error) { const mensagem = `Não foi possível salvar a ocorrência: ${error.message}`; setErroOperacao(mensagem); avisar(mensagem); return; }
     setOcorrencias((atuais) => [data, ...atuais]); setOcorrenciaForm(criarOcorrenciaForm(usuario)); avisar("Ocorrência registrada.");
   }
 
   async function salvarCusta(evento: FormEvent<HTMLFormElement>) {
     evento.preventDefault();
-    if (!custaForm.tipo.trim()) { avisar("Informe o tipo de custas."); return; }
+    setErroOperacao("");
+    if (!custaForm.tipo.trim()) { const mensagem = "Informe o tipo de custas."; setErroOperacao(mensagem); avisar(mensagem); return; }
     const processo = processosPorId.get(custaForm.processo_id);
-    const payload = { ...custaForm, valor: Number(String(custaForm.valor).replace(",", ".") || 0), processo_id: custaForm.processo_id || null, cliente_id: processo?.cliente_id || null, cliente_nome: processo?.nome_cliente || null, created_by_nome: usuario.nome || usuario.email || null };
+    const payload = { ...custaForm, valor: Number(String(custaForm.valor).replace(",", ".") || 0), processo_id: custaForm.processo_id || null, cliente_nome: processo?.nome_cliente || null, solicitacao: custaForm.solicitacao || null, vencimento: custaForm.vencimento || null, pagamento: custaForm.pagamento || null, comprovante_url: limpar(custaForm.comprovante_url), responsavel: limpar(custaForm.responsavel) || usuario.nome || null, observacao: limpar(custaForm.observacao), created_by_nome: usuario.nome || usuario.email || null };
     const { data, error } = await supabase.from("processual_custas").insert(payload).select("*").single();
     if (!error && processo?.id) await supabase.from("movimentacoes").insert({ processo_id: processo.id, categoria: "Custas", titulo: custaForm.tipo, descricao: `${custaForm.tipo}: ${moeda(payload.valor)} · ${custaForm.status}`, descricao_tecnica: `${custaForm.tipo}: ${moeda(payload.valor)} · ${custaForm.status}`, responsavel: custaForm.responsavel || usuario.nome || null, fonte: "Custas", importancia: ["Vencido", "Não pago"].includes(custaForm.status) ? "Crítico" : "Relevante", anexo_url: custaForm.comprovante_url || null, origem: "manual", created_by_nome: usuario.nome || usuario.email || null });
     if (!error) await supabase.from("processual_auditoria_geral").insert({ usuario: usuario.nome || usuario.email || null, acao: "criar_custas", entidade: "processual_custas", entidade_id: data?.id || null, antes: null, depois: data || payload });
-    if (error) { avisar(`Não foi possível salvar custas: ${error.message}`); return; }
+    if (error) { const mensagem = `Não foi possível salvar custas: ${error.message}`; setErroOperacao(mensagem); avisar(mensagem); return; }
     setCustas((atuais) => [data, ...atuais]); setCustaForm(criarCustaForm(usuario)); avisar("Custas registradas.");
   }
 
   return <section className="gerencial-module">
     <header className="module-page-header"><div><span className="eyebrow">Controle gerencial</span><h2>{view === "ocorrencias" ? "Ocorrências" : "Indicadores"}</h2><p>Auditoria operacional, riscos e visão executiva da carteira.</p></div><div className="gerencial-tabs"><button className={view === "indicadores" ? "active" : ""} onClick={() => setView("indicadores")} type="button">Indicadores</button><button className={view === "ocorrencias" ? "active" : ""} onClick={() => setView("ocorrencias")} type="button">Ocorrências</button></div></header>
     <div className="gerencial-toolbar"><input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Pesquisar cliente, processo, banco, ocorrência ou alerta..." /><button className="btn-secondary" onClick={carregar} type="button">Atualizar</button></div>
+    {erroOperacao ? <div className="empty-row" role="alert">{erroOperacao}</div> : null}
     {carregando ? <div className="panel">Carregando controle gerencial...</div> : null}
     {!carregando && view === "indicadores" ? <Indicadores indicadores={indicadores} onNavigate={onNavigate} /> : null}
     {!carregando && view === "ocorrencias" ? <Ocorrencias ocorrencias={ocorrenciasFiltradas} custas={custas} processos={processosOpcao} ocorrenciaForm={ocorrenciaForm} setOcorrenciaForm={setOcorrenciaForm} custaForm={custaForm} setCustaForm={setCustaForm} onOcorrencia={salvarOcorrencia} onCusta={salvarCusta} /> : null}
