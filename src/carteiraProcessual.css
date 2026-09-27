@@ -442,6 +442,9 @@
 .timeline-header-actions button:disabled { cursor: not-allowed; opacity: .55; }
 .processual-timeline .timeline-automatico::after { background: #2f9e72; border-color: #e1f4ea; }
 .timeline-badge { background: #e8f7ef; border: 1px solid #bfe7d0; border-radius: 999px; color: #18724b !important; font-size: 10px !important; font-weight: 800; padding: 4px 8px; white-space: nowrap; }
+.timeline-attachment { align-items: center; background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 999px; color: #2563eb !important; display: inline-flex; font-size: 10px !important; font-weight: 800; gap: 5px; padding: 4px 8px; white-space: nowrap; }
+.timeline-attachment::before { content: "\1F4CE"; font-size: 12px; line-height: 1; }
+.timeline-no-date { color: #667085; font-size: 12px; font-weight: 700; }
 .processual-timeline .timeline-automatico > div { background: #fbfefc; border: 1px solid #e2f1e8; border-radius: 9px; padding: 12px 14px 12px 18px; }
 .processual-timeline time, .processual-timeline small, .processual-timeline span { color: #667085; font-size: 12px; }
 .processual-timeline p { margin: 0; white-space: pre-wrap; }
