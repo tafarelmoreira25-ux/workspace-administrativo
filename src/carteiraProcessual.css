@@ -736,6 +736,7 @@
 
 .processual-timeline article > div {
   gap: 6px;
+  grid-column: 2;
   padding: 0 0 14px 12px;
 }
 
