@@ -6,6 +6,11 @@ import Pagination from "./components/common/Pagination";
 import "./carteiraProcessual.css";
 
 const PAGE_SIZE = 30;
+const ESPECIALISTAS_DIREITO_BANCARIO = [
+  "Marykeller de Mello OAB/SP 336.677",
+  "Juliana Cristina Galzo OAB/SP 524.585",
+  "Tafarel Moreira - Auxiliar Juridico com registro ativo - JUS.BR",
+];
 const EMPRESA_REPRESENTANTE = "Platino Soluções Financeiras";
 const TIPOS_ACAO = ["Ação Revisional Extrajudicial", "Ação Revisional de Juros/Bancária"];
 const STATUS_PROCESSO = ["Em andamento", "Pendente de protocolo", "Suspenso / Sobrestado", "Encerrado", "TRAMITANDO", "ARQUIVADO", "BAIXA DEFINITIVA", "SENTENÇA PROCEDENTE", "SENTENÇA IMPROCEDENTE", "REDISTRIBUIÇÃO", "JULGADO"];
@@ -34,7 +39,7 @@ export default function CarteiraProcessual({ showToast, usuario, processoInicial
   const [cadastroAberto, setCadastroAberto] = useState(false);
   const [salvandoCadastro, setSalvandoCadastro] = useState(false);
   const [cadastroErro, setCadastroErro] = useState("");
-  const [novoProcesso, setNovoProcesso] = useState(() => ({ ...NOVO_PROCESSO_INICIAL, responsavel: usuario?.nome || "" }));
+  const [novoProcesso, setNovoProcesso] = useState(() => ({ ...NOVO_PROCESSO_INICIAL }));
   const [movimento, setMovimento] = useState(() => ({ ...MOVIMENTO_INICIAL, responsavel: usuario?.nome || "" }));
   const [acao, setAcao] = useState(ACAO_INICIAL);
   const processoInicialCarregado = useRef(null);
@@ -66,7 +71,7 @@ export default function CarteiraProcessual({ showToast, usuario, processoInicial
   async function abrirProcesso(item) {
     setProcesso(item);
     const [movReq, tarefasReq] = await Promise.all([
-      supabase.from("movimentacoes").select("*").eq("processo_id", item.id).is("deleted_at", null).order("ordem_historico", { ascending: true, nullsFirst: false }).order("data_registro", { ascending: false, nullsFirst: false }).limit(300),
+      supabase.from("movimentacoes").select("*").eq("processo_id", item.id).is("deleted_at", null).order("ordem_historico", { ascending: false, nullsFirst: false }).order("data_registro", { ascending: false, nullsFirst: false }).limit(300),
       supabase.from("processual_tarefas").select("*").eq("processo_id", item.id).order("created_at", { ascending: false }).limit(300),
     ]);
     setMovimentacoes(movReq.error ? [] : movReq.data || []);
@@ -156,7 +161,7 @@ export default function CarteiraProcessual({ showToast, usuario, processoInicial
   }
 
   function abrirCadastro() {
-    setNovoProcesso({ ...NOVO_PROCESSO_INICIAL, responsavel: usuario?.nome || "" });
+    setNovoProcesso({ ...NOVO_PROCESSO_INICIAL });
     setCadastroErro("");
     setCadastroAberto(true);
   }
@@ -231,7 +236,7 @@ export default function CarteiraProcessual({ showToast, usuario, processoInicial
     setCadastroAberto(false);
     setSalvandoCadastro(false);
     setCadastroErro("");
-    setNovoProcesso({ ...NOVO_PROCESSO_INICIAL, responsavel: usuario?.nome || "" });
+    setNovoProcesso({ ...NOVO_PROCESSO_INICIAL });
     showToast?.(judicial ? "Processo judicial cadastrado." : "Ação extrajudicial cadastrada.");
     await abrirProcesso(processoSalvo);
   }
@@ -312,6 +317,16 @@ export default function CarteiraProcessual({ showToast, usuario, processoInicial
   </>;
 }
 
+function SeletorEspecialista({ value, onChange, required = false }) {
+  const valorLegado = value && !ESPECIALISTAS_DIREITO_BANCARIO.includes(value) ? value : null;
+
+  return <select value={value} onChange={onChange} required={required}>
+    <option value="">Selecione</option>
+    {valorLegado ? <option value={valorLegado}>{valorLegado}</option> : null}
+    {ESPECIALISTAS_DIREITO_BANCARIO.map((especialista) => <option key={especialista} value={especialista}>{especialista}</option>)}
+  </select>;
+}
+
 function FichaProcessual({ processo, timeline, registrando, setRegistrando, movimento, setMovimento, acao, setAcao, concluir, atualizarMovimentacao, excluirMovimentacao, salvando, sincronizarDataJud, sincronizandoDataJud, salvarInformacoes, salvandoInformacoes, voltar }) {
   const [editandoInformacoes, setEditandoInformacoes] = useState(false);
   const [informacoes, setInformacoes] = useState(null);
@@ -381,7 +396,7 @@ function FichaProcessual({ processo, timeline, registrando, setRegistrando, movi
       <div className="processual-dados-grid">
         <label><span>Ação</span><select value={informacoes.tipo_acao} onChange={(e) => setInformacoes((atuais) => ({ ...atuais, tipo_acao: e.target.value }))}>{informacoes.tipo_acao && !TIPOS_ACAO.includes(informacoes.tipo_acao) ? <option value={informacoes.tipo_acao}>{informacoes.tipo_acao}</option> : null}{TIPOS_ACAO.map((tipo) => <option key={tipo}>{tipo}</option>)}</select></label>
         <label><span>Parte contrária</span><input value={informacoes.reu} onChange={(e) => setInformacoes((atuais) => ({ ...atuais, reu: e.target.value }))} /></label>
-        <label><span>Especialista em direito bancário</span><input value={informacoes.responsavel} onChange={(e) => setInformacoes((atuais) => ({ ...atuais, responsavel: e.target.value }))} placeholder="Advogado ou representante jurídico" /></label>
+        <label><span>Especialista em direito bancário</span><SeletorEspecialista value={informacoes.responsavel} onChange={(e) => setInformacoes((atuais) => ({ ...atuais, responsavel: e.target.value }))} /></label>
         {!extrajudicial ? <><label><span>Tribunal</span><input value={informacoes.tribunal} onChange={(e) => setInformacoes((atuais) => ({ ...atuais, tribunal: e.target.value }))} /></label><label><span>Vara/Juízo</span><input value={informacoes.vara} onChange={(e) => setInformacoes((atuais) => ({ ...atuais, vara: e.target.value }))} /></label><label><span>Comarca</span><input value={informacoes.comarca} onChange={(e) => setInformacoes((atuais) => ({ ...atuais, comarca: e.target.value }))} /></label></> : null}
       </div>
       <footer><button className="btn-secondary" onClick={() => setEditandoInformacoes(false)} disabled={salvandoInformacoes} type="button">Cancelar</button><button className="btn-primary" disabled={salvandoInformacoes} type="submit">{salvandoInformacoes ? "Salvando..." : "Salvar informações"}</button></footer>
@@ -407,7 +422,7 @@ function FormularioNovoProcesso({ form, setForm, salvando, erro, onSubmit, onClo
         <label><span>Parte contrária</span><input value={form.reu} onChange={(e) => setForm((atual) => ({ ...atual, reu: e.target.value }))} /></label>
         <label><span>Banco/instituição</span><input value={form.banco_reu} onChange={(e) => setForm((atual) => ({ ...atual, banco_reu: e.target.value }))} /></label>
         <label><span>{judicial ? "Data de distribuição" : "Data de início"}</span><input type="date" value={form.data_distribuicao} onChange={(e) => setForm((atual) => ({ ...atual, data_distribuicao: e.target.value }))} /></label>
-        <label className="span-2"><span>Especialista em direito bancário</span><input value={form.responsavel} onChange={(e) => setForm((atual) => ({ ...atual, responsavel: e.target.value }))} placeholder="Advogado ou representante jurídico" /></label>
+        <label className="span-2"><span>Especialista em direito bancário</span><SeletorEspecialista value={form.responsavel} onChange={(e) => setForm((atual) => ({ ...atual, responsavel: e.target.value }))} /></label>
         {judicial ? <><label><span>Tribunal</span><input value={form.tribunal} onChange={(e) => setForm((atual) => ({ ...atual, tribunal: e.target.value }))} /></label><label><span>Comarca</span><input value={form.comarca} onChange={(e) => setForm((atual) => ({ ...atual, comarca: e.target.value }))} /></label><label><span>Vara/Juízo</span><input value={form.vara} onChange={(e) => setForm((atual) => ({ ...atual, vara: e.target.value }))} /></label></> : null}
         <label className="wide"><span>Observações</span><textarea rows={4} value={form.observacoes} onChange={(e) => setForm((atual) => ({ ...atual, observacoes: e.target.value }))} /></label>
       </div>

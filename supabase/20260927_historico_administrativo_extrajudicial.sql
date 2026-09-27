@@ -42,7 +42,7 @@ create index if not exists movimentacoes_ordem_historico_idx
   on public.movimentacoes (processo_id, ordem_historico)
   where ordem_historico is not null and deleted_at is null;
 
-create or replace function public.inserir_historico_administrativo_extrajudicial(p_processo_id uuid)
+create or replace function public.inserir_historico_administrativo_extrajudicial(p_processo_id bigint)
 returns integer
 language plpgsql
 security definer
