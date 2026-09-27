@@ -206,6 +206,44 @@
   line-height: 1.35;
 }
 
+.homologacao-informacoes {
+  display: grid;
+  gap: 8px;
+  justify-items: end;
+  margin-top: 14px;
+}
+
+.homologacao-informacoes label {
+  display: grid;
+  gap: 6px;
+  width: 100%;
+}
+
+.homologacao-informacoes label span {
+  color: #344054;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.homologacao-informacoes textarea {
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 112px;
+  padding: 10px 12px;
+  resize: vertical;
+  border: 1px solid #d8dee8;
+  border-radius: 7px;
+  background: #fff;
+  color: #17243a;
+  font: inherit;
+  line-height: 1.45;
+}
+
+.homologacao-informacoes textarea:focus {
+  border-color: #7596ef;
+  outline: 3px solid #e8efff;
+}
+
 .timeline,
 .proposal-grid,
 .document-list {

@@ -71,6 +71,8 @@ export default function HomologacaoQuitacaoModule({ usuario, showToast }: { usua
   const [erro, setErro] = useState("");
   const [carregando, setCarregando] = useState(true);
   const [formAberto, setFormAberto] = useState(false);
+  const [informacoes, setInformacoes] = useState("");
+  const [salvandoInformacoes, setSalvandoInformacoes] = useState(false);
   const [modal, setModal] = useState<"" | "movimentacao" | "proposta" | "reuniao" | "diligencia" | "documento" | "quitacao" | "atualizacao_contrato">("");
   const [form, setForm] = useState(() => homologacaoInicial(usuario));
   const [movForm, setMovForm] = useState(() => movimentacaoInicial(usuario));
@@ -127,6 +129,7 @@ export default function HomologacaoQuitacaoModule({ usuario, showToast }: { usua
 
   async function abrirFicha(item: Homologacao) {
     setSelecionada(item); setAba("Visão geral");
+    setInformacoes(item.motivo_pendencia || "");
     const id = item.id;
     const [movReq, propReq, reunReq, dilReq, docReq, quitReq, atualizacoesReq] = await Promise.allSettled([
       supabase.from("homologacao_movimentacoes").select("*").eq("homologacao_id", id).order("data_hora", { ascending: false }),
@@ -176,6 +179,22 @@ export default function HomologacaoQuitacaoModule({ usuario, showToast }: { usua
     if (error) { avisar("Não foi possível alterar o status."); return; }
     await supabase.from("homologacao_status_historico").insert({ homologacao_id: selecionada.id, status_anterior: selecionada.status, status_novo: status, origem_alteracao: "interface_homologacao", created_by_nome: usuarioNome(usuario) });
     setSelecionada(data as Homologacao); setHomologacoes((atuais) => atuais.map((item) => item.id === data.id ? data as Homologacao : item)); avisar("Status atualizado.");
+  }
+
+  async function salvarInformacoes(evento: FormEvent<HTMLFormElement>) {
+    evento.preventDefault();
+    if (!selecionada) return;
+    setSalvandoInformacoes(true);
+    const { data, error } = await supabase.from("homologacoes").update({
+      motivo_pendencia: limpar(informacoes),
+      updated_by_nome: usuarioNome(usuario),
+      origem_alteracao: "edicao_informacoes",
+    }).eq("id", selecionada.id).select("*").single();
+    setSalvandoInformacoes(false);
+    if (error) { avisar("Não foi possível salvar as informações."); return; }
+    setSelecionada(data as Homologacao);
+    setHomologacoes((atuais) => atuais.map((item) => item.id === data.id ? data as Homologacao : item));
+    avisar("Informações salvas.");
   }
 
   function podeQuitar() {
@@ -276,7 +295,7 @@ export default function HomologacaoQuitacaoModule({ usuario, showToast }: { usua
           <Info label="Dias em negociação" value={String(topo?.diasNegociacao ?? 0)} />
         </div>
         <nav className="homologacao-tabs">{ABAS.map((item) => <button key={item} type="button" className={aba === item ? "active" : ""} onClick={() => setAba(item)}>{item}</button>)}</nav>
-        {aba === "Visão geral" ? <VisaoGeral h={selecionada} dias={topo?.diasSemAtualizacao || 0} /> : null}
+        {aba === "Visão geral" ? <VisaoGeral h={selecionada} dias={topo?.diasSemAtualizacao || 0} informacoes={informacoes} setInformacoes={setInformacoes} salvando={salvandoInformacoes} onSalvar={salvarInformacoes} /> : null}
         {aba === "Histórico" ? <Timeline movimentacoes={movimentacoes} onNova={() => setModal("movimentacao")} /> : null}
         {aba === "Dados do contrato" ? <AtualizacoesContrato atualizacoes={atualizacoesContrato} onNova={() => setModal("atualizacao_contrato")} /> : null}
         {aba === "Negociações" ? <ListaPropostas propostas={propostas} onNova={() => setModal("proposta")} /> : null}
@@ -312,7 +331,7 @@ export default function HomologacaoQuitacaoModule({ usuario, showToast }: { usua
 
 function Info({ label, value, destaque = false }: { label: string; value: string; destaque?: boolean }) { return <div className={destaque ? "top-info alert" : "top-info"}><span>{label}</span><strong>{value}</strong></div>; }
 function Modal({ titulo, children, onClose }: { titulo: string; children: React.ReactNode; onClose: () => void }) { return <div className="modal-backdrop"><section className="cliente-modal homologacao-modal"><header><div><span className="eyebrow">Homologação e Quitação</span><h3>{titulo}</h3></div><button className="drawer-close" type="button" onClick={onClose}>×</button></header>{children}</section></div>; }
-function VisaoGeral({ h, dias }: { h: Homologacao; dias: number }) { const dados = [["Cliente", h.cliente_nome], ["CPF/CNPJ", h.cpf_cnpj], ["Telefone", h.telefone], ["Contrato", h.numero_contrato], ["Instituição", h.instituicao_financeira], ["Assessoria", h.assessoria_banco], ["Representante", `${h.representante_nome || "—"} ${h.representante_contato || ""}`], ["Veículo", h.veiculo], ["Placa", h.placa], ["Valor parcela", dinheiro(h.valor_parcela)], ["Parcelas", h.quantidade_parcelas], ["Atraso", h.parcelas_atraso], ["Saldo", dinheiro(h.saldo_devedor_atualizado)], ["Quitação hoje", dinheiro(h.valor_quitacao_hoje)], ["Minuta", dinheiro(h.valor_previsto_minuta)], ["Prioridade", h.prioridade], ["Dias sem atualização", String(dias)], ["Pendência", h.motivo_pendencia], ["Próxima providência", h.proxima_providencia], ["Fontes importadas", h.fontes_importacao], ["Campos divergentes", h.campos_divergentes]]; return <section className="homologacao-card"><h3>Visão geral</h3><dl className="homologacao-details">{dados.map(([k, v]) => <div key={String(k)}><dt>{k}</dt><dd>{v || "—"}</dd></div>)}</dl><div className="report-actions">{h.link_pasta_cliente ? <a className="report-action" href={h.link_pasta_cliente} target="_blank" rel="noreferrer">Abrir pasta no Google Drive</a> : null}{h.link_minuta_homologacao ? <a className="report-action" href={h.link_minuta_homologacao} target="_blank" rel="noreferrer">Abrir minuta de homologação</a> : null}</div></section>; }
+function VisaoGeral({ h, dias, informacoes, setInformacoes, salvando, onSalvar }: { h: Homologacao; dias: number; informacoes: string; setInformacoes: (valor: string) => void; salvando: boolean; onSalvar: (evento: FormEvent<HTMLFormElement>) => void }) { const dados = [["Cliente", h.cliente_nome], ["CPF/CNPJ", h.cpf_cnpj], ["Telefone", h.telefone], ["Contrato", h.numero_contrato], ["Instituição", h.instituicao_financeira], ["Assessoria", h.assessoria_banco], ["Representante", `${h.representante_nome || "—"} ${h.representante_contato || ""}`], ["Veículo", h.veiculo], ["Placa", h.placa], ["Valor parcela", dinheiro(h.valor_parcela)], ["Parcelas", h.quantidade_parcelas], ["Atraso", h.parcelas_atraso], ["Saldo", dinheiro(h.saldo_devedor_atualizado)], ["Quitação hoje", dinheiro(h.valor_quitacao_hoje)], ["Minuta", dinheiro(h.valor_previsto_minuta)], ["Prioridade", h.prioridade], ["Dias sem atualização", String(dias)], ["Próxima providência", h.proxima_providencia], ["Fontes importadas", h.fontes_importacao], ["Campos divergentes", h.campos_divergentes]]; return <section className="homologacao-card"><h3>Visão geral</h3><dl className="homologacao-details">{dados.map(([k, v]) => <div key={String(k)}><dt>{k}</dt><dd>{v || "—"}</dd></div>)}</dl><form className="homologacao-informacoes" onSubmit={onSalvar}><label><span>Informações</span><textarea rows={5} value={informacoes} onChange={(evento) => setInformacoes(evento.target.value)} placeholder="Digite observações, pendências ou outras informações importantes..." /></label><button className="btn-primary compact" type="submit" disabled={salvando}>{salvando ? "Salvando..." : "Salvar informações"}</button></form><div className="report-actions">{h.link_pasta_cliente ? <a className="report-action" href={h.link_pasta_cliente} target="_blank" rel="noreferrer">Abrir pasta no Google Drive</a> : null}{h.link_minuta_homologacao ? <a className="report-action" href={h.link_minuta_homologacao} target="_blank" rel="noreferrer">Abrir minuta de homologação</a> : null}</div></section>; }
 function Timeline({ movimentacoes, onNova }: { movimentacoes: Movimentacao[]; onNova: () => void }) { return <section className="homologacao-card"><div className="section-actions"><h3>Histórico cronológico</h3><button className="btn-primary compact" type="button" onClick={onNova}>Nova movimentação</button></div><div className="timeline">{movimentacoes.length ? movimentacoes.map((m) => <article key={m.id}><strong>{m.tipo} · {dataHoraBr(m.data_hora)}</strong><p>{m.descricao}</p><small>{m.canal || "Canal não informado"} · {m.pessoa_contatada || "Pessoa não informada"} · Próxima: {m.proxima_providencia || "—"}</small></article>) : <div className="empty-row">Nenhuma movimentação registrada.</div>}</div></section>; }
 function AtualizacoesContrato({ atualizacoes, onNova }: { atualizacoes: AtualizacaoContrato[]; onNova: () => void }) { return <section className="homologacao-card"><div className="section-actions"><h3>Atualizações dos dados do contrato</h3><button className="btn-primary compact" type="button" onClick={onNova}>Registrar atualização</button></div><div className="proposal-grid">{atualizacoes.length ? atualizacoes.map((item) => <article key={item.id}><strong>{dataHoraBr(item.data_atualizacao)}</strong><span>Saldo: {dinheiro(item.saldo_devedor_atual)} · Atrasadas: {item.parcelas_em_atraso ?? "—"} · Quitação hoje: {dinheiro(item.valor_quitacao_hoje)}</span><small>Desconto: {item.percentual_desconto ?? "—"}% · Validade: {dataBr(item.validade_proposta)} · Protocolo: {item.protocolo || "—"}</small>{item.observacoes ? <p>{item.observacoes}</p> : null}{item.comprovante_url ? <a href={item.comprovante_url} target="_blank" rel="noreferrer">Abrir comprovante</a> : null}</article>) : <div className="empty-row">Nenhuma atualização contratual registrada.</div>}</div></section>; }
 function ListaPropostas({ propostas, onNova }: { propostas: Proposta[]; onNova: () => void }) { return <section className="homologacao-card"><div className="section-actions"><h3>Propostas apresentadas</h3><button className="btn-primary compact" type="button" onClick={onNova}>Nova proposta</button></div><div className="proposal-grid">{propostas.length ? propostas.map((p) => <article key={p.id}><strong>{p.decisao} · {dataBr(p.data_proposta)}</strong><span>Banco: {dinheiro(p.valor_banco)} · Cliente: {dinheiro(p.valor_cliente)} · Final: {dinheiro(p.valor_final)}</span><small>Desconto {p.percentual_desconto ?? "—"}% · validade {dataBr(p.validade)} · {p.representante || "sem representante"}</small><p>{p.condicoes_quitacao || p.justificativa || "Sem observações."}</p>{p.comprovante_url ? <a href={p.comprovante_url} target="_blank" rel="noreferrer">Abrir documento</a> : null}</article>) : <div className="empty-row">Nenhuma proposta salva.</div>}</div></section>; }
