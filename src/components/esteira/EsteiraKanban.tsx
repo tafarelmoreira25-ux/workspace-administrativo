@@ -45,7 +45,7 @@ const ETAPAS_FORMULARIO = [
   ["procuracao", "Procuração"],
   ["crm", "CRM"],
   ["elite", "Elite"],
-  ["sla", "SLA"],
+  ["sla", "Prazo"],
   ["retorno", "Pasta retornada"],
   ["protocolo", "Protocolo"],
   ["distribuicao", "Distribuição"],
@@ -458,7 +458,7 @@ export default function EsteiraKanban({
     if (processoEditando) {
       await registrarAuditoria(String(processoEditando.id), usuario?.email || usuario?.nome || "Usuário", [
         ["Elite", processoEditando.documentos_elite_status, payload.documentos_elite_status],
-        ["SLA", processoEditando.sla_iniciado_em || processoEditando.data_envio_elite, payload.sla_iniciado_em],
+        ["Prazo", processoEditando.sla_iniciado_em || processoEditando.data_envio_elite, payload.sla_iniciado_em],
         ["Pasta retornada", processoEditando.pasta_retorno_status, payload.pasta_retorno_status],
         ["Protocolo", processoEditando.numero_processo, payload.numero_processo],
       ]);
@@ -526,7 +526,7 @@ export default function EsteiraKanban({
                       <small>{dias ? `${dias} dia${dias === 1 ? "" : "s"} na etapa` : "Entrada recente"}</small>
                     </div>
                     <div className="protocolo-ficha-meta">
-                      <span>{etapaAtual(processo)}</span>
+                      <span>{etapaAtual(processo) === "SLA" ? "Prazo" : etapaAtual(processo)}</span>
                       {processo.data_envio_elite ? <small>{prazo.rotulo}</small> : null}
                     </div>
                   </button>
@@ -610,17 +610,17 @@ export default function EsteiraKanban({
                 <label><span>Elite</span><select value={formulario.documentos_elite_status} onChange={(e) => setFormulario((f) => ({ ...f, documentos_elite_status: e.target.value }))}>{STATUS_ELITE.map((item) => <option key={item}>{item}</option>)}</select></label>
                 <div className="sla-preview">
                   <span>Enviado</span><strong>{formatarDataHora(processoEditando?.data_envio_elite)}</strong>
-                  <small>Ao marcar como Enviado e salvar, o SLA de 20 dias úteis inicia automaticamente.</small>
+                  <small>Ao marcar como Enviado e salvar, o prazo de 20 dias úteis inicia automaticamente.</small>
                 </div>
               </div>
             </section> : null}
 
             {etapaFormulario === "sla" ? <section className="protocolo-form-section">
-              <h4>Controle do SLA</h4>
+              <h4>Controle do prazo</h4>
               {processoEditando?.data_envio_elite ? (() => {
                 const prazo = calcularPrazoElite(processoEditando.data_envio_elite);
                 return <div className="protocolo-sla-resumo"><div><span>Data inicial</span><strong>{formatarDataHora(processoEditando.data_envio_elite)}</strong></div><div><span>Dias úteis decorridos</span><strong>{prazo.diasUteisDecorridos}</strong></div><div><span>Prazo restante</span><strong>{prazo.diasUteisRestantes}</strong></div><div><span>Data prevista</span><strong>{formatarData(prazo.dataPrevista)}</strong></div><div><span>Situação</span><strong className={`sla-status ${classeSla(prazo.sinalizacao)}`}>{prazo.rotulo}</strong></div></div>;
-              })() : <div className="empty-row">O SLA começará quando o encaminhamento à Elite for marcado como Enviado e salvo.</div>}
+              })() : <div className="empty-row">O prazo começará quando o encaminhamento à Elite for marcado como Enviado e salvo.</div>}
             </section> : null}
 
             {etapaFormulario === "retorno" ? <section className="protocolo-form-section">
@@ -631,7 +631,7 @@ export default function EsteiraKanban({
                 <label><span>Motivo</span><input value={formulario.pasta_retorno_motivo} onChange={(e) => setFormulario((f) => ({ ...f, pasta_retorno_motivo: e.target.value }))} /></label>
                 <label><span>Responsabilidade</span><select value={formulario.pasta_retorno_responsabilidade} onChange={(e) => setFormulario((f) => ({ ...f, pasta_retorno_responsabilidade: e.target.value }))}>{RESPONSABILIDADES.map((item) => <option key={item}>{item}</option>)}</select></label>
                 <label><span>Documento faltante</span><input value={formulario.pasta_retorno_documento_faltante} onChange={(e) => setFormulario((f) => ({ ...f, pasta_retorno_documento_faltante: e.target.value }))} /></label>
-                <label><span>Impacto no SLA</span><select value={formulario.pasta_retorno_impacto_sla} onChange={(e) => setFormulario((f) => ({ ...f, pasta_retorno_impacto_sla: e.target.value }))}>{IMPACTO_SLA.map((item) => <option key={item}>{item}</option>)}</select></label>
+                <label><span>Impacto no prazo</span><select value={formulario.pasta_retorno_impacto_sla} onChange={(e) => setFormulario((f) => ({ ...f, pasta_retorno_impacto_sla: e.target.value }))}>{IMPACTO_SLA.map((item) => <option key={item}>{item}</option>)}</select></label>
                 <label><span>Data da regularização</span><input type="date" value={formulario.pasta_retorno_data_regularizacao} onChange={(e) => setFormulario((f) => ({ ...f, pasta_retorno_data_regularizacao: e.target.value }))} /></label>
                 <label><span>Data do reenvio</span><input type="date" value={formulario.pasta_retorno_data_reenvio} onChange={(e) => setFormulario((f) => ({ ...f, pasta_retorno_data_reenvio: e.target.value }))} /></label>
                 <label className="wide"><span>Descrição/observação</span><textarea rows={2} value={formulario.pasta_retorno_descricao || formulario.pasta_retorno_observacao} onChange={(e) => setFormulario((f) => ({ ...f, pasta_retorno_descricao: e.target.value, pasta_retorno_observacao: e.target.value }))} /></label>

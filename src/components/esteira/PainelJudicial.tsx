@@ -7,6 +7,7 @@ import {
   type Processo,
 } from "../../lib/esteiraProcessual";
 import { sincronizarClienteDoProcesso } from "../../lib/processDataSync";
+import { agruparTimelineProcessual, descricoesDiferentes, mapearMovimentacaoTimeline } from "../../lib/historicoAdministrativo";
 
 type Props = {
   processos: Processo[];
@@ -1314,6 +1315,7 @@ function TimelineProcessual({
     if (filtro === "Todos") return true;
     return categorias.includes(movimentacao.categoria || "Movimentação processual");
   });
+  const fases = agruparTimelineProcessual(itens.map(mapearMovimentacaoTimeline));
 
   return (
     <div className="timeline-shell">
@@ -1327,8 +1329,11 @@ function TimelineProcessual({
       {itens.length === 0 ? (
         <div className="empty-row timeline-empty-cta"><span>Nenhum evento registrado para este filtro.</span><button className="btn-primary compact" type="button" onClick={onAdd}>Adicionar primeira movimentação</button></div>
       ) : (
-        <div className="timeline-list">
-          {itens.map((movimentacao) => {
+        <div className="timeline-phases">
+          {fases.map((fase) => <section className="timeline-phase" key={fase.id}>
+            <header className="timeline-phase-header"><div><strong>{fase.titulo}</strong>{fase.subtitulo ? <span>{fase.subtitulo}</span> : null}</div><small>{fase.itens.length} {fase.itens.length === 1 ? "movimentação" : "movimentações"}</small></header>
+            <div className="timeline-list">{fase.itens.map((item) => {
+            const movimentacao = item.movimentacao as MovimentacaoProcessual;
             const categoria = movimentacao.categoria || "Movimentação processual";
             const importancia = movimentacao.importancia || "Normal";
             return (
@@ -1337,15 +1342,15 @@ function TimelineProcessual({
                 <div className="timeline-card">
                   <header>
                     <div>
-                      <time dateTime={movimentacao.data_registro}>{formatarDataHora(movimentacao.data_registro)}</time>
-                      <h5>{movimentacao.titulo || movimentacao.tipo || "Movimentação registrada"}</h5>
+                      {movimentacao.data_registro ? <time dateTime={movimentacao.data_registro}>{formatarDataHora(movimentacao.data_registro)}</time> : null}
+                      <h5>{item.ordemMovimentacao ? `${String(item.ordemMovimentacao).padStart(2, "0")}  ` : ""}{item.titulo}</h5>
                     </div>
                     <div className="timeline-badges">
                       <span>{categoria}</span>
                       <span className={`importance ${normalizar(importancia)}`}>{importancia}</span>
                     </div>
                   </header>
-                  <p>{movimentacao.descricao_tecnica || movimentacao.descricao}</p>
+                  {descricoesDiferentes(item.titulo, movimentacao.descricao_tecnica || movimentacao.descricao) ? <p>{movimentacao.descricao_tecnica || movimentacao.descricao}</p> : null}
                   {movimentacao.resumo_cliente ? <blockquote>{movimentacao.resumo_cliente}</blockquote> : null}
                   <footer>
                     <span>Responsável: {movimentacao.responsavel || movimentacao.created_by_nome || "Não informado"}</span>
@@ -1359,7 +1364,7 @@ function TimelineProcessual({
                 </div>
               </article>
             );
-          })}
+          })}</div></section>)}
         </div>
       )}
     </div>

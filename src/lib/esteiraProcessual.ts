@@ -134,7 +134,7 @@ export type Processo = {
 export type MovimentacaoProcessual = {
   id: string;
   processo_id: string;
-  data_registro: string;
+  data_registro: string | null;
   descricao: string;
   tipo?: string;
   categoria?: string | null;
@@ -146,6 +146,11 @@ export type MovimentacaoProcessual = {
   link?: string | null;
   importancia?: "Normal" | "Relevante" | "Crítico" | string | null;
   anexo_url?: string | null;
+  possui_anexo?: boolean | null;
+  fase?: "extrajudicial_administrativa" | "transicao_judicial" | "judicial" | string | null;
+  ordem_fase?: number | null;
+  ordem_movimentacao?: number | null;
+  ordem_historico?: number | null;
   proxima_providencia?: string | null;
   proxima_revisao?: string | null;
   criar_tarefa_relacionada?: boolean | null;

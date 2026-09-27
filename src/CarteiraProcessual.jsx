@@ -1,10 +1,16 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "./lib/supabase";
 import { sincronizarClienteDoProcesso } from "./lib/processDataSync";
+import { agruparTimelineProcessual, descricoesDiferentes, mapearMovimentacaoTimeline, ordenarTimelineProcessual } from "./lib/historicoAdministrativo";
 import Pagination from "./components/common/Pagination";
 import "./carteiraProcessual.css";
 
 const PAGE_SIZE = 30;
+const ESPECIALISTAS_DIREITO_BANCARIO = [
+  "Marykeller de Mello OAB/SP 336.677",
+  "Juliana Cristina Galzo OAB/SP 524.585",
+  "Tafarel Moreira - Auxiliar Juridico com registro ativo - JUS.BR",
+];
 const EMPRESA_REPRESENTANTE = "Platino Soluções Financeiras";
 const TIPOS_ACAO = ["Ação Revisional Extrajudicial", "Ação Revisional de Juros/Bancária"];
 const STATUS_PROCESSO = ["Em andamento", "Pendente de protocolo", "Suspenso / Sobrestado", "Encerrado", "TRAMITANDO", "ARQUIVADO", "BAIXA DEFINITIVA", "SENTENÇA PROCEDENTE", "SENTENÇA IMPROCEDENTE", "REDISTRIBUIÇÃO", "JULGADO"];
@@ -33,7 +39,7 @@ export default function CarteiraProcessual({ showToast, usuario, processoInicial
   const [cadastroAberto, setCadastroAberto] = useState(false);
   const [salvandoCadastro, setSalvandoCadastro] = useState(false);
   const [cadastroErro, setCadastroErro] = useState("");
-  const [novoProcesso, setNovoProcesso] = useState(() => ({ ...NOVO_PROCESSO_INICIAL, responsavel: usuario?.nome || "" }));
+  const [novoProcesso, setNovoProcesso] = useState(() => ({ ...NOVO_PROCESSO_INICIAL }));
   const [movimento, setMovimento] = useState(() => ({ ...MOVIMENTO_INICIAL, responsavel: usuario?.nome || "" }));
   const [acao, setAcao] = useState(ACAO_INICIAL);
   const processoInicialCarregado = useRef(null);
@@ -65,7 +71,7 @@ export default function CarteiraProcessual({ showToast, usuario, processoInicial
   async function abrirProcesso(item) {
     setProcesso(item);
     const [movReq, tarefasReq] = await Promise.all([
-      supabase.from("movimentacoes").select("*").eq("processo_id", item.id).is("deleted_at", null).order("data_registro", { ascending: false }).limit(300),
+      supabase.from("movimentacoes").select("*").eq("processo_id", item.id).is("deleted_at", null).order("ordem_historico", { ascending: false, nullsFirst: false }).order("data_registro", { ascending: false, nullsFirst: false }).limit(300),
       supabase.from("processual_tarefas").select("*").eq("processo_id", item.id).order("created_at", { ascending: false }).limit(300),
     ]);
     setMovimentacoes(movReq.error ? [] : movReq.data || []);
@@ -75,12 +81,20 @@ export default function CarteiraProcessual({ showToast, usuario, processoInicial
   async function sincronizarDataJud() {
     if (!processo?.id || sincronizandoDataJud) return;
     setSincronizandoDataJud(true);
-    const { data, error } = await supabase.functions.invoke("processual-datajud-sync", { body: { processo_id: processo.id } });
-    if (error) showToast?.(`Não foi possível consultar o DataJud: ${error.message}`);
-    else if (data?.erro) showToast?.(data.erro);
-    else showToast?.(`DataJud atualizado: ${data?.movimentos || 0} movimentações importadas.`);
-    await abrirProcesso(processo);
-    setSincronizandoDataJud(false);
+    try {
+      const { data, error } = await supabase.functions.invoke("processual-datajud-sync", { body: { processo_id: processo.id } });
+      let detalhe = "";
+      if (error?.context && typeof error.context.json === "function") {
+        try { detalhe = (await error.context.clone().json())?.erro || ""; } catch { detalhe = ""; }
+      }
+      if (error) showToast?.(`Não foi possível consultar o DataJud: ${detalhe || error.message}`);
+      else if (data?.erro) showToast?.(data.detalhe ? `${data.erro} ${data.detalhe}` : data.erro);
+      else if (data?.sincronizado === false) showToast?.(data.motivo || "Processo não localizado no DataJud.");
+      else showToast?.(`DataJud atualizado: ${data?.movimentos || 0} nova(s) movimentação(ões) importada(s).`);
+      await abrirProcesso(processo);
+    } finally {
+      setSincronizandoDataJud(false);
+    }
   }
 
   async function alterarStatus(item, status) {
@@ -115,15 +129,19 @@ export default function CarteiraProcessual({ showToast, usuario, processoInicial
 
   const timeline = useMemo(() => {
     const itensReais = [
-    ...movimentacoes.map((item) => ({ id: `m-${item.id}`, data: item.data_andamento || item.data_registro, titulo: item.titulo || item.tipo || "Movimentação registrada", descricao: item.descricao, detalhe: item.proxima_providencia, responsavel: item.responsavel || item.created_by_nome, origem: item.origem || "manual", movimentacao: item })),
-    ...tarefas.map((item) => ({ id: `t-${item.id}`, data: item.created_at, titulo: `${item.tipo}: ${item.titulo}`, descricao: item.descricao || item.observacao, detalhe: `Prazo: ${dataBR(item.data)} · ${item.status}`, responsavel: item.responsavel })),
+    ...movimentacoes.map(mapearMovimentacaoTimeline),
+    ...tarefas.map((item) => ({ id: `t-${item.id}`, data: item.created_at, criadoEm: item.created_at, fase: "judicial", ordemFase: 3, titulo: `${item.tipo}: ${item.titulo}`, descricao: item.descricao || item.observacao, detalhe: `Prazo: ${dataBR(item.data)} · ${item.status}`, responsavel: item.responsavel })),
     ];
-    return itensReais.sort((a, b) => String(b.data).localeCompare(String(a.data)));
+    return itensReais.sort(ordenarTimelineProcessual);
   }, [movimentacoes, tarefas]);
 
   async function atualizarMovimentacao(movimentacao, alteracoes) {
-    if (!processo || !movimentacao?.id || !alteracoes.data) return false;
-    const dataRegistro = `${alteracoes.data}T12:00:00`;
+    if (!processo || !movimentacao?.id) return false;
+    if (["datajud", "escavador"].includes(movimentacao.origem)) {
+      showToast?.("Movimentações automáticas são somente para consulta.");
+      return false;
+    }
+    const dataRegistro = alteracoes.data ? `${alteracoes.data}T12:00:00` : null;
     const payload = {
       data_registro: dataRegistro,
       responsavel: alteracoes.responsavel.trim() || null,
@@ -155,7 +173,7 @@ export default function CarteiraProcessual({ showToast, usuario, processoInicial
   }
 
   function abrirCadastro() {
-    setNovoProcesso({ ...NOVO_PROCESSO_INICIAL, responsavel: usuario?.nome || "" });
+    setNovoProcesso({ ...NOVO_PROCESSO_INICIAL });
     setCadastroErro("");
     setCadastroAberto(true);
   }
@@ -230,13 +248,17 @@ export default function CarteiraProcessual({ showToast, usuario, processoInicial
     setCadastroAberto(false);
     setSalvandoCadastro(false);
     setCadastroErro("");
-    setNovoProcesso({ ...NOVO_PROCESSO_INICIAL, responsavel: usuario?.nome || "" });
+    setNovoProcesso({ ...NOVO_PROCESSO_INICIAL });
     showToast?.(judicial ? "Processo judicial cadastrado." : "Ação extrajudicial cadastrada.");
     await abrirProcesso(processoSalvo);
   }
 
   async function excluirMovimentacao(movimentacao) {
     if (!processo || !movimentacao?.id) return false;
+    if (["datajud", "escavador"].includes(movimentacao.origem)) {
+      showToast?.("Movimentações automáticas não podem ser excluídas pela ficha.");
+      return false;
+    }
     if (!window.confirm("Excluir este registro do histórico?")) return false;
     const excluidoEm = new Date().toISOString();
     const excluidoPor = usuario?.nome || usuario?.email || null;
@@ -311,6 +333,16 @@ export default function CarteiraProcessual({ showToast, usuario, processoInicial
   </>;
 }
 
+function SeletorEspecialista({ value, onChange, required = false }) {
+  const valorLegado = value && !ESPECIALISTAS_DIREITO_BANCARIO.includes(value) ? value : null;
+
+  return <select value={value} onChange={onChange} required={required}>
+    <option value="">Selecione</option>
+    {valorLegado ? <option value={valorLegado}>{valorLegado}</option> : null}
+    {ESPECIALISTAS_DIREITO_BANCARIO.map((especialista) => <option key={especialista} value={especialista}>{especialista}</option>)}
+  </select>;
+}
+
 function FichaProcessual({ processo, timeline, registrando, setRegistrando, movimento, setMovimento, acao, setAcao, concluir, atualizarMovimentacao, excluirMovimentacao, salvando, sincronizarDataJud, sincronizandoDataJud, salvarInformacoes, salvandoInformacoes, voltar }) {
   const [editandoInformacoes, setEditandoInformacoes] = useState(false);
   const [informacoes, setInformacoes] = useState(null);
@@ -380,13 +412,13 @@ function FichaProcessual({ processo, timeline, registrando, setRegistrando, movi
       <div className="processual-dados-grid">
         <label><span>Ação</span><select value={informacoes.tipo_acao} onChange={(e) => setInformacoes((atuais) => ({ ...atuais, tipo_acao: e.target.value }))}>{informacoes.tipo_acao && !TIPOS_ACAO.includes(informacoes.tipo_acao) ? <option value={informacoes.tipo_acao}>{informacoes.tipo_acao}</option> : null}{TIPOS_ACAO.map((tipo) => <option key={tipo}>{tipo}</option>)}</select></label>
         <label><span>Parte contrária</span><input value={informacoes.reu} onChange={(e) => setInformacoes((atuais) => ({ ...atuais, reu: e.target.value }))} /></label>
-        <label><span>Especialista em direito bancário</span><input value={informacoes.responsavel} onChange={(e) => setInformacoes((atuais) => ({ ...atuais, responsavel: e.target.value }))} placeholder="Advogado ou representante jurídico" /></label>
+        <label><span>Especialista em direito bancário</span><SeletorEspecialista value={informacoes.responsavel} onChange={(e) => setInformacoes((atuais) => ({ ...atuais, responsavel: e.target.value }))} /></label>
         {!extrajudicial ? <><label><span>Tribunal</span><input value={informacoes.tribunal} onChange={(e) => setInformacoes((atuais) => ({ ...atuais, tribunal: e.target.value }))} /></label><label><span>Vara/Juízo</span><input value={informacoes.vara} onChange={(e) => setInformacoes((atuais) => ({ ...atuais, vara: e.target.value }))} /></label><label><span>Comarca</span><input value={informacoes.comarca} onChange={(e) => setInformacoes((atuais) => ({ ...atuais, comarca: e.target.value }))} /></label></> : null}
       </div>
       <footer><button className="btn-secondary" onClick={() => setEditandoInformacoes(false)} disabled={salvandoInformacoes} type="button">Cancelar</button><button className="btn-primary" disabled={salvandoInformacoes} type="submit">{salvandoInformacoes ? "Salvando..." : "Salvar informações"}</button></footer>
     </form> : null}
     {registrando ? <FormularioMovimentacao movimento={movimento} setMovimento={setMovimento} acao={acao} setAcao={setAcao} concluir={concluir} salvando={salvando} cancelar={() => setRegistrando(false)} /> : null}
-    <section className="processual-timeline"><div className="processual-progress-title"><div><h3>Progresso da ação</h3><p>Movimentações registradas em ordem cronológica.</p></div><strong>{timeline.length} {timeline.length === 1 ? "registro" : "registros"}</strong></div>{timeline.length ? timeline.map((item, indice) => <article className={`timeline-item ${indice === 0 ? "timeline-current" : "timeline-done"} timeline-${["escavador", "datajud"].includes(item.origem) ? "automatico" : "manual"}`} key={item.id}><time dateTime={item.data}>{dataBR(item.data)}</time><div><header><strong>{item.titulo}</strong><div className="timeline-header-actions">{["escavador", "datajud"].includes(item.origem) ? <span className="timeline-badge">{item.origem === "datajud" ? "DataJud/CNJ" : "Captura automática"}</span> : null}{item.movimentacao ? <details className="timeline-actions-menu"><summary aria-label="Ações do registro" title="Ações">•••</summary><div><button disabled={salvando} onClick={() => iniciarEdicaoRegistro(item)} type="button">Modificar</button><button className="danger" disabled={salvando} onClick={() => void excluirRegistro(item)} type="button">Excluir</button></div></details> : null}</div></header>{registroEditando?.id === item.id ? <form className="timeline-edit-form" onSubmit={concluirEdicaoRegistro}><label><span>Data</span><input required type="date" value={registroEditando.data} onChange={(e) => setRegistroEditando((atual) => ({ ...atual, data: e.target.value }))} /></label><label><span>Responsável</span><input value={registroEditando.responsavel} onChange={(e) => setRegistroEditando((atual) => ({ ...atual, responsavel: e.target.value }))} /></label><div><button className="btn-secondary" disabled={salvando} onClick={() => setRegistroEditando(null)} type="button">Cancelar</button><button className="btn-primary" disabled={salvando} type="submit">{salvando ? "Salvando..." : "Salvar"}</button></div></form> : <>{item.descricao ? <p>{item.descricao}</p> : null}{item.detalhe ? <span>{item.detalhe}</span> : null}<small>Responsável: {item.responsavel || "Não informado"}</small></>}</div></article>) : <div className="empty-row">Nenhuma movimentação registrada.</div>}</section>
+    <section className="processual-timeline"><div className="processual-progress-title"><div><h3>Progresso da ação</h3><p>Jornada processual organizada por fase.</p></div><strong>{timeline.length} {timeline.length === 1 ? "registro" : "registros"}</strong></div>{timeline.length ? agruparTimelineProcessual(timeline).map((fase) => <section className="timeline-phase" key={fase.id}><header className="timeline-phase-header"><div><strong>{fase.titulo}</strong>{fase.subtitulo ? <span>{fase.subtitulo}</span> : null}</div><small>{fase.itens.length} {fase.itens.length === 1 ? "movimentação" : "movimentações"}</small></header><div className="timeline-phase-list">{fase.itens.map((item) => { const automatico = ["escavador", "datajud"].includes(item.origem); return <article className={`timeline-item timeline-done timeline-${automatico ? "automatico" : "manual"}`} key={item.id}>{item.data ? <time dateTime={item.data}>{dataBR(item.data)}</time> : null}<div><header><strong>{item.ordemMovimentacao ? `${String(item.ordemMovimentacao).padStart(2, "0")}  ` : ""}{item.titulo}</strong><div className="timeline-header-actions">{item.possuiAnexo ? <span className="timeline-attachment" title="Anexo disponível no Drive do cliente" aria-label="Anexo disponível no Drive do cliente">Anexo</span> : null}{automatico ? <span className="timeline-badge">{item.origem === "datajud" ? "DataJud/CNJ" : "Captura automática"}</span> : null}{item.movimentacao && !automatico ? <details className="timeline-actions-menu"><summary aria-label="Ações do registro" title="Ações">•••</summary><div><button disabled={salvando} onClick={() => iniciarEdicaoRegistro(item)} type="button">Modificar</button><button className="danger" disabled={salvando} onClick={() => void excluirRegistro(item)} type="button">Excluir</button></div></details> : null}</div></header>{registroEditando?.id === item.id ? <form className="timeline-edit-form" onSubmit={concluirEdicaoRegistro}><label><span>Data</span><input type="date" value={registroEditando.data} onChange={(e) => setRegistroEditando((atual) => ({ ...atual, data: e.target.value }))} /></label><label><span>Responsável</span><input value={registroEditando.responsavel} onChange={(e) => setRegistroEditando((atual) => ({ ...atual, responsavel: e.target.value }))} /></label><div><button className="btn-secondary" disabled={salvando} onClick={() => setRegistroEditando(null)} type="button">Cancelar</button><button className="btn-primary" disabled={salvando} type="submit">{salvando ? "Salvando..." : "Salvar"}</button></div></form> : <>{descricoesDiferentes(item.titulo, item.descricao) ? <p>{item.descricao}</p> : null}{item.detalhe ? <span>{item.detalhe}</span> : null}<small>{automatico ? "Registro automático, somente leitura" : `Responsável: ${item.responsavel || "Não informado"}`}</small></>}</div></article>; })}</div></section>) : <div className="empty-row">Nenhuma movimentação registrada.</div>}</section>
   </section>;
 }
 
@@ -406,7 +438,7 @@ function FormularioNovoProcesso({ form, setForm, salvando, erro, onSubmit, onClo
         <label><span>Parte contrária</span><input value={form.reu} onChange={(e) => setForm((atual) => ({ ...atual, reu: e.target.value }))} /></label>
         <label><span>Banco/instituição</span><input value={form.banco_reu} onChange={(e) => setForm((atual) => ({ ...atual, banco_reu: e.target.value }))} /></label>
         <label><span>{judicial ? "Data de distribuição" : "Data de início"}</span><input type="date" value={form.data_distribuicao} onChange={(e) => setForm((atual) => ({ ...atual, data_distribuicao: e.target.value }))} /></label>
-        <label className="span-2"><span>Especialista em direito bancário</span><input value={form.responsavel} onChange={(e) => setForm((atual) => ({ ...atual, responsavel: e.target.value }))} placeholder="Advogado ou representante jurídico" /></label>
+        <label className="span-2"><span>Especialista em direito bancário</span><SeletorEspecialista value={form.responsavel} onChange={(e) => setForm((atual) => ({ ...atual, responsavel: e.target.value }))} /></label>
         {judicial ? <><label><span>Tribunal</span><input value={form.tribunal} onChange={(e) => setForm((atual) => ({ ...atual, tribunal: e.target.value }))} /></label><label><span>Comarca</span><input value={form.comarca} onChange={(e) => setForm((atual) => ({ ...atual, comarca: e.target.value }))} /></label><label><span>Vara/Juízo</span><input value={form.vara} onChange={(e) => setForm((atual) => ({ ...atual, vara: e.target.value }))} /></label></> : null}
         <label className="wide"><span>Observações</span><textarea rows={4} value={form.observacoes} onChange={(e) => setForm((atual) => ({ ...atual, observacoes: e.target.value }))} /></label>
       </div>

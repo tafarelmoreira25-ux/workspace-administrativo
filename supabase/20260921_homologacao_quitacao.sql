@@ -8,8 +8,8 @@ create extension if not exists pgcrypto;
 
 create table if not exists public.homologacoes (
   id uuid primary key default gen_random_uuid(),
-  cliente_id uuid null,
-  processo_id uuid null,
+  cliente_id bigint null,
+  processo_id bigint null,
   cliente_nome text not null,
   cpf_cnpj text,
   telefone text,
@@ -270,7 +270,7 @@ begin
     execute format('alter table public.%I enable row level security', t);
     execute format('revoke all on public.%I from anon', t);
     execute format('grant select, insert, update, delete on public.%I to authenticated', t);
-    execute format('drop policy if exists %L on public.%I', 'Equipe gerencia ' || t, t);
+    execute format('drop policy if exists %I on public.%I', 'Equipe gerencia ' || t, t);
     execute format('create policy %I on public.%I for all to authenticated using (true) with check (true)', 'Equipe gerencia ' || t, t);
   end loop;
 end $$;
