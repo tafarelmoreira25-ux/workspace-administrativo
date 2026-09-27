@@ -623,6 +623,25 @@
   gap: 14px;
 }
 
+.timeline-phases {
+  display: grid;
+  gap: 22px;
+}
+
+.timeline-phase-header {
+  align-items: flex-end;
+  border-bottom: 1px solid #cfd8e3;
+  border-top: 1px solid #cfd8e3;
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 14px;
+  padding: 10px 2px;
+}
+
+.timeline-phase-header > div { display: grid; gap: 1px; }
+.timeline-phase-header strong { color: #17243a; font-size: 13px; text-transform: uppercase; }
+.timeline-phase-header span, .timeline-phase-header small { color: #667085; font-size: 11px; font-weight: 700; text-transform: uppercase; }
+
 .timeline-filters {
   display: flex;
   flex-wrap: wrap;

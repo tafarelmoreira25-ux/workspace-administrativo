@@ -6,6 +6,9 @@ begin;
 alter table if exists public.movimentacoes
   alter column data_registro drop not null,
   add column if not exists ordem_historico integer,
+  add column if not exists fase text,
+  add column if not exists ordem_fase integer,
+  add column if not exists ordem_movimentacao integer,
   add column if not exists possui_anexo boolean not null default false;
 
 alter table if exists public.movimentacoes
@@ -64,6 +67,9 @@ begin
     processo_id,
     data_registro,
     ordem_historico,
+    fase,
+    ordem_fase,
+    ordem_movimentacao,
     tipo,
     categoria,
     titulo,
@@ -81,9 +87,15 @@ begin
     v_processo.id,
     null::timestamptz,
     item.ordem,
+    case when item.ordem <= 25 then 'extrajudicial_administrativa' else 'transicao_judicial' end,
+    case when item.ordem <= 25 then 1 else 2 end,
+    item.ordem,
     'historico administrativo',
     'AÇÃO EXTRAJUDICIAL - ADMINISTRATIVA',
-    item.titulo,
+    case
+      when item.ordem = 1 then item.titulo || ': ' || coalesce(nullif(v_processo.id_crm, ''), nullif(v_processo.pasta_cliente_id, ''), v_processo.id::text)
+      else item.titulo
+    end,
     case
       when item.ordem = 1 then item.descricao || ': ' || coalesce(nullif(v_processo.id_crm, ''), nullif(v_processo.pasta_cliente_id, ''), v_processo.id::text)
       else item.descricao
@@ -135,6 +147,9 @@ begin
   where origem = 'import' and fonte = 'Historico administrativo extrajudicial padrao' and deleted_at is null
   do update set
     data_registro = null,
+    fase = excluded.fase,
+    ordem_fase = excluded.ordem_fase,
+    ordem_movimentacao = excluded.ordem_movimentacao,
     tipo = excluded.tipo,
     categoria = excluded.categoria,
     titulo = excluded.titulo,
