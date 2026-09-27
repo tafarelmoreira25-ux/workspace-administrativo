@@ -130,7 +130,7 @@ export default function CarteiraProcessual({ showToast, usuario, processoInicial
   const timeline = useMemo(() => {
     const itensReais = [
     ...movimentacoes.map(mapearMovimentacaoTimeline),
-    ...tarefas.map((item) => ({ id: `t-${item.id}`, data: item.created_at, fase: "judicial", ordemFase: 3, titulo: `${item.tipo}: ${item.titulo}`, descricao: item.descricao || item.observacao, detalhe: `Prazo: ${dataBR(item.data)} · ${item.status}`, responsavel: item.responsavel })),
+    ...tarefas.map((item) => ({ id: `t-${item.id}`, data: item.created_at, criadoEm: item.created_at, fase: "judicial", ordemFase: 3, titulo: `${item.tipo}: ${item.titulo}`, descricao: item.descricao || item.observacao, detalhe: `Prazo: ${dataBR(item.data)} · ${item.status}`, responsavel: item.responsavel })),
     ];
     return itensReais.sort(ordenarTimelineProcessual);
   }, [movimentacoes, tarefas]);

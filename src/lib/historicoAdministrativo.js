@@ -29,9 +29,16 @@ export function ordenarTimelineProcessual(a, b) {
     if (ordemB == null) return -1;
     if (ordemA !== ordemB) return ordemA - ordemB;
   }
-  const dataA = a.data ? new Date(a.data).getTime() : 0;
-  const dataB = b.data ? new Date(b.data).getTime() : 0;
-  return dataB - dataA;
+  const dataA = a.data ? new Date(a.data).getTime() : Number.MAX_SAFE_INTEGER;
+  const dataB = b.data ? new Date(b.data).getTime() : Number.MAX_SAFE_INTEGER;
+  if (dataA !== dataB) return dataA - dataB;
+
+  const criacaoA = a.criadoEm ? new Date(a.criadoEm).getTime() : 0;
+  const criacaoB = b.criadoEm ? new Date(b.criadoEm).getTime() : 0;
+  if (criacaoA !== criacaoB) return criacaoA - criacaoB;
+
+  // Para eventos sem qualquer sequencia persistida, preserva a ordem recebida.
+  return 0;
 }
 
 export function agruparTimelineProcessual(itens) {
@@ -49,6 +56,7 @@ export function mapearMovimentacaoTimeline(item) {
   return {
     id: `m-${item.id}`,
     data: item.data_andamento || item.data_registro,
+    criadoEm: item.created_at || null,
     fase: item.fase || null,
     ordemFase: item.ordem_fase ?? null,
     ordemMovimentacao: item.ordem_movimentacao ?? item.ordem_historico ?? null,
