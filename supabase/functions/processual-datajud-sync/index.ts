@@ -6,7 +6,7 @@ type DataJudSource = {
   numeroProcesso?: string;
   tribunal?: string;
   classe?: { nome?: string };
-  orgaoJulgador?: { nome?: string };a
+  orgaoJulgador?: { nome?: string };
   dataHoraUltimaAtualizacao?: string;
   movimentos?: DataJudMovimento[];
 };
@@ -105,18 +105,31 @@ Deno.serve(async (request) => {
     };
   });
 
+  let movimentosImportados = 0;
   if (movimentos.length) {
-    const { error } = await admin.from("movimentacoes").upsert(movimentos, { onConflict: "processo_id,id_movimento_externo" });
-    if (error) return json({ erro: "Falha ao salvar movimentacoes do DataJud." }, 500);
+    const idsExternos = movimentos.map((movimento) => movimento.id_movimento_externo);
+    const { data: existentes, error: consultaError } = await admin
+      .from("movimentacoes")
+      .select("id_movimento_externo")
+      .eq("processo_id", processo.id)
+      .in("id_movimento_externo", idsExternos);
+    if (consultaError) return json({ erro: "Falha ao verificar movimentacoes existentes do DataJud.", detalhe: consultaError.message }, 500);
+
+    const idsExistentes = new Set((existentes || []).map((item) => item.id_movimento_externo));
+    const novosMovimentos = movimentos.filter((movimento) => !idsExistentes.has(movimento.id_movimento_externo));
+    if (novosMovimentos.length) {
+      const { error } = await admin.from("movimentacoes").insert(novosMovimentos);
+      if (error) return json({ erro: "Falha ao salvar movimentacoes do DataJud.", detalhe: error.message }, 500);
+      movimentosImportados = novosMovimentos.length;
+    }
   }
 
+  // O DataJud complementa o cadastro, mas nao substitui o resumo produzido pela equipe.
   await admin.from("processos").update({
     tribunal: processo.tribunal || source.tribunal || alias.toUpperCase(),
     tipo_acao: source.classe?.nome || undefined,
     vara: source.orgaoJulgador?.nome || undefined,
-    ultima_movimentacao: movimentos.at(-1)?.descricao || "Consulta DataJud realizada.",
-    ultima_movimentacao_data: source.dataHoraUltimaAtualizacao || movimentos.at(-1)?.data_registro || new Date().toISOString(),
   }).eq("id", processo.id);
 
-  return json({ sincronizado: true, tribunal: alias, movimentos: movimentos.length });
+  return json({ sincronizado: true, tribunal: alias, movimentos: movimentosImportados, movimentosConsultados: movimentos.length });
 });

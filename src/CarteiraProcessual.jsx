@@ -81,12 +81,20 @@ export default function CarteiraProcessual({ showToast, usuario, processoInicial
   async function sincronizarDataJud() {
     if (!processo?.id || sincronizandoDataJud) return;
     setSincronizandoDataJud(true);
-    const { data, error } = await supabase.functions.invoke("processual-datajud-sync", { body: { processo_id: processo.id } });
-    if (error) showToast?.(`Não foi possível consultar o DataJud: ${error.message}`);
-    else if (data?.erro) showToast?.(data.erro);
-    else showToast?.(`DataJud atualizado: ${data?.movimentos || 0} movimentações importadas.`);
-    await abrirProcesso(processo);
-    setSincronizandoDataJud(false);
+    try {
+      const { data, error } = await supabase.functions.invoke("processual-datajud-sync", { body: { processo_id: processo.id } });
+      let detalhe = "";
+      if (error?.context && typeof error.context.json === "function") {
+        try { detalhe = (await error.context.clone().json())?.erro || ""; } catch { detalhe = ""; }
+      }
+      if (error) showToast?.(`Não foi possível consultar o DataJud: ${detalhe || error.message}`);
+      else if (data?.erro) showToast?.(data.detalhe ? `${data.erro} ${data.detalhe}` : data.erro);
+      else if (data?.sincronizado === false) showToast?.(data.motivo || "Processo não localizado no DataJud.");
+      else showToast?.(`DataJud atualizado: ${data?.movimentos || 0} nova(s) movimentação(ões) importada(s).`);
+      await abrirProcesso(processo);
+    } finally {
+      setSincronizandoDataJud(false);
+    }
   }
 
   async function alterarStatus(item, status) {
@@ -129,6 +137,10 @@ export default function CarteiraProcessual({ showToast, usuario, processoInicial
 
   async function atualizarMovimentacao(movimentacao, alteracoes) {
     if (!processo || !movimentacao?.id) return false;
+    if (["datajud", "escavador"].includes(movimentacao.origem)) {
+      showToast?.("Movimentações automáticas são somente para consulta.");
+      return false;
+    }
     const dataRegistro = alteracoes.data ? `${alteracoes.data}T12:00:00` : null;
     const payload = {
       data_registro: dataRegistro,
@@ -243,6 +255,10 @@ export default function CarteiraProcessual({ showToast, usuario, processoInicial
 
   async function excluirMovimentacao(movimentacao) {
     if (!processo || !movimentacao?.id) return false;
+    if (["datajud", "escavador"].includes(movimentacao.origem)) {
+      showToast?.("Movimentações automáticas não podem ser excluídas pela ficha.");
+      return false;
+    }
     if (!window.confirm("Excluir este registro do histórico?")) return false;
     const excluidoEm = new Date().toISOString();
     const excluidoPor = usuario?.nome || usuario?.email || null;
@@ -402,7 +418,7 @@ function FichaProcessual({ processo, timeline, registrando, setRegistrando, movi
       <footer><button className="btn-secondary" onClick={() => setEditandoInformacoes(false)} disabled={salvandoInformacoes} type="button">Cancelar</button><button className="btn-primary" disabled={salvandoInformacoes} type="submit">{salvandoInformacoes ? "Salvando..." : "Salvar informações"}</button></footer>
     </form> : null}
     {registrando ? <FormularioMovimentacao movimento={movimento} setMovimento={setMovimento} acao={acao} setAcao={setAcao} concluir={concluir} salvando={salvando} cancelar={() => setRegistrando(false)} /> : null}
-    <section className="processual-timeline"><div className="processual-progress-title"><div><h3>Progresso da ação</h3><p>Movimentações registradas em ordem cronológica.</p></div><strong>{timeline.length} {timeline.length === 1 ? "registro" : "registros"}</strong></div>{timeline.length ? timeline.map((item, indice) => <article className={`timeline-item ${indice === 0 ? "timeline-current" : "timeline-done"} timeline-${["escavador", "datajud"].includes(item.origem) ? "automatico" : "manual"}`} key={item.id}>{item.data ? <time dateTime={item.data}>{dataBR(item.data)}</time> : <span className="timeline-no-date">Sem data</span>}<div><header><strong>{item.titulo}</strong><div className="timeline-header-actions">{item.possuiAnexo ? <span className="timeline-attachment" title="Anexo disponivel no Drive do cliente" aria-label="Anexo disponivel no Drive do cliente">Anexo</span> : null}{["escavador", "datajud"].includes(item.origem) ? <span className="timeline-badge">{item.origem === "datajud" ? "DataJud/CNJ" : "Captura automática"}</span> : null}{item.movimentacao ? <details className="timeline-actions-menu"><summary aria-label="Ações do registro" title="Ações">•••</summary><div><button disabled={salvando} onClick={() => iniciarEdicaoRegistro(item)} type="button">Modificar</button><button className="danger" disabled={salvando} onClick={() => void excluirRegistro(item)} type="button">Excluir</button></div></details> : null}</div></header>{registroEditando?.id === item.id ? <form className="timeline-edit-form" onSubmit={concluirEdicaoRegistro}><label><span>Data</span><input type="date" value={registroEditando.data} onChange={(e) => setRegistroEditando((atual) => ({ ...atual, data: e.target.value }))} /></label><label><span>Responsável</span><input value={registroEditando.responsavel} onChange={(e) => setRegistroEditando((atual) => ({ ...atual, responsavel: e.target.value }))} /></label><div><button className="btn-secondary" disabled={salvando} onClick={() => setRegistroEditando(null)} type="button">Cancelar</button><button className="btn-primary" disabled={salvando} type="submit">{salvando ? "Salvando..." : "Salvar"}</button></div></form> : <>{item.descricao ? <p>{item.descricao}</p> : null}{item.detalhe ? <span>{item.detalhe}</span> : null}<small>Responsável: {item.responsavel || "Não informado"}</small></>}</div></article>) : <div className="empty-row">Nenhuma movimentação registrada.</div>}</section>
+    <section className="processual-timeline"><div className="processual-progress-title"><div><h3>Progresso da ação</h3><p>Movimentações registradas em ordem cronológica.</p></div><strong>{timeline.length} {timeline.length === 1 ? "registro" : "registros"}</strong></div>{timeline.length ? timeline.map((item, indice) => { const automatico = ["escavador", "datajud"].includes(item.origem); return <article className={`timeline-item ${indice === 0 ? "timeline-current" : "timeline-done"} timeline-${automatico ? "automatico" : "manual"}`} key={item.id}>{item.data ? <time dateTime={item.data}>{dataBR(item.data)}</time> : <span className="timeline-no-date">Sem data</span>}<div><header><strong>{item.titulo}</strong><div className="timeline-header-actions">{item.possuiAnexo ? <span className="timeline-attachment" title="Anexo disponivel no Drive do cliente" aria-label="Anexo disponivel no Drive do cliente">Anexo</span> : null}{automatico ? <span className="timeline-badge">{item.origem === "datajud" ? "DataJud/CNJ" : "Captura automática"}</span> : null}{item.movimentacao && !automatico ? <details className="timeline-actions-menu"><summary aria-label="Ações do registro" title="Ações">•••</summary><div><button disabled={salvando} onClick={() => iniciarEdicaoRegistro(item)} type="button">Modificar</button><button className="danger" disabled={salvando} onClick={() => void excluirRegistro(item)} type="button">Excluir</button></div></details> : null}</div></header>{registroEditando?.id === item.id ? <form className="timeline-edit-form" onSubmit={concluirEdicaoRegistro}><label><span>Data</span><input type="date" value={registroEditando.data} onChange={(e) => setRegistroEditando((atual) => ({ ...atual, data: e.target.value }))} /></label><label><span>Responsável</span><input value={registroEditando.responsavel} onChange={(e) => setRegistroEditando((atual) => ({ ...atual, responsavel: e.target.value }))} /></label><div><button className="btn-secondary" disabled={salvando} onClick={() => setRegistroEditando(null)} type="button">Cancelar</button><button className="btn-primary" disabled={salvando} type="submit">{salvando ? "Salvando..." : "Salvar"}</button></div></form> : <>{item.descricao ? <p>{item.descricao}</p> : null}{item.detalhe ? <span>{item.detalhe}</span> : null}<small>{automatico ? "Registro automático, somente leitura" : `Responsável: ${item.responsavel || "Não informado"}`}</small></>}</div></article>; }) : <div className="empty-row">Nenhuma movimentação registrada.</div>}</section>
   </section>;
 }
 
