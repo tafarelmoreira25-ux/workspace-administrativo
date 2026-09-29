@@ -19,31 +19,33 @@ function ordemDaFase(item) {
   return item.ordemFase ?? FASES_HISTORICO.find((fase) => fase.id === faseDaMovimentacao(item))?.ordem ?? 3;
 }
 
-export function ordenarTimelineProcessual(a, b) {
+export function ordenarTimelineProcessual(a, b, maisRecentesPrimeiro = true) {
+  const sentido = maisRecentesPrimeiro ? -1 : 1;
   const diferencaFase = ordemDaFase(a) - ordemDaFase(b);
-  if (diferencaFase) return diferencaFase;
+  if (diferencaFase) return diferencaFase * sentido;
   const ordemA = a.ordemMovimentacao ?? a.ordemHistorico;
   const ordemB = b.ordemMovimentacao ?? b.ordemHistorico;
   if (ordemA != null || ordemB != null) {
-    if (ordemA == null) return 1;
-    if (ordemB == null) return -1;
-    if (ordemA !== ordemB) return ordemA - ordemB;
+    if (ordemA == null) return maisRecentesPrimeiro ? -1 : 1;
+    if (ordemB == null) return maisRecentesPrimeiro ? 1 : -1;
+    if (ordemA !== ordemB) return (ordemA - ordemB) * sentido;
   }
   const dataA = a.data ? new Date(a.data).getTime() : Number.MAX_SAFE_INTEGER;
   const dataB = b.data ? new Date(b.data).getTime() : Number.MAX_SAFE_INTEGER;
-  if (dataA !== dataB) return dataA - dataB;
+  if (dataA !== dataB) return (dataA - dataB) * sentido;
 
   const criacaoA = a.criadoEm ? new Date(a.criadoEm).getTime() : 0;
   const criacaoB = b.criadoEm ? new Date(b.criadoEm).getTime() : 0;
-  if (criacaoA !== criacaoB) return criacaoA - criacaoB;
+  if (criacaoA !== criacaoB) return (criacaoA - criacaoB) * sentido;
 
   // Para eventos sem qualquer sequencia persistida, preserva a ordem recebida.
   return 0;
 }
 
-export function agruparTimelineProcessual(itens) {
-  const ordenados = [...itens].sort(ordenarTimelineProcessual);
-  return FASES_HISTORICO.map((fase) => ({ ...fase, itens: ordenados.filter((item) => faseDaMovimentacao(item) === fase.id) }))
+export function agruparTimelineProcessual(itens, maisRecentesPrimeiro = true) {
+  const ordenados = [...itens].sort((a, b) => ordenarTimelineProcessual(a, b, maisRecentesPrimeiro));
+  const fases = maisRecentesPrimeiro ? [...FASES_HISTORICO].reverse() : FASES_HISTORICO;
+  return fases.map((fase) => ({ ...fase, itens: ordenados.filter((item) => faseDaMovimentacao(item) === fase.id) }))
     .filter((fase) => fase.itens.length > 0);
 }
 
