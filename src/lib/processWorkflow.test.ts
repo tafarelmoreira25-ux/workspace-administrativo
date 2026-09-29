@@ -1,10 +1,25 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
+  pertenceAExtrajudiciais,
   pertenceAProcessos,
   pertenceAProtocolos,
   pertenceAoProcessual,
 } from "./processWorkflow.ts";
+
+test("ação extrajudicial fica fora de Protocolos e Processual", () => {
+  const acao = { numero_processo: null, fase_atual: "Extrajudicial", status_judicial: "EXTRAJUDICIAL", origem_registro: "acao_extrajudicial_manual" };
+  assert.equal(pertenceAExtrajudiciais(acao), true);
+  assert.equal(pertenceAProtocolos(acao), false);
+  assert.equal(pertenceAoProcessual(acao), false);
+});
+
+test("ao ser encaminhada, a mesma ação sai dos extrajudiciais e entra em Protocolos", () => {
+  const encaminhada = { numero_processo: null, fase_atual: "Solicitado para Ajuizamento", status_judicial: "AGUARDANDO_PROTOCOLO", origem_registro: "acao_extrajudicial_manual" };
+  assert.equal(pertenceAExtrajudiciais(encaminhada), false);
+  assert.equal(pertenceAProtocolos(encaminhada), true);
+  assert.equal(pertenceAoProcessual(encaminhada), false);
+});
 
 test("caso em distribuição sem número pertence somente a Protocolos", () => {
   const humberto = { numero_processo: null, fase_atual: "Distribuição" };

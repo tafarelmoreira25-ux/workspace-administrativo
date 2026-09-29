@@ -1,6 +1,7 @@
 import { supabase } from "./supabase";
 
 export const FASES_PROCESSUAIS = [
+  "Extrajudicial",
   "Solicitado para Ajuizamento",
   "Documentação",
   "Procuração",

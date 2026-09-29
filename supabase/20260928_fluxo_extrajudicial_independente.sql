@@ -1,32 +1,53 @@
--- Mantem a acao extrajudicial independente da distribuicao judicial.
--- Novos cadastros extrajudiciais recebem apenas o registro inicial; a
--- transicao ao judicial acontece exclusivamente por uma acao explicita.
+-- Separa a carteira extrajudicial sem perder o historico do processo.
+-- Fluxo: Extrajudiciais -> Protocolos/SLA -> Processual apos numero liberado.
 
 begin;
 
 alter table public.processos
-  add column if not exists data_inicio_extrajudicial date;
+  add column if not exists data_inicio_extrajudicial date,
+  add column if not exists protocolo_status text default 'Aguardando',
+  add column if not exists motivo_ajuizamento text;
 
 alter table public.processos
   drop constraint if exists processos_fase_atual_check;
+
+-- Converte eventuais encaminhamentos feitos pela versao anterior para o
+-- fluxo correto, sem trocar o id do processo nem seus relacionamentos.
+update public.processos
+set status_judicial = case when nullif(btrim(numero_processo), '') is null then 'AGUARDANDO_PROTOCOLO' else 'TRAMITANDO' end,
+    fase_atual = case when nullif(btrim(numero_processo), '') is null then 'Solicitado para Ajuizamento' else 'Distribuição' end,
+    protocolo_status = case when nullif(btrim(numero_processo), '') is null then 'Aguardando' else 'Liberado' end
+where status_judicial = 'TRANSICAO_JUDICIAL'
+   or fase_atual = 'Transição para o Judicial';
 
 alter table public.processos
   add constraint processos_fase_atual_check check (
     fase_atual in (
       'Extrajudicial',
-      'Transição para o Judicial',
       'Solicitado para Ajuizamento',
-      'Documentos Pendentes',
-      'Documentos Concluídos',
-      'Pré-Distribuição',
+      'Documentação',
+      'Procuração',
+      'CRM',
       'Enviado para Elite',
+      'SLA',
       'Pasta Retornada',
       'Protocolo Liberado',
+      'Pré-Distribuição',
+      'Distribuição',
       'Tramitando',
       'Arquivado',
-      'Improcedente'
+      'Improcedente',
+      'Documentos Pendentes',
+      'Documentos Concluídos'
     )
   );
+
+-- Restaura qualquer registro que uma versao anterior desta migracao tenha
+-- arquivado. Nenhuma movimentacao historica deve ser removida neste fluxo.
+update public.movimentacoes
+set deleted_at = null,
+    deleted_by = null
+where deleted_by = 'Migração: fluxo extrajudicial independente';
 
 create or replace function public.inserir_historico_administrativo_extrajudicial(p_processo_id bigint)
 returns integer
@@ -45,29 +66,19 @@ begin
   if v_processo.id is null
      or not (
        v_processo.status_judicial = 'EXTRAJUDICIAL'
-       or (v_processo.status_judicial is null and v_processo.origem_registro = 'acao_extrajudicial_manual')
+       or (
+         v_processo.status_judicial is null
+         and v_processo.origem_registro = 'acao_extrajudicial_manual'
+         and v_processo.fase_atual = 'Extrajudicial'
+       )
      ) then
     return 0;
   end if;
 
   insert into public.movimentacoes (
-    processo_id,
-    data_registro,
-    ordem_historico,
-    fase,
-    ordem_fase,
-    ordem_movimentacao,
-    tipo,
-    categoria,
-    titulo,
-    descricao,
-    resumo_cliente,
-    responsavel,
-    fonte,
-    importancia,
-    origem,
-    possui_anexo,
-    created_by_nome
+    processo_id, data_registro, ordem_historico, fase, ordem_fase,
+    ordem_movimentacao, tipo, categoria, titulo, descricao, resumo_cliente,
+    responsavel, fonte, importancia, origem, possui_anexo, created_by_nome
   ) values (
     v_processo.id,
     coalesce(v_processo.data_inicio_extrajudicial::timestamptz, v_processo.created_at, now()),
@@ -98,32 +109,12 @@ begin
 end;
 $$;
 
--- A migracao anterior criava antecipadamente todo o roteiro, inclusive a
--- distribuicao. Em acoes que continuam extrajudiciais, arquiva os passos
--- artificiais ainda nao ocorridos e preserva o primeiro registro.
-update public.movimentacoes m
-set
-  deleted_at = coalesce(m.deleted_at, now()),
-  deleted_by = coalesce(m.deleted_by, 'Migração: fluxo extrajudicial independente')
-from public.processos p
-where p.id = m.processo_id
-  and (
-    p.status_judicial = 'EXTRAJUDICIAL'
-    or (p.status_judicial is null and p.origem_registro = 'acao_extrajudicial_manual')
-  )
-  and m.origem = 'import'
-  and m.fonte = 'Historico administrativo extrajudicial padrao'
-  and m.ordem_historico between 2 and 29
-  and m.deleted_at is null;
+drop function if exists public.encaminhar_acao_extrajudicial_ao_judicial(bigint, text, date, date, text, text, text, text);
 
-create or replace function public.encaminhar_acao_extrajudicial_ao_judicial(
+create or replace function public.encaminhar_acao_extrajudicial_ao_protocolo(
   p_processo_id bigint,
-  p_numero_processo text default null,
   p_data_encaminhamento date default current_date,
-  p_data_distribuicao date default null,
-  p_tribunal text default null,
-  p_comarca text default null,
-  p_vara text default null,
+  p_motivo_ajuizamento text default 'Tentativa extrajudicial frustrada',
   p_responsavel text default null
 )
 returns public.processos
@@ -146,20 +137,21 @@ begin
 
   if not (
     v_processo.status_judicial = 'EXTRAJUDICIAL'
-    or (v_processo.status_judicial is null and v_processo.origem_registro = 'acao_extrajudicial_manual')
+    or (
+      v_processo.status_judicial is null
+      and v_processo.origem_registro = 'acao_extrajudicial_manual'
+      and v_processo.fase_atual = 'Extrajudicial'
+    )
   ) then
     raise exception 'Este cadastro não está na fase extrajudicial.';
   end if;
 
   update public.processos
   set
-    status_judicial = 'TRANSICAO_JUDICIAL',
-    fase_atual = 'Transição para o Judicial',
-    numero_processo = coalesce(nullif(btrim(p_numero_processo), ''), numero_processo),
-    data_distribuicao = coalesce(p_data_distribuicao, data_distribuicao),
-    tribunal = coalesce(nullif(btrim(p_tribunal), ''), tribunal),
-    comarca = coalesce(nullif(btrim(p_comarca), ''), comarca),
-    vara = coalesce(nullif(btrim(p_vara), ''), vara),
+    status_judicial = 'AGUARDANDO_PROTOCOLO',
+    fase_atual = 'Solicitado para Ajuizamento',
+    protocolo_status = 'Aguardando',
+    motivo_ajuizamento = coalesce(nullif(btrim(p_motivo_ajuizamento), ''), motivo_ajuizamento),
     updated_by = coalesce(nullif(btrim(p_responsavel), ''), updated_by)
   where id = p_processo_id
   returning * into v_processo;
@@ -172,38 +164,22 @@ begin
     and deleted_at is null;
 
   insert into public.movimentacoes (
-    processo_id,
-    data_registro,
-    fase,
-    ordem_fase,
-    ordem_movimentacao,
-    tipo,
-    categoria,
-    titulo,
-    descricao,
-    resumo_cliente,
-    responsavel,
-    fonte,
-    importancia,
-    origem,
-    created_by_nome
+    processo_id, data_registro, fase, ordem_fase, ordem_movimentacao, tipo,
+    categoria, titulo, descricao, resumo_cliente, responsavel, fonte,
+    importancia, origem, created_by_nome
   ) values (
     p_processo_id,
     coalesce(p_data_encaminhamento, current_date)::timestamptz,
     'transicao_judicial',
     2,
     v_ordem,
-    'encaminhamento judicial',
+    'encaminhamento para protocolo',
     'Movimentação processual',
-    'Ação encaminhada ao judicial',
-    case
-      when nullif(btrim(p_numero_processo), '') is not null
-        then 'Ação extrajudicial encaminhada ao judicial. Processo: ' || btrim(p_numero_processo)
-      else 'Ação extrajudicial encaminhada ao judicial, aguardando distribuição.'
-    end,
-    'A ação foi encaminhada ao judicial.',
+    'Ação encaminhada para Protocolos',
+    'Tentativa extrajudicial encerrada. A ação foi encaminhada ao fluxo de protocolo e distribuição.',
+    'A ação foi encaminhada para protocolo.',
     p_responsavel,
-    'Transição extrajudicial/judicial',
+    'Transição Extrajudiciais/Protocolos',
     'Relevante',
     'manual',
     p_responsavel
@@ -213,7 +189,7 @@ begin
 end;
 $$;
 
-revoke all on function public.encaminhar_acao_extrajudicial_ao_judicial(bigint, text, date, date, text, text, text, text) from public, anon;
-grant execute on function public.encaminhar_acao_extrajudicial_ao_judicial(bigint, text, date, date, text, text, text, text) to authenticated;
+revoke all on function public.encaminhar_acao_extrajudicial_ao_protocolo(bigint, date, text, text) from public, anon;
+grant execute on function public.encaminhar_acao_extrajudicial_ao_protocolo(bigint, date, text, text) to authenticated;
 
 commit;
