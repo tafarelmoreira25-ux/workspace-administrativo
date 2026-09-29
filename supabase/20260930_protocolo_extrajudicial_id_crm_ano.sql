@@ -31,7 +31,7 @@ $$;
 
 drop trigger if exists processos_definir_protocolo_extrajudicial_biu on public.processos;
 create trigger processos_definir_protocolo_extrajudicial_biu
-before insert or update of id_crm, data_inicio_extrajudicial, origem_registro, status_judicial, protocolo_extrajudicial
+before insert or update of id_crm, pasta_cliente_id, data_inicio_extrajudicial, origem_registro, status_judicial, protocolo_extrajudicial
 on public.processos
 for each row execute function public.definir_protocolo_extrajudicial();
 
