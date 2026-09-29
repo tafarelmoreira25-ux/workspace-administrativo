@@ -20,27 +20,8 @@ set status_judicial = case when nullif(btrim(numero_processo), '') is null then 
 where status_judicial = 'TRANSICAO_JUDICIAL'
    or fase_atual = 'Transição para o Judicial';
 
-alter table public.processos
-  add constraint processos_fase_atual_check check (
-    fase_atual in (
-      'Extrajudicial',
-      'Solicitado para Ajuizamento',
-      'Documentação',
-      'Procuração',
-      'CRM',
-      'Enviado para Elite',
-      'SLA',
-      'Pasta Retornada',
-      'Protocolo Liberado',
-      'Pré-Distribuição',
-      'Distribuição',
-      'Tramitando',
-      'Arquivado',
-      'Improcedente',
-      'Documentos Pendentes',
-      'Documentos Concluídos'
-    )
-  );
+-- Nao recria uma lista fechada para fase_atual. A base historica possui
+-- outras fases legitimas e elas devem ser preservadas sem conversao.
 
 -- Restaura qualquer registro que uma versao anterior desta migracao tenha
 -- arquivado. Nenhuma movimentacao historica deve ser removida neste fluxo.
