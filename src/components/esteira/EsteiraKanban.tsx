@@ -7,6 +7,7 @@ import {
   contarDiasUteisEntre,
 } from "../../lib/esteiraProcessual";
 import { sincronizarClienteDoProcesso } from "../../lib/processDataSync";
+import { numeroProtocoloExtrajudicial } from "../../lib/protocoloExtrajudicial";
 
 type Props = {
   processos: Processo[];
@@ -524,7 +525,7 @@ export default function EsteiraKanban({
                 return <article className={`protocolo-kanban-card ${classeSlaCard(processo)}`} key={processo.id}>
                   <button className="protocolo-ficha-main" type="button" onClick={() => setProcessoVisualizando(processo)}>
                     <div className="protocolo-ficha-identidade">
-                      <strong>{processo.nome_cliente}</strong>
+                      <strong>{processo.nome_cliente}{numeroProtocoloExtrajudicial(processo) ? ` · ${numeroProtocoloExtrajudicial(processo)}` : ""}</strong>
                       <span>{processo.banco_reu || "Instituição não informada"}</span>
                       {processo.numero_processo ? <code>{processo.numero_processo}</code> : null}
                     </div>

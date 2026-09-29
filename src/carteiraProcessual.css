@@ -116,6 +116,25 @@
   margin: 4px 0 0;
 }
 
+.process-name-with-protocol {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.extrajudicial-protocol {
+  background: #eef4ff;
+  border: 1px solid #c7d7fe;
+  border-radius: 999px;
+  color: #2458a6;
+  font-size: 11px;
+  font-weight: 800;
+  line-height: 1;
+  padding: 5px 8px;
+  white-space: nowrap;
+}
+
 .process-status-card-heading span,
 .process-status-card-footer small {
   color: #7789a2;

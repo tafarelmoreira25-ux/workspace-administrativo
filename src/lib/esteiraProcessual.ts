@@ -47,6 +47,7 @@ export type Processo = {
   pasta_cliente_id: string | null;
   link_pasta_cliente?: string | null;
   id_crm?: string | null;
+  protocolo_extrajudicial?: string | null;
   autor_reu: string | null;
   autor?: string | null;
   reu?: string | null;

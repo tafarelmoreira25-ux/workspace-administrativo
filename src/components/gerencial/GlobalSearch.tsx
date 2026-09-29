@@ -25,7 +25,7 @@ export default function GlobalSearch({ onSelect }: Props) {
       const like = `%${debounced}%`;
       const [clientes, processos, documentos, atendimentos] = await Promise.allSettled([
         supabase.from("clientes").select("id, nome_completo, cpf, id_crm, telefone").or(`nome_completo.ilike.${like},cpf.ilike.${like},id_crm.ilike.${like}`).limit(6),
-        supabase.from("processos").select("id, nome_cliente, cpf_cliente, id_crm, numero_processo, banco_reu, status_judicial, fase_atual, origem_registro").or(`nome_cliente.ilike.${like},cpf_cliente.ilike.${like},id_crm.ilike.${like},numero_processo.ilike.${like},banco_reu.ilike.${like}`).limit(6),
+        supabase.from("processos").select("id, nome_cliente, cpf_cliente, id_crm, protocolo_extrajudicial, numero_processo, banco_reu, status_judicial, fase_atual, origem_registro").or(`nome_cliente.ilike.${like},cpf_cliente.ilike.${like},id_crm.ilike.${like},protocolo_extrajudicial.ilike.${like},numero_processo.ilike.${like},banco_reu.ilike.${like}`).limit(6),
         supabase.from("documentos_juridicos").select("id, nome_documento, modelo_nome, cliente_nome, numero_processo").or(`nome_documento.ilike.${like},modelo_nome.ilike.${like},cliente_nome.ilike.${like},numero_processo.ilike.${like}`).limit(6),
         supabase.from("processual_atendimentos").select("id, cliente_nome, processo_numero, canal, descricao").or(`cliente_nome.ilike.${like},processo_numero.ilike.${like},descricao.ilike.${like}`).limit(6),
       ]);
@@ -34,7 +34,7 @@ export default function GlobalSearch({ onSelect }: Props) {
       if (clientes.status === "fulfilled" && !clientes.value.error) lista.push(...(clientes.value.data || []).map((c: any) => ({ id: c.id, grupo: "Clientes" as const, titulo: c.nome_completo, subtitulo: c.cpf || c.id_crm || "Cliente", detalhe: c.telefone })));
       if (processos.status === "fulfilled" && !processos.value.error) lista.push(...(processos.value.data || []).map((p: any) => {
         const extrajudicial = p.status_judicial === "EXTRAJUDICIAL" || (!p.status_judicial && p.origem_registro === "acao_extrajudicial_manual" && p.fase_atual === "Extrajudicial");
-        return { id: p.id, grupo: extrajudicial ? "Extrajudiciais" as const : "Processos" as const, titulo: p.nome_cliente, subtitulo: extrajudicial ? "Ação extrajudicial" : p.numero_processo || "Pendente de protocolo", detalhe: p.banco_reu, destino: p.numero_processo ? "processual" as const : "protocolos" as const };
+        return { id: p.id, grupo: extrajudicial ? "Extrajudiciais" as const : "Processos" as const, titulo: p.nome_cliente, subtitulo: extrajudicial ? `Protocolo ${p.protocolo_extrajudicial || p.id_crm || "não informado"}` : p.numero_processo || "Pendente de protocolo", detalhe: p.banco_reu, destino: p.numero_processo ? "processual" as const : "protocolos" as const };
       }));
       if (documentos.status === "fulfilled" && !documentos.value.error) lista.push(...(documentos.value.data || []).map((d: any) => ({ id: d.id, grupo: "Documentos" as const, titulo: d.nome_documento, subtitulo: d.cliente_nome || d.modelo_nome, detalhe: d.numero_processo })));
       if (atendimentos.status === "fulfilled" && !atendimentos.value.error) lista.push(...(atendimentos.value.data || []).map((a: any) => ({ id: a.id, grupo: "Atendimentos" as const, titulo: a.cliente_nome, subtitulo: `${a.canal} Â· ${a.processo_numero || "sem processo"}`, detalhe: a.descricao })));
