@@ -171,6 +171,8 @@ export const DOCUMENT_TEMPLATES = [
       "Procuração para Ação de Revisão de Contrato, baseada no modelo oficial enviado.",
     modo: "procuracao",
     titulo: "Procuração ad judicia",
+    formato: "docx",
+    templateDocx: "/modelos/procuracoes/procuracao-ad-judicia-2026.docx",
     identidadeVisual: true,
     campos: [
       { nome: "nomeCliente", rotulo: "Nome completo", obrigatorio: true, largura: "total" },
@@ -198,9 +200,11 @@ export const DOCUMENT_TEMPLATES = [
     id: "declaracao-isencao-irpf",
     nome: "Declaração de isenção de Imposto de Renda",
     descricao:
-      "Declaração de isenção de IRPF baseada no modelo Word oficial enviado.",
+      "Declaração de isenção de IRPF recriada na mesma formatação atualizada da declaração oficial.",
     modo: "declaracao-isencao-irpf",
     titulo: "Declaração de Isenção do Imposto de Renda Pessoa Física (IRPF)",
+    formato: "docx",
+    templateDocx: "/modelos/declaracoes/declaracao-hipossuficiencia-2026.docx",
     identidadeVisual: true,
     campos: [
       { nome: "nomeCliente", rotulo: "Nome completo", obrigatorio: true, largura: "total" },
@@ -209,9 +213,15 @@ export const DOCUMENT_TEMPLATES = [
       { nome: "estadoCivil", rotulo: "Estado civil", obrigatorio: true },
       { nome: "profissao", rotulo: "Profissão", obrigatorio: true },
       { nome: "rg", rotulo: "RG", obrigatorio: true },
+      {
+        nome: "orgaoExpedidor",
+        rotulo: "Órgão expedidor do RG",
+        obrigatorio: true,
+      },
       { nome: "cpfCnpj", rotulo: "CPF", obrigatorio: true },
       { nome: "email", rotulo: "E-mail", tipo: "email", obrigatorio: true },
       { nome: "endereco", rotulo: "Endereço completo", obrigatorio: true, largura: "total" },
+      { nome: "cep", rotulo: "CEP", obrigatorio: true },
       {
         nome: "exercicios",
         rotulo: "Exercícios da isenção",
@@ -229,6 +239,8 @@ export const DOCUMENT_TEMPLATES = [
       "Declaração para solicitação dos benefícios da justiça gratuita, conforme o modelo Word oficial.",
     modo: "declaracao-hipossuficiencia",
     titulo: "Declaração de Hipossuficiência",
+    formato: "docx",
+    templateDocx: "/modelos/declaracoes/declaracao-hipossuficiencia-2026.docx",
     identidadeVisual: true,
     campos: [
       { nome: "nomeCliente", rotulo: "Nome completo", obrigatorio: true, largura: "total" },
@@ -245,6 +257,7 @@ export const DOCUMENT_TEMPLATES = [
       { nome: "cpfCnpj", rotulo: "CPF", obrigatorio: true },
       { nome: "email", rotulo: "E-mail", tipo: "email", obrigatorio: true },
       { nome: "endereco", rotulo: "Endereço completo", obrigatorio: true, largura: "total" },
+      { nome: "cep", rotulo: "CEP", obrigatorio: true },
       { nome: "cidade", rotulo: "Cidade de assinatura", obrigatorio: true },
       { nome: "uf", rotulo: "UF", obrigatorio: true },
     ],

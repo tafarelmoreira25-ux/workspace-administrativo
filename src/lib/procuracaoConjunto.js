@@ -24,5 +24,5 @@ export function listarDocumentosProcuracao(dados) {
 
 export function mensagemConjuntoGerado(documentos) {
   if (documentos.length === 1) return "Procuração gerada com sucesso!";
-  return `${documentos.length} documentos do conjunto da Procuração gerados em PDFs separados!`;
+  return `${documentos.length} documentos do conjunto da Procuração gerados em arquivos Word separados!`;
 }

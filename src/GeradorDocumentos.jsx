@@ -9,8 +9,6 @@ import {
 import { criarOpcoesIniciaisProcuracao, listarDocumentosProcuracao, mensagemConjuntoGerado } from "./lib/procuracaoConjunto";
 import { supabase } from "./lib/supabase";
 import { DOCUMENT_TEMPLATES, valorInicialCampo } from "./config/documentTemplates";
-import { gerarProcuracaoPdf } from "./lib/procuracaoPdf";
-import { gerarDeclaracaoHipossuficienciaPdf, gerarDeclaracaoIsencaoIrpfPdf } from "./lib/declaracoesPdf";
 import "./documentWorkspace.css";
 
 const MODELOS = enriquecerModelos(DOCUMENT_TEMPLATES);
@@ -164,9 +162,19 @@ async function gerarArquivos(dados, modelo, nomeDocumento, criarUrls = true, nom
   const base = normalizarNomeArquivo(nomeDocumento || modelo.nome).replace(/\.(pdf|docx)$/i, "");
   if (modelo.modo === "procuracao") {
     const documentos = listarDocumentosProcuracao(dados);
-    const geradores = { procuracao: () => gerarProcuracaoPdf(dados), hipossuficiencia: () => gerarDeclaracaoHipossuficienciaPdf(dados), "isencao-irpf": () => gerarDeclaracaoIsencaoIrpfPdf(dados) };
-    const nomes = Object.fromEntries(documentos.map((tipo) => [tipo, `${normalizarNomeArquivo(nomesDoConjunto[tipo] || nomeDocumento || modelo.nome).replace(/\.pdf$/i, "")}.pdf`]));
-    return Promise.all(documentos.map(async (tipo) => criarArquivo(tipo, nomes[tipo], await geradores[tipo](), criarUrls)));
+    const modos = {
+      procuracao: "procuracao",
+      hipossuficiencia: "declaracao-hipossuficiencia",
+      "isencao-irpf": "declaracao-isencao-irpf",
+    };
+    const { gerarWordOficial } = await import("./lib/wordTemplateDocx");
+    return Promise.all(documentos.map(async (tipo) => {
+      const modeloDoDocumento = MODELOS.find((item) => item.modo === modos[tipo]);
+      if (!modeloDoDocumento?.templateDocx) throw new Error(`Modelo Word não configurado para ${tipo}.`);
+      const nome = `${normalizarNomeArquivo(nomesDoConjunto[tipo] || nomeDocumento || modeloDoDocumento.nome).replace(/\.(pdf|docx)$/i, "")}.docx`;
+      const arquivo = await gerarWordOficial(dados, modeloDoDocumento);
+      return criarArquivo(tipo, nome, arquivo.bytes, criarUrls, arquivo.mime);
+    }));
   }
   let bytes;
   if (modelo.templateDocx) {
@@ -197,7 +205,7 @@ async function gerarArquivos(dados, modelo, nomeDocumento, criarUrls = true, nom
   } else if (["certidao-diligencia", "recibo-prestacao-servicos", "relatorio-negociacao-homologacao", "termo-recompra"].includes(modelo.modo)) {
     const { gerarModeloComplementarPdf } = await import("./lib/modelosComplementaresPdf"); bytes = await gerarModeloComplementarPdf(dados, modelo);
   } else {
-    bytes = modelo.modo === "declaracao-hipossuficiencia" ? await gerarDeclaracaoHipossuficienciaPdf(dados) : await gerarDeclaracaoIsencaoIrpfPdf(dados);
+    throw new Error(`Gerador não configurado para o modelo ${modelo.nome}.`);
   }
   return [criarArquivo(modelo.modo, `${base}.pdf`, bytes, criarUrls)];
 }
@@ -561,7 +569,7 @@ export default function GeradorDocumentos({ responsavel, usuario, onSuccess, con
           <details className="legal-doc-control-details"><summary><span>Informações de controle e arquivamento</span><small>Opcional — abrir somente quando precisar</small></summary><div className="legal-doc-control-grid"><label className="legal-doc-field"><span>Número do processo</span><input name="numeroProcesso" value={dados.numeroProcesso || ""} onChange={atualizarCampo} /></label><label className="legal-doc-field"><span>Responsável pela geração</span><input value={responsavel || ""} readOnly /></label><label className="legal-doc-field"><span>Departamento</span><select name="departamento" value={dados.departamento || ""} onChange={atualizarCampo}><option>Administrativo</option><option>Jurídico</option><option>Processual</option><option>Supervisão</option></select></label><label className="legal-doc-field wide"><span>Observação interna</span><textarea name="observacaoInterna" value={dados.observacaoInterna || ""} onChange={atualizarCampo} rows="3" placeholder="Contexto interno opcional. Este texto não será incluído no documento." /></label></div><div className="legal-doc-destination"><label><input type="checkbox" name="salvarNaPasta" checked={Boolean(dados.salvarNaPasta)} onChange={atualizarCampo} /><span><strong>Vincular esta geração ao cadastro do cliente</strong><small>Opcional. O arquivo final continuará disponível para download e deverá ser salvo na pasta indicada.</small></span></label><div><span>Destino</span><input name="destino" value={dados.destino || ""} onChange={atualizarCampo} aria-label="Destino de arquivamento" /></div></div></details>
         </section>
         <section className="legal-doc-section"><div className="legal-doc-section-heading"><div><span className="eyebrow">Etapa 3</span><h2>Dados necessários para este modelo</h2><p>Os campos estão agrupados. Abra uma seção de cada vez e preencha somente o que for necessário.</p></div></div>{grupos.map((grupo, indice) => <GrupoCampos key={`${modeloSelecionado.id}-${grupo.id}`} grupo={grupo} dados={dados} tocados={tocados} onChange={atualizarCampo} onBlur={marcarTocado} modeloId={modeloSelecionado.id} abertoInicial={indice === 0} />)}
-          {modeloSelecionado.modo === "procuracao" ? <section className="legal-doc-bundle"><div><span className="eyebrow">Conjunto documental</span><h3>Gerar declarações com a Procuração</h3><p>Os mesmos dados serão reutilizados nos arquivos selecionados.</p></div><label><input type="checkbox" name="gerarHipossuficiencia" checked={Boolean(dados.gerarHipossuficiencia)} onChange={atualizarCampo} /><span><strong>Declaração de Hipossuficiência</strong><small>Justiça gratuita</small></span></label><label><input type="checkbox" name="gerarIsencaoIrpf" checked={Boolean(dados.gerarIsencaoIrpf)} onChange={atualizarCampo} /><span><strong>Declaração de Isenção de IRPF</strong><small>Isenção de imposto de renda</small></span></label>{dados.gerarIsencaoIrpf ? <label className="legal-doc-field"><span>Exercícios da isenção *</span><input id="exercicios-conjunto" name="exercicios" value={dados.exercicios || ""} onChange={atualizarCampo} placeholder="2024, 2025 e 2026" /></label> : null}<p>{documentosProcuracao.length} {documentosProcuracao.length === 1 ? "PDF será gerado" : "PDFs serão gerados"}.</p></section> : null}
+          {modeloSelecionado.modo === "procuracao" ? <section className="legal-doc-bundle"><div><span className="eyebrow">Conjunto documental</span><h3>Gerar declarações com a Procuração</h3><p>Os mesmos dados serão reutilizados nos arquivos selecionados.</p></div><label><input type="checkbox" name="gerarHipossuficiencia" checked={Boolean(dados.gerarHipossuficiencia)} onChange={atualizarCampo} /><span><strong>Declaração de Hipossuficiência</strong><small>Justiça gratuita</small></span></label><label><input type="checkbox" name="gerarIsencaoIrpf" checked={Boolean(dados.gerarIsencaoIrpf)} onChange={atualizarCampo} /><span><strong>Declaração de Isenção de IRPF</strong><small>Isenção de imposto de renda</small></span></label>{dados.gerarIsencaoIrpf ? <label className="legal-doc-field"><span>Exercícios da isenção *</span><input id="exercicios-conjunto" name="exercicios" value={dados.exercicios || ""} onChange={atualizarCampo} placeholder="2024, 2025 e 2026" /></label> : null}<p>{documentosProcuracao.length} {documentosProcuracao.length === 1 ? "arquivo Word será gerado" : "arquivos Word serão gerados"}.</p></section> : null}
         </section>
         <div className="legal-doc-support-grid"><PainelProgresso total={obrigatorios.length} preenchidos={preenchidos} pendentes={pendentes} onVerPendentes={() => pendentes[0] && focarCampo(pendentes[0].nome)} /><AssistentePreenchimento dados={dados} pendentes={pendentes} errosVisiveis={errosVisiveis} onCorrigir={focarCampo} /></div>{erro ? <p className="legal-doc-form-error" role="alert">{erro}</p> : null}
         <div className="legal-doc-action-bar"><div><button type="button" className="btn-secondary" onClick={salvarRascunho}>Salvar rascunho por 24h</button><button type="button" className="legal-doc-cancel" onClick={cancelarEdicao}>Cancelar</button>{salvoEm ? <span className={online ? "saved" : "offline"}>Rascunho temporário salvo às {salvoEm.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}</span> : null}</div><div><button type="button" className="btn-secondary" onClick={() => setPreviewFullscreen(true)}>Revisar documento</button><span className="legal-doc-generate-wrap"><button type="button" className="btn-primary" disabled={!podeGerar} onClick={() => handleGerarPdf()}>{gerando ? "Gerando arquivos…" : `Gerar ${modeloSelecionado.modo === "procuracao" ? `${documentosProcuracao.length} ` : ""}${modeloSelecionado.formato === "docx" ? "DOCX" : `PDF${modeloSelecionado.modo === "procuracao" && documentosProcuracao.length > 1 ? "s" : ""}`}`}</button>{razaoBloqueio ? <small>{razaoBloqueio}</small> : null}</span></div></div>

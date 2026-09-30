@@ -70,7 +70,31 @@ function regrasLiminar(d) {
   return [regra("Nome do contratante", d.nomeContratante), regra("NOME DO CONTRATANTE", t(d.nomeContratante).toUpperCase()), regra("X.XXX,XX", semReal(d.valorDespesa)), regra("X.XXX, XX", semReal(d.valorDespesa)), regra("(valor por extenso)", `(${t(d.valorDespesaExtenso)})`), regra("dia/mês/ano", dataCurta(d.dataDesembolso)), regra("São Paulo, dia de mês de 2026", `${t(d.localEmissao || "São Paulo")}, ${dataLonga(d.dataDocumento)}`)];
 }
 
+function qualificacaoPessoa(d) {
+  return `${t(d.nomeCliente)}, ${t(d.nacionalidade)}, ${t(d.estadoCivil)}, ${t(d.profissao)}, portador(a) da Cédula de Identidade R.G. nº ${t(d.rg)}, ${t(d.orgaoExpedidor)}, inscrito(a) no C.P.F./M.F. sob nº ${t(d.cpfCnpj)}, com endereço eletrônico: ${t(d.email)}, residente e domiciliado(a) na ${t(d.endereco)}${d.cep ? ` – CEP: ${t(d.cep)}` : ""}`;
+}
+
+function regrasProcuracaoDeclaracoes(d, modo) {
+  const dataLocal = `${t(d.cidade)}${d.uf ? `-${t(d.uf).toUpperCase()}` : ""}, ${dataLonga(d.dataEmissao)}.`;
+  if (modo === "procuracao") {
+    return [
+      regra("OUTORGANTE: XXXXXXXXXXXXXXXXXX, nacionalidade, estado cívil, profissão, portadora da Cédula de Identidade R.G. n° XXXXXXXXX, inscrito(a) no C.P.F./M.F. sob n° XXXXXXXXXX, com endereço eletrônico: XXXXXXXXXXXXXXXXXX, residente e domiciliado na Rua XXXXXXXXXXXXXXXXXXXXXXXXX – CEP: XXXXX-XXX.", `OUTORGANTE: ${qualificacaoPessoa(d)}.`),
+      regra("OBJETIVO: Os poderes ora concedidos destinam-se exclusivamente ao ingresso de Ação de Revisão de Contrato, contra o Banco XXXXXXXX, e n° de contrato XXXXXXXXX, bem como na defesa de seus interesses.", `OBJETIVO: Os poderes ora concedidos destinam-se exclusivamente ao ingresso de Ação de Revisão de Contrato, contra o Banco ${t(d.banco)}, e nº de contrato ${t(d.numeroContrato)}, bem como na defesa de seus interesses.`),
+      regra("Estado, dia de mês de 2026.", dataLocal), regra("Nome do cliente", d.nomeCliente),
+    ];
+  }
+
+  const corpoHipossuficiencia = `Eu, ${qualificacaoPessoa(d)}. Vem respeitosamente perante Vossa Excelência por meio deste instrumento declarar que não tem condições financeiras para custear os encargos atinentes a qualquer processo judicial, sem prejuízo da manutenção do seu próprio sustento, requerendo, por meio tais razões, os BENEFÍCIOS DA JUSTIÇA GRATUITA, conforme o art. 4º da Lei 1.060/50 c/c o art. 98 do Código de Processo Civil (CPC).`;
+  const corpoOriginal = "Eu, Nome do cliente, NACIONALIDADE, ESTADO CIVIL, PROFISSÃO, portador(a) da Cédula de Identidade RG n.º XXXXXXXXX SSP XX, inscrito(a) no CPF/MF sob n.° XXXXXXXXXXX, com endereço eletrônico: XXXXXXXXXXXXXXXXXXXXXXX. Residente e domiciliado(a) na: XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX. Vem respeitosamente perante Vossa Excelência por meio deste instrumento declarar que não tem condições financeiras para custear os encargos atinentes a qualquer processo judicial, sem prejuízo da manutenção do seu próprio sustento, requerendo, por meio tais razões, os BENEFÍCIOS DA JUSTIÇA GRATUITA, conforme o art. 4º da Lei 1.060/50 c/c o art. 98 do Código de Processo Civil (CPC).";
+  if (modo === "declaracao-hipossuficiencia") return [regra(corpoOriginal, corpoHipossuficiencia), regra("ESTADO, dia de mês de 2026.", dataLocal), regra("Nome do cliente", d.nomeCliente)];
+
+  const corpoIsencao = `Eu, ${qualificacaoPessoa(d)}. Declaro ser isento(a) da apresentação da Declaração do Imposto de Renda Pessoa Física (DIRPF) no(s) exercício(s) de ${t(d.exercicios)}, por não incorrer em nenhuma das hipóteses de obrigatoriedade estabelecidas pelas Instruções Normativas da Receita Federal do Brasil. Esta declaração está em conformidade com a IN RFB nº 1.548/2015 e a Lei nº 7.115/83. Declaro ainda, sob as penas da lei, serem verdadeiras todas as informações acima prestadas.`;
+  const notaIsencao = "A Receita Federal do Brasil não emite declaração de isenção de apresentação da DIRPF. Nos termos da IN RFB nº 1.548/2015 e da Lei nº 7.115/83, a condição pode ser comprovada mediante declaração escrita e assinada pelo próprio interessado, que responde civil, administrativa e criminalmente pela veracidade das informações.";
+  return [regra("DECLARAÇÃO DE HIPOSSUFICIÊNCIA", "DECLARAÇÃO DE ISENÇÃO DO IMPOSTO DE RENDA"), regra("NOS TERMOS DA LEI 1.060/50", "PESSOA FÍSICA (IRPF)"), regra(corpoOriginal, corpoIsencao), regra("Essa declaração presume-se verdadeira, sob as penas da Lei.", notaIsencao), regra("ESTADO, dia de mês de 2026.", dataLocal), regra("Nome do cliente", d.nomeCliente)];
+}
+
 function regrasDoModelo(dados, modelo) {
+  if (["procuracao", "declaracao-hipossuficiencia", "declaracao-isencao-irpf"].includes(modelo.modo)) return regrasProcuracaoDeclaracoes(dados, modelo.modo);
   if (modelo.modo.startsWith("distrato-")) return regrasDistrato(dados, modelo.modo);
   if (modelo.modo.startsWith("termo-")) return regrasTermo(dados, modelo.modo);
   if (modelo.modo.startsWith("recibo-servicos-")) return regrasRecibo(dados, modelo.modo);
