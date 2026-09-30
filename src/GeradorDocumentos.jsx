@@ -74,6 +74,8 @@ function dadosDoContextoDocumento(contexto = {}) {
     email: cliente.email,
     endereco: cliente.endereco,
     banco: processo.banco_reu || processo.reu,
+    cnpjBanco: processo.cnpj_banco,
+    enderecoBanco: processo.endereco_banco,
     numeroContrato: processo.numero_contrato,
     numeroProcesso: processo.numero_processo,
     vara: processo.vara,
@@ -167,12 +169,10 @@ async function gerarArquivos(dados, modelo, nomeDocumento, criarUrls = true, nom
     return Promise.all(documentos.map(async (tipo) => criarArquivo(tipo, nomes[tipo], await geradores[tipo](), criarUrls)));
   }
   let bytes;
-  if (modelo.modo.startsWith("distrato-")) {
-    const { gerarDocumentoContratualPdf } = await import("./lib/documentosContratuaisPdf");
-    bytes = await gerarDocumentoContratualPdf(dados, modelo);
-  } else if (["termo-ciencia-consentimento-contratacao", "termo-consentimento-compras-2026", "termo-pagamento-cartao-terceiro", "termo-reconhecimento-recompra", "termo-responsabilidade-parcelas-atraso"].includes(modelo.modo)) {
-    const { gerarDocumentoContratualPdf } = await import("./lib/documentosContratuaisPdf");
-    bytes = await gerarDocumentoContratualPdf(dados, modelo);
+  if (modelo.templateDocx) {
+    const { gerarWordOficial } = await import("./lib/wordTemplateDocx");
+    const arquivo = await gerarWordOficial(dados, modelo);
+    return [criarArquivo(modelo.modo, `${base}.docx`, arquivo.bytes, criarUrls, arquivo.mime)];
   } else if (modelo.modo === "relatorio-atualizacao-processual") {
     const { gerarRelatorioAtualizacaoProcessualPdf } = await import("./lib/relatorioAtualizacaoProcessualPdf");
     bytes = await gerarRelatorioAtualizacaoProcessualPdf(dados);
