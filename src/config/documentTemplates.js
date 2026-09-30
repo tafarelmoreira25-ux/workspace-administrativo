@@ -44,8 +44,6 @@ export const DOCUMENT_TEMPLATES = [
     descricao: "Encerramento contratual com multa rescisória e acerto financeiro individualizado.",
     modo: "distrato-com-multa",
     titulo: "Distrato de Contrato de Prestação de Serviços",
-    formato: "docx",
-    templateDocx: "/modelos/distratos/distrato-com-multa.docx",
     campos: [
       ...camposComunsDistrato,
       { nome: "valorPago", rotulo: "Total pago pelo contratante (R$)", obrigatorio: true },
@@ -64,8 +62,6 @@ export const DOCUMENT_TEMPLATES = [
     descricao: "Encerramento sem multa, conforme as condições específicas do modelo oficial.",
     modo: "distrato-sem-multa",
     titulo: "Distrato de Contrato de Prestação de Serviços",
-    formato: "docx",
-    templateDocx: "/modelos/distratos/distrato-sem-multa.docx",
     campos: [
       ...camposComunsDistrato,
       { nome: "valorQuitacao", rotulo: "Valor pactuado para quitação (R$)", obrigatorio: true },
@@ -78,8 +74,6 @@ export const DOCUMENT_TEMPLATES = [
     descricao: "Direito de arrependimento dentro de sete dias, com restituição integral.",
     modo: "distrato-7-dias-estorno-total",
     titulo: "Distrato de Contrato de Prestação de Serviços",
-    formato: "docx",
-    templateDocx: "/modelos/distratos/distrato-7-dias-estorno-total.docx",
     campos: [
       ...camposComunsDistrato,
       { nome: "dataDesistencia", rotulo: "Data da desistência", tipo: "date", obrigatorio: true },
@@ -97,8 +91,6 @@ export const DOCUMENT_TEMPLATES = [
     descricao: "Encerramento com devolução dos valores e identificação própria do beneficiário.",
     modo: "distrato-com-devolucao",
     titulo: "Distrato de Contrato de Prestação de Serviços",
-    formato: "docx",
-    templateDocx: "/modelos/distratos/distrato-com-devolucao.docx",
     campos: [
       ...camposComunsDistrato,
       { nome: "valorDevolucao", rotulo: "Valor da devolução (R$)", obrigatorio: true },
@@ -116,8 +108,6 @@ export const DOCUMENT_TEMPLATES = [
     descricao: "Encerramento sem devolução, vinculado à prestação de contas dos serviços executados.",
     modo: "distrato-sem-devolucao",
     titulo: "Distrato de Contrato de Prestação de Serviços",
-    formato: "docx",
-    templateDocx: "/modelos/distratos/distrato-sem-devolucao.docx",
     campos: [
       ...camposComunsDistrato,
       { nome: "valorPago", rotulo: "Valor pago (R$)", obrigatorio: true },
@@ -132,8 +122,6 @@ export const DOCUMENT_TEMPLATES = [
     descricao: "Encerramento por falta de colaboração e ausência de resposta após notificação.",
     modo: "distrato-inexecucao-ausencia-resposta",
     titulo: "Distrato de Contrato de Prestação de Serviços",
-    formato: "docx",
-    templateDocx: "/modelos/distratos/distrato-inexecucao-ausencia-resposta.docx",
     campos: [
       ...camposComunsDistrato,
       { nome: "valorPago", rotulo: "Valor pago (R$)", obrigatorio: true },
@@ -503,7 +491,6 @@ export const DOCUMENT_TEMPLATES = [
     modo: "termo-ciencia-consentimento-contratacao",
     titulo: "Termo de Ciência e Consentimento da Contratação",
     categoria: "Termos",
-    templateDocx: "/modelos/termos/termo-ciencia-consentimento-contratacao.docx",
     campos: [
       { nome: "nomeTitularCartao", rotulo: "Titular do cartão", obrigatorio: true, largura: "total" },
       { nome: "cpfTitularCartao", rotulo: "CPF do titular", obrigatorio: true },
@@ -521,7 +508,6 @@ export const DOCUMENT_TEMPLATES = [
     modo: "termo-consentimento-compras-2026",
     titulo: "Termo de Consentimento de Compras 2026",
     categoria: "Termos",
-    templateDocx: "/modelos/termos/termo-consentimento-compras-2026.docx",
     campos: [
       { nome: "nomeTitularCartao", rotulo: "Titular do cartão", obrigatorio: true, largura: "total" },
       { nome: "cpfTitularCartao", rotulo: "CPF do titular", obrigatorio: true },
@@ -539,7 +525,6 @@ export const DOCUMENT_TEMPLATES = [
     modo: "termo-pagamento-cartao-terceiro",
     titulo: "Termo de Consentimento e Autorização para Pagamento com Cartão de Terceiro",
     categoria: "Termos",
-    templateDocx: "/modelos/termos/termo-pagamento-cartao-terceiro.docx",
     campos: [
       { nome: "nomeTitularCartao", rotulo: "Titular do cartão", obrigatorio: true, largura: "total" },
       { nome: "cpfTitularCartao", rotulo: "CPF do titular do cartão", obrigatorio: true },
@@ -559,7 +544,6 @@ export const DOCUMENT_TEMPLATES = [
     modo: "termo-reconhecimento-recompra",
     titulo: "Termo de Reconhecimento de Recompra",
     categoria: "Termos",
-    templateDocx: "/modelos/termos/termo-reconhecimento-recompra.docx",
     campos: [
       { nome: "nomeContratante", rotulo: "Nome do contratante", obrigatorio: true, largura: "total" },
       { nome: "cpfContratante", rotulo: "CPF do contratante", obrigatorio: true },
@@ -577,7 +561,6 @@ export const DOCUMENT_TEMPLATES = [
     modo: "termo-responsabilidade-parcelas-atraso",
     titulo: "Termo de Responsabilidade e Compromisso — Parcelas em Atraso",
     categoria: "Termos",
-    templateDocx: "/modelos/termos/termo-responsabilidade-parcelas-atraso.docx",
     campos: [
       { nome: "nomeCliente", rotulo: "Nome completo do cliente", obrigatorio: true, largura: "total" },
       { nome: "rg", rotulo: "RG", obrigatorio: true },

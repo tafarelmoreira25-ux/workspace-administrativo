@@ -168,13 +168,11 @@ async function gerarArquivos(dados, modelo, nomeDocumento, criarUrls = true, nom
   }
   let bytes;
   if (modelo.modo.startsWith("distrato-")) {
-    const { gerarDistratoDocx } = await import("./lib/distratoDocx");
-    const arquivo = await gerarDistratoDocx(dados, modelo);
-    return [criarArquivo(modelo.modo, `${base}.docx`, arquivo.bytes, criarUrls, arquivo.mime)];
-  } else if (modelo.templateDocx && modelo.modo.startsWith("termo-")) {
-    const { gerarTermoDocx } = await import("./lib/termoDocx");
-    const arquivo = await gerarTermoDocx(dados, modelo);
-    return [criarArquivo(modelo.modo, `${base}.docx`, arquivo.bytes, criarUrls, arquivo.mime)];
+    const { gerarDocumentoContratualPdf } = await import("./lib/documentosContratuaisPdf");
+    bytes = await gerarDocumentoContratualPdf(dados, modelo);
+  } else if (["termo-ciencia-consentimento-contratacao", "termo-consentimento-compras-2026", "termo-pagamento-cartao-terceiro", "termo-reconhecimento-recompra", "termo-responsabilidade-parcelas-atraso"].includes(modelo.modo)) {
+    const { gerarDocumentoContratualPdf } = await import("./lib/documentosContratuaisPdf");
+    bytes = await gerarDocumentoContratualPdf(dados, modelo);
   } else if (modelo.modo === "relatorio-atualizacao-processual") {
     const { gerarRelatorioAtualizacaoProcessualPdf } = await import("./lib/relatorioAtualizacaoProcessualPdf");
     bytes = await gerarRelatorioAtualizacaoProcessualPdf(dados);
