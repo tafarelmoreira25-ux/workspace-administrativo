@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import ModelLibraryModal, { DocumentCategoryIcon, DocumentModelIcon } from "./components/documentos/ModelLibraryModal";
 import {
   DOCUMENT_DRAFT_KEY, DOCUMENT_FAVORITES_KEY, DOCUMENT_HISTORY_KEY,
-  DOCUMENT_RECENT_MODELS_KEY, DOCUMENT_WORKSPACE_SCHEMA, agruparCampos,
+  DOCUMENT_RECENT_MODELS_KEY, DOCUMENT_USAGE_KEY, DOCUMENT_WORKSPACE_SCHEMA, agruparCampos,
   enriquecerModelos, erroCampo, formatarValorCampo, normalizarBusca,
   normalizarNomeArquivo, proximaVersao, rascunhoValido,
 } from "./lib/documentWorkspace";
@@ -28,7 +28,7 @@ function dataParaNome(dataIso) {
 }
 
 function montarNomeAutomatico(modelo, dados, numeroDocumento, versao = 1) {
-  const cliente = String(dados.nomeCliente || "Cliente").trim() || "Cliente";
+  const cliente = String(dados.nomeCliente || dados.nomeContratante || "Cliente").trim() || "Cliente";
   const partes = [modelo.nome, cliente];
   return partes.join("_").replace(/\s{2,}/g, " ").slice(0, 180);
 }
@@ -43,7 +43,7 @@ function montarNomesDoConjunto(modelo, dados, numeroDocumento, versao = 1) {
 }
 
 function destinoPadrao(modelo) {
-  const pastas = { procuracoes: "PROCURAÇÕES", declaracoes: "DECLARAÇÕES", notificacoes: "NOTIFICAÇÕES_E_INTIMAÇÕES", contestacoes: "CONTESTAÇÕES", termos: "TERMOS", relatorios: "RELATÓRIOS", "recibos-certidoes": "RECIBOS_E_CERTIDÕES" };
+  const pastas = { procuracoes: "PROCURAÇÕES", declaracoes: "DECLARAÇÕES", notificacoes: "NOTIFICAÇÕES_E_INTIMAÇÕES", contestacoes: "CONTESTAÇÕES", termos: "TERMOS", distratos: "DISTRATOS", relatorios: "RELATÓRIOS", "recibos-certidoes": "RECIBOS_E_CERTIDÕES" };
   return `Drive do cliente / ${pastas[modelo.categoria] || "DOCUMENTOS"}`;
 }
 
@@ -54,7 +54,7 @@ function criarFormularioInicial(responsavel, modelo = MODELOS[0], departamento =
     modeloId: modelo.id, tipo: modelo.nome, titulo: modelo.titulo || modelo.nome,
     dataEmissao: hoje,
     responsavel: responsavel || "", departamento: departamento || "Jurídico",
-    destino: destinoPadrao(modelo), observacaoInterna: "", salvarNaPasta: true, versao: 1,
+    destino: destinoPadrao(modelo), observacaoInterna: "", salvarNaPasta: false, versao: 1,
     ...camposDoModelo,
     ...(modelo.modo === "procuracao" ? criarOpcoesIniciaisProcuracao(hoje) : {}),
   };
@@ -67,6 +67,9 @@ function dadosDoContextoDocumento(contexto = {}) {
   return Object.fromEntries(Object.entries({
     nomeCliente: cliente.nome_completo || cliente.nome || processo.nome_cliente,
     cpfCnpj: cliente.cpf || processo.cpf_cliente,
+    nomeContratante: cliente.nome_completo || cliente.nome || processo.nome_cliente,
+    cpfContratante: cliente.cpf || processo.cpf_cliente,
+    enderecoContratante: cliente.endereco,
     rg: cliente.rg,
     email: cliente.email,
     endereco: cliente.endereco,
@@ -101,6 +104,13 @@ function dadosDoContextoDocumento(contexto = {}) {
 
 function lerJsonLocal(chave, fallback) {
   try { return JSON.parse(localStorage.getItem(chave)) ?? fallback; } catch { return fallback; }
+}
+
+function carregarHistoricoTemporario() {
+  const limite = Date.now() - 12 * 60 * 60 * 1000;
+  const recentes = lerJsonLocal(DOCUMENT_HISTORY_KEY, []).filter((item) => new Date(item.criadoEm || 0).getTime() >= limite);
+  localStorage.setItem(DOCUMENT_HISTORY_KEY, JSON.stringify(recentes));
+  return recentes;
 }
 
 function persistirRascunho(dados) {
@@ -157,7 +167,15 @@ async function gerarArquivos(dados, modelo, nomeDocumento, criarUrls = true, nom
     return Promise.all(documentos.map(async (tipo) => criarArquivo(tipo, nomes[tipo], await geradores[tipo](), criarUrls)));
   }
   let bytes;
-  if (modelo.modo === "relatorio-atualizacao-processual") {
+  if (modelo.modo.startsWith("distrato-")) {
+    const { gerarDistratoDocx } = await import("./lib/distratoDocx");
+    const arquivo = await gerarDistratoDocx(dados, modelo);
+    return [criarArquivo(modelo.modo, `${base}.docx`, arquivo.bytes, criarUrls, arquivo.mime)];
+  } else if (modelo.templateDocx && modelo.modo.startsWith("termo-")) {
+    const { gerarTermoDocx } = await import("./lib/termoDocx");
+    const arquivo = await gerarTermoDocx(dados, modelo);
+    return [criarArquivo(modelo.modo, `${base}.docx`, arquivo.bytes, criarUrls, arquivo.mime)];
+  } else if (modelo.modo === "relatorio-atualizacao-processual") {
     const { gerarRelatorioAtualizacaoProcessualPdf } = await import("./lib/relatorioAtualizacaoProcessualPdf");
     bytes = await gerarRelatorioAtualizacaoProcessualPdf(dados);
   } else if (modelo.modo === "notificacao-extrajudicial") {
@@ -259,6 +277,7 @@ export default function GeradorDocumentos({ responsavel, usuario, onSuccess, con
   const [salvandoNomeModelo, setSalvandoNomeModelo] = useState(false);
   const [favoritos, setFavoritos] = useState(() => lerJsonLocal(DOCUMENT_FAVORITES_KEY, []));
   const [modelosRecentes, setModelosRecentes] = useState(() => lerJsonLocal(DOCUMENT_RECENT_MODELS_KEY, []));
+  const [usoModelos, setUsoModelos] = useState(() => lerJsonLocal(DOCUMENT_USAGE_KEY, {}));
   const [tocados, setTocados] = useState(() => new Set());
   const [gerando, setGerando] = useState(false);
   const [erro, setErro] = useState("");
@@ -272,7 +291,7 @@ export default function GeradorDocumentos({ responsavel, usuario, onSuccess, con
   const [previewPdfGerando, setPreviewPdfGerando] = useState(true);
   const [previewVersao, setPreviewVersao] = useState(0);
   const [resultado, setResultado] = useState(null);
-  const [historico, setHistorico] = useState(() => lerJsonLocal(DOCUMENT_HISTORY_KEY, []));
+  const [historico, setHistorico] = useState(carregarHistoricoTemporario);
   const [buscaHistorico, setBuscaHistorico] = useState("");
   const [sufixoDocumento] = useState(() => String(Date.now()).slice(-5));
   const primeiraSecaoRef = useRef(null);
@@ -281,7 +300,7 @@ export default function GeradorDocumentos({ responsavel, usuario, onSuccess, con
   const dirtyRef = useRef(false);
 
   const gestor = usuario?.tipo === "admin";
-  const modelos = useMemo(() => MODELOS.map((modelo) => ({ ...modelo, nome: nomesModelos[modelo.id] || modelo.nome })), [nomesModelos]);
+  const modelos = useMemo(() => MODELOS.map((modelo) => ({ ...modelo, nome: nomesModelos[modelo.id] || modelo.nome, totalGeracoes: Number(usoModelos[modelo.id] || 0) })), [nomesModelos, usoModelos]);
   const modeloSelecionado = modelos.find((modelo) => modelo.id === dados.modeloId) || modelos[0];
   const modeloDocx = modeloSelecionado.formato === "docx";
   const numeroDocumento = useMemo(() => `${dados.dataEmissao?.replaceAll("-", "") || "sem-data"}-${sufixoDocumento}`, [dados.dataEmissao, sufixoDocumento]);
@@ -292,7 +311,8 @@ export default function GeradorDocumentos({ responsavel, usuario, onSuccess, con
   const errosVisiveis = modeloSelecionado.campos.map((campo) => ({ campo, erro: erroCampo(campo, dados[campo.nome]) })).filter((item) => item.erro && tocados.has(item.campo.nome));
   const nomesDoConjunto = useMemo(() => montarNomesDoConjunto(modeloSelecionado, dados, numeroDocumento, dados.versao), [modeloSelecionado, dados, numeroDocumento]);
   const nomeSugerido = nomesDoConjunto[modeloSelecionado.modo];
-  const nomeArquivo = normalizarNomeArquivo(nomeSugerido || modeloSelecionado.nome);
+  const nomeArquivoPdf = normalizarNomeArquivo(nomeSugerido || modeloSelecionado.nome);
+  const nomeArquivo = modeloDocx ? nomeArquivoPdf.replace(/\.pdf$/i, ".docx") : nomeArquivoPdf;
   const versaoSugerida = proximaVersao(nomeSugerido, historico);
   const duplicado = Boolean(nomeSugerido && versaoSugerida > Number(dados.versao || 1));
   const identificacaoCompleta = Boolean(dados.dataEmissao);
@@ -490,7 +510,7 @@ export default function GeradorDocumentos({ responsavel, usuario, onSuccess, con
   async function arquivarNoSupabase(arquivos, registro) {
     if (!dados.salvarNaPasta) return { registro, aviso: "O registro automático foi desativado; os arquivos estão disponíveis apenas para download nesta sessão." };
     const nomesArquivos = arquivos.map((arquivo) => arquivo.nome);
-    const { data: salvo, error: salvarError } = await supabase.from("documentos_juridicos").insert({ nome_documento: registro.nomeDocumento, nome_arquivo: arquivos[0].nome, modelo_id: registro.modeloId, modelo_nome: registro.modeloNome, categoria: modeloSelecionado.categoriaNome, cliente_id: dados.contextoDocumento?.cliente?.id || null, processo_id: dados.contextoDocumento?.processo?.id || null, tipo_documento: modeloSelecionado.modo, cliente_nome: registro.cliente || null, cpf_cnpj: dados.cpfCnpj || null, numero_contrato: dados.numeroContrato || null, numero_processo: dados.numeroProcesso || null, link_pasta_cliente: dados.contextoDocumento?.cliente?.link_pasta_cliente || dados.contextoDocumento?.processo?.link_pasta_cliente || null, responsavel_nome: registro.responsavel, departamento: dados.departamento || null, destino: dados.destino || null, versao: registro.versao, status: "Gerado", assinado: false, arquivo_principal_path: null, arquivos_paths: [], metadata: { dados, arquivos: nomesArquivos, contextoDocumento: dados.contextoDocumento || null, armazenamento: "drive_externo", observacao_armazenamento: "Arquivo não armazenado no Supabase. Arquivamento oficial na pasta do cliente no Drive." } }).select("*").single();
+    const { data: salvo, error: salvarError } = await supabase.from("documentos_juridicos").insert({ nome_documento: registro.nomeDocumento, nome_arquivo: arquivos[0].nome, modelo_id: registro.modeloId, modelo_nome: registro.modeloNome, categoria: modeloSelecionado.categoriaNome, cliente_id: dados.contextoDocumento?.cliente?.id || null, processo_id: dados.contextoDocumento?.processo?.id || null, tipo_documento: modeloSelecionado.modo, cliente_nome: registro.cliente || null, cpf_cnpj: dados.cpfCnpj || dados.cpfContratante || null, numero_contrato: dados.numeroContrato || null, numero_processo: dados.numeroProcesso || null, link_pasta_cliente: dados.contextoDocumento?.cliente?.link_pasta_cliente || dados.contextoDocumento?.processo?.link_pasta_cliente || null, responsavel_nome: registro.responsavel, departamento: dados.departamento || null, destino: dados.destino || null, versao: registro.versao, status: "Gerado", assinado: false, arquivo_principal_path: null, arquivos_paths: [], metadata: { dados, arquivos: nomesArquivos, contextoDocumento: dados.contextoDocumento || null, armazenamento: "drive_externo", observacao_armazenamento: "Arquivo não armazenado no Supabase. Arquivamento oficial na pasta do cliente no Drive." } }).select("*").single();
     if (salvarError) throw salvarError;
     const formatoArquivo = arquivos.some((arquivo) => /\.docx$/i.test(arquivo.nome)) ? "DOCX" : "PDF";
     return { registro: { ...registro, id: salvo.id, storagePath: "", link: "", documentoRemoto: salvo }, aviso: `${formatoArquivo} gerado para download. Arquive o arquivo final na pasta do cliente no Drive.` };
@@ -507,11 +527,12 @@ export default function GeradorDocumentos({ responsavel, usuario, onSuccess, con
       const nomeDocumento = nomesParaGeracao[modeloSelecionado.modo];
       const dadosGeracao = { ...dados, versao, numeroDocumento };
       const arquivos = await gerarArquivos(dadosGeracao, modeloSelecionado, nomeDocumento, true, nomesParaGeracao); const criadoEm = new Date().toISOString();
-      const registroBase = { id: `local-${Date.now()}`, nomeDocumento, modeloId: modeloSelecionado.id, modeloNome: modeloSelecionado.nome, icone: modeloSelecionado.icone, cliente: dados.nomeCliente, responsavel: responsavel || "Não informado", criadoEm, versao, status: "Gerado", destino: dados.destino, metadata: { dados: dadosGeracao } };
+      const registroBase = { id: `local-${Date.now()}`, nomeDocumento, modeloId: modeloSelecionado.id, modeloNome: modeloSelecionado.nome, icone: modeloSelecionado.icone, cliente: dados.nomeCliente || dados.nomeContratante, responsavel: responsavel || "Não informado", criadoEm, versao, status: "Gerado", destino: dados.destino, metadata: { dados: dadosGeracao } };
       let arquivamento = { registro: registroBase, aviso: "" };
       try { arquivamento = await arquivarNoSupabase(arquivos, registroBase); } catch (archiveError) { console.warn("Documento gerado sem arquivamento remoto:", archiveError); }
       const registro = { ...arquivamento.registro, arquivos: arquivos.map((arquivo) => ({ nome: arquivo.nome })) };
       const novoHistorico = [registro, ...historico.filter((item) => item.id !== registro.id)].slice(0, 20); setHistorico(novoHistorico); localStorage.setItem(DOCUMENT_HISTORY_KEY, JSON.stringify(novoHistorico)); localStorage.removeItem(DOCUMENT_DRAFT_KEY); dirtyRef.current = false; setDirty(false);
+      setUsoModelos((atuais) => { const proximo = { ...atuais, [modeloSelecionado.id]: Number(atuais[modeloSelecionado.id] || 0) + 1 }; localStorage.setItem(DOCUMENT_USAGE_KEY, JSON.stringify(proximo)); return proximo; });
       setResultado({ ...registro, arquivos, aviso: arquivamento.aviso || `${modeloSelecionado.formato === "docx" ? "DOCX" : "PDF"} gerado para download. Arquive o arquivo final na pasta do cliente no Drive.`, numeroDocumento }); setPreviewAtualizadaEm(new Date());
       onDocumentoGerado?.({ ...registro, arquivos, aviso: arquivamento.aviso, numeroDocumento, documentoRemoto: registro.documentoRemoto || null, modelo: modeloSelecionado, dados: dadosGeracao });
       onSuccess?.(modeloSelecionado.modo === "procuracao" ? mensagemConjuntoGerado(listarDocumentosProcuracao(dados)) : `Documento ${modeloSelecionado.formato === "docx" ? "DOCX" : "PDF"} gerado com sucesso!`);
@@ -539,7 +560,7 @@ export default function GeradorDocumentos({ responsavel, usuario, onSuccess, con
           {duplicado ? <div className="legal-doc-duplicate-warning"><span>!</span><div><strong>Já existe um documento com nome semelhante.</strong><p>Ao gerar, será criada automaticamente a Versão {String(versaoSugerida).padStart(2, "0")}.</p></div></div> : null}
           <div className="legal-doc-file-preview"><span>Nome do arquivo</span><code>{nomeArquivo}</code></div>
           <div className="legal-doc-identification-grid"><section><div className="legal-doc-subsection-heading"><span>1</span><div><h3>{"Referências principais"}</h3><p>{"A data vem preenchida com hoje e pode ser ajustada quando necessário."}</p></div></div><div className="legal-doc-control-grid compact"><label className="legal-doc-field"><span>{"Data de emissão *"}</span><input type="date" name="dataEmissao" value={dados.dataEmissao || ""} onChange={atualizarCampo} required /></label></div></section></div>
-          <details className="legal-doc-control-details"><summary><span>Informações de controle e arquivamento</span><small>Opcional — abrir somente quando precisar</small></summary><div className="legal-doc-control-grid"><label className="legal-doc-field"><span>Número do processo</span><input name="numeroProcesso" value={dados.numeroProcesso || ""} onChange={atualizarCampo} /></label><label className="legal-doc-field"><span>Responsável pela geração</span><input value={responsavel || ""} readOnly /></label><label className="legal-doc-field"><span>Departamento</span><select name="departamento" value={dados.departamento || ""} onChange={atualizarCampo}><option>Administrativo</option><option>Jurídico</option><option>Processual</option><option>Supervisão</option></select></label><label className="legal-doc-field wide"><span>Observação interna</span><textarea name="observacaoInterna" value={dados.observacaoInterna || ""} onChange={atualizarCampo} rows="3" placeholder="Contexto interno opcional. Este texto não será incluído no documento." /></label></div><div className="legal-doc-destination"><label><input type="checkbox" name="salvarNaPasta" checked={Boolean(dados.salvarNaPasta)} onChange={atualizarCampo} /><span><strong>Registrar geração no workspace</strong><small>O arquivo gerado não será armazenado no sistema. Arquive a versão final no Drive do cliente.</small></span></label><div><span>Destino</span><input name="destino" value={dados.destino || ""} onChange={atualizarCampo} aria-label="Destino de arquivamento" /></div></div></details>
+          <details className="legal-doc-control-details"><summary><span>Informações de controle e arquivamento</span><small>Opcional — abrir somente quando precisar</small></summary><div className="legal-doc-control-grid"><label className="legal-doc-field"><span>Número do processo</span><input name="numeroProcesso" value={dados.numeroProcesso || ""} onChange={atualizarCampo} /></label><label className="legal-doc-field"><span>Responsável pela geração</span><input value={responsavel || ""} readOnly /></label><label className="legal-doc-field"><span>Departamento</span><select name="departamento" value={dados.departamento || ""} onChange={atualizarCampo}><option>Administrativo</option><option>Jurídico</option><option>Processual</option><option>Supervisão</option></select></label><label className="legal-doc-field wide"><span>Observação interna</span><textarea name="observacaoInterna" value={dados.observacaoInterna || ""} onChange={atualizarCampo} rows="3" placeholder="Contexto interno opcional. Este texto não será incluído no documento." /></label></div><div className="legal-doc-destination"><label><input type="checkbox" name="salvarNaPasta" checked={Boolean(dados.salvarNaPasta)} onChange={atualizarCampo} /><span><strong>Vincular esta geração ao cadastro do cliente</strong><small>Opcional. O arquivo final continuará disponível para download e deverá ser salvo na pasta indicada.</small></span></label><div><span>Destino</span><input name="destino" value={dados.destino || ""} onChange={atualizarCampo} aria-label="Destino de arquivamento" /></div></div></details>
         </section>
         <section className="legal-doc-section"><div className="legal-doc-section-heading"><div><span className="eyebrow">Etapa 3</span><h2>Dados necessários para este modelo</h2><p>Os campos estão agrupados. Abra uma seção de cada vez e preencha somente o que for necessário.</p></div></div>{grupos.map((grupo, indice) => <GrupoCampos key={`${modeloSelecionado.id}-${grupo.id}`} grupo={grupo} dados={dados} tocados={tocados} onChange={atualizarCampo} onBlur={marcarTocado} modeloId={modeloSelecionado.id} abertoInicial={indice === 0} />)}
           {modeloSelecionado.modo === "procuracao" ? <section className="legal-doc-bundle"><div><span className="eyebrow">Conjunto documental</span><h3>Gerar declarações com a Procuração</h3><p>Os mesmos dados serão reutilizados nos arquivos selecionados.</p></div><label><input type="checkbox" name="gerarHipossuficiencia" checked={Boolean(dados.gerarHipossuficiencia)} onChange={atualizarCampo} /><span><strong>Declaração de Hipossuficiência</strong><small>Justiça gratuita</small></span></label><label><input type="checkbox" name="gerarIsencaoIrpf" checked={Boolean(dados.gerarIsencaoIrpf)} onChange={atualizarCampo} /><span><strong>Declaração de Isenção de IRPF</strong><small>Isenção de imposto de renda</small></span></label>{dados.gerarIsencaoIrpf ? <label className="legal-doc-field"><span>Exercícios da isenção *</span><input id="exercicios-conjunto" name="exercicios" value={dados.exercicios || ""} onChange={atualizarCampo} placeholder="2024, 2025 e 2026" /></label> : null}<p>{documentosProcuracao.length} {documentosProcuracao.length === 1 ? "PDF será gerado" : "PDFs serão gerados"}.</p></section> : null}

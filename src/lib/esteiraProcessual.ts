@@ -41,6 +41,8 @@ export type PrazoElite = {
   rotulo: string;
 };
 
+export const PRAZO_PROTOCOLO_DIAS_UTEIS = 15;
+
 export type Processo = {
   id: string;
   cliente_id?: string | null;
@@ -256,7 +258,7 @@ export function calcularPrazoElite(
     };
   }
 
-  const dataLimite = adicionarDiasUteis(dataBase, 20, feriados);
+  const dataLimite = adicionarDiasUteis(dataBase, PRAZO_PROTOCOLO_DIAS_UTEIS, feriados);
   const hoje = normalizarData(hojeReferencia) || new Date();
   const diasUteisDecorridos = Math.max(0, contarDiasUteisEntre(dataBase, hoje, feriados, false));
 
@@ -293,7 +295,7 @@ export function calcularPrazoElite(
     diasUteisRestantes,
     diasUteisDecorridos,
     diasUteisAtraso: 0,
-    percentual: Math.min(100, Math.round((diasUteisDecorridos / 20) * 100)),
+    percentual: Math.min(100, Math.round((diasUteisDecorridos / PRAZO_PROTOCOLO_DIAS_UTEIS) * 100)),
     sinalizacao,
     rotulo,
   };

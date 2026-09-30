@@ -1,11 +1,10 @@
 import { type FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { supabase } from "../../lib/supabase";
 import { calcularPrazoElite } from "../../lib/esteiraProcessual";
-import { getProcessesWithoutReviewCount, processoSemRevisao } from "../../lib/processReview";
 import "./gerencialProcessual.css";
 
 type Usuario = { nome?: string; email?: string; tipo?: string; perfil?: string; cargo?: string };
-type View = "ocorrencias" | "alertas" | "indicadores";
+type View = "ocorrencias" | "indicadores";
 type Processo = Record<string, any>;
 type Tarefa = Record<string, any>;
 type Documento = Record<string, any>;
@@ -21,7 +20,6 @@ type Props = { usuario: Usuario; showToast?: (mensagem: string) => void; initial
 const CATEGORIAS_OCORRENCIA = ["Custas", "Documentação", "Emenda", "Prazo", "Pasta retornada", "Falha operacional", "Falha cliente", "Falha prestador", "Divergência documental", "Comunicação", "Outro"];
 const RESPONSABILIDADES = ["Cliente", "Platino", "Elite", "Advogado", "Terceiro", "Não identificado"];
 const STATUS_CUSTAS = ["Pendente", "Cliente informado", "Pago", "Não pago", "Vencido", "Dispensado"];
-const TIPOS_ALERTA = ["SLA", "Prazo", "Processo", "Documento", "Custas", "Tarefa", "Pasta retornada", "Revisão", "Atendimento"];
 const METRICAS_SECUNDARIAS_ZERADAS = new Set([
   "Elite",
   "Próximo SLA",
@@ -52,8 +50,6 @@ function limpar(valor: string) { const texto = valor.trim(); return texto || nul
 function normalizar(valor = "") { return String(valor).normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim(); }
 function formatarData(data?: string | null) { if (!data) return "—"; return new Intl.DateTimeFormat("pt-BR").format(new Date(data)); }
 function moeda(valor?: number | string | null) { const numero = Number(valor || 0); return numero.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }); }
-function diasDesde(data?: string | null) { if (!data) return 999; const base = new Date(data); const hojeData = new Date(); base.setHours(0,0,0,0); hojeData.setHours(0,0,0,0); return Math.floor((hojeData.getTime() - base.getTime()) / 86400000); }
-
 function criarOcorrenciaForm(usuario: Usuario) {
   return { categoria: "Prazo", data: hoje(), descricao: "", responsabilidade: "Não identificado", impacto: "", providencia: "", prazo: "", resolvido: false, data_resolucao: "", evidencia: "", anexo_url: "", processo_id: "", responsavel: usuario.nome || "" };
 }
@@ -69,16 +65,13 @@ function etiquetaProcesso(processo: Processo) {
   if (processo.pasta_retornada || processo.pasta_retorno_status === "Retornada") etiquetas.push("PASTA RETORNADA");
   if (processo.custas_status && !["Pago", "Dispensado", "Não informado"].includes(processo.custas_status)) etiquetas.push("CUSTAS PENDENTES");
   if (["Solicitada", "Pendente", "Prazo decorrido"].includes(processo.emenda_status || processo.emenda_inicial || "")) etiquetas.push("EMENDA PENDENTE");
-  if (processoSemRevisao(processo)) etiquetas.push("SEM REVISÃO");
   if (processo.documentacao_status === "Irregular" || processo.status_documentos === "Irregular") etiquetas.push("DOCUMENTAÇÃO IRREGULAR");
   return etiquetas;
 }
 
-function prioridadeAlerta(alerta: { prioridade: number }) { return alerta.prioridade >= 90 ? "crítica" : alerta.prioridade >= 70 ? "alta" : alerta.prioridade >= 45 ? "média" : "baixa"; }
 function valorNumerico(valor: any) { return typeof valor === "number" ? valor : Number(String(valor).replace("%", "").replace(",", ".")) || 0; }
 function ocultarMetricaZerada(nome: string, valor: any) { return valorNumerico(valor) === 0 && METRICAS_SECUNDARIAS_ZERADAS.has(nome); }
 function destinoMetrica(nome: string): { id: string; opcoes?: NavigateOptions } | null {
-  if (nome === "Processos sem revisão" || nome === "Processos sem revisÃ£o") return { id: "processos", opcoes: { filtros: { semRevisao: "Sim" }, status: "sem_revisao" } };
   if (["Atrasados", "Pastas retornadas", "Custas", "Emendas", "Tarefas atrasadas", "Prazos vencidos"].includes(nome)) return { id: "indicadores" };
   return null;
 }
@@ -92,7 +85,6 @@ export default function GerencialProcessualModule({ usuario, showToast, initialV
   const [movimentacoes, setMovimentacoes] = useState<Array<Record<string, any>>>([]);
   const [ocorrencias, setOcorrencias] = useState<Ocorrencia[]>([]);
   const [custas, setCustas] = useState<Custa[]>([]);
-  const [totalSemRevisao, setTotalSemRevisao] = useState(0);
   const [busca, setBusca] = useState("");
   const [carregando, setCarregando] = useState(true);
   const [ocorrenciaForm, setOcorrenciaForm] = useState(() => criarOcorrenciaForm(usuario));
@@ -103,7 +95,7 @@ export default function GerencialProcessualModule({ usuario, showToast, initialV
 
   const carregar = useCallback(async () => {
     setCarregando(true);
-    const [processosReq, tarefasReq, documentosReq, atendimentosReq, ocorrenciasReq, custasReq, movimentacoesReq, semRevisaoReq] = await Promise.allSettled([
+    const [processosReq, tarefasReq, documentosReq, atendimentosReq, ocorrenciasReq, custasReq, movimentacoesReq] = await Promise.allSettled([
       supabase.from("processos").select("*").order("updated_at", { ascending: false }).limit(800),
       supabase.from("processual_tarefas").select("*").order("data", { ascending: false }).limit(800),
       supabase.from("documentos_juridicos").select("*").order("created_at", { ascending: false }).limit(800),
@@ -111,7 +103,6 @@ export default function GerencialProcessualModule({ usuario, showToast, initialV
       supabase.from("processual_ocorrencias").select("*").order("data", { ascending: false }).limit(800),
       supabase.from("processual_custas").select("*").order("vencimento", { ascending: true }).limit(800),
       supabase.from("movimentacoes").select("id, categoria, created_at").is("deleted_at", null).order("created_at", { ascending: false }).limit(1200),
-      getProcessesWithoutReviewCount(supabase),
     ]);
     if (processosReq.status === "fulfilled" && !processosReq.value.error) setProcessos(processosReq.value.data || []);
     if (tarefasReq.status === "fulfilled" && !tarefasReq.value.error) setTarefas(tarefasReq.value.data || []);
@@ -120,7 +111,6 @@ export default function GerencialProcessualModule({ usuario, showToast, initialV
     if (ocorrenciasReq.status === "fulfilled" && !ocorrenciasReq.value.error) setOcorrencias(ocorrenciasReq.value.data || []);
     if (custasReq.status === "fulfilled" && !custasReq.value.error) setCustas(custasReq.value.data || []);
     if (movimentacoesReq.status === "fulfilled" && !movimentacoesReq.value.error) setMovimentacoes(movimentacoesReq.value.data || []);
-    if (semRevisaoReq.status === "fulfilled") setTotalSemRevisao(semRevisaoReq.value);
     setCarregando(false);
   }, []);
 
@@ -136,7 +126,6 @@ export default function GerencialProcessualModule({ usuario, showToast, initialV
       if (["vermelho", "atrasado"].includes(prazo.sinalizacao)) lista.push({ id: `sla-${processo.id}`, tipo: "SLA", titulo: "SLA de protocolo atrasado", detalhe: processo.nome_cliente, prioridade: 95, entidade: "processo", entidadeId: processo.id });
       else if (["critico", "atencao", "amarelo"].includes(prazo.sinalizacao)) lista.push({ id: `sla-prox-${processo.id}`, tipo: "SLA", titulo: "SLA próximo do fim", detalhe: processo.nome_cliente, prioridade: 72, entidade: "processo", entidadeId: processo.id });
       if (processo.pasta_retornada || processo.pasta_retorno_status === "Retornada") lista.push({ id: `pasta-${processo.id}`, tipo: "Pasta retornada", titulo: "Pasta retornada pendente", detalhe: processo.nome_cliente, prioridade: 80, entidade: "processo", entidadeId: processo.id });
-      if (processoSemRevisao(processo)) lista.push({ id: `revisao-${processo.id}`, tipo: "Revisão", titulo: "Processo sem revisão", detalhe: processo.nome_cliente, prioridade: diasDesde(processo.ultima_revisao) >= 90 ? 90 : 55, entidade: "processo", entidadeId: processo.id });
       etiquetaProcesso(processo).forEach((etiqueta) => lista.push({ id: `${etiqueta}-${processo.id}`, tipo: "Processo", titulo: etiqueta, detalhe: processo.nome_cliente, prioridade: etiqueta.includes("ATRASADO") ? 90 : 60, entidade: "processo", entidadeId: processo.id }));
     });
     tarefas.forEach((tarefa) => {
@@ -155,18 +144,18 @@ export default function GerencialProcessualModule({ usuario, showToast, initialV
     const protocolos = processos.filter((p) => !p.numero_processo || ["Solicitado para Ajuizamento", "Documentação", "Procuração", "CRM", "Enviado para Elite", "SLA", "Pasta Retornada"].includes(p.fase_atual));
     const protocolados = processos.filter((p) => Boolean(p.numero_processo));
     const slas = protocolos.map((p) => calcularPrazoElite(p.data_envio_elite));
-    const concluidos20 = processos.filter((p) => Number(p.sla_dias_uteis_utilizados || 999) <= 20 && p.numero_processo).length;
+    const concluidos15 = processos.filter((p) => Number(p.sla_dias_uteis_utilizados || 999) <= 15 && p.numero_processo).length;
     return {
       protocolos: [
-        ["Total", protocolos.length], ["Preparação", protocolos.filter((p) => ["Documentação", "Procuração", "CRM"].includes(p.fase_atual)).length], ["Elite", protocolos.filter((p) => p.fase_atual === "Enviado para Elite").length], ["Dentro SLA", slas.filter((s) => ["neutro", "verde"].includes(s.sinalizacao)).length], ["Próximo SLA", slas.filter((s) => ["atencao", "critico", "amarelo"].includes(s.sinalizacao)).length], ["Atrasados", slas.filter((s) => ["vermelho", "atrasado"].includes(s.sinalizacao)).length], ["% dentro 20 dias", protocolados.length ? `${Math.round((concluidos20 / protocolados.length) * 100)}%` : "0%"], ["Pastas retornadas", processos.filter((p) => p.pasta_retornada).length],
+        ["Total", protocolos.length], ["Preparação", protocolos.filter((p) => ["Documentação", "Procuração", "CRM"].includes(p.fase_atual)).length], ["Elite", protocolos.filter((p) => p.fase_atual === "Enviado para Elite").length], ["Dentro SLA", slas.filter((s) => ["neutro", "verde"].includes(s.sinalizacao)).length], ["Próximo SLA", slas.filter((s) => ["atencao", "critico", "amarelo"].includes(s.sinalizacao)).length], ["Atrasados", slas.filter((s) => ["vermelho", "atrasado"].includes(s.sinalizacao)).length], ["% dentro 15 dias", protocolados.length ? `${Math.round((concluidos15 / protocolados.length) * 100)}%` : "0%"], ["Pastas retornadas", processos.filter((p) => p.pasta_retornada).length],
       ],
       processos: [
-        ["Ativos", processos.filter((p) => ["Em andamento", "Pendente de protocolo"].includes(p.situacao)).length], ["Encerrados", processos.filter((p) => p.situacao === "Encerrado").length], ["Suspensos", processos.filter((p) => p.situacao === "Suspenso / Sobrestado").length], ["Procedentes", processos.filter((p) => p.resultado === "Procedente").length], ["Parciais", processos.filter((p) => p.resultado === "Parcialmente procedente").length], ["Improcedentes", processos.filter((p) => p.resultado === "Improcedente").length], ["Extintos sem mérito", processos.filter((p) => p.resultado === "Extinto sem resolução do mérito").length], ["Recursais", processos.filter((p) => p.recursal).length], ["Custas", custas.filter((c) => !["Pago", "Dispensado"].includes(c.status)).length], ["Emendas", processos.filter((p) => ["Solicitada", "Pendente"].includes(p.emenda_status)).length], ["Processos sem revisão", totalSemRevisao],
+        ["Ativos", processos.filter((p) => ["Em andamento", "Pendente de protocolo"].includes(p.situacao)).length], ["Encerrados", processos.filter((p) => p.situacao === "Encerrado").length], ["Suspensos", processos.filter((p) => p.situacao === "Suspenso / Sobrestado").length], ["Procedentes", processos.filter((p) => p.resultado === "Procedente").length], ["Parciais", processos.filter((p) => p.resultado === "Parcialmente procedente").length], ["Improcedentes", processos.filter((p) => p.resultado === "Improcedente").length], ["Extintos sem mérito", processos.filter((p) => p.resultado === "Extinto sem resolução do mérito").length], ["Recursais", processos.filter((p) => p.recursal).length], ["Custas", custas.filter((c) => !["Pago", "Dispensado"].includes(c.status)).length], ["Emendas", processos.filter((p) => ["Solicitada", "Pendente"].includes(p.emenda_status)).length],
       ],
       qualidade: RESPONSABILIDADES.map((r) => [r, ocorrencias.filter((o) => o.responsabilidade === r && ["Custas", "Emenda", "Documentação", "Pasta retornada"].includes(o.categoria)).length]),
       operacao: [["Processos revisados", processos.filter((p) => p.ultima_revisao).length], ["Movimentações cadastradas", movimentacoes.length], ["Relatórios enviados", documentos.filter((d) => normalizar(`${d.modelo_nome} ${d.tipo_documento}`).includes("relatorio") && ["Enviado", "Gerado"].includes(d.status)).length], ["Clientes atualizados", new Set(processos.map((p) => p.cliente_id || p.nome_cliente)).size], ["Tarefas concluídas", tarefas.filter((t) => t.status === "Concluída").length], ["Tarefas atrasadas", alertas.filter((a) => a.tipo === "Tarefa").length], ["Prazos cumpridos", tarefas.filter((t) => t.tipo === "Prazo processual" && t.status === "Concluída").length], ["Prazos vencidos", tarefas.filter((t) => t.tipo === "Prazo processual" && t.status !== "Concluída" && new Date(`${t.data}T23:59:59`) < new Date()).length]],
     };
-  }, [alertas, custas, documentos, movimentacoes.length, ocorrencias, processos, tarefas, totalSemRevisao]);
+  }, [alertas, custas, documentos, movimentacoes.length, ocorrencias, processos, tarefas]);
 
   const ocorrenciasFiltradas = useMemo(() => {
     const termo = normalizar(busca);
@@ -235,9 +224,5 @@ function GrupoIndicador({ titulo, itens, onNavigate }: { titulo: string; itens: 
     const conteudo = <><span>{nome}</span><strong>{valor}</strong></>;
     return destino && onNavigate ? <button className="metric-card metric-card-clickable" key={nome} type="button" onClick={() => onNavigate(destino.id, destino.opcoes)}>{conteudo}</button> : <article className="metric-card" key={nome}>{conteudo}</article>;
   })}</div></section>;
-}
-function Alertas({ alertas, totalSemRevisao }: { alertas: Array<{ id: string; tipo: string; titulo: string; detalhe: string; prioridade: number; entidade: string; entidadeId?: string }>; totalSemRevisao: number }) {
-  const [selecionado, setSelecionado] = useState<typeof alertas[number] | null>(null);
-  return <div className="alert-layout"><section className="gerencial-card"><h3>Alertas por prioridade · {totalSemRevisao} processos sem revisão</h3><div className="alert-list">{alertas.length === 0 ? <div className="empty-row">Nenhum alerta ativo.</div> : alertas.map((alerta) => <article key={alerta.id} className={prioridadeAlerta(alerta)}><div><span>{alerta.tipo}</span><strong>{alerta.titulo}</strong><small>{alerta.detalhe}</small></div><button className="btn-secondary compact" type="button" onClick={() => setSelecionado(alerta)}>Abrir {alerta.entidade}</button></article>)}</div></section>{selecionado ? <aside className="gerencial-card alert-detail"><span className="eyebrow">Registro relacionado</span><h3>{selecionado.titulo}</h3><p>{selecionado.detalhe}</p><dl><div><dt>Tipo</dt><dd>{selecionado.tipo}</dd></div><div><dt>Prioridade</dt><dd>{prioridadeAlerta(selecionado)}</dd></div><div><dt>Entidade</dt><dd>{selecionado.entidade}</dd></div><div><dt>ID</dt><dd>{selecionado.entidadeId || selecionado.id}</dd></div></dl><button className="btn-secondary compact" type="button" onClick={() => setSelecionado(null)}>Fechar</button></aside> : null}</div>;
 }
 function Ocorrencias({ ocorrencias, custas, processos, ocorrenciaForm, setOcorrenciaForm, custaForm, setCustaForm, onOcorrencia, onCusta }: any) { return <div className="gerencial-work-grid"><form className="gerencial-card gerencial-form" onSubmit={onOcorrencia}><h3>Registrar ocorrência</h3><label><span>Categoria</span><select value={ocorrenciaForm.categoria} onChange={(e) => setOcorrenciaForm((f: any) => ({ ...f, categoria: e.target.value }))}>{CATEGORIAS_OCORRENCIA.map((o) => <option key={o}>{o}</option>)}</select></label><label><span>Processo</span><select value={ocorrenciaForm.processo_id} onChange={(e) => setOcorrenciaForm((f: any) => ({ ...f, processo_id: e.target.value }))}><option value="">Sem vínculo</option>{processos.map((p: Processo) => <option key={p.id} value={p.id}>{p.nome_cliente} · {p.numero_processo || "sem CNJ"}</option>)}</select></label><label><span>Data</span><input type="date" value={ocorrenciaForm.data} onChange={(e) => setOcorrenciaForm((f: any) => ({ ...f, data: e.target.value }))} /></label><label><span>Responsabilidade</span><select value={ocorrenciaForm.responsabilidade} onChange={(e) => setOcorrenciaForm((f: any) => ({ ...f, responsabilidade: e.target.value }))}>{RESPONSABILIDADES.map((o) => <option key={o}>{o}</option>)}</select></label><label><span>Descrição</span><textarea rows={3} value={ocorrenciaForm.descricao} onChange={(e) => setOcorrenciaForm((f: any) => ({ ...f, descricao: e.target.value }))} /></label><label><span>Impacto</span><input value={ocorrenciaForm.impacto} onChange={(e) => setOcorrenciaForm((f: any) => ({ ...f, impacto: e.target.value }))} /></label><label><span>Providência</span><input value={ocorrenciaForm.providencia} onChange={(e) => setOcorrenciaForm((f: any) => ({ ...f, providencia: e.target.value }))} /></label><label><span>Prazo</span><input type="date" value={ocorrenciaForm.prazo} onChange={(e) => setOcorrenciaForm((f: any) => ({ ...f, prazo: e.target.value }))} /></label><label><span>Evidência</span><input value={ocorrenciaForm.evidencia} onChange={(e) => setOcorrenciaForm((f: any) => ({ ...f, evidencia: e.target.value }))} /></label><label><span>Anexo</span><input value={ocorrenciaForm.anexo_url} onChange={(e) => setOcorrenciaForm((f: any) => ({ ...f, anexo_url: e.target.value }))} /></label><label className="check-line"><input type="checkbox" checked={ocorrenciaForm.resolvido} onChange={(e) => setOcorrenciaForm((f: any) => ({ ...f, resolvido: e.target.checked }))} /> Resolvido</label><button className="btn-primary" type="submit">Salvar ocorrência</button></form><form className="gerencial-card gerencial-form" onSubmit={onCusta}><h3>Registrar custas</h3><label><span>Processo</span><select value={custaForm.processo_id} onChange={(e) => setCustaForm((f: any) => ({ ...f, processo_id: e.target.value }))}><option value="">Sem vínculo</option>{processos.map((p: Processo) => <option key={p.id} value={p.id}>{p.nome_cliente} · {p.numero_processo || "sem CNJ"}</option>)}</select></label><label><span>Tipo</span><input value={custaForm.tipo} onChange={(e) => setCustaForm((f: any) => ({ ...f, tipo: e.target.value }))} /></label><label><span>Valor</span><input value={custaForm.valor} onChange={(e) => setCustaForm((f: any) => ({ ...f, valor: e.target.value }))} /></label><label><span>Solicitação</span><input type="date" value={custaForm.solicitacao} onChange={(e) => setCustaForm((f: any) => ({ ...f, solicitacao: e.target.value }))} /></label><label><span>Vencimento</span><input type="date" value={custaForm.vencimento} onChange={(e) => setCustaForm((f: any) => ({ ...f, vencimento: e.target.value }))} /></label><label><span>Status</span><select value={custaForm.status} onChange={(e) => setCustaForm((f: any) => ({ ...f, status: e.target.value }))}>{STATUS_CUSTAS.map((o) => <option key={o}>{o}</option>)}</select></label><label><span>Pagamento</span><input type="date" value={custaForm.pagamento} onChange={(e) => setCustaForm((f: any) => ({ ...f, pagamento: e.target.value }))} /></label><label><span>Comprovante</span><input value={custaForm.comprovante_url} onChange={(e) => setCustaForm((f: any) => ({ ...f, comprovante_url: e.target.value }))} /></label><label><span>Responsável</span><input value={custaForm.responsavel} onChange={(e) => setCustaForm((f: any) => ({ ...f, responsavel: e.target.value }))} /></label><label><span>Observação</span><textarea rows={2} value={custaForm.observacao} onChange={(e) => setCustaForm((f: any) => ({ ...f, observacao: e.target.value }))} /></label><button className="btn-primary" type="submit">Salvar custas</button></form><section className="gerencial-card wide"><h3>Ocorrências registradas</h3><div className="gerencial-table"><table><thead><tr><th>Categoria</th><th>Data</th><th>Cliente</th><th>Responsabilidade</th><th>Impacto</th><th>Prazo</th><th>Resolvido</th></tr></thead><tbody>{ocorrencias.length === 0 ? <tr><td colSpan={7}>Nenhuma ocorrência registrada.</td></tr> : ocorrencias.map((o: Ocorrencia) => <tr key={o.id}><td>{o.categoria}</td><td>{formatarData(o.data)}</td><td>{o.cliente_nome || "—"}</td><td>{o.responsabilidade}</td><td>{o.impacto || "—"}</td><td>{formatarData(o.prazo)}</td><td>{o.resolvido ? "Sim" : "Não"}</td></tr>)}</tbody></table></div></section><section className="gerencial-card wide"><h3>Custas</h3><div className="gerencial-table"><table><thead><tr><th>Tipo</th><th>Cliente</th><th>Valor</th><th>Vencimento</th><th>Status</th><th>Responsável</th></tr></thead><tbody>{custas.length === 0 ? <tr><td colSpan={6}>Nenhuma custa registrada.</td></tr> : custas.map((c: Custa) => <tr key={c.id}><td>{c.tipo}</td><td>{c.cliente_nome || "—"}</td><td>{moeda(c.valor)}</td><td>{formatarData(c.vencimento)}</td><td>{c.status}</td><td>{c.responsavel || "—"}</td></tr>)}</tbody></table></div></section></div>; }

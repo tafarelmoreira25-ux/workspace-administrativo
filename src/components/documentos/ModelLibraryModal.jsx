@@ -227,7 +227,7 @@ export default function ModelLibraryModal({
               <ul>
                 <li>{modeloVisualizado.campos.length} campos no total.</li>
                 <li>Tempo estimado de {modeloVisualizado.minutos} minutos.</li>
-                <li>Geração em PDF com identidade visual Platino.</li>
+                <li>Geração em {modeloVisualizado.formato === "docx" ? "DOCX fiel ao Word oficial" : "PDF com identidade visual Platino"}.</li>
               </ul>
               <button type="button" className="btn-primary" onClick={() => onSelect(modeloVisualizado)}>Usar este modelo</button>
             </section>

@@ -618,7 +618,7 @@ export default function EsteiraKanban({
                 <label><span>Elite</span><select value={formulario.documentos_elite_status} onChange={(e) => setFormulario((f) => ({ ...f, documentos_elite_status: e.target.value }))}>{STATUS_ELITE.map((item) => <option key={item}>{item}</option>)}</select></label>
                 <div className="sla-preview">
                   <span>Enviado</span><strong>{formatarDataHora(processoEditando?.data_envio_elite)}</strong>
-                  <small>Ao marcar como Enviado e salvar, o prazo de 20 dias úteis inicia automaticamente.</small>
+                  <small>Ao marcar como Enviado e salvar, o prazo de 15 dias úteis inicia automaticamente.</small>
                 </div>
               </div>
             </section> : null}

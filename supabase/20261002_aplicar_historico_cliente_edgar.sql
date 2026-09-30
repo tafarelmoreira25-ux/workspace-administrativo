@@ -41,7 +41,7 @@ begin
   v_total := public.inserir_historico_administrativo_extrajudicial(v_processo.id);
 
   if v_total = 0 then
-    raise exception 'O processo % de Edgar nao esta apto a receber o historico extrajudicial.', v_processo.id;
+    raise exception 'A funcao de historico instalada no Supabase esta desatualizada. Execute primeiro 20261001_historico_25_registros_extrajudiciais.sql e depois execute novamente este arquivo. Processo Edgar: %.', v_processo.id;
   end if;
 
   raise notice 'Historico extrajudicial aplicado ao processo % (%). Registros processados: %.',
