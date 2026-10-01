@@ -13,7 +13,6 @@ const DashboardModule = lazy(() => import("./components/dashboard/DashboardModul
 const CarteiraProcessual = lazy(() => import("./CarteiraProcessual"));
 const HomologacaoQuitacaoModule = lazy(() => import("./components/homologacao/HomologacaoQuitacaoModule"));
 const ADMIN_EMAIL = (import.meta.env.VITE_ADMIN_EMAIL || "tafarel@platino.com").toLowerCase();
-const TEMPO_LIMITE_INICIALIZACAO_MS = 8_000;
 
 function normalizarDataColada(valor, tipo) {
   const texto = String(valor || "").trim();
@@ -29,17 +28,6 @@ function normalizarDataColada(valor, tipo) {
   if (tipo !== "datetime-local") return iso;
   const hora = texto.match(/(?:[T\s])(\d{1,2}):(\d{2})(?::(\d{2}))?/);
   return `${iso}T${hora ? `${hora[1].padStart(2, "0")}:${hora[2]}${hora[3] ? `:${hora[3]}` : ""}` : "00:00"}`;
-}
-
-function limitarTempo(promise, tempoMs, mensagem) {
-  let temporizador;
-  const limite = new Promise((_, rejeitar) => {
-    temporizador = window.setTimeout(() => rejeitar(new Error(mensagem)), tempoMs);
-  });
-
-  return Promise.race([promise, limite]).finally(() => {
-    window.clearTimeout(temporizador);
-  });
 }
 
 async function buscarPerfilUsuario(usuarioAuth) {
@@ -576,44 +564,24 @@ export default function App() {
   useEffect(() => {
     let ativo = true;
 
-    async function restaurarSessao() {
+    async function exigirNovoLogin() {
       try {
         if (modoRecuperacao) return;
-        const { data, error } = await limitarTempo(
-          supabase.auth.getSession(),
-          TEMPO_LIMITE_INICIALIZACAO_MS,
-          "Tempo limite excedido ao verificar a sessão.",
-        );
-        if (error) throw error;
-        if (!data.session?.user) return;
-
-        const perfil = await limitarTempo(
-          buscarPerfilUsuario(data.session.user),
-          TEMPO_LIMITE_INICIALIZACAO_MS,
-          "Tempo limite excedido ao carregar o perfil.",
-        );
+        await supabase.auth.signOut({ scope: "local" });
         if (!ativo) return;
-
-        setUsuarioLogado(perfil);
-        setInicializando(false);
+        setUsuarioLogado(null);
       } catch (error) {
-        console.error("Erro ao restaurar sessão:", error);
-        supabase.auth.signOut({ scope: "local" }).catch((logoutError) => {
-          console.error("Erro ao limpar a sessão local:", logoutError);
-        });
-        if (ativo) {
-          showToast("Não foi possível restaurar sua sessão. Entre novamente.");
-        }
+        console.error("Erro ao limpar a sessao local:", error);
       } finally {
         if (ativo) setInicializando(false);
       }
     }
 
-    restaurarSessao();
+    exigirNovoLogin();
     return () => {
       ativo = false;
     };
-  }, [modoRecuperacao, showToast]);
+  }, [modoRecuperacao]);
 
   return (<>
       <Toast message={toastMessage} onClose={() => setToastMessage("")} />

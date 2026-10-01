@@ -2599,3 +2599,210 @@
     grid-column: 1 / -1;
   }
 }
+
+/* Ficha processual em formato de pasta jurídica: menos cards, mais cadastro técnico. */
+.process-page-view .judicial-drawer-panel.process-ficha {
+  border: 1px solid #d7dde6;
+  border-radius: 8px;
+  background: #fff;
+  box-shadow: 0 24px 70px rgba(15, 23, 42, .18);
+}
+
+.process-ficha-header {
+  min-height: 66px;
+  padding: 14px 20px;
+  background: #fff;
+  border-bottom: 1px solid #dfe5ed;
+}
+
+.process-ficha-header h3 {
+  color: #12315a;
+  font-size: 22px;
+  font-weight: 750;
+}
+
+.process-ficha-tabs {
+  top: 67px;
+  display: flex;
+  gap: 0;
+  padding: 0 18px;
+  background: #f8fafc;
+  border-bottom: 1px solid #dfe5ed;
+  overflow-x: auto;
+}
+
+.process-ficha-tabs button {
+  min-height: 42px;
+  padding: 0 14px;
+  color: #475467;
+  background: transparent;
+  border: 0;
+  border-right: 1px solid #e5eaf0;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.process-ficha-tabs button.active {
+  color: #12315a;
+  background: #fff;
+  border-bottom: 2px solid #2557d6;
+}
+
+.process-ficha-content {
+  grid-template-columns: minmax(0, 1fr) 300px;
+  gap: 14px;
+  padding: 16px;
+  background: #f4f6f9;
+}
+
+.process-inline-summary,
+.process-card-section,
+.process-next-actions {
+  border: 1px solid #dfe5ed;
+  border-radius: 6px;
+  box-shadow: none;
+}
+
+.process-inline-summary,
+.process-card-section {
+  padding: 0;
+  overflow: hidden;
+}
+
+.process-section-heading {
+  min-height: 38px;
+  padding: 9px 12px;
+  background: #f8fafc;
+  border-bottom: 1px solid #dfe5ed;
+}
+
+.process-section-heading h4,
+.process-form-section h4,
+.process-next-actions h4 {
+  color: #25364a;
+  font-size: 13px;
+  font-weight: 750;
+}
+
+.process-summary-grid,
+.process-twelve-grid {
+  gap: 0;
+}
+
+.process-summary-grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.process-twelve-grid {
+  padding: 12px;
+}
+
+.process-summary-grid label,
+.process-twelve-grid label {
+  gap: 5px;
+  padding: 0 14px 12px 0;
+}
+
+.process-inline-summary .process-summary-grid {
+  padding: 12px;
+}
+
+.process-ficha label > span,
+.process-ficha .process-form-grid span {
+  color: #344054;
+  font-size: 11px;
+  font-weight: 750;
+}
+
+.process-ficha input,
+.process-ficha select,
+.process-ficha textarea {
+  min-height: 36px;
+  padding: 7px 10px !important;
+  border-color: #cfd8e3 !important;
+  border-radius: 3px !important;
+  box-shadow: inset 0 1px 1px rgba(15, 23, 42, .04);
+  font-size: 12px !important;
+}
+
+.process-ficha textarea {
+  min-height: 112px;
+}
+
+.process-ficha .highlight-field input {
+  background: #fff;
+  border-color: #9eb4da !important;
+}
+
+.process-control-options {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+  padding: 0 12px 12px;
+}
+
+.process-control-options .check-line,
+.process-form-grid .check-line {
+  min-height: 34px;
+  padding: 7px 9px;
+  background: #fbfcfd;
+  border-radius: 4px;
+  font-size: 12px;
+}
+
+.process-next-actions {
+  top: 124px;
+  padding: 0;
+  overflow: hidden;
+}
+
+.process-next-actions h4 {
+  padding: 11px 12px;
+  background: #f8fafc;
+  border-bottom: 1px solid #dfe5ed;
+}
+
+.process-next-actions article {
+  margin: 0;
+  padding: 11px 12px;
+  border: 0;
+  border-bottom: 1px solid #edf0f4;
+  border-radius: 0;
+  background: #fff;
+}
+
+.process-next-actions article:last-child {
+  border-bottom: 0;
+}
+
+.process-ficha-actions {
+  padding: 12px 18px;
+  background: #fff;
+  border-top: 1px solid #dfe5ed;
+}
+
+@media (max-width: 1180px) {
+  .process-ficha-tabs {
+    top: 0;
+  }
+
+  .process-summary-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 760px) {
+  .process-ficha-content {
+    padding: 10px;
+  }
+
+  .process-summary-grid,
+  .process-twelve-grid,
+  .process-control-options {
+    grid-template-columns: 1fr;
+  }
+
+  .process-summary-grid label,
+  .process-twelve-grid label {
+    padding-right: 0;
+  }
+}

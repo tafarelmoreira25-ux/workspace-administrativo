@@ -3150,3 +3150,270 @@ body,
   .login-page-liquid { min-height:100svh !important; padding:18px !important; }
   .login-page-liquid .login-card { width:100% !important; padding:28px 22px !important; }
 }
+
+/* === Ajuste jurídico: ficha e cadastro de cliente mais profissionais === */
+.cliente-ficha-backdrop .cliente-ficha-page {
+  border: 1px solid #d7dde6;
+  border-radius: 8px;
+  box-shadow: 0 24px 70px rgba(15, 23, 42, .20);
+}
+
+.cliente-ficha-page > header {
+  background: #fff;
+  border-bottom: 1px solid #dfe5ed;
+}
+
+.cliente-ficha-heading {
+  margin-bottom: 14px;
+}
+
+.cliente-ficha-heading h3 {
+  color: #12315a;
+  font-size: 21px;
+  font-weight: 750;
+  letter-spacing: -.02em;
+}
+
+.cliente-quick-actions .compact,
+.table-actions .compact {
+  min-height: 30px !important;
+  padding: 6px 10px !important;
+  border-radius: 4px !important;
+}
+
+.cliente-ficha-page .cliente-ficha-topo {
+  background: #f9fafb;
+  border: 1px solid #dfe5ed;
+  border-radius: 4px;
+  padding: 0;
+}
+
+.cliente-ficha-page .cliente-ficha-topo > div {
+  min-height: 58px;
+  padding: 11px 14px;
+}
+
+.cliente-ficha-topo dt,
+.ficha-details dt {
+  color: #526070;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: .02em;
+}
+
+.cliente-ficha-topo dd,
+.ficha-details dd {
+  color: #1f2f46;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.cliente-ficha-tabs {
+  gap: 0;
+  padding: 0 16px;
+  background: #f8fafc;
+}
+
+.cliente-ficha-tabs button {
+  min-height: 42px;
+  padding: 0 14px;
+  border: 0;
+  border-right: 1px solid #e5eaf0;
+  border-radius: 0;
+}
+
+.cliente-ficha-tabs button.active {
+  color: #12315a;
+  background: #fff;
+  border-bottom: 2px solid #2557d6;
+}
+
+.ficha-resumo-grid {
+  grid-template-columns: 1fr;
+  gap: 12px;
+}
+
+.ficha-info-group {
+  padding: 0;
+  overflow: hidden;
+  background: #fff;
+  border: 1px solid #dfe5ed;
+  border-radius: 6px;
+}
+
+.ficha-info-group > header {
+  min-height: 38px;
+  margin: 0;
+  padding: 9px 12px;
+  background: #f8fafc;
+  border-bottom: 1px solid #dfe5ed;
+}
+
+.ficha-info-group > header > span {
+  width: auto;
+  height: auto;
+  padding: 2px 6px;
+  color: #12315a;
+  background: #eef3ff;
+  border: 1px solid #d8e2ff;
+  border-radius: 4px;
+}
+
+.ficha-info-group h4 {
+  color: #25364a;
+  font-size: 13px;
+  font-weight: 750;
+}
+
+.ficha-info-group .ficha-details {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0;
+}
+
+.ficha-info-group .ficha-details > div {
+  min-height: 62px;
+  padding: 12px;
+  border-right: 1px solid #edf0f4;
+  border-bottom: 1px solid #edf0f4;
+}
+
+.ficha-info-group .ficha-details > div:nth-child(3n),
+.ficha-details-notes > div + div {
+  border-right: 0 !important;
+}
+
+.ficha-info-group .ficha-details > .wide {
+  border-top: 0;
+  grid-column: 1 / -1;
+  margin-top: 0;
+  padding-top: 12px;
+}
+
+.ficha-details-notes {
+  grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+}
+
+.ficha-details-notes > div {
+  min-height: 80px;
+}
+
+.cliente-modal {
+  width: min(1120px, 100%);
+  border-radius: 6px !important;
+  border: 1px solid #d7dde6 !important;
+  box-shadow: 0 24px 70px rgba(15, 23, 42, .18) !important;
+}
+
+.cliente-modal > header {
+  min-height: 58px;
+  padding: 12px 18px;
+  background: #f8fafc;
+}
+
+.cliente-modal h3 {
+  color: #12315a;
+  font-size: 19px;
+}
+
+.cliente-required-note {
+  margin: 12px 18px 0;
+  background: #fff8dd;
+  border-color: #f3dfa1;
+  border-radius: 3px;
+}
+
+.cliente-form-sections {
+  gap: 0;
+  padding: 14px 18px 18px;
+}
+
+.cliente-form-section {
+  gap: 0;
+  padding: 14px 0 16px;
+  border-bottom: 1px solid #e6ebf1;
+}
+
+.cliente-form-section:first-child {
+  padding-top: 0;
+}
+
+.cliente-form-section:last-child {
+  border-bottom: 0;
+  padding-bottom: 0;
+}
+
+.cliente-form-section h4 {
+  margin-bottom: 12px;
+  color: #25364a;
+  font-size: 14px;
+}
+
+.cliente-form-section h4::before {
+  display: none;
+}
+
+.cliente-form-grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  column-gap: 18px;
+  row-gap: 12px;
+}
+
+.cliente-form-grid .wide {
+  grid-column: span 2;
+}
+
+.cliente-form-grid label:has(textarea),
+.cliente-form-grid label:has(input[placeholder*="drive"]),
+.cliente-form-grid label:has(input[placeholder*="Drive"]) {
+  grid-column: 1 / -1;
+}
+
+.cliente-modal .cliente-form-grid label span {
+  color: #344054;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.cliente-modal input,
+.cliente-modal select,
+.cliente-modal textarea {
+  min-height: 36px;
+  border-radius: 3px !important;
+  border-color: #cfd8e3 !important;
+}
+
+.cliente-modal textarea {
+  min-height: 100px;
+}
+
+.clientes-table {
+  background: #fff;
+}
+
+.clientes-table th {
+  background: #f6f8fb;
+  color: #344054;
+}
+
+.clientes-table tr:hover td {
+  background: #fbfcfe;
+}
+
+@media (max-width: 900px) {
+  .cliente-form-grid,
+  .ficha-info-group .ficha-details,
+  .ficha-details-notes {
+    grid-template-columns: 1fr !important;
+  }
+
+  .cliente-form-grid .wide,
+  .cliente-form-grid label:has(textarea),
+  .cliente-form-grid label:has(input[placeholder*="drive"]),
+  .cliente-form-grid label:has(input[placeholder*="Drive"]) {
+    grid-column: 1 / -1;
+  }
+
+  .ficha-info-group .ficha-details > div {
+    border-right: 0 !important;
+  }
+}
