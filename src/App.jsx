@@ -39,7 +39,7 @@ async function buscarPerfilUsuario(usuarioAuth) {
 
   const { data, error } = await supabase
     .from("funcionarios")
-    .select("id,nome,email,tipo,perfil,cargo,setor,ativo,avatar_url")
+    .select("id,nome,email,perfil,cargo,setor,ativo")
     .ilike("email", email)
     .maybeSingle();
 
