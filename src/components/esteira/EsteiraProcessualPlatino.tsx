@@ -15,6 +15,33 @@ type Props = {
 };
 
 type Visualizacao = "protocolos" | "processos";
+const CAMPOS_PROCESSO_LISTA = [
+  "id",
+  "cliente_id",
+  "nome_cliente",
+  "cpf_cliente",
+  "id_crm",
+  "protocolo_extrajudicial",
+  "numero_processo",
+  "reu",
+  "banco_reu",
+  "tipo_acao",
+  "fase_atual",
+  "situacao",
+  "resultado",
+  "status_judicial",
+  "documentacao_status",
+  "procuracao_status",
+  "protocolo_status",
+  "link_pasta_cliente",
+  "responsavel",
+  "created_at",
+  "updated_at",
+  "proximo_prazo",
+  "data_distribuicao",
+  "origem_registro",
+  "observacoes",
+].join(",");
 
 export default function EsteiraProcessualPlatino({ usuario, showToast, initialView = "protocolos", initialFilters }: Props) {
   const [visualizacao] = useState<Visualizacao>(initialView);
@@ -35,7 +62,7 @@ export default function EsteiraProcessualPlatino({ usuario, showToast, initialVi
   const carregarProcessos = useCallback(async () => {
     setCarregando(true);
     const termo = buscaAplicada.trim().replace(/[,()"']/g, " ").replace(/\s+/g, " ").slice(0, 120);
-    let consulta = supabase.from("processos").select("*", { count: "exact" });
+    let consulta = supabase.from("processos").select(CAMPOS_PROCESSO_LISTA, { count: "exact" });
     consulta = visualizacao === "protocolos"
       ? consulta.or("numero_processo.is.null,numero_processo.eq.").in("fase_atual", [...FASES_DE_PROTOCOLO])
       : consulta.not("numero_processo", "is", null).neq("numero_processo", "");

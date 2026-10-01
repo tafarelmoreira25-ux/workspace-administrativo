@@ -107,6 +107,7 @@ const FORMULARIO_INICIAL = {
 };
 
 const CLIENTES_POR_PAGINA = 30;
+const DETALHES_FICHA_LIMITE = 60;
 const CAMPOS_CLIENTE = "id,nome_completo,cpf,rg,data_nascimento,telefone,email,endereco,id_crm,link_pasta_cliente,responsavel,observacoes,created_at,created_by,updated_at,updated_by";
 const CAMPOS_ATENDIMENTO_CLIENTE = "id,cliente_id,processo_id,cliente_nome,processo_numero,data,hora,canal,tipo,descricao,responsavel,anexo_url,created_at";
 const CAMPOS_HISTORICO_CLIENTE = "id,tipo,descricao,origem,processo_id,created_at,created_by";
@@ -359,12 +360,18 @@ export default function ClientesModule({ usuario, showToast, buscaExterna, clien
     setAbaFicha("resumo");
     setCarregandoFicha(true);
     const [processosResultado, documentosResultado, atendimentosResultado, historicosResultado] = await Promise.allSettled([
-      supabase.from("processos").select("id, cliente_id, nome_cliente, cpf_cliente, reu, banco_reu, numero_processo, fase_atual, situacao, resultado, status_judicial, justica_gratuita, responsavel, tipo_acao, tribunal, comarca, vara, data_distribuicao, observacoes, documentacao_status, procuracao_status, protocolo_status, updated_at").eq("cliente_id", cliente.id).order("updated_at", { ascending: false }),
-      supabase.from("documentos_juridicos").select("id, nome_documento, modelo_nome, cliente_nome, cpf_cnpj, numero_processo, responsavel_nome, status, created_at").eq("cliente_id", cliente.id).order("created_at", { ascending: false }).limit(300),
-      supabase.from("processual_atendimentos").select(CAMPOS_ATENDIMENTO_CLIENTE).eq("cliente_id", cliente.id).order("data", { ascending: false }).limit(300),
-      supabase.from("clientes_historico").select(CAMPOS_HISTORICO_CLIENTE).eq("cliente_id", cliente.id).order("created_at", { ascending: false }).limit(300),
+      supabase.from("processos").select("id, cliente_id, nome_cliente, cpf_cliente, reu, banco_reu, numero_processo, fase_atual, situacao, resultado, status_judicial, justica_gratuita, responsavel, tipo_acao, tribunal, comarca, vara, data_distribuicao, observacoes, documentacao_status, procuracao_status, protocolo_status, updated_at").eq("cliente_id", cliente.id).order("updated_at", { ascending: false }).limit(DETALHES_FICHA_LIMITE),
+      supabase.from("documentos_juridicos").select("id, nome_documento, modelo_nome, cliente_nome, cpf_cnpj, numero_processo, responsavel_nome, status, created_at").eq("cliente_id", cliente.id).order("created_at", { ascending: false }).limit(DETALHES_FICHA_LIMITE),
+      supabase.from("processual_atendimentos").select(CAMPOS_ATENDIMENTO_CLIENTE).eq("cliente_id", cliente.id).order("data", { ascending: false }).limit(DETALHES_FICHA_LIMITE),
+      supabase.from("clientes_historico").select(CAMPOS_HISTORICO_CLIENTE).eq("cliente_id", cliente.id).order("created_at", { ascending: false }).limit(DETALHES_FICHA_LIMITE),
     ]);
-    if (processosResultado.status === "fulfilled" && !processosResultado.value.error) setProcessos((processosResultado.value.data || []) as ProcessoResumo[]);
+    if (processosResultado.status === "fulfilled" && !processosResultado.value.error) {
+      const processosCliente = (processosResultado.value.data || []) as ProcessoResumo[];
+      setProcessos((atuais) => [
+        ...processosCliente,
+        ...atuais.filter((item) => !processosCliente.some((processo) => String(processo.id) === String(item.id))),
+      ]);
+    }
     if (documentosResultado.status === "fulfilled" && !documentosResultado.value.error) setDocumentos((documentosResultado.value.data || []) as DocumentoResumo[]);
     if (atendimentosResultado.status === "fulfilled" && !atendimentosResultado.value.error) setAtendimentos((atendimentosResultado.value.data || []) as AtendimentoResumo[]);
     if (historicosResultado.status === "fulfilled" && !historicosResultado.value.error) setHistoricos((historicosResultado.value.data || []) as HistoricoResumo[]);
@@ -645,7 +652,7 @@ export default function ClientesModule({ usuario, showToast, buscaExterna, clien
           <div className="cliente-ficha-backdrop" role="presentation" onMouseDown={(evento) => { if (evento.target === evento.currentTarget) setClienteAberto(null); }}>
           <section className="cliente-ficha-panel cliente-ficha-page" role="dialog" aria-modal="true" aria-label={`Ficha de ${clienteAberto.nome_completo}`}>
             <header>
-              <button type="button" className="cliente-back-button" onClick={() => { setClienteAberto(null); carregarDados(); }}>← Voltar para clientes</button>
+              <button type="button" className="cliente-back-button" onClick={() => setClienteAberto(null)}>← Voltar para clientes</button>
               <div className="cliente-ficha-heading">
                 <div>
                   <span className="eyebrow">Ficha do cliente</span>
