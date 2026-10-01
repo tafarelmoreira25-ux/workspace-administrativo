@@ -1346,7 +1346,7 @@ function TimelineProcessual({
                   <header>
                     <div>
                       {movimentacao.data_registro ? <time dateTime={movimentacao.data_registro}>{formatarDataHora(movimentacao.data_registro)}</time> : null}
-                      <h5>{item.ordemMovimentacao ? `${String(item.ordemMovimentacao).padStart(2, "0")}  ` : ""}{item.titulo}</h5>
+                      <h5>{item.titulo}</h5>
                     </div>
                     <div className="timeline-badges">
                       <span>{categoria}</span>

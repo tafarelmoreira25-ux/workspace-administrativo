@@ -114,6 +114,7 @@ function UiIcon({ name, size = 20 }) {
     feedback: <><path d="M21 15a4 4 0 0 1-4 4H8l-5 3V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4Z" /><path d="M8 9h8" /><path d="M8 13h5" /></>,
     treinamento: <><path d="m3 9 9-5 9 5-9 5-9-5Z" /><path d="M7 11.5V16c3 2 7 2 10 0v-4.5" /><path d="M21 9v6" /></>,
     esteira: <><path d="M4 6h16" /><path d="M4 12h10" /><path d="M4 18h7" /><path d="m15 16 2 2 4-5" /></>,
+    extrajudicial: <><path d="M7 3h10v4H7z" /><path d="M5 7h14v14H5z" /><path d="M8 12h8" /><path d="M8 16h5" /></>,
     protocolo: <><path d="M9 11h6" /><path d="M9 15h4" /><path d="M8 3h8l3 3v15H5V3Z" /><path d="M16 3v4h4" /></>,
     prazos: <><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" /></>,
     agenda: <><rect x="3" y="5" width="18" height="16" rx="2" /><path d="M16 3v4" /><path d="M8 3v4" /><path d="M3 10h18" /></>,
@@ -431,7 +432,7 @@ function Workspace({ usuario, onLogout, showToast }) {
         ["inicio", "Área de Trabalho", "dashboard"],
         ["clientes", "Clientes", "clientes"],
         ["homologacao-quitacao", "Homologação e Quitação", "homologacao"],
-        ...(podeVerProcessual ? [["processual-protocolos", "Protocolos", "protocolo"], ["processual", "Processual", "esteira"]] : []),
+        ...(podeVerProcessual ? [["processual-extrajudiciais", "Extrajudiciais", "extrajudicial"], ["processual-protocolos", "Protocolos", "protocolo"], ["processual", "Processual", "esteira"]] : []),
         ["agenda-atividades", "Agenda e Atividades", "agenda"],
       ],
     },
@@ -455,17 +456,19 @@ function Workspace({ usuario, onLogout, showToast }) {
     setBuscaModulo("");
     if (id === "clientes") setClienteSelecionadoId(opcoes.clienteId || null);
     else setClienteSelecionadoId(null);
+    if (["processual", "processual-extrajudiciais"].includes(id)) setProcessoSelecionadoId(opcoes.processoId || null);
+    else setProcessoSelecionadoId(null);
     if (id === "feedbacks") carregarFeedbacks();
   }
 
   function abrirProcessoNoProcessual(processoId) {
-    setProcessoSelecionadoId(processoId);
-    navegar("processual");
+    navegar("processual", { processoId });
   }
 
   function selecionarResultadoBusca(resultado) {
     if (resultado.grupo === "Clientes") navegar("clientes", { clienteId: resultado.id });
-    else if (resultado.grupo === "Processos") { setProcessoSelecionadoId(resultado.id); navegar("processual"); }
+    else if (resultado.grupo === "Extrajudiciais") navegar("processual-extrajudiciais", { processoId: resultado.id });
+    else if (resultado.grupo === "Processos") navegar(resultado.destino === "protocolos" ? "processual-protocolos" : "processual", { processoId: resultado.id });
     else navegar("documentos");
   }
 
@@ -511,8 +514,9 @@ function Workspace({ usuario, onLogout, showToast }) {
       {aba === "clientes" && <Suspense fallback={<section className="panel">Carregando clientes...</section>}><ClientesModule usuario={usuario} showToast={showToast} buscaExterna={buscaModulo} clienteInicialId={clienteSelecionadoId} onOpenProcess={abrirProcessoNoProcessual} /></Suspense>}
       {aba === "homologacao-quitacao" && <Suspense fallback={<section className="panel">Carregando Homologação e Quitação...</section>}><HomologacaoQuitacaoModule usuario={usuario} showToast={showToast} /></Suspense>}
       {aba === "documentos" && <Suspense fallback={<section className="panel">Carregando documentos...</section>}><GeradorDocumentos usuario={usuario} responsavel={usuario.nome} onSuccess={showToast} /></Suspense>}
+      {aba === "processual-extrajudiciais" && <Suspense fallback={<section className="panel">Carregando ações extrajudiciais...</section>}><CarteiraProcessual showToast={showToast} usuario={usuario} processoInicialId={processoSelecionadoId} modo="extrajudicial" /></Suspense>}
       {aba === "processual-protocolos" && <Suspense fallback={<section className="panel">Carregando protocolos...</section>}><EsteiraProcessualPlatino usuario={usuario} showToast={showToast} initialView="protocolos" /></Suspense>}
-      {aba === "processual" && <Suspense fallback={<section className="panel">Carregando Processual...</section>}><CarteiraProcessual showToast={showToast} usuario={usuario} processoInicialId={processoSelecionadoId} /></Suspense>}
+      {aba === "processual" && <Suspense fallback={<section className="panel">Carregando Processual...</section>}><CarteiraProcessual showToast={showToast} usuario={usuario} processoInicialId={processoSelecionadoId} modo="judicial" /></Suspense>}
       {aba === "agenda-atividades" && <Suspense fallback={<section className="panel">Carregando agenda...</section>}><OperacionalProcessualModule usuario={usuario} showToast={showToast} initialView="agenda" /></Suspense>}
       {aba === "indicadores" && <Suspense fallback={<section className="panel">Carregando indicadores...</section>}><GerencialProcessualModule usuario={usuario} showToast={showToast} initialView="indicadores" onNavigate={navegar} /></Suspense>}
       {aba === "treinamentos" && <TreinamentosOperacionais usuario={usuario} />}

@@ -37,6 +37,6 @@ test("inclui somente as declarações selecionadas", () => {
 test("informa a quantidade de arquivos gerados", () => {
   assert.equal(
     mensagemConjuntoGerado(["procuracao", "hipossuficiencia", "isencao-irpf"]),
-    "3 documentos do conjunto da Procuração gerados em PDFs separados!",
+    "3 documentos do conjunto da Procuração gerados em arquivos Word separados!",
   );
 });

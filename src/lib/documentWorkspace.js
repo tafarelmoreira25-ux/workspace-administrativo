@@ -4,6 +4,7 @@ export const DOCUMENT_DRAFT_TTL_MS = 24 * 60 * 60 * 1000;
 export const DOCUMENT_HISTORY_KEY = "platino.documentos.historico.v2";
 export const DOCUMENT_FAVORITES_KEY = "platino.documentos.favoritos.v2";
 export const DOCUMENT_RECENT_MODELS_KEY = "platino.documentos.modelos-recentes.v2";
+export const DOCUMENT_USAGE_KEY = "platino.documentos.uso-modelos.v1";
 
 export function rascunhoValido(registro, agora = Date.now()) {
   const salvoEm = new Date(registro?.salvoEm || "").getTime();
@@ -31,29 +32,42 @@ export function enderecoCompletoComCep(dados = {}) {
 
 export const DOCUMENT_CATEGORIES = [
   { id: "todos", nome: "Todos", icone: "library" },
-  { id: "mais-utilizados", nome: "Mais utilizados", icone: "trend" },
-  { id: "recentes", nome: "Recentes", icone: "clock" },
+  { id: "mais-utilizados", nome: "Mais Usados", icone: "trend" },
   { id: "favoritos", nome: "Favoritos", icone: "star" },
-  { id: "procuracoes", nome: "Procurações", icone: "signature" },
-  { id: "declaracoes", nome: "Declarações", icone: "statement" },
-  { id: "notificacoes", nome: "Notificações", icone: "send" },
   { id: "termos", nome: "Termos", icone: "shield" },
-  { id: "contestacoes", nome: "Contestações", icone: "scale" },
+  { id: "distratos", nome: "Distratos", icone: "signature" },
+  { id: "notificacao-extrajudicial", nome: "Notificação Extrajudicial", icone: "send" },
+  { id: "intimacao-judicial", nome: "Intimação Judicial", icone: "scale" },
+  { id: "chargeback", nome: "Chargeback", icone: "scale" },
+  { id: "declaracoes", nome: "Declarações", icone: "statement" },
+  { id: "procuracoes", nome: "Procurações", icone: "signature" },
+  { id: "recibos", nome: "Recibos", icone: "report" },
   { id: "relatorios", nome: "Relatórios", icone: "report" },
-  { id: "recibos-certidoes", nome: "Recibos e certidões", icone: "report" },
+  { id: "laudos", nome: "Laudos", icone: "report" },
+  { id: "outros", nome: "Outros Documentos", icone: "file" },
 ];
 
 const CATEGORY_LABELS = {
   procuracoes: "Procurações",
   declaracoes: "Declarações",
-  notificacoes: "Notificações e intimações",
-  contestacoes: "Contestações",
+  "notificacao-extrajudicial": "Notificação Extrajudicial",
+  "intimacao-judicial": "Intimação Judicial",
+  chargeback: "Chargeback",
   termos: "Termos",
-  relatorios: "Relatórios, certidões e recibos",
-  "recibos-certidoes": "Relatórios, certidões e recibos",
+  distratos: "Distratos",
+  recibos: "Recibos",
+  relatorios: "Relatórios",
+  laudos: "Laudos",
+  outros: "Outros Documentos",
 };
 
 const MODEL_META = {
+  "distrato-com-multa": { categoria: "distratos", minutos: 6, selo: "Novo", novo: true },
+  "distrato-sem-multa": { categoria: "distratos", minutos: 5, selo: "Novo", novo: true },
+  "distrato-7-dias-estorno-total": { categoria: "distratos", minutos: 6, selo: "Novo", novo: true },
+  "distrato-com-devolucao": { categoria: "distratos", minutos: 6, selo: "Novo", novo: true },
+  "distrato-sem-devolucao": { categoria: "distratos", minutos: 5, selo: "Novo", novo: true },
+  "distrato-inexecucao-ausencia-resposta": { categoria: "distratos", minutos: 5, selo: "Novo", novo: true },
   procuracao: {
     nome: "Procuração para Ação Revisional",
     categoria: "procuracoes",
@@ -88,26 +102,26 @@ const MODEL_META = {
   },
   "notificacao-extrajudicial": {
     nome: "Notificação Extrajudicial",
-    categoria: "notificacoes",
+    categoria: "notificacao-extrajudicial",
     descricao: "Comunica formalmente a representação e solicita a revisão das condições contratuais.",
     minutos: 5,
     popular: true,
   },
   "intimacao-extrajudicial": {
     nome: "Intimação Extrajudicial",
-    categoria: "notificacoes",
+    categoria: "intimacao-judicial",
     descricao: "Intima a instituição financeira para revisão e cumprimento das condições indicadas.",
     minutos: 5,
   },
   "citacao-judicial": {
     nome: "Citação da Parte Ré",
-    categoria: "notificacoes",
+    categoria: "intimacao-judicial",
     descricao: "Prepara a petição para requerer nova citação da parte ré no processo judicial.",
     minutos: 3,
   },
   chargeback: {
     nome: "Contestação de Chargeback",
-    categoria: "contestacoes",
+    categoria: "chargeback",
     descricao: "Formaliza a defesa contra pedido de estorno de pagamento realizado pelo cliente.",
     minutos: 4,
     selo: "Mais utilizado",
@@ -115,7 +129,7 @@ const MODEL_META = {
   },
   "contestacao-taxas-email": {
     nome: "Contestação de Taxas por E-mail",
-    categoria: "contestacoes",
+    categoria: "outros",
     descricao: "Contesta encargos e tarifas cobrados pela instituição financeira no contrato.",
     minutos: 5,
   },
@@ -125,6 +139,47 @@ const MODEL_META = {
     descricao: "Registra o compromisso do cliente com os custos relacionados ao procedimento.",
     minutos: 3,
   },
+  "termo-ciencia-consentimento-contratacao": {
+    categoria: "termos",
+    minutos: 4,
+    selo: "Novo",
+    novo: true,
+  },
+  "termo-consentimento-compras-2026": {
+    categoria: "termos",
+    minutos: 4,
+    selo: "Novo",
+    novo: true,
+  },
+  "termo-pagamento-cartao-terceiro": {
+    categoria: "termos",
+    minutos: 5,
+    selo: "Novo",
+    novo: true,
+  },
+  "termo-reconhecimento-recompra": {
+    categoria: "termos",
+    minutos: 4,
+    selo: "Novo",
+    novo: true,
+  },
+  "termo-responsabilidade-parcelas-atraso": {
+    categoria: "termos",
+    minutos: 4,
+    selo: "Novo",
+    novo: true,
+  },
+  "recibo-servicos-boleto": { categoria: "recibos", minutos: 3, selo: "Novo", novo: true },
+  "recibo-servicos-cartao": { categoria: "recibos", minutos: 3, selo: "Novo", novo: true },
+  "recibo-servicos-pix": { categoria: "recibos", minutos: 3, selo: "Novo", novo: true },
+  "notificacao-prosseguimento-acao": { categoria: "notificacao-extrajudicial", minutos: 6, selo: "Novo", novo: true },
+  "notificacao-via-oficial-justica": { categoria: "notificacao-extrajudicial", minutos: 6, selo: "Novo", novo: true },
+  "notificacao-formalizacao-representacao": { categoria: "notificacao-extrajudicial", minutos: 5, selo: "Novo", novo: true },
+  "notificacao-solicitacao-contrato-bancario": { categoria: "notificacao-extrajudicial", minutos: 5, selo: "Novo", novo: true },
+  "notificacao-finalizacao-conciliacao": { categoria: "notificacao-extrajudicial", minutos: 6, selo: "Novo", novo: true },
+  "notificacao-requerimento-taxas": { categoria: "notificacao-extrajudicial", minutos: 5, selo: "Novo", novo: true },
+  "liminar-despesas-analise-tecnica": { categoria: "intimacao-judicial", minutos: 4, selo: "Novo", novo: true },
+  "liminar-despesas-diligencias-extrajudiciais": { categoria: "intimacao-judicial", minutos: 4, selo: "Novo", novo: true },
   "termo-ciencia-pagamento": {
     nome: "Termo de Ciência de Pagamento",
     categoria: "termos",
@@ -146,13 +201,13 @@ const MODEL_META = {
   },
   "certidao-diligencia": {
     nome: "Certidão de Diligência e Contato Profissional",
-    categoria: "recibos-certidoes",
+    categoria: "outros",
     descricao: "Registra diligências, contatos profissionais e providências processuais adotadas.",
     minutos: 4,
   },
   "recibo-prestacao-servicos": {
     nome: "Recibo de Prestação de Serviços",
-    categoria: "recibos-certidoes",
+    categoria: "recibos",
     descricao: "Comprova o recebimento de valores pelos serviços prestados ao cliente.",
     minutos: 3,
   },
@@ -174,10 +229,14 @@ const MODEL_META = {
 
 const FIELD_GROUPS = [
   { id: "pessoais", titulo: "Dados pessoais", campos: ["nomeCliente", "genero", "nacionalidade", "estadoCivil", "rg", "orgaoExpedidor", "cpfCnpj"] },
+  { id: "contratante", titulo: "Contratante dos serviços", campos: ["nomeContratante", "cpfContratante", "enderecoContratante"] },
+  { id: "pagador", titulo: "Pagador do serviço", campos: ["nomePagador", "cpfPagador", "numeroRecibo"] },
+  { id: "pagamento-terceiro", titulo: "Titular do cartão e pagamento", campos: ["nomeTitularCartao", "cpfTitularCartao", "numeroCartaoMascarado", "valorPagamento", "codigoTransacao"] },
+  { id: "restituicao", titulo: "Restituição e beneficiário", prefixos: ["nomeBeneficiario", "cpfBeneficiario", "dadosBancarios", "titularDados", "meioAcordado", "formaDevolucao", "dataDevolucao", "dataRestituicao", "formaRestituicao"] },
   { id: "contato", titulo: "Dados de contato", campos: ["email", "telefone"] },
   { id: "profissionais", titulo: "Informações profissionais", campos: ["profissao", "responsavelDocumento"] },
   { id: "endereco", titulo: "Endereço", campos: ["endereco", "cep", "cidade", "uf", "localEmissao"] },
-  { id: "contratuais", titulo: "Dados contratuais e financeiros", prefixos: ["banco", "cnpjBanco", "enderecoBanco", "numeroContrato", "dataContrato", "dataCompromisso", "valor", "quantidadeParcelas", "produto", "servico", "modalidade", "bandeira", "tipoVenda", "codigoAutorizacao", "horario"] },
+  { id: "contratuais", titulo: "Dados contratuais e financeiros", prefixos: ["banco", "cnpjBanco", "enderecoBanco", "numeroContrato", "dataContrato", "dataCompromisso", "dataDesistencia", "dataAssinatura", "canalContratacao", "valor", "saldo", "quantidadeParcelas", "identificacaoPrestacao", "descricaoValores", "produto", "servico", "modalidade", "bandeira", "tipoVenda", "codigoAutorizacao", "horario"] },
   { id: "processuais", titulo: "Informações processuais", prefixos: ["numeroProcesso", "vara", "comarca", "tribunal", "origemTribunal", "dataDistribuicao", "dataConsulta", "segredoJustica", "assunto", "justicaGratuita", "autor", "reu", "status", "prazoAtual", "responsavelProvidencia", "dataUltimaMovimentacao", "ultimaMovimentacao", "proximosPassos", "anexosResumo", "capturaProcesso", "linkConsulta", "protocolo", "numeroProtocolo", "dataContato", "dataProposta", "validadeProposta", "manifestacaoCliente", "observacoes", "dataInicioRepresentacao", "dataAberturaReclamacao", "exercicios"] },
 ];
 
@@ -208,7 +267,7 @@ export function filtrarModelos(modelos, { busca, categoria, favoritos, recentes 
   return modelos.filter((modelo) => {
     const texto = normalizarBusca(`${modelo.nome} ${modelo.descricao} ${modelo.categoriaNome}`);
     if (termo && !texto.includes(termo)) return false;
-    if (categoria === "mais-utilizados" && !modelo.popular) return false;
+    if (categoria === "mais-utilizados" && !(modelo.totalGeracoes > 0)) return false;
     if (categoria === "favoritos" && !favoritos.includes(modelo.id)) return false;
     if (categoria === "recentes" && !recentes.includes(modelo.id)) return false;
     if (!["todos", "mais-utilizados", "favoritos", "recentes"].includes(categoria) && modelo.categoria !== categoria) return false;
@@ -221,7 +280,7 @@ export function ordenarModelos(modelos, ordenacao, favoritos) {
     if (ordenacao === "alfabetica") return a.nome.localeCompare(b.nome, "pt-BR");
     if (ordenacao === "recentes") return Number(b.novo) - Number(a.novo) || b.ordemOriginal - a.ordemOriginal;
     if (ordenacao === "favoritos") return Number(favoritos.includes(b.id)) - Number(favoritos.includes(a.id)) || a.nome.localeCompare(b.nome, "pt-BR");
-    return Number(b.popular) - Number(a.popular) || Number(b.recomendado) - Number(a.recomendado) || a.ordemOriginal - b.ordemOriginal;
+    return Number(b.totalGeracoes || 0) - Number(a.totalGeracoes || 0) || Number(b.recomendado) - Number(a.recomendado) || a.ordemOriginal - b.ordemOriginal;
   });
 }
 
@@ -243,7 +302,7 @@ export function agruparCampos(campos) {
 export function formatarValorCampo(nome, valor) {
   const texto = String(valor ?? "");
   const digitos = texto.replace(/\D/g, "");
-  if (nome === "cpfCnpj") {
+  if (nome === "cpfCnpj" || nome.toLowerCase().startsWith("cpf")) {
     if (digitos.length <= 11) return digitos.slice(0, 11).replace(/(\d{3})(\d)/, "$1.$2").replace(/(\d{3})(\d)/, "$1.$2").replace(/(\d{3})(\d{1,2})$/, "$1-$2");
     return digitos.slice(0, 14).replace(/(\d{2})(\d)/, "$1.$2").replace(/(\d{3})(\d)/, "$1.$2").replace(/(\d{3})(\d)/, "$1/$2").replace(/(\d{4})(\d{1,2})$/, "$1-$2");
   }
@@ -257,7 +316,7 @@ export function erroCampo(campo, valor) {
   const texto = String(valor ?? "").trim();
   if (campo.obrigatorio && !texto) return `${campo.rotulo} é obrigatório.`;
   if (!texto) return "";
-  if (campo.nome === "cpfCnpj" && ![11, 14].includes(texto.replace(/\D/g, "").length)) return "Informe um CPF com 11 dígitos ou CNPJ com 14 dígitos.";
+  if ((campo.nome === "cpfCnpj" || campo.nome.toLowerCase().startsWith("cpf")) && ![11, 14].includes(texto.replace(/\D/g, "").length)) return "Informe um CPF com 11 dígitos ou CNPJ com 14 dígitos.";
   if (campo.nome === "cep" && texto.replace(/\D/g, "").length !== 8) return "Informe um CEP com 8 dígitos.";
   if (campo.tipo === "email" && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(texto)) return "Informe um endereço de e-mail válido.";
   if (campo.nome === "uf" && texto.length !== 2) return "Informe a UF com duas letras.";

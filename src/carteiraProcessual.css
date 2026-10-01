@@ -116,6 +116,25 @@
   margin: 4px 0 0;
 }
 
+.process-name-with-protocol {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.extrajudicial-protocol {
+  background: #eef4ff;
+  border: 1px solid #c7d7fe;
+  border-radius: 999px;
+  color: #2458a6;
+  font-size: 11px;
+  font-weight: 800;
+  line-height: 1;
+  padding: 5px 8px;
+  white-space: nowrap;
+}
+
 .process-status-card-heading span,
 .process-status-card-footer small {
   color: #7789a2;
@@ -408,6 +427,7 @@
 .processual-action-id b { color: #c62828; font-weight: 850; }
 .processual-dados-form { background: #fff; border: 1px solid #dce4ed; border-radius: 12px; display: grid; gap: 16px; padding: 20px; }
 .processual-dados-form h3 { font-size: 15px; margin: 0; }
+.processual-form-help { color: #667085; font-size: 12px; margin: 5px 0 0; }
 .processual-dados-grid { display: grid; gap: 12px; grid-template-columns: repeat(3, minmax(0, 1fr)); }
 .processual-dados-grid label { display: grid; gap: 5px; min-width: 0; }
 .processual-dados-grid label > span { color: #475467; font-size: 12px; font-weight: 700; }
@@ -473,6 +493,9 @@
 @media (max-width: 600px) {
   .processual-resumo-heading { align-items: stretch; flex-direction: column; }
   .processual-dados-grid { grid-template-columns: 1fr; }
+  .processual-progress-title,
+  .processual-timeline-order { align-items: stretch; flex-direction: column; }
+  .processual-timeline-order > strong { padding-bottom: 0; }
 }
 .process-status-select {
   max-width: 230px;
@@ -693,6 +716,41 @@
 .processual-progress-title > strong {
   color: #2458dc;
   font-size: 13px;
+}
+
+.processual-timeline-order {
+  align-items: flex-end;
+  display: flex;
+  gap: 14px;
+}
+
+.processual-timeline-order label {
+  display: grid;
+  gap: 4px;
+}
+
+.processual-timeline-order label > span {
+  color: #667085;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.processual-timeline-order select {
+  background: #fff;
+  border: 1px solid #d5dce5;
+  border-radius: 7px;
+  color: #344054;
+  font: inherit;
+  font-size: 12px;
+  padding: 7px 9px;
+}
+
+.processual-timeline-order > strong {
+  color: #2458dc;
+  font-size: 13px;
+  padding-bottom: 8px;
+  white-space: nowrap;
 }
 
 .processual-timeline article {

@@ -7,6 +7,7 @@ import {
   contarDiasUteisEntre,
 } from "../../lib/esteiraProcessual";
 import { sincronizarClienteDoProcesso } from "../../lib/processDataSync";
+import { numeroProtocoloExtrajudicial } from "../../lib/protocoloExtrajudicial";
 
 type Props = {
   processos: Processo[];
@@ -233,6 +234,13 @@ async function registrarAuditoria(processoId: string, usuario: string, alteracoe
   const registros = relevantes.map(([campo, anterior, novo]) => ({
     processo_id: processoId,
     tipo: "auditoria_protocolo",
+    categoria: "Movimentação processual",
+    titulo: `Protocolo: ${campo}`,
+    fase: "transicao_judicial",
+    ordem_fase: 2,
+    fonte: "Módulo Protocolos",
+    origem: "manual",
+    responsavel: usuario || null,
     descricao: `${usuario || "Usuário"} alterou ${campo}: "${anterior || "vazio"}" → "${novo || "vazio"}"`,
   }));
 
@@ -438,7 +446,7 @@ export default function EsteiraKanban({
       link_processo: formulario.link_consulta.trim() || null,
       data_distribuicao: formulario.data_distribuicao || null,
       fase_atual: formulario.protocolo_status === "Liberado" ? "Protocolo Liberado" : etapaAtual({ ...(processoEditando || {}), documentos_elite_status: formulario.documentos_elite_status, data_envio_elite: dataEnvioElite, pasta_retorno_status: formulario.pasta_retorno_status, numero_processo: formulario.numero_processo, protocolo_status: formulario.protocolo_status } as Processo),
-      status_judicial: formulario.protocolo_status === "Liberado" ? "TRAMITANDO" : null,
+      status_judicial: formulario.protocolo_status === "Liberado" ? "TRAMITANDO" : processoEditando?.status_judicial || null,
       status_prazo: dataEnvioElite ? calcularPrazoElite(dataEnvioElite).rotulo : null,
       origem_registro: processoEditando?.origem_registro || "encaminhamento_processual",
       updated_by: usuario?.email || usuario?.nome || null,
@@ -517,7 +525,7 @@ export default function EsteiraKanban({
                 return <article className={`protocolo-kanban-card ${classeSlaCard(processo)}`} key={processo.id}>
                   <button className="protocolo-ficha-main" type="button" onClick={() => setProcessoVisualizando(processo)}>
                     <div className="protocolo-ficha-identidade">
-                      <strong>{processo.nome_cliente}</strong>
+                      <strong>{processo.nome_cliente}{numeroProtocoloExtrajudicial(processo) ? ` · ${numeroProtocoloExtrajudicial(processo)}` : ""}</strong>
                       <span>{processo.banco_reu || "Instituição não informada"}</span>
                       {processo.numero_processo ? <code>{processo.numero_processo}</code> : null}
                     </div>
@@ -610,7 +618,7 @@ export default function EsteiraKanban({
                 <label><span>Elite</span><select value={formulario.documentos_elite_status} onChange={(e) => setFormulario((f) => ({ ...f, documentos_elite_status: e.target.value }))}>{STATUS_ELITE.map((item) => <option key={item}>{item}</option>)}</select></label>
                 <div className="sla-preview">
                   <span>Enviado</span><strong>{formatarDataHora(processoEditando?.data_envio_elite)}</strong>
-                  <small>Ao marcar como Enviado e salvar, o prazo de 20 dias úteis inicia automaticamente.</small>
+                  <small>Ao marcar como Enviado e salvar, o prazo de 15 dias úteis inicia automaticamente.</small>
                 </div>
               </div>
             </section> : null}

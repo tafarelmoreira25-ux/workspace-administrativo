@@ -1,6 +1,7 @@
 import { supabase } from "./supabase";
 
 export const FASES_PROCESSUAIS = [
+  "Extrajudicial",
   "Solicitado para Ajuizamento",
   "Documentação",
   "Procuração",
@@ -40,12 +41,15 @@ export type PrazoElite = {
   rotulo: string;
 };
 
+export const PRAZO_PROTOCOLO_DIAS_UTEIS = 15;
+
 export type Processo = {
   id: string;
   cliente_id?: string | null;
   pasta_cliente_id: string | null;
   link_pasta_cliente?: string | null;
   id_crm?: string | null;
+  protocolo_extrajudicial?: string | null;
   autor_reu: string | null;
   autor?: string | null;
   reu?: string | null;
@@ -254,7 +258,7 @@ export function calcularPrazoElite(
     };
   }
 
-  const dataLimite = adicionarDiasUteis(dataBase, 20, feriados);
+  const dataLimite = adicionarDiasUteis(dataBase, PRAZO_PROTOCOLO_DIAS_UTEIS, feriados);
   const hoje = normalizarData(hojeReferencia) || new Date();
   const diasUteisDecorridos = Math.max(0, contarDiasUteisEntre(dataBase, hoje, feriados, false));
 
@@ -291,7 +295,7 @@ export function calcularPrazoElite(
     diasUteisRestantes,
     diasUteisDecorridos,
     diasUteisAtraso: 0,
-    percentual: Math.min(100, Math.round((diasUteisDecorridos / 20) * 100)),
+    percentual: Math.min(100, Math.round((diasUteisDecorridos / PRAZO_PROTOCOLO_DIAS_UTEIS) * 100)),
     sinalizacao,
     rotulo,
   };
