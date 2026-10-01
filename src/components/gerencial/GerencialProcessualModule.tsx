@@ -9,7 +9,6 @@ type View = "ocorrencias" | "alertas" | "indicadores";
 type Processo = Record<string, any>;
 type Tarefa = Record<string, any>;
 type Documento = Record<string, any>;
-type Atendimento = Record<string, any>;
 type Ocorrencia = Record<string, any>;
 type Custa = Record<string, any>;
 
@@ -46,6 +45,32 @@ const METRICAS_SECUNDARIAS_ZERADAS = new Set([
   "Não identificado",
   "NÃ£o identificado",
 ]);
+
+const CAMPOS_PROCESSOS_GERENCIAL = [
+  "id",
+  "cliente_id",
+  "nome_cliente",
+  "numero_processo",
+  "fase_atual",
+  "situacao",
+  "resultado",
+  "recursal",
+  "data_envio_elite",
+  "sla_dias_uteis_utilizados",
+  "pasta_retornada",
+  "pasta_retorno_status",
+  "custas_status",
+  "emenda_status",
+  "emenda_inicial",
+  "documentacao_status",
+  "status_documentos",
+  "ultima_revisao",
+  "updated_at",
+].join(",");
+const CAMPOS_TAREFAS_GERENCIAL = "id,titulo,tipo,data,status,prioridade";
+const CAMPOS_DOCUMENTOS_GERENCIAL = "id,nome_documento,modelo_nome,tipo_documento,status,created_at";
+const CAMPOS_OCORRENCIAS_GERENCIAL = "id,processo_id,cliente_nome,categoria,data,descricao,responsabilidade,impacto,prazo,resolvido";
+const CAMPOS_CUSTAS_GERENCIAL = "id,processo_id,cliente_nome,tipo,valor,vencimento,status,responsavel";
 
 function hoje() { return new Date().toISOString().slice(0, 10); }
 function limpar(valor: string) { const texto = valor.trim(); return texto || null; }
@@ -88,7 +113,6 @@ export default function GerencialProcessualModule({ usuario, showToast, initialV
   const [processos, setProcessos] = useState<Processo[]>([]);
   const [tarefas, setTarefas] = useState<Tarefa[]>([]);
   const [documentos, setDocumentos] = useState<Documento[]>([]);
-  const [atendimentos, setAtendimentos] = useState<Atendimento[]>([]);
   const [movimentacoes, setMovimentacoes] = useState<Array<Record<string, any>>>([]);
   const [ocorrencias, setOcorrencias] = useState<Ocorrencia[]>([]);
   const [custas, setCustas] = useState<Custa[]>([]);
@@ -103,20 +127,18 @@ export default function GerencialProcessualModule({ usuario, showToast, initialV
 
   const carregar = useCallback(async () => {
     setCarregando(true);
-    const [processosReq, tarefasReq, documentosReq, atendimentosReq, ocorrenciasReq, custasReq, movimentacoesReq, semRevisaoReq] = await Promise.allSettled([
-      supabase.from("processos").select("*").order("updated_at", { ascending: false }).limit(800),
-      supabase.from("processual_tarefas").select("*").order("data", { ascending: false }).limit(800),
-      supabase.from("documentos_juridicos").select("*").order("created_at", { ascending: false }).limit(800),
-      supabase.from("processual_atendimentos").select("*").order("data", { ascending: false }).limit(800),
-      supabase.from("processual_ocorrencias").select("*").order("data", { ascending: false }).limit(800),
-      supabase.from("processual_custas").select("*").order("vencimento", { ascending: true }).limit(800),
+    const [processosReq, tarefasReq, documentosReq, ocorrenciasReq, custasReq, movimentacoesReq, semRevisaoReq] = await Promise.allSettled([
+      supabase.from("processos").select(CAMPOS_PROCESSOS_GERENCIAL).order("updated_at", { ascending: false }).limit(800),
+      supabase.from("processual_tarefas").select(CAMPOS_TAREFAS_GERENCIAL).order("data", { ascending: false }).limit(800),
+      supabase.from("documentos_juridicos").select(CAMPOS_DOCUMENTOS_GERENCIAL).order("created_at", { ascending: false }).limit(800),
+      supabase.from("processual_ocorrencias").select(CAMPOS_OCORRENCIAS_GERENCIAL).order("data", { ascending: false }).limit(800),
+      supabase.from("processual_custas").select(CAMPOS_CUSTAS_GERENCIAL).order("vencimento", { ascending: true }).limit(800),
       supabase.from("movimentacoes").select("id, categoria, created_at").is("deleted_at", null).order("created_at", { ascending: false }).limit(1200),
       getProcessesWithoutReviewCount(supabase),
     ]);
     if (processosReq.status === "fulfilled" && !processosReq.value.error) setProcessos(processosReq.value.data || []);
     if (tarefasReq.status === "fulfilled" && !tarefasReq.value.error) setTarefas(tarefasReq.value.data || []);
     if (documentosReq.status === "fulfilled" && !documentosReq.value.error) setDocumentos(documentosReq.value.data || []);
-    if (atendimentosReq.status === "fulfilled" && !atendimentosReq.value.error) setAtendimentos(atendimentosReq.value.data || []);
     if (ocorrenciasReq.status === "fulfilled" && !ocorrenciasReq.value.error) setOcorrencias(ocorrenciasReq.value.data || []);
     if (custasReq.status === "fulfilled" && !custasReq.value.error) setCustas(custasReq.value.data || []);
     if (movimentacoesReq.status === "fulfilled" && !movimentacoesReq.value.error) setMovimentacoes(movimentacoesReq.value.data || []);

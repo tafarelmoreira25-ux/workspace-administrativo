@@ -1,6 +1,5 @@
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { FormEvent, lazy, Suspense, useEffect, useMemo, useState } from "react";
 import { supabase } from "../../lib/supabase";
-import GeradorDocumentos from "../../GeradorDocumentos";
 import {
   type FaseProcessual,
   type MovimentacaoProcessual,
@@ -8,6 +7,8 @@ import {
 } from "../../lib/esteiraProcessual";
 import { sincronizarClienteDoProcesso } from "../../lib/processDataSync";
 import { agruparTimelineProcessual, descricoesDiferentes, mapearMovimentacaoTimeline } from "../../lib/historicoAdministrativo";
+
+const GeradorDocumentos = lazy(() => import("../../GeradorDocumentos"));
 
 type Props = {
   processos: Processo[];
@@ -1263,16 +1264,18 @@ export default function PainelJudicial({
         <div className="document-generator-backdrop">
           <section className="document-generator-shell">
             <button type="button" className="drawer-close" onClick={() => { setGeradorAberto(false); setContextoGerador(null); }} aria-label="Fechar">×</button>
-            <GeradorDocumentos
-              usuario={usuario}
-              responsavel={usuario?.nome}
-              contextoDocumento={contextoDocumentoProcesso()}
-              onDocumentoGerado={registrarDocumentoGerado}
-              onStatusDocumento={(resultado) => {
-                if (resultado?.documentoRemoto) atualizarStatusDocumento(resultado.documentoRemoto, resultado.status || "Aguardando assinatura");
-              }}
-              onSuccess={showToast}
-            />
+            <Suspense fallback={<div className="empty-row">Carregando gerador de documentos...</div>}>
+              <GeradorDocumentos
+                usuario={usuario}
+                responsavel={usuario?.nome}
+                contextoDocumento={contextoDocumentoProcesso()}
+                onDocumentoGerado={registrarDocumentoGerado}
+                onStatusDocumento={(resultado) => {
+                  if (resultado?.documentoRemoto) atualizarStatusDocumento(resultado.documentoRemoto, resultado.status || "Aguardando assinatura");
+                }}
+                onSuccess={showToast}
+              />
+            </Suspense>
           </section>
         </div>
       ) : null}

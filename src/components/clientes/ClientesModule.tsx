@@ -1,10 +1,11 @@
-import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
+import { FormEvent, lazy, Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import { supabase } from "../../lib/supabase";
-import GeradorDocumentos from "../../GeradorDocumentos";
-import EmailComposer from "../comunicacao/EmailComposer";
-import ContentAnalyzer from "../comunicacao/ContentAnalyzer";
 import Pagination from "../common/Pagination";
 import { sincronizarClienteDoProcesso, sincronizarProcessosDoCliente } from "../../lib/processDataSync";
+
+const GeradorDocumentos = lazy(() => import("../../GeradorDocumentos"));
+const EmailComposer = lazy(() => import("../comunicacao/EmailComposer"));
+const ContentAnalyzer = lazy(() => import("../comunicacao/ContentAnalyzer"));
 
 type Cliente = {
   id: string | number;
@@ -106,6 +107,9 @@ const FORMULARIO_INICIAL = {
 };
 
 const CLIENTES_POR_PAGINA = 30;
+const CAMPOS_CLIENTE = "id,nome_completo,cpf,rg,data_nascimento,telefone,email,endereco,id_crm,link_pasta_cliente,responsavel,observacoes,created_at,created_by,updated_at,updated_by";
+const CAMPOS_ATENDIMENTO_CLIENTE = "id,cliente_id,processo_id,cliente_nome,processo_numero,data,hora,canal,tipo,descricao,responsavel,anexo_url,created_at";
+const CAMPOS_HISTORICO_CLIENTE = "id,tipo,descricao,origem,processo_id,created_at,created_by";
 const PROCESSO_FORM_INICIAL = { id: "", numero_processo: "", reu: "", banco_reu: "", tipo_acao: "", tribunal: "", comarca: "", vara: "", data_distribuicao: "", responsavel: "", situacao: "Em andamento", observacoes: "" };
 const ATENDIMENTO_FORM_INICIAL = { id: "", tipo: "Retorno", data: new Date().toISOString().slice(0, 10), hora: "", canal: "Telefone", descricao: "", responsavel: "" };
 
@@ -222,7 +226,7 @@ export default function ClientesModule({ usuario, showToast, buscaExterna, clien
       clientesPorProcesso = [...new Set((encontrados || []).map((item) => item.cliente_id).filter(Boolean))] as Array<string | number>;
     }
 
-    let consulta = supabase.from("clientes").select("*", { count: "exact" });
+    let consulta = supabase.from("clientes").select(CAMPOS_CLIENTE, { count: "exact" });
     if (termo) {
       const filtros = [
         `nome_completo.ilike.%${termo}%`,
@@ -275,7 +279,7 @@ export default function ClientesModule({ usuario, showToast, buscaExterna, clien
 
   useEffect(() => {
     if (!clienteInicialId) return;
-    void supabase.from("clientes").select("*").eq("id", clienteInicialId).maybeSingle().then(({ data }) => {
+    void supabase.from("clientes").select(CAMPOS_CLIENTE).eq("id", clienteInicialId).maybeSingle().then(({ data }) => {
       if (data) void abrirFicha(data as Cliente);
     });
   }, [clienteInicialId]);
@@ -357,8 +361,8 @@ export default function ClientesModule({ usuario, showToast, buscaExterna, clien
     const [processosResultado, documentosResultado, atendimentosResultado, historicosResultado] = await Promise.allSettled([
       supabase.from("processos").select("id, cliente_id, nome_cliente, cpf_cliente, reu, banco_reu, numero_processo, fase_atual, situacao, resultado, status_judicial, justica_gratuita, responsavel, tipo_acao, tribunal, comarca, vara, data_distribuicao, observacoes, documentacao_status, procuracao_status, protocolo_status, updated_at").eq("cliente_id", cliente.id).order("updated_at", { ascending: false }),
       supabase.from("documentos_juridicos").select("id, nome_documento, modelo_nome, cliente_nome, cpf_cnpj, numero_processo, responsavel_nome, status, created_at").eq("cliente_id", cliente.id).order("created_at", { ascending: false }).limit(300),
-      supabase.from("processual_atendimentos").select("*").eq("cliente_id", cliente.id).order("data", { ascending: false }).limit(300),
-      supabase.from("clientes_historico").select("*").eq("cliente_id", cliente.id).order("created_at", { ascending: false }).limit(300),
+      supabase.from("processual_atendimentos").select(CAMPOS_ATENDIMENTO_CLIENTE).eq("cliente_id", cliente.id).order("data", { ascending: false }).limit(300),
+      supabase.from("clientes_historico").select(CAMPOS_HISTORICO_CLIENTE).eq("cliente_id", cliente.id).order("created_at", { ascending: false }).limit(300),
     ]);
     if (processosResultado.status === "fulfilled" && !processosResultado.value.error) setProcessos((processosResultado.value.data || []) as ProcessoResumo[]);
     if (documentosResultado.status === "fulfilled" && !documentosResultado.value.error) setDocumentos((documentosResultado.value.data || []) as DocumentoResumo[]);
@@ -804,18 +808,39 @@ export default function ClientesModule({ usuario, showToast, buscaExterna, clien
               </div>
               <button type="button" className="drawer-close" onClick={() => setModalAberto(false)} aria-label="Fechar">×</button>
             </header>
-            <div className="cliente-form-grid">
-              <label className="wide"><span>Nome completo *</span><input required value={formulario.nome_completo} onChange={(e) => setFormulario((f) => ({ ...f, nome_completo: e.target.value }))} /></label>
-              <label><span>CPF</span><input value={formulario.cpf} onChange={(e) => setFormulario((f) => ({ ...f, cpf: e.target.value }))} /></label>
-              <label><span>RG</span><input value={formulario.rg} onChange={(e) => setFormulario((f) => ({ ...f, rg: e.target.value }))} /></label>
-              <label><span>Data de nascimento</span><input type="date" value={formulario.data_nascimento} onChange={(e) => setFormulario((f) => ({ ...f, data_nascimento: e.target.value }))} /></label>
-              <label><span>Telefone</span><input value={formulario.telefone} onChange={(e) => setFormulario((f) => ({ ...f, telefone: e.target.value }))} /></label>
-              <label><span>E-mail</span><input type="email" value={formulario.email} onChange={(e) => setFormulario((f) => ({ ...f, email: e.target.value }))} /></label>
-              <label><span>ID CRM</span><input value={formulario.id_crm} onChange={(e) => setFormulario((f) => ({ ...f, id_crm: e.target.value }))} /></label>
-              <label className="wide"><span>Link da pasta no Drive</span><input value={formulario.link_pasta_cliente} onChange={(e) => setFormulario((f) => ({ ...f, link_pasta_cliente: e.target.value }))} placeholder="https://drive.google.com/..." /></label>
-              <label><span>Responsável</span><input value={formulario.responsavel} onChange={(e) => setFormulario((f) => ({ ...f, responsavel: e.target.value }))} /></label>
-              <label className="wide"><span>Endereço</span><input value={formulario.endereco} onChange={(e) => setFormulario((f) => ({ ...f, endereco: e.target.value }))} /></label>
-              <label className="wide"><span>Observações</span><textarea rows={4} value={formulario.observacoes} onChange={(e) => setFormulario((f) => ({ ...f, observacoes: e.target.value }))} /></label>
+            <div className="cliente-required-note">Os campos marcados com <strong>*</strong> são de preenchimento obrigatório.</div>
+            <div className="cliente-form-sections">
+              <section className="cliente-form-section">
+                <h4>Dados gerais</h4>
+                <div className="cliente-form-grid">
+                  <label className="wide"><span>Nome completo *</span><input required value={formulario.nome_completo} onChange={(e) => setFormulario((f) => ({ ...f, nome_completo: e.target.value }))} /></label>
+                  <label><span>CPF</span><input value={formulario.cpf} onChange={(e) => setFormulario((f) => ({ ...f, cpf: e.target.value }))} /></label>
+                  <label><span>RG</span><input value={formulario.rg} onChange={(e) => setFormulario((f) => ({ ...f, rg: e.target.value }))} /></label>
+                  <label><span>Data de nascimento</span><input type="date" value={formulario.data_nascimento} onChange={(e) => setFormulario((f) => ({ ...f, data_nascimento: e.target.value }))} /></label>
+                </div>
+              </section>
+              <section className="cliente-form-section">
+                <h4>Contato</h4>
+                <div className="cliente-form-grid">
+                  <label><span>Telefone</span><input value={formulario.telefone} onChange={(e) => setFormulario((f) => ({ ...f, telefone: e.target.value }))} /></label>
+                  <label><span>E-mail</span><input type="email" value={formulario.email} onChange={(e) => setFormulario((f) => ({ ...f, email: e.target.value }))} /></label>
+                  <label><span>Responsável</span><input value={formulario.responsavel} onChange={(e) => setFormulario((f) => ({ ...f, responsavel: e.target.value }))} /></label>
+                </div>
+              </section>
+              <section className="cliente-form-section">
+                <h4>Endereço e arquivos</h4>
+                <div className="cliente-form-grid">
+                  <label><span>ID CRM</span><input value={formulario.id_crm} onChange={(e) => setFormulario((f) => ({ ...f, id_crm: e.target.value }))} /></label>
+                  <label className="wide"><span>Link da pasta no Drive</span><input value={formulario.link_pasta_cliente} onChange={(e) => setFormulario((f) => ({ ...f, link_pasta_cliente: e.target.value }))} placeholder="https://drive.google.com/..." /></label>
+                  <label className="wide"><span>Endereço</span><input value={formulario.endereco} onChange={(e) => setFormulario((f) => ({ ...f, endereco: e.target.value }))} /></label>
+                </div>
+              </section>
+              <section className="cliente-form-section">
+                <h4>Observações</h4>
+                <div className="cliente-form-grid">
+                  <label className="wide"><span>Observações</span><textarea rows={4} value={formulario.observacoes} onChange={(e) => setFormulario((f) => ({ ...f, observacoes: e.target.value }))} /></label>
+                </div>
+              </section>
             </div>
             <footer>
               <button type="button" className="btn-secondary" onClick={() => setModalAberto(false)}>Cancelar</button>
@@ -829,13 +854,15 @@ export default function ClientesModule({ usuario, showToast, buscaExterna, clien
         <div className="modal-backdrop document-generator-modal" role="presentation">
           <section className="document-generator-shell">
             <button type="button" className="drawer-close" onClick={() => setGeradorAberto(false)} aria-label="Fechar">×</button>
-            <GeradorDocumentos
-              usuario={usuario}
-              responsavel={usuario.nome}
-              contextoDocumento={contextoDocumentoCliente()}
-              onDocumentoGerado={registrarDocumentoGerado}
-              onSuccess={avisar}
-            />
+            <Suspense fallback={<div className="empty-row">Carregando gerador de documentos...</div>}>
+              <GeradorDocumentos
+                usuario={usuario}
+                responsavel={usuario.nome}
+                contextoDocumento={contextoDocumentoCliente()}
+                onDocumentoGerado={registrarDocumentoGerado}
+                onSuccess={avisar}
+              />
+            </Suspense>
           </section>
         </div>
       ) : null}
@@ -847,26 +874,30 @@ export default function ClientesModule({ usuario, showToast, buscaExterna, clien
       {historicoFormAberto && clienteAberto ? <div className="modal-backdrop"><form className="cliente-modal entidade-modal" onSubmit={salvarHistoricoCliente}><header><div><span className="eyebrow">Histórico do cliente</span><h3>Novo registro</h3></div><button type="button" className="drawer-close" onClick={() => setHistoricoFormAberto(false)}>×</button></header><div className="cliente-form-grid"><label className="wide"><span>Descrição *</span><textarea required rows={6} value={historicoDescricao} onChange={(e) => setHistoricoDescricao(e.target.value)} /></label></div><footer><button type="button" className="btn-secondary" onClick={() => setHistoricoFormAberto(false)}>Cancelar</button><button type="submit" className="btn-primary">Salvar no histórico</button></footer></form></div> : null}
 
       {emailAberto && clienteAberto ? (
-        <EmailComposer
-          cliente={clienteAberto}
-          processos={processosDoCliente}
-          processoInicial={processoEmail}
-          usuario={usuario}
-          onClose={() => setEmailAberto(false)}
-          onRegistrado={registrarAtendimentoEmail}
-          showToast={avisar}
-        />
+        <Suspense fallback={<div className="modal-backdrop"><section className="cliente-modal"><div className="empty-row">Carregando compositor de e-mail...</div></section></div>}>
+          <EmailComposer
+            cliente={clienteAberto}
+            processos={processosDoCliente}
+            processoInicial={processoEmail}
+            usuario={usuario}
+            onClose={() => setEmailAberto(false)}
+            onRegistrado={registrarAtendimentoEmail}
+            showToast={avisar}
+          />
+        </Suspense>
       ) : null}
 
       {analisadorAberto && clienteAberto ? (
-        <ContentAnalyzer
-          cliente={clienteAberto}
-          processos={processosDoCliente}
-          usuario={usuario}
-          onClose={() => setAnalisadorAberto(false)}
-          onRegistrado={registrarAtendimentoEmail}
-          showToast={avisar}
-        />
+        <Suspense fallback={<div className="modal-backdrop"><section className="cliente-modal"><div className="empty-row">Carregando analisador...</div></section></div>}>
+          <ContentAnalyzer
+            cliente={clienteAberto}
+            processos={processosDoCliente}
+            usuario={usuario}
+            onClose={() => setAnalisadorAberto(false)}
+            onRegistrado={registrarAtendimentoEmail}
+            showToast={avisar}
+          />
+        </Suspense>
       ) : null}
 
       {importacaoAberta ? (

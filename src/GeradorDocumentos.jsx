@@ -22,22 +22,17 @@ function dataLocalIso() {
   return new Date(hoje.getTime() - hoje.getTimezoneOffset() * 60_000).toISOString().slice(0, 10);
 }
 
-function dataParaNome(dataIso) {
-  const [ano, mes, dia] = String(dataIso || "").split("-");
-  return [dia, mes, ano].filter(Boolean).join("-") || "sem-data";
-}
-
-function montarNomeAutomatico(modelo, dados, numeroDocumento, versao = 1) {
+function montarNomeAutomatico(modelo, dados) {
   const cliente = String(dados.nomeCliente || "Cliente").trim() || "Cliente";
   const partes = [modelo.nome, cliente];
   return partes.join("_").replace(/\s{2,}/g, " ").slice(0, 180);
 }
 
-function montarNomesDoConjunto(modelo, dados, numeroDocumento, versao = 1) {
-  const nomes = { [modelo.modo]: montarNomeAutomatico(modelo, dados, numeroDocumento, versao) };
+function montarNomesDoConjunto(modelo, dados) {
+  const nomes = { [modelo.modo]: montarNomeAutomatico(modelo, dados) };
   if (modelo.modo === "procuracao") {
-    nomes.hipossuficiencia = montarNomeAutomatico({ ...modelo, nome: "Declaração de Hipossuficiência" }, dados, numeroDocumento, versao);
-    nomes["isencao-irpf"] = montarNomeAutomatico({ ...modelo, nome: "Declaração de Isenção de Imposto de Renda" }, dados, numeroDocumento, versao);
+    nomes.hipossuficiencia = montarNomeAutomatico({ ...modelo, nome: "Declaração de Hipossuficiência" }, dados);
+    nomes["isencao-irpf"] = montarNomeAutomatico({ ...modelo, nome: "Declaração de Isenção de Imposto de Renda" }, dados);
   }
   return nomes;
 }
@@ -242,7 +237,7 @@ function ModalSucesso({ resultado, onClose, onDownload, onOpen, onCopy, onSignat
 }
 function DocumentosRecentes({ documentos, busca, onBusca, onOpen, onDuplicate, onVersion }) {
   const termo = normalizarBusca(busca);
-  const limiteRecente = Date.now() - 12 * 60 * 60 * 1000;
+  const [limiteRecente] = useState(() => Date.now() - 12 * 60 * 60 * 1000);
   const filtrados = documentos
     .filter((item) => new Date(item.criadoEm || 0).getTime() >= limiteRecente)
     .filter((item) => !termo || normalizarBusca(`${item.nomeDocumento} ${item.modeloNome} ${item.cliente} ${item.responsavel}`).includes(termo));

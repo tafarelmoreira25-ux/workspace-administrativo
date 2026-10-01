@@ -17,8 +17,8 @@ const TEMPO_LIMITE_INICIALIZACAO_MS = 8_000;
 
 function normalizarDataColada(valor, tipo) {
   const texto = String(valor || "").trim();
-  const partes = texto.match(/^(\d{1,2})[\/.\-](\d{1,2})[\/.\-](\d{4})$/);
-  let data = texto.match(/^(\d{4})[\-\/.](\d{1,2})[\-\/.](\d{1,2})$/);
+  const partes = texto.match(/^(\d{1,2})[/.-](\d{1,2})[/.-](\d{4})$/);
+  let data = texto.match(/^(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})$/);
   let iso;
   if (partes) iso = `${partes[3]}-${partes[2].padStart(2, "0")}-${partes[1].padStart(2, "0")}`;
   else if (data) iso = `${data[1]}-${data[2].padStart(2, "0")}-${data[3].padStart(2, "0")}`;
