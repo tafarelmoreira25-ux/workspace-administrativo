@@ -602,6 +602,19 @@
   z-index: 20;
 }
 
+.processual-contexto > .processual-actions-menu > div {
+  left: 0;
+  right: auto;
+  width: min(260px, calc(100vw - 80px));
+  min-width: 0;
+}
+
+.processual-actions-menu summary:focus-visible,
+.timeline-actions-menu summary:focus-visible {
+  outline: 2px solid #2557d6;
+  outline-offset: 2px;
+}
+
 .processual-actions-menu button,
 .timeline-actions-menu button {
   background: transparent;

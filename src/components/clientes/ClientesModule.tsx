@@ -715,31 +715,31 @@ export default function ClientesModule({ usuario, showToast, buscaExterna, clien
               {abaFicha === "resumo" ? (
                 <section className="ficha-section">
                   <div className="ficha-resumo-grid">
-                    <section className="ficha-info-group">
-                      <header><span>01</span><h4>Dados cadastrais</h4></header>
+                    <details className="ficha-info-group" key={`cadastro-${clienteAberto.id}`}>
+                      <summary><span>01</span><h4>Dados cadastrais</h4></summary>
                       <dl className="ficha-details">
                         <div><dt>RG</dt><dd>{clienteAberto.rg || "Não informado"}</dd></div>
                         <div><dt>Data de nascimento</dt><dd>{clienteAberto.data_nascimento ? formatarData(clienteAberto.data_nascimento) : "Não informada"}</dd></div>
                         <div><dt>ID no CRM</dt><dd>{clienteAberto.id_crm || "Não informado"}</dd></div>
                       </dl>
-                    </section>
+                    </details>
 
-                    <section className="ficha-info-group">
-                      <header><span>02</span><h4>Arquivos e acompanhamento</h4></header>
+                    <details className="ficha-info-group" key={`arquivos-${clienteAberto.id}`}>
+                      <summary><span>02</span><h4>Arquivos e acompanhamento</h4></summary>
                       <dl className="ficha-details">
                         <div><dt>Pasta no Drive</dt><dd>{clienteAberto.link_pasta_cliente ? <a href={clienteAberto.link_pasta_cliente} target="_blank" rel="noreferrer">Abrir pasta do cliente</a> : "Não vinculada"}</dd></div>
                         <div><dt>Processos cadastrados</dt><dd>{processosDoCliente.length}</dd></div>
                         <div className="wide"><dt>Situação processual</dt><dd>{protocoloDoCliente ? `${protocoloDoCliente.fase_atual || "Encaminhamento pendente"} · Documentação ${protocoloDoCliente.documentacao_status || "pendente"}` : processosDoCliente.length ? "Processo judicial cadastrado" : "Sem protocolo ou processo"}</dd></div>
                       </dl>
-                    </section>
+                    </details>
 
-                    <section className="ficha-info-group ficha-info-group-wide">
-                      <header><span>03</span><h4>Endereço e observações</h4></header>
+                    <details className="ficha-info-group ficha-info-group-wide" key={`endereco-${clienteAberto.id}`}>
+                      <summary><span>03</span><h4>Endereço e observações</h4></summary>
                       <dl className="ficha-details ficha-details-notes">
                         <div><dt>Endereço</dt><dd>{clienteAberto.endereco || "Não informado"}</dd></div>
                         <div><dt>Observações</dt><dd>{clienteAberto.observacoes || "Nenhuma observação cadastrada."}</dd></div>
                       </dl>
-                    </section>
+                    </details>
                   </div>
                 </section>
               ) : null}
