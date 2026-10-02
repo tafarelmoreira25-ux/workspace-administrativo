@@ -1,4 +1,4 @@
-import { lazy, Suspense, useCallback, useEffect, useState } from "react";
+import { Activity, lazy, Suspense, useCallback, useEffect, useState, useTransition } from "react";
 import { supabase } from "./lib/supabase";
 import { resolverTipoAcesso } from "./lib/userAccess";
 import TreinamentosOperacionais from "./components/TreinamentosOperacionais";
@@ -398,10 +398,12 @@ function RedefinirSenha({ onConcluida }) {
 
 function Workspace({ usuario, onLogout, showToast }) {
   const [aba, setAba] = useState("inicio");
+  const [abasVisitadas, setAbasVisitadas] = useState(["inicio"]);
+  const [navegando, startTransition] = useTransition();
   const [buscaModulo, setBuscaModulo] = useState("");
   const [menuRecolhido, setMenuRecolhido] = useState(() => window.localStorage.getItem("platino-menu-recolhido") === "1");
   const [menuContaAberto, setMenuContaAberto] = useState(false);
-  const [processoSelecionadoId, setProcessoSelecionadoId] = useState(null);
+  const [processosSelecionados, setProcessosSelecionados] = useState({});
   const [clienteSelecionadoId, setClienteSelecionadoId] = useState(null);
   const [feedbacks, setFeedbacks] = useState([]);
   const carregarFeedbacks = useCallback(async () => {
@@ -440,12 +442,13 @@ function Workspace({ usuario, onLogout, showToast }) {
   };
   function navegar(id, opcoes = {}) {
     if (id === "processos") id = "processual";
-    setAba(id);
-    setBuscaModulo("");
-    if (id === "clientes") setClienteSelecionadoId(opcoes.clienteId || null);
-    else setClienteSelecionadoId(null);
-    if (["processual", "processual-extrajudiciais"].includes(id)) setProcessoSelecionadoId(opcoes.processoId || null);
-    else setProcessoSelecionadoId(null);
+    startTransition(() => {
+      setAba(id);
+      setAbasVisitadas((atuais) => atuais.includes(id) ? atuais : [...atuais, id]);
+      setBuscaModulo("");
+      if (id === "clientes") setClienteSelecionadoId(opcoes.clienteId || null);
+      if (["processual", "processual-extrajudiciais"].includes(id)) setProcessosSelecionados((atuais) => ({ ...atuais, [id]: opcoes.processoId || null }));
+    });
     if (id === "feedbacks") carregarFeedbacks();
   }
 
@@ -483,7 +486,7 @@ function Workspace({ usuario, onLogout, showToast }) {
         ))}
       </nav>
     </aside>
-    <main className="main-content">
+    <main className="main-content" aria-busy={navegando}>
       <header className="topbar">
         <div>
           <h1>{rotuloAtual}</h1>
@@ -498,16 +501,16 @@ function Workspace({ usuario, onLogout, showToast }) {
           {menuContaAberto ? <div className="account-menu"><div className="account-menu-identity"><strong>{usuario.nome || "Usuário"}</strong><span>{usuario.email || "Conta autenticada"}</span></div>{admin ? <button type="button" onClick={() => navegar("administracao")}>Configurações</button> : null}<button type="button" onClick={onLogout}>Sair</button></div> : null}
         </div>
       </header>
-      {aba === "inicio" && <AreaTrabalho usuario={usuario} onNavigate={navegar} />}
-      {aba === "clientes" && <Suspense fallback={<section className="panel">Carregando clientes...</section>}><ClientesModule usuario={usuario} showToast={showToast} buscaExterna={buscaModulo} clienteInicialId={clienteSelecionadoId} onOpenProcess={abrirProcessoNoProcessual} /></Suspense>}
-      {aba === "homologacao-quitacao" && <Suspense fallback={<section className="panel">Carregando Homologação e Quitação...</section>}><HomologacaoQuitacaoModule usuario={usuario} showToast={showToast} /></Suspense>}
-      {aba === "documentos" && <Suspense fallback={<section className="panel">Carregando documentos...</section>}><GeradorDocumentos usuario={usuario} responsavel={usuario.nome} onSuccess={showToast} /></Suspense>}
-      {aba === "processual-extrajudiciais" && <Suspense fallback={<section className="panel">Carregando ações extrajudiciais...</section>}><CarteiraProcessual showToast={showToast} usuario={usuario} processoInicialId={processoSelecionadoId} modo="extrajudicial" /></Suspense>}
-      {aba === "processual-protocolos" && <Suspense fallback={<section className="panel">Carregando protocolos...</section>}><EsteiraProcessualPlatino usuario={usuario} showToast={showToast} initialView="protocolos" /></Suspense>}
-      {aba === "processual" && <Suspense fallback={<section className="panel">Carregando Processual...</section>}><CarteiraProcessual showToast={showToast} usuario={usuario} processoInicialId={processoSelecionadoId} modo="judicial" /></Suspense>}
-      {aba === "agenda-atividades" && <Suspense fallback={<section className="panel">Carregando agenda...</section>}><OperacionalProcessualModule usuario={usuario} showToast={showToast} initialView="agenda" /></Suspense>}
-      {aba === "indicadores" && <Suspense fallback={<section className="panel">Carregando indicadores...</section>}><GerencialProcessualModule usuario={usuario} showToast={showToast} initialView="indicadores" onNavigate={navegar} /></Suspense>}
-      {aba === "treinamentos" && <TreinamentosOperacionais usuario={usuario} />}
+      {abasVisitadas.includes("inicio") && <Activity mode={aba === "inicio" ? "visible" : "hidden"}><AreaTrabalho usuario={usuario} onNavigate={navegar} /></Activity>}
+      {abasVisitadas.includes("clientes") && <Activity mode={aba === "clientes" ? "visible" : "hidden"}><Suspense fallback={<section className="panel">Carregando clientes...</section>}><ClientesModule usuario={usuario} showToast={showToast} buscaExterna={buscaModulo} clienteInicialId={clienteSelecionadoId} onOpenProcess={abrirProcessoNoProcessual} /></Suspense></Activity>}
+      {abasVisitadas.includes("homologacao-quitacao") && <Activity mode={aba === "homologacao-quitacao" ? "visible" : "hidden"}><Suspense fallback={<section className="panel">Carregando Homologação e Quitação...</section>}><HomologacaoQuitacaoModule usuario={usuario} showToast={showToast} /></Suspense></Activity>}
+      {abasVisitadas.includes("documentos") && <Activity mode={aba === "documentos" ? "visible" : "hidden"}><Suspense fallback={<section className="panel">Carregando documentos...</section>}><GeradorDocumentos usuario={usuario} responsavel={usuario.nome} onSuccess={showToast} /></Suspense></Activity>}
+      {abasVisitadas.includes("processual-extrajudiciais") && <Activity mode={aba === "processual-extrajudiciais" ? "visible" : "hidden"}><Suspense fallback={<section className="panel">Carregando ações extrajudiciais...</section>}><CarteiraProcessual showToast={showToast} usuario={usuario} processoInicialId={processosSelecionados["processual-extrajudiciais"]} modo="extrajudicial" /></Suspense></Activity>}
+      {abasVisitadas.includes("processual-protocolos") && <Activity mode={aba === "processual-protocolos" ? "visible" : "hidden"}><Suspense fallback={<section className="panel">Carregando protocolos...</section>}><EsteiraProcessualPlatino usuario={usuario} showToast={showToast} initialView="protocolos" /></Suspense></Activity>}
+      {abasVisitadas.includes("processual") && <Activity mode={aba === "processual" ? "visible" : "hidden"}><Suspense fallback={<section className="panel">Carregando Processual...</section>}><CarteiraProcessual showToast={showToast} usuario={usuario} processoInicialId={processosSelecionados.processual} modo="judicial" /></Suspense></Activity>}
+      {abasVisitadas.includes("agenda-atividades") && <Activity mode={aba === "agenda-atividades" ? "visible" : "hidden"}><Suspense fallback={<section className="panel">Carregando agenda...</section>}><OperacionalProcessualModule usuario={usuario} showToast={showToast} initialView="agenda" /></Suspense></Activity>}
+      {abasVisitadas.includes("indicadores") && <Activity mode={aba === "indicadores" ? "visible" : "hidden"}><Suspense fallback={<section className="panel">Carregando indicadores...</section>}><GerencialProcessualModule usuario={usuario} showToast={showToast} initialView="indicadores" onNavigate={navegar} /></Suspense></Activity>}
+      {abasVisitadas.includes("treinamentos") && <Activity mode={aba === "treinamentos" ? "visible" : "hidden"}><TreinamentosOperacionais usuario={usuario} /></Activity>}
       {aba === "feedbacks" && <section className="panel"><h2>Meus feedbacks</h2><button className="btn-secondary" onClick={carregarFeedbacks}>Atualizar</button><ListaFeedbacks feedbacks={feedbacks} /></section>}
       {placeholderTextos[aba] && <PlaceholderModulo titulo={placeholderTextos[aba][0]} descricao={placeholderTextos[aba][1]} />}
     </main>

@@ -362,7 +362,7 @@ export default function CarteiraProcessual({ showToast, usuario, processoInicial
         <div className="process-status-heading-actions"><button className="primary" type="button" onClick={abrirCadastro}>{carteiraExtrajudicial ? "Cadastrar ação extrajudicial" : "Cadastrar processo judicial"}</button><button type="button" onClick={carregar}>Atualizar</button></div>
       </div>
       <div className="process-status-filters"><input type="search" value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar nome, CPF, ID CRM, CNJ, réu, banco ou ação..." /></div>
-      {carregando ? <p className="process-status-empty">Carregando processos...</p> : registros.length ? <div className="portfolio-process-list">{registros.map((item) => {
+      {carregando && !registros.length ? <p className="process-status-empty">Carregando processos...</p> : registros.length ? <div className="portfolio-process-list">{registros.map((item) => {
         const extrajudicial = ehExtrajudicial(item);
         const protocoloExtrajudicial = numeroProtocoloExtrajudicial(item);
         return <article className="portfolio-process-card" key={item.id}>

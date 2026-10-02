@@ -1,4 +1,4 @@
-import { FormEvent, lazy, Suspense, useCallback, useEffect, useMemo, useState } from "react";
+import { FormEvent, lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "../../lib/supabase";
 import Pagination from "../common/Pagination";
 import { sincronizarClienteDoProcesso, sincronizarProcessosDoCliente } from "../../lib/processDataSync";
@@ -193,6 +193,10 @@ export default function ClientesModule({ usuario, showToast, buscaExterna, clien
   const [formulario, setFormulario] = useState(() => criarFormulario(null, usuario.nome || ""));
   const [carregando, setCarregando] = useState(true);
   const [carregandoFicha, setCarregandoFicha] = useState(false);
+  const fichaRequisicao = useRef(0);
+  const fichaClienteId = useRef<string | number | null>(null);
+  const clienteInicialCarregado = useRef<string | null>(null);
+  const listaRequisicao = useRef(0);
   const [salvando, setSalvando] = useState(false);
   const [processoForm, setProcessoForm] = useState(PROCESSO_FORM_INICIAL);
   const [processoFormAberto, setProcessoFormAberto] = useState(false);
@@ -212,6 +216,7 @@ export default function ClientesModule({ usuario, showToast, buscaExterna, clien
   }, [showToast]);
 
   const carregarDados = useCallback(async () => {
+    const requisicao = ++listaRequisicao.current;
     setCarregando(true);
     setErro("");
     const termo = termoPostgrest(buscaAplicada);
@@ -243,6 +248,7 @@ export default function ClientesModule({ usuario, showToast, buscaExterna, clien
       .order("nome_completo", { ascending: true })
       .range(inicio, inicio + CLIENTES_POR_PAGINA - 1);
 
+    if (requisicao !== listaRequisicao.current) return;
     if (error) {
       setErro(`Não foi possível carregar clientes: ${error.message}`);
       setCarregando(false);
@@ -252,6 +258,7 @@ export default function ClientesModule({ usuario, showToast, buscaExterna, clien
     const paginaClientes = (data || []) as Cliente[];
     setClientes(paginaClientes);
     setTotalClientes(count || 0);
+    setCarregando(false);
     const ids = paginaClientes.map((cliente) => cliente.id);
     if (ids.length) {
       const { data: processosPagina } = await supabase
@@ -259,11 +266,14 @@ export default function ClientesModule({ usuario, showToast, buscaExterna, clien
         .select("id, cliente_id, nome_cliente, cpf_cliente, reu, banco_reu, numero_processo, fase_atual, situacao, resultado, status_judicial, justica_gratuita, responsavel, updated_at")
         .in("cliente_id", ids)
         .order("updated_at", { ascending: false });
-      setProcessos((processosPagina || []) as ProcessoResumo[]);
-    } else {
-      setProcessos([]);
+      if (requisicao !== listaRequisicao.current) return;
+      if (!processosPagina) return;
+      setProcessos((atuais) => [
+        ...(processosPagina as ProcessoResumo[]).map((item) => ({ ...atuais.find((atual) => String(atual.id) === String(item.id)), ...item })),
+        ...atuais.filter((item) => String(item.cliente_id) === String(fichaClienteId.current) && !ids.some((id) => String(id) === String(item.cliente_id))),
+      ]);
     }
-    setCarregando(false);
+
   }, [buscaAplicada, pagina]);
 
   useEffect(() => {
@@ -279,7 +289,9 @@ export default function ClientesModule({ usuario, showToast, buscaExterna, clien
   }, [buscaExterna]);
 
   useEffect(() => {
-    if (!clienteInicialId) return;
+    if (!clienteInicialId) { clienteInicialCarregado.current = null; return; }
+    if (clienteInicialCarregado.current === String(clienteInicialId)) return;
+    clienteInicialCarregado.current = String(clienteInicialId);
     void supabase.from("clientes").select(CAMPOS_CLIENTE).eq("id", clienteInicialId).maybeSingle().then(({ data }) => {
       if (data) void abrirFicha(data as Cliente);
     });
@@ -356,25 +368,32 @@ export default function ClientesModule({ usuario, showToast, buscaExterna, clien
   }
 
   async function abrirFicha(cliente: Cliente) {
+    fichaClienteId.current = cliente.id;
     setClienteAberto(cliente);
     setAbaFicha("resumo");
     setCarregandoFicha(true);
-    const [processosResultado, documentosResultado, atendimentosResultado, historicosResultado] = await Promise.allSettled([
-      supabase.from("processos").select("id, cliente_id, nome_cliente, cpf_cliente, reu, banco_reu, numero_processo, fase_atual, situacao, resultado, status_judicial, justica_gratuita, responsavel, tipo_acao, tribunal, comarca, vara, data_distribuicao, observacoes, documentacao_status, procuracao_status, protocolo_status, updated_at").eq("cliente_id", cliente.id).order("updated_at", { ascending: false }).limit(DETALHES_FICHA_LIMITE),
-      supabase.from("documentos_juridicos").select("id, nome_documento, modelo_nome, cliente_nome, cpf_cnpj, numero_processo, responsavel_nome, status, created_at").eq("cliente_id", cliente.id).order("created_at", { ascending: false }).limit(DETALHES_FICHA_LIMITE),
-      supabase.from("processual_atendimentos").select(CAMPOS_ATENDIMENTO_CLIENTE).eq("cliente_id", cliente.id).order("data", { ascending: false }).limit(DETALHES_FICHA_LIMITE),
-      supabase.from("clientes_historico").select(CAMPOS_HISTORICO_CLIENTE).eq("cliente_id", cliente.id).order("created_at", { ascending: false }).limit(DETALHES_FICHA_LIMITE),
+    const requisicao = ++fichaRequisicao.current;
+    setDocumentos([]);
+    setAtendimentos([]);
+    setHistoricos([]);
+    // Libera os dados de cada consulta sem esperar a mais lenta.
+    const aplicar = <T,>(consulta: PromiseLike<{ data: T[] | null; error: unknown }>, atualizar: (dados: T[]) => void) => Promise.resolve(consulta).then(({ data, error }) => {
+      if (requisicao === fichaRequisicao.current && !error) atualizar(data || []);
+    });
+    await Promise.allSettled([
+      aplicar(supabase.from("processos").select("id, cliente_id, nome_cliente, cpf_cliente, reu, banco_reu, numero_processo, fase_atual, situacao, resultado, status_judicial, justica_gratuita, responsavel, tipo_acao, tribunal, comarca, vara, data_distribuicao, observacoes, documentacao_status, procuracao_status, protocolo_status, updated_at").eq("cliente_id", cliente.id).order("updated_at", { ascending: false }).limit(DETALHES_FICHA_LIMITE), (dados) => setProcessos((atuais) => [...dados, ...atuais.filter((item) => String(item.cliente_id) !== String(cliente.id) && !dados.some((processo) => String(processo.id) === String(item.id)))])),
+      aplicar(supabase.from("documentos_juridicos").select("id, nome_documento, modelo_nome, cliente_nome, cpf_cnpj, numero_processo, responsavel_nome, status, created_at").eq("cliente_id", cliente.id).order("created_at", { ascending: false }).limit(DETALHES_FICHA_LIMITE), setDocumentos),
+      aplicar(supabase.from("processual_atendimentos").select(CAMPOS_ATENDIMENTO_CLIENTE).eq("cliente_id", cliente.id).order("data", { ascending: false }).limit(DETALHES_FICHA_LIMITE), setAtendimentos),
+      aplicar(supabase.from("clientes_historico").select(CAMPOS_HISTORICO_CLIENTE).eq("cliente_id", cliente.id).order("created_at", { ascending: false }).limit(DETALHES_FICHA_LIMITE), setHistoricos),
     ]);
-    if (processosResultado.status === "fulfilled" && !processosResultado.value.error) {
-      const processosCliente = (processosResultado.value.data || []) as ProcessoResumo[];
-      setProcessos((atuais) => [
-        ...processosCliente,
-        ...atuais.filter((item) => !processosCliente.some((processo) => String(processo.id) === String(item.id))),
-      ]);
-    }
-    if (documentosResultado.status === "fulfilled" && !documentosResultado.value.error) setDocumentos((documentosResultado.value.data || []) as DocumentoResumo[]);
-    if (atendimentosResultado.status === "fulfilled" && !atendimentosResultado.value.error) setAtendimentos((atendimentosResultado.value.data || []) as AtendimentoResumo[]);
-    if (historicosResultado.status === "fulfilled" && !historicosResultado.value.error) setHistoricos((historicosResultado.value.data || []) as HistoricoResumo[]);
+    if (requisicao !== fichaRequisicao.current) return;
+    setCarregandoFicha(false);
+  }
+
+  function fecharFicha() {
+    fichaRequisicao.current += 1;
+    fichaClienteId.current = null;
+    setClienteAberto(null);
     setCarregandoFicha(false);
   }
 
@@ -621,7 +640,7 @@ export default function ClientesModule({ usuario, showToast, buscaExterna, clien
                 </tr>
               </thead>
               <tbody>
-                {carregando ? (
+                {carregando && !clientes.length ? (
                   <tr><td colSpan={8}><div className="empty-row">Carregando clientes...</div></td></tr>
                 ) : clientesFiltrados.length === 0 ? (
                   <tr><td colSpan={8}><div className="empty-row">Nenhum cliente encontrado.</div></td></tr>
@@ -649,10 +668,10 @@ export default function ClientesModule({ usuario, showToast, buscaExterna, clien
         </section>
 
         {clienteAberto ? (
-          <div className="cliente-ficha-backdrop" role="presentation" onMouseDown={(evento) => { if (evento.target === evento.currentTarget) setClienteAberto(null); }}>
+          <div className="cliente-ficha-backdrop" role="presentation" onMouseDown={(evento) => { if (evento.target === evento.currentTarget) fecharFicha(); }}>
           <section className="cliente-ficha-panel cliente-ficha-page" role="dialog" aria-modal="true" aria-label={`Ficha de ${clienteAberto.nome_completo}`}>
             <header>
-              <button type="button" className="cliente-back-button" onClick={() => setClienteAberto(null)}>← Voltar para clientes</button>
+              <button type="button" className="cliente-back-button" onClick={fecharFicha}>← Voltar para clientes</button>
               <div className="cliente-ficha-heading">
                 <div>
                   <span className="eyebrow">Ficha do cliente</span>

@@ -103,7 +103,7 @@ export default function EsteiraProcessualPlatino({ usuario, showToast, initialVi
 
   return (
     <section className="esteira-workspace" aria-label="Módulo Processual Platino">
-      {carregando ? (
+      {carregando && !processos.length ? (
         <div className="panel">Carregando processos...</div>
       ) : visualizacao === "protocolos" ? (
         <EsteiraKanban
