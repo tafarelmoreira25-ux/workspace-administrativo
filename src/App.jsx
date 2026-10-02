@@ -1,3 +1,4 @@
+import { FormField, FormSection, Input } from "./components/common/FormControls";
 import { Activity, lazy, Suspense, useCallback, useEffect, useState, useTransition } from "react";
 import { supabase } from "./lib/supabase";
 import { resolverTipoAcesso } from "./lib/userAccess";
@@ -287,14 +288,14 @@ function Login({ onLogin }) {
       </div>
 
       <section className="glass-card login-card" aria-label="Login Platino equipe">
-        <form className="login-form" onSubmit={fazerLogin}>
+        <FormSection as="form" className="login-form" onSubmit={fazerLogin}>
           <img className="login-logo-image" src="/assets/platino-orbital-logo.png" alt="Platino" />
-          <label className="glass-field floating-field">
-            <span className="sr-only">E-mail corporativo</span>
+          <FormField className="glass-field floating-field">
+            <span>E-mail corporativo</span>
             <div className="glass-input">
               <UiIcon name="equipe" size={19} />
               <div className="floating-input-wrap">
-                <input
+                <Input
                   autoComplete="email"
                   type="email"
                   value={email}
@@ -304,14 +305,14 @@ function Login({ onLogin }) {
                 <span>E-mail corporativo</span>
               </div>
             </div>
-          </label>
+          </FormField>
 
-          <label className="glass-field floating-field">
-            <span className="sr-only">Senha</span>
+          <FormField className="glass-field floating-field">
+            <span>Senha</span>
             <div className="glass-input">
               <UiIcon name="logout" size={19} />
               <div className="floating-input-wrap">
-                <input
+                <Input
                   autoComplete="current-password"
                   type={mostrarSenha ? "text" : "password"}
                   value={senha}
@@ -330,7 +331,7 @@ function Login({ onLogin }) {
                 <UiIcon name="olho" size={19} />
               </button>
             </div>
-          </label>
+          </FormField>
 
           <button
             type="submit"
@@ -341,7 +342,7 @@ function Login({ onLogin }) {
             <span>{carregando ? "Entrando..." : "Entrar"}</span>
           </button>
 
-        </form>
+        </FormSection>
       </section>
 
     </div>
@@ -385,12 +386,12 @@ function RedefinirSenha({ onConcluida }) {
       <section className="glass-card login-card" aria-label="Criar nova senha">
         <div className="login-brand"><img className="login-logo-image" src="/assets/platino-orbital-logo.png" alt="Platino" /><div><strong>Platino equipe</strong><span>Workspace Administrativo</span></div></div>
         <div className="login-heading"><span>Recuperação de acesso</span><h1>Crie uma nova senha</h1><p>Use pelo menos 8 caracteres.</p></div>
-        <form className="login-form" onSubmit={salvarNovaSenha}>
-          <label className="glass-field"><span>Nova senha</span><div className="glass-input"><UiIcon name="logout" size={20} /><input autoComplete="new-password" onChange={(evento) => setSenha(evento.target.value)} required type="password" value={senha} /></div></label>
-          <label className="glass-field"><span>Confirmar nova senha</span><div className="glass-input"><UiIcon name="logout" size={20} /><input autoComplete="new-password" onChange={(evento) => setConfirmacao(evento.target.value)} required type="password" value={confirmacao} /></div></label>
+        <FormSection as="form" className="login-form" onSubmit={salvarNovaSenha}>
+          <FormField className="glass-field"><span>Nova senha</span><div className="glass-input"><UiIcon name="logout" size={20} /><Input autoComplete="new-password" onChange={(evento) => setSenha(evento.target.value)} required type="password" value={senha} /></div></FormField>
+          <FormField className="glass-field"><span>Confirmar nova senha</span><div className="glass-input"><UiIcon name="logout" size={20} /><Input autoComplete="new-password" onChange={(evento) => setConfirmacao(evento.target.value)} required type="password" value={confirmacao} /></div></FormField>
           {mensagem && <p className="auth-message" role="alert">{mensagem}</p>}
           <button className="glass-button full" disabled={salvando} type="submit">{salvando ? "Salvando..." : "Salvar nova senha"}</button>
-        </form>
+        </FormSection>
       </section>
     </div>
   );
@@ -493,7 +494,7 @@ function Workspace({ usuario, onLogout, showToast }) {
           <p>Gestão operacional do escritório em um fluxo único.</p>
         </div>
         <div className="global-search">
-          {aba === "clientes" ? <><UiIcon name="busca" size={17} /><input type="search" value={buscaModulo} onChange={(evento) => setBuscaModulo(evento.target.value)} placeholder="Buscar cliente, CPF, ID CRM ou processo..." aria-label="Buscar clientes" /></> : <Suspense fallback={<><UiIcon name="busca" size={17} /><input type="search" placeholder="Buscar cliente, CPF, ID, processo ou banco..." aria-label="Busca global" /></>}><GlobalSearch onSelect={selecionarResultadoBusca} /></Suspense>}
+          {aba === "clientes" ? <><UiIcon name="busca" size={17} /><Input type="search" value={buscaModulo} onChange={(evento) => setBuscaModulo(evento.target.value)} placeholder="Buscar cliente, CPF, ID CRM ou processo..." aria-label="Buscar clientes" /></> : <Suspense fallback={<><UiIcon name="busca" size={17} /><Input type="search" placeholder="Buscar cliente, CPF, ID, processo ou banco..." aria-label="Busca global" /></>}><GlobalSearch onSelect={selecionarResultadoBusca} /></Suspense>}
         </div>
         <div className="topbar-actions">
           <button type="button" className="icon-button" aria-label="Notificações"><UiIcon name="sino" size={18} /></button>

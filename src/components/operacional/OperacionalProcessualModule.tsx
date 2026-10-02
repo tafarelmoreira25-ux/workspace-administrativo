@@ -1,3 +1,4 @@
+import { FormField, FormGrid, FormSection, Input, Select, Textarea } from "../common/FormControls";
 import { type Dispatch, type FormEvent, type SetStateAction, useCallback, useEffect, useMemo, useState } from "react";
 import { supabase } from "../../lib/supabase";
 import GerencialProcessualModule from "../gerencial/GerencialProcessualModule";
@@ -333,7 +334,7 @@ export default function OperacionalProcessualModule({ usuario, showToast, initia
       </header>
 
       <div className="operacional-toolbar">
-        <input type="search" value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar cliente, processo, responsável ou tipo..." />
+        <Input type="search" value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar cliente, processo, responsável ou tipo..." />
         <button className="btn-secondary" onClick={carregarDados} type="button">Atualizar</button>
       </div>
 
@@ -372,37 +373,37 @@ export default function OperacionalProcessualModule({ usuario, showToast, initia
 }
 
 function FormularioTarefa({ form, setForm, processos, onSubmit, salvando }: { form: ReturnType<typeof criarTarefaForm>; setForm: Dispatch<SetStateAction<ReturnType<typeof criarTarefaForm>>>; processos: ProcessoOpcao[]; onSubmit: (evento: FormEvent<HTMLFormElement>) => void; salvando: boolean }) {
-  return <form className="operacional-card operacional-form" onSubmit={onSubmit}>
+  return <FormSection as="form" className="operacional-card operacional-form" onSubmit={onSubmit}>
     <h3>Criar tarefa</h3>
-    <label><span>Título</span><input value={form.titulo} onChange={(e) => setForm((f) => ({ ...f, titulo: e.target.value }))} /></label>
-    <label><span>Descrição</span><textarea rows={3} value={form.descricao} onChange={(e) => setForm((f) => ({ ...f, descricao: e.target.value }))} /></label>
-    <label><span>Cliente</span><input value={form.cliente} onChange={(e) => setForm((f) => ({ ...f, cliente: e.target.value }))} placeholder="Nome, CPF ou ID" /></label>
-    <label><span>Processo</span><select value={form.processo_id} onChange={(e) => setForm((f) => ({ ...f, processo_id: e.target.value }))}><option value="">Sem vínculo</option>{processos.map((p) => <option key={p.id} value={p.id}>{p.nome_cliente} · {p.numero_processo || "sem CNJ"}</option>)}</select></label>
-    <div className="form-pair"><label><span>Tipo</span><select value={form.tipo} onChange={(e) => setForm((f) => ({ ...f, tipo: e.target.value }))}>{TIPOS_TAREFA.map((o) => <option key={o}>{o}</option>)}</select></label><label><span>Data</span><input type="date" value={form.data} onChange={(e) => setForm((f) => ({ ...f, data: e.target.value }))} /></label></div>
-    <div className="form-pair"><label><span>Horário</span><input type="time" value={form.horario} onChange={(e) => setForm((f) => ({ ...f, horario: e.target.value }))} /></label><label><span>Responsável</span><input value={form.responsavel} onChange={(e) => setForm((f) => ({ ...f, responsavel: e.target.value }))} /></label></div>
-    <div className="form-pair"><label><span>Prioridade</span><select value={form.prioridade} onChange={(e) => setForm((f) => ({ ...f, prioridade: e.target.value }))}>{PRIORIDADES.map((o) => <option key={o}>{o}</option>)}</select></label><label><span>Status</span><select value={form.status} onChange={(e) => setForm((f) => ({ ...f, status: e.target.value }))}>{STATUS_TAREFA.map((o) => <option key={o}>{o}</option>)}</select></label></div>
-    <label><span>Lembrete</span><input value={form.lembrete} onChange={(e) => setForm((f) => ({ ...f, lembrete: e.target.value }))} placeholder="Ex.: 1 dia antes" /></label>
-    <label><span>Observação</span><textarea rows={2} value={form.observacao} onChange={(e) => setForm((f) => ({ ...f, observacao: e.target.value }))} /></label>
+    <FormField><span>Título</span><Input value={form.titulo} onChange={(e) => setForm((f) => ({ ...f, titulo: e.target.value }))} /></FormField>
+    <FormField><span>Descrição</span><Textarea rows={3} value={form.descricao} onChange={(e) => setForm((f) => ({ ...f, descricao: e.target.value }))} /></FormField>
+    <FormField><span>Cliente</span><Input value={form.cliente} onChange={(e) => setForm((f) => ({ ...f, cliente: e.target.value }))} placeholder="Nome, CPF ou ID" /></FormField>
+    <FormField><span>Processo</span><Select value={form.processo_id} onChange={(e) => setForm((f) => ({ ...f, processo_id: e.target.value }))}><option value="">Sem vínculo</option>{processos.map((p) => <option key={p.id} value={p.id}>{p.nome_cliente} · {p.numero_processo || "sem CNJ"}</option>)}</Select></FormField>
+    <FormGrid className="form-pair"><FormField><span>Tipo</span><Select value={form.tipo} onChange={(e) => setForm((f) => ({ ...f, tipo: e.target.value }))}>{TIPOS_TAREFA.map((o) => <option key={o}>{o}</option>)}</Select></FormField><FormField><span>Data</span><Input type="date" value={form.data} onChange={(e) => setForm((f) => ({ ...f, data: e.target.value }))} /></FormField></FormGrid>
+    <FormGrid className="form-pair"><FormField><span>Horário</span><Input type="time" value={form.horario} onChange={(e) => setForm((f) => ({ ...f, horario: e.target.value }))} /></FormField><FormField><span>Responsável</span><Input value={form.responsavel} onChange={(e) => setForm((f) => ({ ...f, responsavel: e.target.value }))} /></FormField></FormGrid>
+    <FormGrid className="form-pair"><FormField><span>Prioridade</span><Select value={form.prioridade} onChange={(e) => setForm((f) => ({ ...f, prioridade: e.target.value }))}>{PRIORIDADES.map((o) => <option key={o}>{o}</option>)}</Select></FormField><FormField><span>Status</span><Select value={form.status} onChange={(e) => setForm((f) => ({ ...f, status: e.target.value }))}>{STATUS_TAREFA.map((o) => <option key={o}>{o}</option>)}</Select></FormField></FormGrid>
+    <FormField><span>Lembrete</span><Input value={form.lembrete} onChange={(e) => setForm((f) => ({ ...f, lembrete: e.target.value }))} placeholder="Ex.: 1 dia antes" /></FormField>
+    <FormField><span>Observação</span><Textarea rows={2} value={form.observacao} onChange={(e) => setForm((f) => ({ ...f, observacao: e.target.value }))} /></FormField>
     <button className="btn-primary" disabled={salvando} type="submit">Criar tarefa</button>
-  </form>;
+  </FormSection>;
 }
 
 function FormularioAtendimento({ form, setForm, processos, onSubmit, salvando }: { form: ReturnType<typeof criarAtendimentoForm>; setForm: Dispatch<SetStateAction<ReturnType<typeof criarAtendimentoForm>>>; processos: ProcessoOpcao[]; onSubmit: (evento: FormEvent<HTMLFormElement>) => void; salvando: boolean }) {
-  return <form className="operacional-card operacional-form" onSubmit={onSubmit}>
+  return <FormSection as="form" className="operacional-card operacional-form" onSubmit={onSubmit}>
     <h3>Registrar atendimento</h3>
-    <label><span>Cliente</span><input value={form.cliente} onChange={(e) => setForm((f) => ({ ...f, cliente: e.target.value }))} /></label>
-    <label><span>Processo</span><select value={form.processo_id} onChange={(e) => setForm((f) => ({ ...f, processo_id: e.target.value }))}><option value="">Sem vínculo</option>{processos.map((p) => <option key={p.id} value={p.id}>{p.nome_cliente} · {p.numero_processo || "sem CNJ"}</option>)}</select></label>
-    <div className="form-pair"><label><span>Data</span><input type="date" value={form.data} onChange={(e) => setForm((f) => ({ ...f, data: e.target.value }))} /></label><label><span>Hora</span><input type="time" value={form.hora} onChange={(e) => setForm((f) => ({ ...f, hora: e.target.value }))} /></label></div>
-    <div className="form-pair"><label><span>Canal</span><select value={form.canal} onChange={(e) => setForm((f) => ({ ...f, canal: e.target.value }))}>{CANAIS.map((o) => <option key={o}>{o}</option>)}</select></label><label><span>Tipo</span><input value={form.tipo} onChange={(e) => setForm((f) => ({ ...f, tipo: e.target.value }))} /></label></div>
-    <label><span>Descrição</span><textarea rows={4} value={form.descricao} onChange={(e) => setForm((f) => ({ ...f, descricao: e.target.value }))} placeholder="Ex.: Cliente informado sobre custas." /></label>
-    <label><span>Responsável</span><input value={form.responsavel} onChange={(e) => setForm((f) => ({ ...f, responsavel: e.target.value }))} /></label>
-    <label><span>Anexo</span><input value={form.anexo_url} onChange={(e) => setForm((f) => ({ ...f, anexo_url: e.target.value }))} placeholder="Link ou caminho do arquivo" /></label>
+    <FormField><span>Cliente</span><Input value={form.cliente} onChange={(e) => setForm((f) => ({ ...f, cliente: e.target.value }))} /></FormField>
+    <FormField><span>Processo</span><Select value={form.processo_id} onChange={(e) => setForm((f) => ({ ...f, processo_id: e.target.value }))}><option value="">Sem vínculo</option>{processos.map((p) => <option key={p.id} value={p.id}>{p.nome_cliente} · {p.numero_processo || "sem CNJ"}</option>)}</Select></FormField>
+    <FormGrid className="form-pair"><FormField><span>Data</span><Input type="date" value={form.data} onChange={(e) => setForm((f) => ({ ...f, data: e.target.value }))} /></FormField><FormField><span>Hora</span><Input type="time" value={form.hora} onChange={(e) => setForm((f) => ({ ...f, hora: e.target.value }))} /></FormField></FormGrid>
+    <FormGrid className="form-pair"><FormField><span>Canal</span><Select value={form.canal} onChange={(e) => setForm((f) => ({ ...f, canal: e.target.value }))}>{CANAIS.map((o) => <option key={o}>{o}</option>)}</Select></FormField><FormField><span>Tipo</span><Input value={form.tipo} onChange={(e) => setForm((f) => ({ ...f, tipo: e.target.value }))} /></FormField></FormGrid>
+    <FormField><span>Descrição</span><Textarea rows={4} value={form.descricao} onChange={(e) => setForm((f) => ({ ...f, descricao: e.target.value }))} placeholder="Ex.: Cliente informado sobre custas." /></FormField>
+    <FormField><span>Responsável</span><Input value={form.responsavel} onChange={(e) => setForm((f) => ({ ...f, responsavel: e.target.value }))} /></FormField>
+    <FormField><span>Anexo</span><Input value={form.anexo_url} onChange={(e) => setForm((f) => ({ ...f, anexo_url: e.target.value }))} placeholder="Link ou caminho do arquivo" /></FormField>
     <button className="btn-primary" disabled={salvando} type="submit">Registrar atendimento</button>
-  </form>;
+  </FormSection>;
 }
 
 function ListaTarefas({ tarefas, onStatus }: { tarefas: Tarefa[]; onStatus: (tarefa: Tarefa, status: string) => void }) {
-  return <section className="operacional-card"><h3>Tarefas</h3><div className="operacional-table"><table><thead><tr><th>Título</th><th>Cliente</th><th>Tipo</th><th>Data</th><th>Prioridade</th><th>Status</th><th>Responsável</th></tr></thead><tbody>{tarefas.length === 0 ? <tr><td colSpan={7}>Nenhuma tarefa cadastrada.</td></tr> : tarefas.map((tarefa) => <tr key={tarefa.id}><td><strong>{tarefa.titulo}</strong><small>{tarefa.descricao || tarefa.observacao || ""}</small></td><td>{tarefa.cliente_nome || "—"}</td><td>{tarefa.tipo}</td><td>{formatarDataHora(tarefa.data, tarefa.horario)}</td><td>{tarefa.prioridade}</td><td><select value={tarefa.status} onChange={(e) => onStatus(tarefa, e.target.value)}>{STATUS_TAREFA.map((o) => <option key={o}>{o}</option>)}</select></td><td>{tarefa.responsavel || "—"}</td></tr>)}</tbody></table></div></section>;
+  return <section className="operacional-card"><h3>Tarefas</h3><div className="operacional-table"><table><thead><tr><th>Título</th><th>Cliente</th><th>Tipo</th><th>Data</th><th>Prioridade</th><th>Status</th><th>Responsável</th></tr></thead><tbody>{tarefas.length === 0 ? <tr><td colSpan={7}>Nenhuma tarefa cadastrada.</td></tr> : tarefas.map((tarefa) => <tr key={tarefa.id}><td><strong>{tarefa.titulo}</strong><small>{tarefa.descricao || tarefa.observacao || ""}</small></td><td>{tarefa.cliente_nome || "—"}</td><td>{tarefa.tipo}</td><td>{formatarDataHora(tarefa.data, tarefa.horario)}</td><td>{tarefa.prioridade}</td><td><Select value={tarefa.status} onChange={(e) => onStatus(tarefa, e.target.value)}>{STATUS_TAREFA.map((o) => <option key={o}>{o}</option>)}</Select></td><td>{tarefa.responsavel || "—"}</td></tr>)}</tbody></table></div></section>;
 }
 
 function ListaAtendimentos({ atendimentos }: { atendimentos: Atendimento[] }) {

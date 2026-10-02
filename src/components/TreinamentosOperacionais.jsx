@@ -1,3 +1,4 @@
+import { FormField, Input, Select } from "./common/FormControls";
 import { useState } from "react";
 import {
   filtrarTreinamentos,
@@ -37,24 +38,24 @@ export default function TreinamentosOperacionais({ usuario }) {
       </header>
 
       <div className="training-hub-toolbar panel">
-        <label>
+        <FormField>
           <span>Pesquisar treinamento</span>
-          <input
+          <Input
             type="search"
             value={busca}
             onChange={(evento) => setBusca(evento.target.value)}
             placeholder="Ex.: audiência, GOV, processo, contrato..."
           />
-        </label>
-        <label>
+        </FormField>
+        <FormField>
           <span>Área</span>
-          <select value={equipe} onChange={(evento) => setEquipe(evento.target.value)}>
+          <Select value={equipe} onChange={(evento) => setEquipe(evento.target.value)}>
             <option>Todas</option>
             <option>Administrativo</option>
             <option>Jurídico</option>
             <option>Processual</option>
-          </select>
-        </label>
+          </Select>
+        </FormField>
       </div>
 
       <div className="training-hub-meta">

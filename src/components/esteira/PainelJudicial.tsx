@@ -1,3 +1,4 @@
+import { FormActions, FormField, FormGrid, FormSection, Input, Select, Textarea } from "../common/FormControls";
 import { FormEvent, lazy, Suspense, useEffect, useMemo, useState } from "react";
 import { supabase } from "../../lib/supabase";
 import {
@@ -942,27 +943,27 @@ export default function PainelJudicial({
           <h2>Controle jurídico da carteira processual</h2>
           <p>Somente processos judiciais já distribuídos ou protocolados.</p>
         </div>
-        <label>
+        <FormField>
           <span>Busca</span>
-          <input type="search" value={busca} onChange={(e) => onBusca(e.target.value)} placeholder="Cliente, CPF, ID, CNJ, réu, banco ou ação" />
-        </label>
+          <Input type="search" value={busca} onChange={(e) => onBusca(e.target.value)} placeholder="Cliente, CPF, ID, CNJ, réu, banco ou ação" />
+        </FormField>
         <button className="process-icon-action process-add-action" aria-label="Cadastrar processo existente" title="Cadastrar processo existente" onClick={abrirCadastroExistente} type="button">+</button>
       </div>
 
       <section className="processos-filters">
-        <label><span>Situação</span><select value={filtros.situacao} onChange={(e) => setFiltros((f) => ({ ...f, situacao: e.target.value }))}>{["Todos", ...SITUACOES].map((o) => <option key={o}>{o}</option>)}</select></label>
-        <label><span>Fase</span><select value={filtros.fase} onChange={(e) => setFiltros((f) => ({ ...f, fase: e.target.value }))}>{["Todos", ...FASES_JUDICIAIS].map((o) => <option key={o}>{o}</option>)}</select></label>
-        <label><span>Resultado</span><select value={filtros.resultado} onChange={(e) => setFiltros((f) => ({ ...f, resultado: e.target.value }))}>{["Todos", ...RESULTADOS].map((o) => <option key={o}>{o}</option>)}</select></label>
-        <label><span>Banco</span><select value={filtros.banco} onChange={(e) => setFiltros((f) => ({ ...f, banco: e.target.value }))}>{bancos.map((o) => <option key={o}>{o}</option>)}</select></label>
-        <label><span>Responsável</span><select value={filtros.responsavel} onChange={(e) => setFiltros((f) => ({ ...f, responsavel: e.target.value }))}>{responsaveis.map((o) => <option key={o}>{o}</option>)}</select></label>
-        <label><span>Justiça gratuita</span><select value={filtros.justica} onChange={(e) => setFiltros((f) => ({ ...f, justica: e.target.value }))}>{["Todos", ...JUSTICA_GRATUITA].map((o) => <option key={o}>{o}</option>)}</select></label>
-        <label><span>Emenda</span><select value={filtros.emenda} onChange={(e) => setFiltros((f) => ({ ...f, emenda: e.target.value }))}>{["Todos", ...EMENDA].map((o) => <option key={o}>{o}</option>)}</select></label>
-        <label><span>Com pendência</span><select value={filtros.comPendencia} onChange={(e) => setFiltros((f) => ({ ...f, comPendencia: e.target.value }))}>{SIM_NAO.map((o) => <option key={o}>{o}</option>)}</select></label>
-        <label><span>Custas</span><select value={filtros.custas} onChange={(e) => setFiltros((f) => ({ ...f, custas: e.target.value }))}>{custas.map((o) => <option key={o}>{o}</option>)}</select></label>
-        <label><span>Pasta retornada</span><select value={filtros.pastaRetornada} onChange={(e) => setFiltros((f) => ({ ...f, pastaRetornada: e.target.value }))}>{SIM_NAO.map((o) => <option key={o}>{o}</option>)}</select></label>
-        <label><span>Sem revisão</span><select value={filtros.semRevisao} onChange={(e) => setFiltros((f) => ({ ...f, semRevisao: e.target.value }))}>{SIM_NAO.map((o) => <option key={o}>{o}</option>)}</select></label>
-        <label><span>Encerrado</span><select value={filtros.encerrado} onChange={(e) => setFiltros((f) => ({ ...f, encerrado: e.target.value }))}>{SIM_NAO.map((o) => <option key={o}>{o}</option>)}</select></label>
-        <label><span>Recursal</span><select value={filtros.recursal} onChange={(e) => setFiltros((f) => ({ ...f, recursal: e.target.value }))}>{SIM_NAO.map((o) => <option key={o}>{o}</option>)}</select></label>
+        <FormField><span>Situação</span><Select value={filtros.situacao} onChange={(e) => setFiltros((f) => ({ ...f, situacao: e.target.value }))}>{["Todos", ...SITUACOES].map((o) => <option key={o}>{o}</option>)}</Select></FormField>
+        <FormField><span>Fase</span><Select value={filtros.fase} onChange={(e) => setFiltros((f) => ({ ...f, fase: e.target.value }))}>{["Todos", ...FASES_JUDICIAIS].map((o) => <option key={o}>{o}</option>)}</Select></FormField>
+        <FormField><span>Resultado</span><Select value={filtros.resultado} onChange={(e) => setFiltros((f) => ({ ...f, resultado: e.target.value }))}>{["Todos", ...RESULTADOS].map((o) => <option key={o}>{o}</option>)}</Select></FormField>
+        <FormField><span>Banco</span><Select value={filtros.banco} onChange={(e) => setFiltros((f) => ({ ...f, banco: e.target.value }))}>{bancos.map((o) => <option key={o}>{o}</option>)}</Select></FormField>
+        <FormField><span>Responsável</span><Select value={filtros.responsavel} onChange={(e) => setFiltros((f) => ({ ...f, responsavel: e.target.value }))}>{responsaveis.map((o) => <option key={o}>{o}</option>)}</Select></FormField>
+        <FormField><span>Justiça gratuita</span><Select value={filtros.justica} onChange={(e) => setFiltros((f) => ({ ...f, justica: e.target.value }))}>{["Todos", ...JUSTICA_GRATUITA].map((o) => <option key={o}>{o}</option>)}</Select></FormField>
+        <FormField><span>Emenda</span><Select value={filtros.emenda} onChange={(e) => setFiltros((f) => ({ ...f, emenda: e.target.value }))}>{["Todos", ...EMENDA].map((o) => <option key={o}>{o}</option>)}</Select></FormField>
+        <FormField><span>Com pendência</span><Select value={filtros.comPendencia} onChange={(e) => setFiltros((f) => ({ ...f, comPendencia: e.target.value }))}>{SIM_NAO.map((o) => <option key={o}>{o}</option>)}</Select></FormField>
+        <FormField><span>Custas</span><Select value={filtros.custas} onChange={(e) => setFiltros((f) => ({ ...f, custas: e.target.value }))}>{custas.map((o) => <option key={o}>{o}</option>)}</Select></FormField>
+        <FormField><span>Pasta retornada</span><Select value={filtros.pastaRetornada} onChange={(e) => setFiltros((f) => ({ ...f, pastaRetornada: e.target.value }))}>{SIM_NAO.map((o) => <option key={o}>{o}</option>)}</Select></FormField>
+        <FormField><span>Sem revisão</span><Select value={filtros.semRevisao} onChange={(e) => setFiltros((f) => ({ ...f, semRevisao: e.target.value }))}>{SIM_NAO.map((o) => <option key={o}>{o}</option>)}</Select></FormField>
+        <FormField><span>Encerrado</span><Select value={filtros.encerrado} onChange={(e) => setFiltros((f) => ({ ...f, encerrado: e.target.value }))}>{SIM_NAO.map((o) => <option key={o}>{o}</option>)}</Select></FormField>
+        <FormField><span>Recursal</span><Select value={filtros.recursal} onChange={(e) => setFiltros((f) => ({ ...f, recursal: e.target.value }))}>{SIM_NAO.map((o) => <option key={o}>{o}</option>)}</Select></FormField>
       </section>
 
       <div className="judicial-table-wrap processos-table-wrap">
@@ -994,7 +995,7 @@ export default function PainelJudicial({
                   <td>{processo.numero_processo || "Pendente"}</td>
                   <td>{processo.reu || processo.banco_reu || "—"}</td>
                   <td>{processo.banco_reu || "—"}</td>
-                  <td><div className="process-status-cell"><select className="process-status-inline-select" aria-label={`Situação do processo de ${processo.nome_cliente}`} value={processo.situacao || SITUACOES[0]} onChange={(e) => void alterarSituacaoNaLista(processo, e.target.value)}>{SITUACOES.map((opcao) => <option key={opcao} value={opcao}>{opcao}</option>)}</select>{fase !== situacao || resultado !== situacao ? <small>{fase !== situacao ? fase : null}{fase !== situacao && resultado !== situacao ? " · " : null}{resultado !== situacao ? resultado : null}</small> : null}</div></td>
+                  <td><div className="process-status-cell"><Select className="process-status-inline-select" aria-label={`Situação do processo de ${processo.nome_cliente}`} value={processo.situacao || SITUACOES[0]} onChange={(e) => void alterarSituacaoNaLista(processo, e.target.value)}>{SITUACOES.map((opcao) => <option key={opcao} value={opcao}>{opcao}</option>)}</Select>{fase !== situacao || resultado !== situacao ? <small>{fase !== situacao ? fase : null}{fase !== situacao && resultado !== situacao ? " · " : null}{resultado !== situacao ? resultado : null}</small> : null}</div></td>
                   <td><span className="truncate-cell">{processo.ultima_movimentacao || "—"}</span></td>
                   <td>{formatarData(processo.ultima_revisao)}</td>
                   <td>{formatarData(processo.proximo_prazo)}</td>
@@ -1008,7 +1009,7 @@ export default function PainelJudicial({
       </div>
       {fichaAberta && (
         <section className="judicial-drawer process-drawer process-page-view" aria-label="Ficha do processo">
-          <form className="judicial-drawer-panel process-ficha" onSubmit={salvarProcesso}>
+          <FormSection as="form" className="judicial-drawer-panel process-ficha" onSubmit={salvarProcesso}>
             <button className="modal-close" aria-label="Fechar ficha" title="Fechar" onClick={fecharFicha} type="button">×</button>
             <header className="process-ficha-header">
               <div className="process-ficha-heading">
@@ -1028,77 +1029,77 @@ export default function PainelJudicial({
 
             <div className="process-ficha-content">
               {abaFicha === "Resumo" ? <fieldset className="process-summary-editor" disabled={!modalCadastro && !editandoFicha}>
-                <section className="process-inline-summary" aria-label="Dados processuais">
+                <FormSection className="process-inline-summary" aria-label="Dados processuais">
                   <div className="process-section-heading"><h4>Dados Processuais</h4></div>
-                  <div className="process-summary-grid">
-                    <label className="span-4"><span>Ação</span><input value={ficha.tipo_acao} onChange={(e) => setFicha((f) => ({ ...f, tipo_acao: e.target.value }))} placeholder="Clique para preencher" /></label>
-                    <label className="span-4"><span>Réu</span><input value={ficha.reu} onChange={(e) => setFicha((f) => ({ ...f, reu: e.target.value, banco_reu: f.banco_reu || e.target.value }))} placeholder="Clique para preencher" /></label>
-                    <label className="span-2"><span>Tribunal / Juízo</span><input value={[ficha.tribunal, ficha.vara, ficha.comarca].filter(Boolean).join(" · ")} onChange={(e) => setFicha((f) => ({ ...f, tribunal: e.target.value }))} placeholder="Clique para preencher" /></label>
-                    <label className="span-2"><span>Responsável</span><input value={ficha.responsavel} onChange={(e) => setFicha((f) => ({ ...f, responsavel: e.target.value }))} placeholder="Clique para preencher" /></label>
-                  </div>
-                </section>
-                <section className="process-form-section process-card-section">
+                  <FormGrid className="process-summary-grid">
+                    <FormField className="span-4"><span>Ação</span><Input value={ficha.tipo_acao} onChange={(e) => setFicha((f) => ({ ...f, tipo_acao: e.target.value }))} placeholder="Clique para preencher" /></FormField>
+                    <FormField className="span-4"><span>Réu</span><Input value={ficha.reu} onChange={(e) => setFicha((f) => ({ ...f, reu: e.target.value, banco_reu: f.banco_reu || e.target.value }))} placeholder="Clique para preencher" /></FormField>
+                    <FormField className="span-2"><span>Tribunal / Juízo</span><Input value={[ficha.tribunal, ficha.vara, ficha.comarca].filter(Boolean).join(" · ")} onChange={(e) => setFicha((f) => ({ ...f, tribunal: e.target.value }))} placeholder="Clique para preencher" /></FormField>
+                    <FormField className="span-2"><span>Responsável</span><Input value={ficha.responsavel} onChange={(e) => setFicha((f) => ({ ...f, responsavel: e.target.value }))} placeholder="Clique para preencher" /></FormField>
+                  </FormGrid>
+                </FormSection>
+                <FormSection className="process-form-section process-card-section">
                   <div className="process-section-heading"><h4>Identificação do Processo</h4></div>
-                  <div className="process-form-grid process-twelve-grid">
-                    <label className="span-5 highlight-field"><span>Número do processo *</span><input value={ficha.numero_processo} onChange={(e) => setFicha((f) => ({ ...f, numero_processo: e.target.value }))} placeholder="0000000-00.0000.0.00.0000" /></label>
-                    <label className="span-3"><span>Tribunal *</span><input value={ficha.tribunal} onChange={(e) => setFicha((f) => ({ ...f, tribunal: e.target.value }))} /></label>
-                    <label className="span-2"><span>Comarca</span><input value={ficha.comarca} onChange={(e) => setFicha((f) => ({ ...f, comarca: e.target.value }))} /></label>
-                    <label className="span-2"><span>Vara</span><input value={ficha.vara} onChange={(e) => setFicha((f) => ({ ...f, vara: e.target.value }))} /></label>
-                    <label className="span-3"><span>Distribuição</span><input type="date" value={ficha.data_distribuicao} onChange={(e) => setFicha((f) => ({ ...f, data_distribuicao: e.target.value }))} /></label>
-                    <label className="span-4"><span>Tipo de ação</span><input value={ficha.tipo_acao} onChange={(e) => setFicha((f) => ({ ...f, tipo_acao: e.target.value }))} /></label>
-                    <label className="span-5"><span>Link da consulta processual</span><input value={ficha.link_consulta} onChange={(e) => setFicha((f) => ({ ...f, link_consulta: e.target.value }))} placeholder="https://" /></label>
-                  </div>
-                </section>
-                <section className="process-form-section process-card-section">
+                  <FormGrid className="process-form-grid process-twelve-grid">
+                    <FormField className="span-5 highlight-field"><span>Número do processo *</span><Input value={ficha.numero_processo} onChange={(e) => setFicha((f) => ({ ...f, numero_processo: e.target.value }))} placeholder="0000000-00.0000.0.00.0000" /></FormField>
+                    <FormField className="span-3"><span>Tribunal *</span><Input value={ficha.tribunal} onChange={(e) => setFicha((f) => ({ ...f, tribunal: e.target.value }))} /></FormField>
+                    <FormField className="span-2"><span>Comarca</span><Input value={ficha.comarca} onChange={(e) => setFicha((f) => ({ ...f, comarca: e.target.value }))} /></FormField>
+                    <FormField className="span-2"><span>Vara</span><Input value={ficha.vara} onChange={(e) => setFicha((f) => ({ ...f, vara: e.target.value }))} /></FormField>
+                    <FormField className="span-3"><span>Distribuição</span><Input type="date" value={ficha.data_distribuicao} onChange={(e) => setFicha((f) => ({ ...f, data_distribuicao: e.target.value }))} /></FormField>
+                    <FormField className="span-4"><span>Tipo de ação</span><Input value={ficha.tipo_acao} onChange={(e) => setFicha((f) => ({ ...f, tipo_acao: e.target.value }))} /></FormField>
+                    <FormField className="span-5"><span>Link da consulta processual</span><Input value={ficha.link_consulta} onChange={(e) => setFicha((f) => ({ ...f, link_consulta: e.target.value }))} placeholder="https://" /></FormField>
+                  </FormGrid>
+                </FormSection>
+                <FormSection className="process-form-section process-card-section">
                   <div className="process-section-heading"><h4>Partes e Envolvidos</h4></div>
-                  <div className="process-form-grid process-twelve-grid">
-                    <label className="span-4"><span>Cliente *</span><input value={ficha.nome_cliente} onChange={(e) => setFicha((f) => ({ ...f, nome_cliente: e.target.value }))} /></label>
-                    <label className="span-2"><span>CPF</span><input value={ficha.cpf_cliente} onChange={(e) => setFicha((f) => ({ ...f, cpf_cliente: e.target.value }))} /></label>
-                    <label className="span-3"><span>Autor</span><input value={ficha.autor} onChange={(e) => setFicha((f) => ({ ...f, autor: e.target.value }))} /></label>
-                    <label className="span-3"><span>Réu</span><input value={ficha.reu} onChange={(e) => setFicha((f) => ({ ...f, reu: e.target.value }))} /></label>
-                    <label className="span-3"><span>Banco</span><input value={ficha.banco_reu} onChange={(e) => setFicha((f) => ({ ...f, banco_reu: e.target.value }))} /></label>
-                    <label className="span-3"><span>Contrato / CNPJ</span><input value={ficha.numero_contrato} onChange={(e) => setFicha((f) => ({ ...f, numero_contrato: e.target.value }))} /></label>
-                    <label className="span-3"><span>Produto</span><input value={ficha.produto} onChange={(e) => setFicha((f) => ({ ...f, produto: e.target.value }))} /></label>
-                    <label className="span-3"><span>ID CRM</span><input value={ficha.id_crm} onChange={(e) => setFicha((f) => ({ ...f, id_crm: e.target.value }))} /></label>
-                  </div>
-                </section>
-                <section className="process-form-section process-card-section">
+                  <FormGrid className="process-form-grid process-twelve-grid">
+                    <FormField className="span-4"><span>Cliente *</span><Input value={ficha.nome_cliente} onChange={(e) => setFicha((f) => ({ ...f, nome_cliente: e.target.value }))} /></FormField>
+                    <FormField className="span-2"><span>CPF</span><Input value={ficha.cpf_cliente} onChange={(e) => setFicha((f) => ({ ...f, cpf_cliente: e.target.value }))} /></FormField>
+                    <FormField className="span-3"><span>Autor</span><Input value={ficha.autor} onChange={(e) => setFicha((f) => ({ ...f, autor: e.target.value }))} /></FormField>
+                    <FormField className="span-3"><span>Réu</span><Input value={ficha.reu} onChange={(e) => setFicha((f) => ({ ...f, reu: e.target.value }))} /></FormField>
+                    <FormField className="span-3"><span>Banco</span><Input value={ficha.banco_reu} onChange={(e) => setFicha((f) => ({ ...f, banco_reu: e.target.value }))} /></FormField>
+                    <FormField className="span-3"><span>Contrato / CNPJ</span><Input value={ficha.numero_contrato} onChange={(e) => setFicha((f) => ({ ...f, numero_contrato: e.target.value }))} /></FormField>
+                    <FormField className="span-3"><span>Produto</span><Input value={ficha.produto} onChange={(e) => setFicha((f) => ({ ...f, produto: e.target.value }))} /></FormField>
+                    <FormField className="span-3"><span>ID CRM</span><Input value={ficha.id_crm} onChange={(e) => setFicha((f) => ({ ...f, id_crm: e.target.value }))} /></FormField>
+                  </FormGrid>
+                </FormSection>
+                <FormSection className="process-form-section process-card-section">
                   <div className="process-section-heading"><h4>Status Processual</h4></div>
-                  <div className="process-form-grid process-twelve-grid">
-                    <label className="span-3"><span>Situação</span><select value={ficha.situacao} onChange={(e) => setFicha((f) => ({ ...f, situacao: e.target.value }))}>{SITUACOES.map((o) => <option key={o}>{o}</option>)}</select></label>
-                    <label className="span-3"><span>Fase</span><select value={ficha.fase_judicial} onChange={(e) => setFicha((f) => ({ ...f, fase_judicial: e.target.value }))}>{FASES_JUDICIAIS.map((o) => <option key={o}>{o}</option>)}</select></label>
-                    <label className="span-3"><span>Resultado</span><select value={ficha.resultado} onChange={(e) => setFicha((f) => ({ ...f, resultado: e.target.value }))}>{RESULTADOS.map((o) => <option key={o}>{o}</option>)}</select></label>
-                    <label className="span-3"><span>Justiça gratuita</span><select value={ficha.justica_gratuita} onChange={(e) => setFicha((f) => ({ ...f, justica_gratuita: e.target.value }))}>{JUSTICA_GRATUITA.map((o) => <option key={o}>{o}</option>)}</select></label>
-                    <label className="span-3"><span>Emenda</span><select value={ficha.emenda_status} onChange={(e) => setFicha((f) => ({ ...f, emenda_status: e.target.value }))}>{EMENDA.map((o) => <option key={o}>{o}</option>)}</select></label>
-                    <label className="span-3"><span>Custas</span><input value={ficha.custas_status} onChange={(e) => setFicha((f) => ({ ...f, custas_status: e.target.value }))} /></label>
-                  </div>
-                </section>
-                <section className="process-form-section process-card-section">
+                  <FormGrid className="process-form-grid process-twelve-grid">
+                    <FormField className="span-3"><span>Situação</span><Select value={ficha.situacao} onChange={(e) => setFicha((f) => ({ ...f, situacao: e.target.value }))}>{SITUACOES.map((o) => <option key={o}>{o}</option>)}</Select></FormField>
+                    <FormField className="span-3"><span>Fase</span><Select value={ficha.fase_judicial} onChange={(e) => setFicha((f) => ({ ...f, fase_judicial: e.target.value }))}>{FASES_JUDICIAIS.map((o) => <option key={o}>{o}</option>)}</Select></FormField>
+                    <FormField className="span-3"><span>Resultado</span><Select value={ficha.resultado} onChange={(e) => setFicha((f) => ({ ...f, resultado: e.target.value }))}>{RESULTADOS.map((o) => <option key={o}>{o}</option>)}</Select></FormField>
+                    <FormField className="span-3"><span>Justiça gratuita</span><Select value={ficha.justica_gratuita} onChange={(e) => setFicha((f) => ({ ...f, justica_gratuita: e.target.value }))}>{JUSTICA_GRATUITA.map((o) => <option key={o}>{o}</option>)}</Select></FormField>
+                    <FormField className="span-3"><span>Emenda</span><Select value={ficha.emenda_status} onChange={(e) => setFicha((f) => ({ ...f, emenda_status: e.target.value }))}>{EMENDA.map((o) => <option key={o}>{o}</option>)}</Select></FormField>
+                    <FormField className="span-3"><span>Custas</span><Input value={ficha.custas_status} onChange={(e) => setFicha((f) => ({ ...f, custas_status: e.target.value }))} /></FormField>
+                  </FormGrid>
+                </FormSection>
+                <FormSection className="process-form-section process-card-section">
                   <div className="process-section-heading"><h4>Prazos e Controle</h4></div>
-                  <div className="process-form-grid process-twelve-grid">
-                    <label className="span-4"><span>Próximo prazo</span><input type="date" value={ficha.proximo_prazo} onChange={(e) => setFicha((f) => ({ ...f, proximo_prazo: e.target.value }))} /></label>
-                    <label className="span-4"><span>Última revisão</span><input type="date" value={ficha.ultima_revisao} onChange={(e) => setFicha((f) => ({ ...f, ultima_revisao: e.target.value }))} /></label>
-                    <label className="span-4"><span>Próxima revisão</span><input type="date" value={ficha.proxima_revisao} onChange={(e) => setFicha((f) => ({ ...f, proxima_revisao: e.target.value }))} /></label>
-                  </div>
+                  <FormGrid className="process-form-grid process-twelve-grid">
+                    <FormField className="span-4"><span>Próximo prazo</span><Input type="date" value={ficha.proximo_prazo} onChange={(e) => setFicha((f) => ({ ...f, proximo_prazo: e.target.value }))} /></FormField>
+                    <FormField className="span-4"><span>Última revisão</span><Input type="date" value={ficha.ultima_revisao} onChange={(e) => setFicha((f) => ({ ...f, ultima_revisao: e.target.value }))} /></FormField>
+                    <FormField className="span-4"><span>Próxima revisão</span><Input type="date" value={ficha.proxima_revisao} onChange={(e) => setFicha((f) => ({ ...f, proxima_revisao: e.target.value }))} /></FormField>
+                  </FormGrid>
                   <div className="process-control-options">
-                    <label className="check-line"><input type="checkbox" checked={ficha.com_pendencia} onChange={(e) => setFicha((f) => ({ ...f, com_pendencia: e.target.checked }))} /> <span>Com pendência</span></label>
-                    <label className="check-line"><input type="checkbox" checked={ficha.pasta_retornada} onChange={(e) => setFicha((f) => ({ ...f, pasta_retornada: e.target.checked }))} /> <span>Pasta retornada</span></label>
-                    <label className="check-line"><input type="checkbox" checked={ficha.sem_revisao} onChange={(e) => setFicha((f) => ({ ...f, sem_revisao: e.target.checked }))} /> <span>Sem revisão</span></label>
-                    <label className="check-line"><input type="checkbox" checked={ficha.recursal} onChange={(e) => setFicha((f) => ({ ...f, recursal: e.target.checked }))} /> <span>Recursal</span></label>
+                    <FormField className="check-line"><Input type="checkbox" checked={ficha.com_pendencia} onChange={(e) => setFicha((f) => ({ ...f, com_pendencia: e.target.checked }))} /> <span>Com pendência</span></FormField>
+                    <FormField className="check-line"><Input type="checkbox" checked={ficha.pasta_retornada} onChange={(e) => setFicha((f) => ({ ...f, pasta_retornada: e.target.checked }))} /> <span>Pasta retornada</span></FormField>
+                    <FormField className="check-line"><Input type="checkbox" checked={ficha.sem_revisao} onChange={(e) => setFicha((f) => ({ ...f, sem_revisao: e.target.checked }))} /> <span>Sem revisão</span></FormField>
+                    <FormField className="check-line"><Input type="checkbox" checked={ficha.recursal} onChange={(e) => setFicha((f) => ({ ...f, recursal: e.target.checked }))} /> <span>Recursal</span></FormField>
                   </div>
-                </section>
-                <section className="process-form-section process-card-section">
+                </FormSection>
+                <FormSection className="process-form-section process-card-section">
                   <div className="process-section-heading"><h4>Documentação / Links</h4></div>
-                  <div className="process-form-grid process-twelve-grid">
-                    <label className="span-12"><span>Link da pasta no Drive</span><input value={ficha.link_pasta_cliente} onChange={(e) => setFicha((f) => ({ ...f, link_pasta_cliente: e.target.value }))} placeholder="https://drive.google.com/..." /></label>
-                  </div>
-                </section>
-                <section className="process-form-section process-card-section">
+                  <FormGrid className="process-form-grid process-twelve-grid">
+                    <FormField className="span-12"><span>Link da pasta no Drive</span><Input value={ficha.link_pasta_cliente} onChange={(e) => setFicha((f) => ({ ...f, link_pasta_cliente: e.target.value }))} placeholder="https://drive.google.com/..." /></FormField>
+                  </FormGrid>
+                </FormSection>
+                <FormSection className="process-form-section process-card-section">
                   <div className="process-section-heading"><h4>Observações</h4></div>
-                  <div className="process-form-grid process-twelve-grid">
-                    <label className="span-12 observations-field"><span>Observações</span><textarea rows={6} value={ficha.observacoes} onChange={(e) => setFicha((f) => ({ ...f, observacoes: e.target.value }))} placeholder="Registre informações relevantes sobre o processo..." /></label>
-                  </div>
-                </section>
+                  <FormGrid className="process-form-grid process-twelve-grid">
+                    <FormField className="span-12 observations-field"><span>Observações</span><Textarea rows={6} value={ficha.observacoes} onChange={(e) => setFicha((f) => ({ ...f, observacoes: e.target.value }))} placeholder="Registre informações relevantes sobre o processo..." /></FormField>
+                  </FormGrid>
+                </FormSection>
                 <aside className="process-next-actions">
                   <h4>Próximas ações</h4>
                   <article className={`review-alert ${calcularAlertaRevisao(processoAberto).classe}`}>
@@ -1123,7 +1124,7 @@ export default function PainelJudicial({
               </fieldset> : null}
 
               {abaFicha === "Movimentações" ? (
-                <section className="process-form-section">
+                <FormSection className="process-form-section">
                   <div className="section-title-row">
                     <div>
                       <h4>Registrar movimentação</h4>
@@ -1131,26 +1132,26 @@ export default function PainelJudicial({
                     </div>
                     <span className="process-badge andamento">Origem manual</span>
                   </div>
-                  <form className="movimentacao-form movement-form-grid" onSubmit={adicionarMovimentacao}>
-                    <label><span>Data e hora</span><input type="datetime-local" value={movimentacaoForm.data} onChange={(e) => setMovimentacaoForm((f) => ({ ...f, data: e.target.value }))} /></label>
-                    <label><span>Categoria</span><select value={movimentacaoForm.categoria} onChange={(e) => setMovimentacaoForm((f) => ({ ...f, categoria: e.target.value }))}>{CATEGORIAS_TIMELINE.map((opcao) => <option key={opcao}>{opcao}</option>)}</select></label>
-                    <label><span>Importância</span><select value={movimentacaoForm.importancia} onChange={(e) => setMovimentacaoForm((f) => ({ ...f, importancia: e.target.value }))}>{IMPORTANCIAS.map((opcao) => <option key={opcao}>{opcao}</option>)}</select></label>
-                    <label><span>Fonte</span><select value={movimentacaoForm.fonte} onChange={(e) => setMovimentacaoForm((f) => ({ ...f, fonte: e.target.value }))}>{FONTES_ORIGEM.map((opcao) => <option key={opcao}>{opcao}</option>)}</select></label>
-                    <label className="wide"><span>Título *</span><input value={movimentacaoForm.titulo} onChange={(e) => setMovimentacaoForm((f) => ({ ...f, titulo: e.target.value }))} placeholder="Ex.: Sentença publicada, emenda determinada, audiência designada" /></label>
-                    <label className="wide"><span>Descrição técnica *</span><textarea rows={4} value={movimentacaoForm.descricao_tecnica} onChange={(e) => setMovimentacaoForm((f) => ({ ...f, descricao_tecnica: e.target.value }))} /></label>
-                    <label className="wide"><span>Resumo para o cliente</span><textarea rows={3} value={movimentacaoForm.resumo_cliente} onChange={(e) => setMovimentacaoForm((f) => ({ ...f, resumo_cliente: e.target.value }))} /></label>
-                    <label><span>Link</span><input value={movimentacaoForm.link} onChange={(e) => setMovimentacaoForm((f) => ({ ...f, link: e.target.value }))} placeholder="https://" /></label>
-                    <label><span>Anexo</span><input value={movimentacaoForm.anexo_url} onChange={(e) => setMovimentacaoForm((f) => ({ ...f, anexo_url: e.target.value }))} placeholder="Link ou caminho do arquivo" /></label>
-                    <label><span>Próxima revisão</span><input type="date" value={movimentacaoForm.proxima_revisao} onChange={(e) => setMovimentacaoForm((f) => ({ ...f, proxima_revisao: e.target.value }))} /></label>
-                    <label className="wide"><span>Próxima providência</span><input value={movimentacaoForm.proxima_providencia} onChange={(e) => setMovimentacaoForm((f) => ({ ...f, proxima_providencia: e.target.value }))} /></label>
-                    <label className="check-line wide"><input type="checkbox" checked={movimentacaoForm.criar_tarefa_relacionada} onChange={(e) => setMovimentacaoForm((f) => ({ ...f, criar_tarefa_relacionada: e.target.checked }))} /> Criar tarefa relacionada futuramente</label>
+                  <FormSection as="form" className="movimentacao-form movement-form-grid" onSubmit={adicionarMovimentacao}>
+                    <FormField><span>Data e hora</span><Input type="datetime-local" value={movimentacaoForm.data} onChange={(e) => setMovimentacaoForm((f) => ({ ...f, data: e.target.value }))} /></FormField>
+                    <FormField><span>Categoria</span><Select value={movimentacaoForm.categoria} onChange={(e) => setMovimentacaoForm((f) => ({ ...f, categoria: e.target.value }))}>{CATEGORIAS_TIMELINE.map((opcao) => <option key={opcao}>{opcao}</option>)}</Select></FormField>
+                    <FormField><span>Importância</span><Select value={movimentacaoForm.importancia} onChange={(e) => setMovimentacaoForm((f) => ({ ...f, importancia: e.target.value }))}>{IMPORTANCIAS.map((opcao) => <option key={opcao}>{opcao}</option>)}</Select></FormField>
+                    <FormField><span>Fonte</span><Select value={movimentacaoForm.fonte} onChange={(e) => setMovimentacaoForm((f) => ({ ...f, fonte: e.target.value }))}>{FONTES_ORIGEM.map((opcao) => <option key={opcao}>{opcao}</option>)}</Select></FormField>
+                    <FormField className="wide"><span>Título *</span><Input value={movimentacaoForm.titulo} onChange={(e) => setMovimentacaoForm((f) => ({ ...f, titulo: e.target.value }))} placeholder="Ex.: Sentença publicada, emenda determinada, audiência designada" /></FormField>
+                    <FormField className="wide"><span>Descrição técnica *</span><Textarea rows={4} value={movimentacaoForm.descricao_tecnica} onChange={(e) => setMovimentacaoForm((f) => ({ ...f, descricao_tecnica: e.target.value }))} /></FormField>
+                    <FormField className="wide"><span>Resumo para o cliente</span><Textarea rows={3} value={movimentacaoForm.resumo_cliente} onChange={(e) => setMovimentacaoForm((f) => ({ ...f, resumo_cliente: e.target.value }))} /></FormField>
+                    <FormField><span>Link</span><Input value={movimentacaoForm.link} onChange={(e) => setMovimentacaoForm((f) => ({ ...f, link: e.target.value }))} placeholder="https://" /></FormField>
+                    <FormField><span>Anexo</span><Input value={movimentacaoForm.anexo_url} onChange={(e) => setMovimentacaoForm((f) => ({ ...f, anexo_url: e.target.value }))} placeholder="Link ou caminho do arquivo" /></FormField>
+                    <FormField><span>Próxima revisão</span><Input type="date" value={movimentacaoForm.proxima_revisao} onChange={(e) => setMovimentacaoForm((f) => ({ ...f, proxima_revisao: e.target.value }))} /></FormField>
+                    <FormField className="wide"><span>Próxima providência</span><Input value={movimentacaoForm.proxima_providencia} onChange={(e) => setMovimentacaoForm((f) => ({ ...f, proxima_providencia: e.target.value }))} /></FormField>
+                    <FormField className="check-line wide"><Input type="checkbox" checked={movimentacaoForm.criar_tarefa_relacionada} onChange={(e) => setMovimentacaoForm((f) => ({ ...f, criar_tarefa_relacionada: e.target.checked }))} /> Criar tarefa relacionada futuramente</FormField>
                     <div className="movement-actions"><button className="btn-primary" disabled={salvando} type="submit">Registrar movimentação</button></div>
-                  </form>
+                  </FormSection>
                   <TimelineProcessual movimentacoes={movimentacoes} filtro={timelineFiltro} onFiltro={setTimelineFiltro} onArquivar={arquivarMovimentacao} onAdd={() => setAbaFicha("Movimentações")} />
-                </section>
+                </FormSection>
               ) : null}
               {abaFicha === "Histórico" ? (
-                <section className="process-form-section">
+                <FormSection className="process-form-section">
                   <div className="section-title-row">
                     <div>
                       <h4>Histórico permanente</h4>
@@ -1162,14 +1163,14 @@ export default function PainelJudicial({
                       <strong>Revisão interna</strong>
                       <span>Registre quando a Platino revisou o processo. Isso não substitui a última movimentação judicial.</span>
                     </div>
-                    <input value={revisaoObservacao} onChange={(e) => setRevisaoObservacao(e.target.value)} placeholder="Observação opcional da revisão" />
+                    <Input value={revisaoObservacao} onChange={(e) => setRevisaoObservacao(e.target.value)} placeholder="Observação opcional da revisão" />
                     <button className="btn-secondary" disabled={salvando || !processoAberto} onClick={registrarRevisaoInterna} type="button">Registrar revisão</button>
                   </div>
                   <TimelineProcessual movimentacoes={movimentacoes} filtro={timelineFiltro} onFiltro={setTimelineFiltro} onArquivar={arquivarMovimentacao} onAdd={() => setAbaFicha("Movimentações")} />
-                </section>
+                </FormSection>
               ) : null}
               {abaFicha === "Tarefas e Prazos" ? (
-                <section className="process-form-section">
+                <FormSection className="process-form-section">
                   <div className="section-title-row">
                     <div>
                       <h4>Tarefas e prazos do processo</h4>
@@ -1177,24 +1178,24 @@ export default function PainelJudicial({
                     </div>
                     <span className="process-badge andamento">{tarefasProcesso.length} registros</span>
                   </div>
-                  <form className="movimentacao-form movement-form-grid" onSubmit={criarTarefaProcesso}>
-                    <label className="wide"><span>Título</span><input value={tarefaForm.titulo} onChange={(e) => setTarefaForm((f) => ({ ...f, titulo: e.target.value }))} /></label>
-                    <label className="wide"><span>Descrição</span><textarea rows={3} value={tarefaForm.descricao} onChange={(e) => setTarefaForm((f) => ({ ...f, descricao: e.target.value }))} /></label>
-                    <label><span>Tipo</span><select value={tarefaForm.tipo} onChange={(e) => setTarefaForm((f) => ({ ...f, tipo: e.target.value }))}>{TIPOS_TAREFA.map((opcao) => <option key={opcao}>{opcao}</option>)}</select></label>
-                    <label><span>Data</span><input type="date" value={tarefaForm.data} onChange={(e) => setTarefaForm((f) => ({ ...f, data: e.target.value }))} /></label>
-                    <label><span>Horário</span><input type="time" value={tarefaForm.horario} onChange={(e) => setTarefaForm((f) => ({ ...f, horario: e.target.value }))} /></label>
-                    <label><span>Responsável</span><input value={tarefaForm.responsavel} onChange={(e) => setTarefaForm((f) => ({ ...f, responsavel: e.target.value }))} /></label>
-                    <label><span>Prioridade</span><select value={tarefaForm.prioridade} onChange={(e) => setTarefaForm((f) => ({ ...f, prioridade: e.target.value }))}>{PRIORIDADES_TAREFA.map((opcao) => <option key={opcao}>{opcao}</option>)}</select></label>
-                    <label><span>Status</span><select value={tarefaForm.status} onChange={(e) => setTarefaForm((f) => ({ ...f, status: e.target.value }))}>{STATUS_TAREFA.map((opcao) => <option key={opcao}>{opcao}</option>)}</select></label>
-                    <label><span>Lembrete</span><input value={tarefaForm.lembrete} onChange={(e) => setTarefaForm((f) => ({ ...f, lembrete: e.target.value }))} /></label>
-                    <label className="wide"><span>Observação</span><textarea rows={2} value={tarefaForm.observacao} onChange={(e) => setTarefaForm((f) => ({ ...f, observacao: e.target.value }))} /></label>
+                  <FormSection as="form" className="movimentacao-form movement-form-grid" onSubmit={criarTarefaProcesso}>
+                    <FormField className="wide"><span>Título</span><Input value={tarefaForm.titulo} onChange={(e) => setTarefaForm((f) => ({ ...f, titulo: e.target.value }))} /></FormField>
+                    <FormField className="wide"><span>Descrição</span><Textarea rows={3} value={tarefaForm.descricao} onChange={(e) => setTarefaForm((f) => ({ ...f, descricao: e.target.value }))} /></FormField>
+                    <FormField><span>Tipo</span><Select value={tarefaForm.tipo} onChange={(e) => setTarefaForm((f) => ({ ...f, tipo: e.target.value }))}>{TIPOS_TAREFA.map((opcao) => <option key={opcao}>{opcao}</option>)}</Select></FormField>
+                    <FormField><span>Data</span><Input type="date" value={tarefaForm.data} onChange={(e) => setTarefaForm((f) => ({ ...f, data: e.target.value }))} /></FormField>
+                    <FormField><span>Horário</span><Input type="time" value={tarefaForm.horario} onChange={(e) => setTarefaForm((f) => ({ ...f, horario: e.target.value }))} /></FormField>
+                    <FormField><span>Responsável</span><Input value={tarefaForm.responsavel} onChange={(e) => setTarefaForm((f) => ({ ...f, responsavel: e.target.value }))} /></FormField>
+                    <FormField><span>Prioridade</span><Select value={tarefaForm.prioridade} onChange={(e) => setTarefaForm((f) => ({ ...f, prioridade: e.target.value }))}>{PRIORIDADES_TAREFA.map((opcao) => <option key={opcao}>{opcao}</option>)}</Select></FormField>
+                    <FormField><span>Status</span><Select value={tarefaForm.status} onChange={(e) => setTarefaForm((f) => ({ ...f, status: e.target.value }))}>{STATUS_TAREFA.map((opcao) => <option key={opcao}>{opcao}</option>)}</Select></FormField>
+                    <FormField><span>Lembrete</span><Input value={tarefaForm.lembrete} onChange={(e) => setTarefaForm((f) => ({ ...f, lembrete: e.target.value }))} /></FormField>
+                    <FormField className="wide"><span>Observação</span><Textarea rows={2} value={tarefaForm.observacao} onChange={(e) => setTarefaForm((f) => ({ ...f, observacao: e.target.value }))} /></FormField>
                     <div className="movement-actions"><button className="btn-primary" disabled={salvando} type="submit">Criar tarefa</button></div>
-                  </form>
+                  </FormSection>
                   <ListaTarefasProcesso tarefas={tarefasProcesso} onStatus={atualizarStatusTarefaProcesso} />
-                </section>
+                </FormSection>
               ) : null}
               {abaFicha === "Atendimentos" ? (
-                <section className="process-form-section">
+                <FormSection className="process-form-section">
                   <div className="section-title-row">
                     <div>
                       <h4>Atendimentos do processo</h4>
@@ -1202,22 +1203,22 @@ export default function PainelJudicial({
                     </div>
                     <span className="process-badge andamento">{atendimentosProcesso.length} registros</span>
                   </div>
-                  <form className="movimentacao-form movement-form-grid" onSubmit={criarAtendimentoProcesso}>
-                    <label><span>Data</span><input type="date" value={atendimentoForm.data} onChange={(e) => setAtendimentoForm((f) => ({ ...f, data: e.target.value }))} /></label>
-                    <label><span>Hora</span><input type="time" value={atendimentoForm.hora} onChange={(e) => setAtendimentoForm((f) => ({ ...f, hora: e.target.value }))} /></label>
-                    <label><span>Canal</span><select value={atendimentoForm.canal} onChange={(e) => setAtendimentoForm((f) => ({ ...f, canal: e.target.value }))}>{CANAIS_ATENDIMENTO.map((opcao) => <option key={opcao}>{opcao}</option>)}</select></label>
-                    <label><span>Tipo</span><input value={atendimentoForm.tipo} onChange={(e) => setAtendimentoForm((f) => ({ ...f, tipo: e.target.value }))} /></label>
-                    <label className="wide"><span>Descrição</span><textarea rows={4} value={atendimentoForm.descricao} onChange={(e) => setAtendimentoForm((f) => ({ ...f, descricao: e.target.value }))} placeholder="Ex.: Cliente informado sobre custas." /></label>
-                    <label><span>Responsável</span><input value={atendimentoForm.responsavel} onChange={(e) => setAtendimentoForm((f) => ({ ...f, responsavel: e.target.value }))} /></label>
-                    <label><span>Anexo</span><input value={atendimentoForm.anexo_url} onChange={(e) => setAtendimentoForm((f) => ({ ...f, anexo_url: e.target.value }))} /></label>
+                  <FormSection as="form" className="movimentacao-form movement-form-grid" onSubmit={criarAtendimentoProcesso}>
+                    <FormField><span>Data</span><Input type="date" value={atendimentoForm.data} onChange={(e) => setAtendimentoForm((f) => ({ ...f, data: e.target.value }))} /></FormField>
+                    <FormField><span>Hora</span><Input type="time" value={atendimentoForm.hora} onChange={(e) => setAtendimentoForm((f) => ({ ...f, hora: e.target.value }))} /></FormField>
+                    <FormField><span>Canal</span><Select value={atendimentoForm.canal} onChange={(e) => setAtendimentoForm((f) => ({ ...f, canal: e.target.value }))}>{CANAIS_ATENDIMENTO.map((opcao) => <option key={opcao}>{opcao}</option>)}</Select></FormField>
+                    <FormField><span>Tipo</span><Input value={atendimentoForm.tipo} onChange={(e) => setAtendimentoForm((f) => ({ ...f, tipo: e.target.value }))} /></FormField>
+                    <FormField className="wide"><span>Descrição</span><Textarea rows={4} value={atendimentoForm.descricao} onChange={(e) => setAtendimentoForm((f) => ({ ...f, descricao: e.target.value }))} placeholder="Ex.: Cliente informado sobre custas." /></FormField>
+                    <FormField><span>Responsável</span><Input value={atendimentoForm.responsavel} onChange={(e) => setAtendimentoForm((f) => ({ ...f, responsavel: e.target.value }))} /></FormField>
+                    <FormField><span>Anexo</span><Input value={atendimentoForm.anexo_url} onChange={(e) => setAtendimentoForm((f) => ({ ...f, anexo_url: e.target.value }))} /></FormField>
                     <div className="movement-actions"><button className="btn-primary" disabled={salvando} type="submit">Registrar atendimento</button></div>
-                  </form>
+                  </FormSection>
                   <ListaAtendimentosProcesso atendimentos={atendimentosProcesso} />
-                </section>
+                </FormSection>
               ) : null}
-              {abaFicha === "Auditoria" ? <section className="process-form-section"><h4>Auditoria</h4>{auditoria.length === 0 ? <div className="empty-row">Nenhum registro de auditoria.</div> : auditoria.map((item) => <article className="audit-row" key={item.id}><strong>{item.campo}</strong><span>{item.valor_anterior || "vazio"} → {item.valor_novo || "vazio"}</span><small>{item.usuario || "Usuário"} · {formatarDataHora(item.created_at)}</small></article>)}</section> : null}
+              {abaFicha === "Auditoria" ? <FormSection className="process-form-section"><h4>Auditoria</h4>{auditoria.length === 0 ? <div className="empty-row">Nenhum registro de auditoria.</div> : auditoria.map((item) => <article className="audit-row" key={item.id}><strong>{item.campo}</strong><span>{item.valor_anterior || "vazio"} → {item.valor_novo || "vazio"}</span><small>{item.usuario || "Usuário"} · {formatarDataHora(item.created_at)}</small></article>)}</FormSection> : null}
               {abaFicha === "Documentos" ? (
-                <section className="process-form-section">
+                <FormSection className="process-form-section">
                   <div className="section-title-row">
                     <div>
                       <h4>Documentos do processo</h4>
@@ -1231,9 +1232,9 @@ export default function PainelJudicial({
                       <strong>Relatório processual</strong>
                       <span>Último relatório: {ultimoRelatorio ? formatarDataHora(ultimoRelatorio.created_at) : "não localizado"} · {movimentacoesPosterioresRelatorio} movimentações posteriores.</span>
                     </div>
-                    <label><input type="checkbox" /> Contestação</label>
-                    <label><input type="checkbox" /> Réplica</label>
-                    <label><input type="checkbox" /> Conclusos</label>
+                    <FormField><Input type="checkbox" /> Contestação</FormField>
+                    <FormField><Input type="checkbox" /> Réplica</FormField>
+                    <FormField><Input type="checkbox" /> Conclusos</FormField>
                     <button className="btn-secondary compact" type="button" onClick={() => abrirGeradorDocumento({
                       modeloId: "relatorio-atualizacao-processual",
                       modeloModo: "relatorio-atualizacao-processual",
@@ -1245,19 +1246,19 @@ export default function PainelJudicial({
                       observacaoInterna: `Relatório de andamento processual.` + "\n" + `Movimentações posteriores ao último relatório:` + "\n" + (resumoMovimentacoesRelatorio || "Nenhuma movimentação posterior localizada."),
                     })}>Gerar relatório de andamento</button>
                   </section>
-                </section>
+                </FormSection>
               ) : null}
-              {!["Resumo", "Histórico", "Movimentações", "Tarefas e Prazos", "Atendimentos", "Documentos", "Auditoria"].includes(abaFicha) ? <section className="process-form-section"><h4>{abaFicha}</h4><div className="empty-row">Área preparada para vincular {abaFicha.toLowerCase()} do processo.</div></section> : null}
+              {!["Resumo", "Histórico", "Movimentações", "Tarefas e Prazos", "Atendimentos", "Documentos", "Auditoria"].includes(abaFicha) ? <FormSection className="process-form-section"><h4>{abaFicha}</h4><div className="empty-row">Área preparada para vincular {abaFicha.toLowerCase()} do processo.</div></FormSection> : null}
             </div>
 
-            <footer className="process-ficha-actions">
+            <FormActions className="process-ficha-actions">
               <div className="process-link-actions">
                 {ficha.link_pasta_cliente ? <a href={ficha.link_pasta_cliente} target="_blank" rel="noreferrer">Abrir pasta Drive</a> : null}
                 {ficha.link_consulta ? <a href={ficha.link_consulta} target="_blank" rel="noreferrer">Abrir consulta</a> : null}
               </div>
               <div><button className="btn-secondary" onClick={() => { setProcessoAberto(null); setModalCadastro(false); }} type="button">Fechar</button><button className="btn-primary" disabled={salvando} type="submit">{salvando ? "Salvando..." : "Salvar processo"}</button></div>
-            </footer>
-          </form>
+            </FormActions>
+          </FormSection>
         </section>
       )}
       {geradorAberto && processoAberto ? (
@@ -1286,12 +1287,12 @@ export default function PainelJudicial({
               <div><span className="eyebrow">Comunicação</span><h3>Marcar como comunicado</h3></div>
               <button className="drawer-close" onClick={() => setComunicandoDocumento(null)} type="button">×</button>
             </header>
-            <div className="cliente-form-grid">
-              <label><span>Documento</span><input value={comunicandoDocumento.nome_documento} readOnly /></label>
-              <label><span>Canal</span><select value={comunicacaoCanal} onChange={(e) => setComunicacaoCanal(e.target.value)}>{CANAIS_ATENDIMENTO.map((canal) => <option key={canal}>{canal}</option>)}</select></label>
-              <label className="wide"><span>Observação</span><textarea rows={4} value={comunicacaoObservacao} onChange={(e) => setComunicacaoObservacao(e.target.value)} /></label>
-            </div>
-            <footer><button className="btn-secondary" onClick={() => setComunicandoDocumento(null)} type="button">Cancelar</button><button className="btn-primary" onClick={marcarDocumentoComunicado} type="button">Salvar comunicação</button></footer>
+            <FormGrid className="cliente-form-grid">
+              <FormField><span>Documento</span><Input value={comunicandoDocumento.nome_documento} readOnly /></FormField>
+              <FormField><span>Canal</span><Select value={comunicacaoCanal} onChange={(e) => setComunicacaoCanal(e.target.value)}>{CANAIS_ATENDIMENTO.map((canal) => <option key={canal}>{canal}</option>)}</Select></FormField>
+              <FormField className="wide"><span>Observação</span><Textarea rows={4} value={comunicacaoObservacao} onChange={(e) => setComunicacaoObservacao(e.target.value)} /></FormField>
+            </FormGrid>
+            <FormActions><button className="btn-secondary" onClick={() => setComunicandoDocumento(null)} type="button">Cancelar</button><button className="btn-primary" onClick={marcarDocumentoComunicado} type="button">Salvar comunicação</button></FormActions>
           </section>
         </div>
       ) : null}
@@ -1355,7 +1356,7 @@ function TimelineProcessual({
                   </header>
                   {descricoesDiferentes(item.titulo, movimentacao.descricao_tecnica || movimentacao.descricao) ? <p>{movimentacao.descricao_tecnica || movimentacao.descricao}</p> : null}
                   {movimentacao.resumo_cliente ? <blockquote>{movimentacao.resumo_cliente}</blockquote> : null}
-                  <footer>
+                  <FormActions>
                     <span>Responsável: {movimentacao.responsavel || movimentacao.created_by_nome || "Não informado"}</span>
                     <span>Fonte: {movimentacao.fonte || "Manual"}</span>
                     {movimentacao.proxima_providencia ? <span>Providência: {movimentacao.proxima_providencia}</span> : null}
@@ -1363,7 +1364,7 @@ function TimelineProcessual({
                     {movimentacao.link ? <a href={movimentacao.link} target="_blank" rel="noreferrer">Abrir link</a> : null}
                     {movimentacao.anexo_url ? <a href={movimentacao.anexo_url} target="_blank" rel="noreferrer">Abrir anexo</a> : null}
                     <button type="button" onClick={() => onArquivar(movimentacao)}>Arquivar</button>
-                  </footer>
+                  </FormActions>
                 </div>
               </article>
             );
@@ -1393,9 +1394,9 @@ function ListaTarefasProcesso({
           </div>
           <div>
             <small>{tarefa.prioridade} · {tarefa.responsavel || "Sem responsável"}</small>
-            <select value={tarefa.status} onChange={(e) => onStatus(tarefa, e.target.value)}>
+            <Select value={tarefa.status} onChange={(e) => onStatus(tarefa, e.target.value)}>
               {STATUS_TAREFA.map((status) => <option key={status}>{status}</option>)}
-            </select>
+            </Select>
           </div>
         </article>
       ))}
@@ -1435,8 +1436,8 @@ function ListaDocumentosProcesso({
               <td><strong>{documento.nome_documento}</strong><small>{documento.numero_processo || "Sem processo informado"}</small></td>
               <td>{formatarDataHora(documento.created_at)}</td>
               <td>{String(documento.versao || 1).padStart(2, "0")}</td>
-              <td><select value={documento.status || "Gerado"} onChange={(e) => onStatus(documento, e.target.value)}>{STATUS_DOCUMENTO.map((status) => <option key={status}>{status}</option>)}</select></td>
-              <td><input type="checkbox" checked={Boolean(documento.assinado)} onChange={(e) => onStatus(documento, e.target.checked ? "Assinado" : documento.status || "Gerado", e.target.checked)} /></td>
+              <td><Select value={documento.status || "Gerado"} onChange={(e) => onStatus(documento, e.target.value)}>{STATUS_DOCUMENTO.map((status) => <option key={status}>{status}</option>)}</Select></td>
+              <td><Input type="checkbox" checked={Boolean(documento.assinado)} onChange={(e) => onStatus(documento, e.target.checked ? "Assinado" : documento.status || "Gerado", e.target.checked)} /></td>
               <td>{documento.responsavel_nome || "—"}</td>
               <td><button className="btn-secondary compact" type="button" onClick={() => onComunicar(documento)}>{documento.comunicado_em ? "Comunicado" : "Marcar comunicado"}</button></td>
             </tr>

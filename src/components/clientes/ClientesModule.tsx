@@ -1,3 +1,4 @@
+import { FormActions, FormField, FormGrid, FormSection, Input, Textarea } from "../common/FormControls";
 import { FormEvent, type ReactNode, lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "../../lib/supabase";
 import Pagination from "../common/Pagination";
@@ -837,7 +838,7 @@ export default function ClientesModule({ usuario, showToast, buscaExterna, clien
 
       {modalAberto ? (
         <div className="modal-backdrop" role="presentation">
-          <form className="cliente-modal" onSubmit={salvarCliente}>
+          <FormSection as="form" className="cliente-modal" onSubmit={salvarCliente}>
             <header>
               <div>
                 <span className="eyebrow">Cadastro de cliente</span>
@@ -847,43 +848,43 @@ export default function ClientesModule({ usuario, showToast, buscaExterna, clien
             </header>
             <div className="cliente-required-note">Os campos marcados com <strong>*</strong> são de preenchimento obrigatório.</div>
             <div className="cliente-form-sections">
-              <section className="cliente-form-section">
+              <FormSection className="cliente-form-section">
                 <h4>Dados gerais</h4>
-                <div className="cliente-form-grid">
-                  <label className="wide"><span>Nome completo *</span><input required value={formulario.nome_completo} onChange={(e) => setFormulario((f) => ({ ...f, nome_completo: e.target.value }))} /></label>
-                  <label><span>CPF</span><input value={formulario.cpf} onChange={(e) => setFormulario((f) => ({ ...f, cpf: e.target.value }))} /></label>
-                  <label><span>RG</span><input value={formulario.rg} onChange={(e) => setFormulario((f) => ({ ...f, rg: e.target.value }))} /></label>
-                  <label><span>Data de nascimento</span><input type="date" value={formulario.data_nascimento} onChange={(e) => setFormulario((f) => ({ ...f, data_nascimento: e.target.value }))} /></label>
-                </div>
-              </section>
-              <section className="cliente-form-section">
+                <FormGrid className="cliente-form-grid">
+                  <FormField className="wide"><span>Nome completo *</span><Input required value={formulario.nome_completo} onChange={(e) => setFormulario((f) => ({ ...f, nome_completo: e.target.value }))} /></FormField>
+                  <FormField><span>CPF</span><Input value={formulario.cpf} onChange={(e) => setFormulario((f) => ({ ...f, cpf: e.target.value }))} /></FormField>
+                  <FormField><span>RG</span><Input value={formulario.rg} onChange={(e) => setFormulario((f) => ({ ...f, rg: e.target.value }))} /></FormField>
+                  <FormField><span>Data de nascimento</span><Input type="date" value={formulario.data_nascimento} onChange={(e) => setFormulario((f) => ({ ...f, data_nascimento: e.target.value }))} /></FormField>
+                </FormGrid>
+              </FormSection>
+              <FormSection className="cliente-form-section">
                 <h4>Contato</h4>
-                <div className="cliente-form-grid">
-                  <label><span>Telefone</span><input value={formulario.telefone} onChange={(e) => setFormulario((f) => ({ ...f, telefone: e.target.value }))} /></label>
-                  <label><span>E-mail</span><input type="email" value={formulario.email} onChange={(e) => setFormulario((f) => ({ ...f, email: e.target.value }))} /></label>
-                  <label><span>Responsável</span><input value={formulario.responsavel} onChange={(e) => setFormulario((f) => ({ ...f, responsavel: e.target.value }))} /></label>
-                </div>
-              </section>
-              <section className="cliente-form-section">
+                <FormGrid className="cliente-form-grid">
+                  <FormField><span>Telefone</span><Input value={formulario.telefone} onChange={(e) => setFormulario((f) => ({ ...f, telefone: e.target.value }))} /></FormField>
+                  <FormField><span>E-mail</span><Input type="email" value={formulario.email} onChange={(e) => setFormulario((f) => ({ ...f, email: e.target.value }))} /></FormField>
+                  <FormField><span>Responsável</span><Input value={formulario.responsavel} onChange={(e) => setFormulario((f) => ({ ...f, responsavel: e.target.value }))} /></FormField>
+                </FormGrid>
+              </FormSection>
+              <FormSection className="cliente-form-section">
                 <h4>Endereço e arquivos</h4>
-                <div className="cliente-form-grid">
-                  <label><span>ID CRM</span><input value={formulario.id_crm} onChange={(e) => setFormulario((f) => ({ ...f, id_crm: e.target.value }))} /></label>
-                  <label className="wide"><span>Link da pasta no Drive</span><input value={formulario.link_pasta_cliente} onChange={(e) => setFormulario((f) => ({ ...f, link_pasta_cliente: e.target.value }))} placeholder="https://drive.google.com/..." /></label>
-                  <label className="wide"><span>Endereço</span><input value={formulario.endereco} onChange={(e) => setFormulario((f) => ({ ...f, endereco: e.target.value }))} /></label>
-                </div>
-              </section>
-              <section className="cliente-form-section">
+                <FormGrid className="cliente-form-grid">
+                  <FormField><span>ID CRM</span><Input value={formulario.id_crm} onChange={(e) => setFormulario((f) => ({ ...f, id_crm: e.target.value }))} /></FormField>
+                  <FormField className="wide"><span>Link da pasta no Drive</span><Input value={formulario.link_pasta_cliente} onChange={(e) => setFormulario((f) => ({ ...f, link_pasta_cliente: e.target.value }))} placeholder="https://drive.google.com/..." /></FormField>
+                  <FormField className="wide"><span>Endereço</span><Input value={formulario.endereco} onChange={(e) => setFormulario((f) => ({ ...f, endereco: e.target.value }))} /></FormField>
+                </FormGrid>
+              </FormSection>
+              <FormSection className="cliente-form-section">
                 <h4>Observações</h4>
-                <div className="cliente-form-grid">
-                  <label className="wide"><span>Observações</span><textarea rows={4} value={formulario.observacoes} onChange={(e) => setFormulario((f) => ({ ...f, observacoes: e.target.value }))} /></label>
-                </div>
-              </section>
+                <FormGrid className="cliente-form-grid">
+                  <FormField className="wide"><span>Observações</span><Textarea rows={4} value={formulario.observacoes} onChange={(e) => setFormulario((f) => ({ ...f, observacoes: e.target.value }))} /></FormField>
+                </FormGrid>
+              </FormSection>
             </div>
-            <footer>
+            <FormActions>
               <button type="button" className="btn-secondary" onClick={() => setModalAberto(false)}>Cancelar</button>
               <button type="submit" className="btn-primary" disabled={salvando}>{salvando ? "Salvando..." : "Salvar cliente"}</button>
-            </footer>
-          </form>
+            </FormActions>
+          </FormSection>
         </div>
       ) : null}
 
@@ -904,11 +905,11 @@ export default function ClientesModule({ usuario, showToast, buscaExterna, clien
         </div>
       ) : null}
 
-      {processoFormAberto && clienteAberto ? <div className="modal-backdrop"><form className="cliente-modal entidade-modal" onSubmit={salvarProcessoCliente}><header><div><span className="eyebrow">Processo do cliente</span><h3>{processoForm.id ? "Editar processo" : "Adicionar processo"}</h3></div><button type="button" className="drawer-close" onClick={() => setProcessoFormAberto(false)}>×</button></header><div className="cliente-form-grid"><label className="wide"><span>Número CNJ</span><input value={processoForm.numero_processo} onChange={(e) => setProcessoForm((f) => ({ ...f, numero_processo: e.target.value }))} placeholder="Pode ser incluído posteriormente" /></label><label><span>Réu</span><input value={processoForm.reu} onChange={(e) => setProcessoForm((f) => ({ ...f, reu: e.target.value }))} /></label><label><span>Banco</span><input value={processoForm.banco_reu} onChange={(e) => setProcessoForm((f) => ({ ...f, banco_reu: e.target.value }))} /></label><label><span>Ação</span><input value={processoForm.tipo_acao} onChange={(e) => setProcessoForm((f) => ({ ...f, tipo_acao: e.target.value }))} /></label><label><span>Tribunal</span><input value={processoForm.tribunal} onChange={(e) => setProcessoForm((f) => ({ ...f, tribunal: e.target.value }))} /></label><label><span>Comarca</span><input value={processoForm.comarca} onChange={(e) => setProcessoForm((f) => ({ ...f, comarca: e.target.value }))} /></label><label><span>Vara/Juízo</span><input value={processoForm.vara} onChange={(e) => setProcessoForm((f) => ({ ...f, vara: e.target.value }))} /></label><label><span>Distribuição</span><input type="date" value={processoForm.data_distribuicao} onChange={(e) => setProcessoForm((f) => ({ ...f, data_distribuicao: e.target.value }))} /></label><label><span>Responsável</span><input value={processoForm.responsavel} onChange={(e) => setProcessoForm((f) => ({ ...f, responsavel: e.target.value }))} /></label><label><span>Situação</span><input value={processoForm.situacao} onChange={(e) => setProcessoForm((f) => ({ ...f, situacao: e.target.value }))} /></label><label className="wide"><span>Observações</span><textarea rows={3} value={processoForm.observacoes} onChange={(e) => setProcessoForm((f) => ({ ...f, observacoes: e.target.value }))} /></label></div><footer><button type="button" className="btn-secondary" onClick={() => setProcessoFormAberto(false)}>Cancelar</button><button type="submit" className="btn-primary" disabled={salvando}>{salvando ? "Salvando..." : "Salvar processo"}</button></footer></form></div> : null}
+      {processoFormAberto && clienteAberto ? <div className="modal-backdrop"><FormSection as="form" className="cliente-modal entidade-modal" onSubmit={salvarProcessoCliente}><header><div><span className="eyebrow">Processo do cliente</span><h3>{processoForm.id ? "Editar processo" : "Adicionar processo"}</h3></div><button type="button" className="drawer-close" onClick={() => setProcessoFormAberto(false)}>×</button></header><FormGrid className="cliente-form-grid"><FormField className="wide"><span>Número CNJ</span><Input value={processoForm.numero_processo} onChange={(e) => setProcessoForm((f) => ({ ...f, numero_processo: e.target.value }))} placeholder="Pode ser incluído posteriormente" /></FormField><FormField><span>Réu</span><Input value={processoForm.reu} onChange={(e) => setProcessoForm((f) => ({ ...f, reu: e.target.value }))} /></FormField><FormField><span>Banco</span><Input value={processoForm.banco_reu} onChange={(e) => setProcessoForm((f) => ({ ...f, banco_reu: e.target.value }))} /></FormField><FormField><span>Ação</span><Input value={processoForm.tipo_acao} onChange={(e) => setProcessoForm((f) => ({ ...f, tipo_acao: e.target.value }))} /></FormField><FormField><span>Tribunal</span><Input value={processoForm.tribunal} onChange={(e) => setProcessoForm((f) => ({ ...f, tribunal: e.target.value }))} /></FormField><FormField><span>Comarca</span><Input value={processoForm.comarca} onChange={(e) => setProcessoForm((f) => ({ ...f, comarca: e.target.value }))} /></FormField><FormField><span>Vara/Juízo</span><Input value={processoForm.vara} onChange={(e) => setProcessoForm((f) => ({ ...f, vara: e.target.value }))} /></FormField><FormField><span>Distribuição</span><Input type="date" value={processoForm.data_distribuicao} onChange={(e) => setProcessoForm((f) => ({ ...f, data_distribuicao: e.target.value }))} /></FormField><FormField><span>Responsável</span><Input value={processoForm.responsavel} onChange={(e) => setProcessoForm((f) => ({ ...f, responsavel: e.target.value }))} /></FormField><FormField><span>Situação</span><Input value={processoForm.situacao} onChange={(e) => setProcessoForm((f) => ({ ...f, situacao: e.target.value }))} /></FormField><FormField className="wide"><span>Observações</span><Textarea rows={3} value={processoForm.observacoes} onChange={(e) => setProcessoForm((f) => ({ ...f, observacoes: e.target.value }))} /></FormField></FormGrid><FormActions><button type="button" className="btn-secondary" onClick={() => setProcessoFormAberto(false)}>Cancelar</button><button type="submit" className="btn-primary" disabled={salvando}>{salvando ? "Salvando..." : "Salvar processo"}</button></FormActions></FormSection></div> : null}
 
-      {atendimentoFormAberto && clienteAberto ? <div className="modal-backdrop"><form className="cliente-modal entidade-modal" onSubmit={salvarAtendimentoCliente}><header><div><span className="eyebrow">Contato com cliente</span><h3>{atendimentoForm.id ? "Editar atendimento" : "Novo atendimento"}</h3></div><button type="button" className="drawer-close" onClick={() => setAtendimentoFormAberto(false)}>×</button></header><div className="cliente-form-grid"><label><span>Tipo</span><input value={atendimentoForm.tipo} onChange={(e) => setAtendimentoForm((f) => ({ ...f, tipo: e.target.value }))} /></label><label><span>Canal</span><input value={atendimentoForm.canal} onChange={(e) => setAtendimentoForm((f) => ({ ...f, canal: e.target.value }))} /></label><label><span>Data</span><input type="date" value={atendimentoForm.data} onChange={(e) => setAtendimentoForm((f) => ({ ...f, data: e.target.value }))} /></label><label><span>Horário</span><input type="time" value={atendimentoForm.hora} onChange={(e) => setAtendimentoForm((f) => ({ ...f, hora: e.target.value }))} /></label><label><span>Responsável</span><input value={atendimentoForm.responsavel} onChange={(e) => setAtendimentoForm((f) => ({ ...f, responsavel: e.target.value }))} /></label><label className="wide"><span>Assunto e observações *</span><textarea required rows={4} value={atendimentoForm.descricao} onChange={(e) => setAtendimentoForm((f) => ({ ...f, descricao: e.target.value }))} /></label></div><footer><button type="button" className="btn-secondary" onClick={() => setAtendimentoFormAberto(false)}>Cancelar</button><button type="submit" className="btn-primary">Salvar atendimento</button></footer></form></div> : null}
+      {atendimentoFormAberto && clienteAberto ? <div className="modal-backdrop"><FormSection as="form" className="cliente-modal entidade-modal" onSubmit={salvarAtendimentoCliente}><header><div><span className="eyebrow">Contato com cliente</span><h3>{atendimentoForm.id ? "Editar atendimento" : "Novo atendimento"}</h3></div><button type="button" className="drawer-close" onClick={() => setAtendimentoFormAberto(false)}>×</button></header><FormGrid className="cliente-form-grid"><FormField><span>Tipo</span><Input value={atendimentoForm.tipo} onChange={(e) => setAtendimentoForm((f) => ({ ...f, tipo: e.target.value }))} /></FormField><FormField><span>Canal</span><Input value={atendimentoForm.canal} onChange={(e) => setAtendimentoForm((f) => ({ ...f, canal: e.target.value }))} /></FormField><FormField><span>Data</span><Input type="date" value={atendimentoForm.data} onChange={(e) => setAtendimentoForm((f) => ({ ...f, data: e.target.value }))} /></FormField><FormField><span>Horário</span><Input type="time" value={atendimentoForm.hora} onChange={(e) => setAtendimentoForm((f) => ({ ...f, hora: e.target.value }))} /></FormField><FormField><span>Responsável</span><Input value={atendimentoForm.responsavel} onChange={(e) => setAtendimentoForm((f) => ({ ...f, responsavel: e.target.value }))} /></FormField><FormField className="wide"><span>Assunto e observações *</span><Textarea required rows={4} value={atendimentoForm.descricao} onChange={(e) => setAtendimentoForm((f) => ({ ...f, descricao: e.target.value }))} /></FormField></FormGrid><FormActions><button type="button" className="btn-secondary" onClick={() => setAtendimentoFormAberto(false)}>Cancelar</button><button type="submit" className="btn-primary">Salvar atendimento</button></FormActions></FormSection></div> : null}
 
-      {historicoFormAberto && clienteAberto ? <div className="modal-backdrop"><form className="cliente-modal entidade-modal" onSubmit={salvarHistoricoCliente}><header><div><span className="eyebrow">Histórico do cliente</span><h3>Novo registro</h3></div><button type="button" className="drawer-close" onClick={() => setHistoricoFormAberto(false)}>×</button></header><div className="cliente-form-grid"><label className="wide"><span>Descrição *</span><textarea required rows={6} value={historicoDescricao} onChange={(e) => setHistoricoDescricao(e.target.value)} /></label></div><footer><button type="button" className="btn-secondary" onClick={() => setHistoricoFormAberto(false)}>Cancelar</button><button type="submit" className="btn-primary">Salvar no histórico</button></footer></form></div> : null}
+      {historicoFormAberto && clienteAberto ? <div className="modal-backdrop"><FormSection as="form" className="cliente-modal entidade-modal" onSubmit={salvarHistoricoCliente}><header><div><span className="eyebrow">Histórico do cliente</span><h3>Novo registro</h3></div><button type="button" className="drawer-close" onClick={() => setHistoricoFormAberto(false)}>×</button></header><FormGrid className="cliente-form-grid"><FormField className="wide"><span>Descrição *</span><Textarea required rows={6} value={historicoDescricao} onChange={(e) => setHistoricoDescricao(e.target.value)} /></FormField></FormGrid><FormActions><button type="button" className="btn-secondary" onClick={() => setHistoricoFormAberto(false)}>Cancelar</button><button type="submit" className="btn-primary">Salvar no histórico</button></FormActions></FormSection></div> : null}
 
       {emailAberto && clienteAberto ? (
         <Suspense fallback={<div className="modal-backdrop"><section className="cliente-modal"><div className="empty-row">Carregando compositor de e-mail...</div></section></div>}>
@@ -945,7 +946,7 @@ export default function ClientesModule({ usuario, showToast, buscaExterna, clien
               <>
                 <div className="importacao-resumo"><span>Total válido: <strong>{importacaoResultado.length}</strong></span><span>Novos: <strong>{importacaoResultado.filter((item) => item.status === "novo").length}</strong></span><span>Já existentes: <strong>{importacaoResultado.filter((item) => item.status === "existente").length}</strong></span><span>Possíveis duplicidades/erros: <strong>{importacaoResultado.filter((item) => item.status === "possivel").length}</strong></span></div>
                 <div className="importacao-lista">{importacaoResultado.filter((item) => item.status !== "existente").slice(0, 80).map((item) => <div key={item.nome_completo}><strong>{item.nome_completo}</strong><small>{item.status === "novo" ? "Será cadastrado" : item.motivo}</small></div>)}</div>
-                <footer><button type="button" className="btn-secondary" onClick={() => setImportacaoAberta(false)}>Cancelar</button><button type="button" className="btn-primary" disabled={importacaoExecutando || !importacaoResultado.some((item) => item.status === "novo")} onClick={executarImportacao}>{importacaoExecutando ? "Cadastrando..." : "Confirmar importação"}</button></footer>
+                <FormActions><button type="button" className="btn-secondary" onClick={() => setImportacaoAberta(false)}>Cancelar</button><button type="button" className="btn-primary" disabled={importacaoExecutando || !importacaoResultado.some((item) => item.status === "novo")} onClick={executarImportacao}>{importacaoExecutando ? "Cadastrando..." : "Confirmar importação"}</button></FormActions>
               </>
             )}
           </section>

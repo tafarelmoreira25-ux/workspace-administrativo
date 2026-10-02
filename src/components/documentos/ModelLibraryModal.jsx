@@ -1,3 +1,4 @@
+import { FormField, Input, Select } from "../common/FormControls";
 import { useEffect, useRef, useState } from "react";
 import {
   DOCUMENT_CATEGORIES,
@@ -117,9 +118,9 @@ export default function ModelLibraryModal({
         </header>
 
         <div className="model-library-toolbar">
-          <label className="model-library-search">
+          <FormField className="model-library-search">
             <span aria-hidden="true">⌕</span>
-            <input
+            <Input
               ref={buscaRef}
               type="search"
               value={busca}
@@ -127,16 +128,16 @@ export default function ModelLibraryModal({
               placeholder="Pesquisar por nome, finalidade ou categoria…"
               aria-label="Pesquisar modelos"
             />
-          </label>
-          <label className="model-library-sort">
+          </FormField>
+          <FormField className="model-library-sort">
             <span>Ordenar por</span>
-            <select value={ordenacao} onChange={(evento) => setOrdenacao(evento.target.value)}>
+            <Select value={ordenacao} onChange={(evento) => setOrdenacao(evento.target.value)}>
               <option value="mais-utilizados">Mais utilizados</option>
               <option value="alfabetica">Ordem alfabética</option>
               <option value="recentes">Adicionados recentemente</option>
               <option value="favoritos">Favoritos</option>
-            </select>
-          </label>
+            </Select>
+          </FormField>
         </div>
 
         <nav className="model-library-filters" aria-label="Categorias de modelos">

@@ -1,3 +1,4 @@
+import { FormActions, FormField, FormGrid, FormSection, Input, Select, Textarea } from "../common/FormControls";
 import { FormEvent, useMemo, useState } from "react";
 import { supabase } from "../../lib/supabase";
 import {
@@ -547,11 +548,11 @@ export default function EsteiraKanban({
         })}
       </div>
 
-      {processoVisualizando ? <div className="esteira-modal-backdrop" role="presentation"><section className="esteira-modal protocolo-visualizacao" role="dialog" aria-modal="true" aria-label="Visualização do protocolo"><button className="modal-close" onClick={() => setProcessoVisualizando(null)} type="button">×</button><span className="eyebrow">Progresso do encaminhamento</span><h3>{processoVisualizando.nome_cliente}</h3><p>{processoVisualizando.banco_reu || "Instituição não informada"}</p><div className="protocolo-progress-heading"><div><strong>Ordem de progresso</strong><small>Acompanhe a preparação para distribuição.</small></div><b>{Math.round((ETAPAS_FORMULARIO.filter(([chave]) => timelineConcluida(chave, processoVisualizando)).length / ETAPAS_FORMULARIO.length) * 100)}%</b></div><div className="protocolo-progress-list">{ETAPAS_FORMULARIO.map(([chave, rotulo]) => { const concluida = timelineConcluida(chave, processoVisualizando); const atual = chave === proximaEtapaPendente(processoVisualizando); return <div className={concluida ? "done" : atual ? "current" : "pending"} key={chave}><span className="protocolo-progress-marker">{concluida ? "✓" : ""}</span><div><strong>{rotulo}</strong><small>{detalheEtapaProtocolo(chave, processoVisualizando)}</small></div></div>; })}</div>{processoVisualizando.documentacao_status === "Irregular" ? <section className="protocolo-view-alert"><h4>Irregularidade documental</h4><p>{processoVisualizando.documentacao_motivo || "Motivo não informado"}</p><small>{processoVisualizando.documentacao_faltantes ? `Documentos faltantes: ${processoVisualizando.documentacao_faltantes}` : "Documentos faltantes não informados"}</small></section> : null}<section className="protocolo-view-observacoes"><h4>Observações</h4><p>{processoVisualizando.observacoes || processoVisualizando.documentacao_observacao || processoVisualizando.pasta_retorno_observacao || "Nenhuma observação registrada."}</p></section><footer><button className="btn-secondary" onClick={() => setProcessoVisualizando(null)} type="button">Fechar</button><button className="btn-primary" onClick={() => { const atual = processoVisualizando; setProcessoVisualizando(null); abrirEdicao(atual); }} type="button">Editar protocolo</button></footer></section></div> : null}
+      {processoVisualizando ? <div className="esteira-modal-backdrop" role="presentation"><section className="esteira-modal protocolo-visualizacao" role="dialog" aria-modal="true" aria-label="Visualização do protocolo"><button className="modal-close" onClick={() => setProcessoVisualizando(null)} type="button">×</button><span className="eyebrow">Progresso do encaminhamento</span><h3>{processoVisualizando.nome_cliente}</h3><p>{processoVisualizando.banco_reu || "Instituição não informada"}</p><div className="protocolo-progress-heading"><div><strong>Ordem de progresso</strong><small>Acompanhe a preparação para distribuição.</small></div><b>{Math.round((ETAPAS_FORMULARIO.filter(([chave]) => timelineConcluida(chave, processoVisualizando)).length / ETAPAS_FORMULARIO.length) * 100)}%</b></div><div className="protocolo-progress-list">{ETAPAS_FORMULARIO.map(([chave, rotulo]) => { const concluida = timelineConcluida(chave, processoVisualizando); const atual = chave === proximaEtapaPendente(processoVisualizando); return <div className={concluida ? "done" : atual ? "current" : "pending"} key={chave}><span className="protocolo-progress-marker">{concluida ? "✓" : ""}</span><div><strong>{rotulo}</strong><small>{detalheEtapaProtocolo(chave, processoVisualizando)}</small></div></div>; })}</div>{processoVisualizando.documentacao_status === "Irregular" ? <section className="protocolo-view-alert"><h4>Irregularidade documental</h4><p>{processoVisualizando.documentacao_motivo || "Motivo não informado"}</p><small>{processoVisualizando.documentacao_faltantes ? `Documentos faltantes: ${processoVisualizando.documentacao_faltantes}` : "Documentos faltantes não informados"}</small></section> : null}<section className="protocolo-view-observacoes"><h4>Observações</h4><p>{processoVisualizando.observacoes || processoVisualizando.documentacao_observacao || processoVisualizando.pasta_retorno_observacao || "Nenhuma observação registrada."}</p></section><FormActions><button className="btn-secondary" onClick={() => setProcessoVisualizando(null)} type="button">Fechar</button><button className="btn-primary" onClick={() => { const atual = processoVisualizando; setProcessoVisualizando(null); abrirEdicao(atual); }} type="button">Editar protocolo</button></FormActions></section></div> : null}
 
       {modalAberto && (
         <div className="esteira-modal-backdrop" role="presentation">
-          <form className="esteira-modal protocolo-modal protocolo-modal-wide" onSubmit={salvarCadastro}>
+          <FormSection as="form" className="esteira-modal protocolo-modal protocolo-modal-wide" onSubmit={salvarCadastro}>
             <button className="modal-close" onClick={() => setModalAberto(false)} type="button">×</button>
             <span className="eyebrow">{processoEditando ? "Editar protocolo" : "Novo encaminhamento"}</span>
             <h3>{processoEditando ? processoEditando.nome_cliente : "Encaminhar cliente para ajuizamento"}</h3>
@@ -564,117 +565,117 @@ export default function EsteiraKanban({
               })}
             </div>
 
-            {etapaFormulario === "dados" ? <section className="protocolo-form-section">
+            {etapaFormulario === "dados" ? <FormSection className="protocolo-form-section">
               <h4>Dados do encaminhamento</h4>
-              <div className="protocolo-modal-grid">
-                <label><span>Cliente *</span><input value={formulario.nome_cliente} onChange={(e) => setFormulario((f) => ({ ...f, nome_cliente: e.target.value }))} /></label>
-                <label><span>CPF</span><input value={formulario.cpf_cliente} onChange={(e) => setFormulario((f) => ({ ...f, cpf_cliente: e.target.value }))} /></label>
-                <label><span>ID CRM</span><input value={formulario.id_crm} onChange={(e) => setFormulario((f) => ({ ...f, id_crm: e.target.value }))} /></label>
-                <label><span>Link da pasta no Drive</span><input value={formulario.link_pasta_cliente} onChange={(e) => setFormulario((f) => ({ ...f, link_pasta_cliente: e.target.value }))} placeholder="https://drive.google.com/..." /></label>
-                <label><span>Instituição financeira *</span><input value={formulario.banco_reu} onChange={(e) => setFormulario((f) => ({ ...f, banco_reu: e.target.value }))} /></label>
-                <label><span>Produto</span><input value={formulario.produto} onChange={(e) => setFormulario((f) => ({ ...f, produto: e.target.value }))} /></label>
-                <label><span>Número do contrato</span><input value={formulario.numero_contrato} onChange={(e) => setFormulario((f) => ({ ...f, numero_contrato: e.target.value }))} /></label>
-                <label><span>Motivo do ajuizamento</span><select value={formulario.motivo_ajuizamento} onChange={(e) => setFormulario((f) => ({ ...f, motivo_ajuizamento: e.target.value }))}>{MOTIVOS_AJUIZAMENTO.map((item) => <option key={item}>{item}</option>)}</select></label>
-                <label><span>Responsável</span><input value={formulario.responsavel} onChange={(e) => setFormulario((f) => ({ ...f, responsavel: e.target.value }))} /></label>
-                <label className="wide"><span>Observação</span><textarea rows={2} value={formulario.observacoes} onChange={(e) => setFormulario((f) => ({ ...f, observacoes: e.target.value }))} /></label>
-              </div>
-            </section> : null}
+              <FormGrid className="protocolo-modal-grid">
+                <FormField><span>Cliente *</span><Input value={formulario.nome_cliente} onChange={(e) => setFormulario((f) => ({ ...f, nome_cliente: e.target.value }))} /></FormField>
+                <FormField><span>CPF</span><Input value={formulario.cpf_cliente} onChange={(e) => setFormulario((f) => ({ ...f, cpf_cliente: e.target.value }))} /></FormField>
+                <FormField><span>ID CRM</span><Input value={formulario.id_crm} onChange={(e) => setFormulario((f) => ({ ...f, id_crm: e.target.value }))} /></FormField>
+                <FormField><span>Link da pasta no Drive</span><Input value={formulario.link_pasta_cliente} onChange={(e) => setFormulario((f) => ({ ...f, link_pasta_cliente: e.target.value }))} placeholder="https://drive.google.com/..." /></FormField>
+                <FormField><span>Instituição financeira *</span><Input value={formulario.banco_reu} onChange={(e) => setFormulario((f) => ({ ...f, banco_reu: e.target.value }))} /></FormField>
+                <FormField><span>Produto</span><Input value={formulario.produto} onChange={(e) => setFormulario((f) => ({ ...f, produto: e.target.value }))} /></FormField>
+                <FormField><span>Número do contrato</span><Input value={formulario.numero_contrato} onChange={(e) => setFormulario((f) => ({ ...f, numero_contrato: e.target.value }))} /></FormField>
+                <FormField><span>Motivo do ajuizamento</span><Select value={formulario.motivo_ajuizamento} onChange={(e) => setFormulario((f) => ({ ...f, motivo_ajuizamento: e.target.value }))}>{MOTIVOS_AJUIZAMENTO.map((item) => <option key={item}>{item}</option>)}</Select></FormField>
+                <FormField><span>Responsável</span><Input value={formulario.responsavel} onChange={(e) => setFormulario((f) => ({ ...f, responsavel: e.target.value }))} /></FormField>
+                <FormField className="wide"><span>Observação</span><Textarea rows={2} value={formulario.observacoes} onChange={(e) => setFormulario((f) => ({ ...f, observacoes: e.target.value }))} /></FormField>
+              </FormGrid>
+            </FormSection> : null}
 
-            {etapaFormulario === "documentacao" ? <section className="protocolo-form-section">
+            {etapaFormulario === "documentacao" ? <FormSection className="protocolo-form-section">
               <h4>Documentação</h4>
-              <div className="protocolo-modal-grid">
-                <label><span>Status</span><select value={formulario.documentacao_status} onChange={(e) => setFormulario((f) => ({ ...f, documentacao_status: e.target.value }))}>{STATUS_DOCUMENTACAO.map((item) => <option key={item}>{item}</option>)}</select></label>
+              <FormGrid className="protocolo-modal-grid">
+                <FormField><span>Status</span><Select value={formulario.documentacao_status} onChange={(e) => setFormulario((f) => ({ ...f, documentacao_status: e.target.value }))}>{STATUS_DOCUMENTACAO.map((item) => <option key={item}>{item}</option>)}</Select></FormField>
                 {formulario.documentacao_status === "Irregular" ? <>
-                  <label><span>Motivo</span><input value={formulario.documentacao_motivo} onChange={(e) => setFormulario((f) => ({ ...f, documentacao_motivo: e.target.value }))} /></label>
-                  <label><span>Documentos faltantes</span><input value={formulario.documentacao_faltantes} onChange={(e) => setFormulario((f) => ({ ...f, documentacao_faltantes: e.target.value }))} /></label>
-                  <label><span>Responsabilidade</span><select value={formulario.documentacao_responsabilidade} onChange={(e) => setFormulario((f) => ({ ...f, documentacao_responsabilidade: e.target.value }))}>{RESPONSABILIDADES.map((item) => <option key={item}>{item}</option>)}</select></label>
-                  <label><span>Data</span><input type="date" value={formulario.documentacao_data} onChange={(e) => setFormulario((f) => ({ ...f, documentacao_data: e.target.value }))} /></label>
-                  <label className="wide"><span>Observação</span><textarea rows={2} value={formulario.documentacao_observacao} onChange={(e) => setFormulario((f) => ({ ...f, documentacao_observacao: e.target.value }))} /></label>
+                  <FormField><span>Motivo</span><Input value={formulario.documentacao_motivo} onChange={(e) => setFormulario((f) => ({ ...f, documentacao_motivo: e.target.value }))} /></FormField>
+                  <FormField><span>Documentos faltantes</span><Input value={formulario.documentacao_faltantes} onChange={(e) => setFormulario((f) => ({ ...f, documentacao_faltantes: e.target.value }))} /></FormField>
+                  <FormField><span>Responsabilidade</span><Select value={formulario.documentacao_responsabilidade} onChange={(e) => setFormulario((f) => ({ ...f, documentacao_responsabilidade: e.target.value }))}>{RESPONSABILIDADES.map((item) => <option key={item}>{item}</option>)}</Select></FormField>
+                  <FormField><span>Data</span><Input type="date" value={formulario.documentacao_data} onChange={(e) => setFormulario((f) => ({ ...f, documentacao_data: e.target.value }))} /></FormField>
+                  <FormField className="wide"><span>Observação</span><Textarea rows={2} value={formulario.documentacao_observacao} onChange={(e) => setFormulario((f) => ({ ...f, documentacao_observacao: e.target.value }))} /></FormField>
                 </> : null}
-              </div>
-            </section> : null}
+              </FormGrid>
+            </FormSection> : null}
 
-            {etapaFormulario === "procuracao" ? <section className="protocolo-form-section">
+            {etapaFormulario === "procuracao" ? <FormSection className="protocolo-form-section">
               <h4>Procurações e declarações</h4>
-              <div className="protocolo-modal-grid">
-                <label><span>Procuração</span><select value={formulario.procuracao_status} onChange={(e) => setFormulario((f) => ({ ...f, procuracao_status: e.target.value }))}>{STATUS_PROCURACAO.map((item) => <option key={item}>{item}</option>)}</select></label>
-                <label><span>Declaração de hipossuficiência</span><select value={formulario.declaracao_hipossuficiencia_status} onChange={(e) => setFormulario((f) => ({ ...f, declaracao_hipossuficiencia_status: e.target.value }))}>{STATUS_PROCURACAO.map((item) => <option key={item}>{item}</option>)}</select></label>
-                <label><span>Declaração de IR</span><select value={formulario.declaracao_ir_status} onChange={(e) => setFormulario((f) => ({ ...f, declaracao_ir_status: e.target.value }))}>{STATUS_PROCURACAO.map((item) => <option key={item}>{item}</option>)}</select></label>
-                <label className="wide"><span>Outros configuráveis</span><input value={formulario.procuracoes_outros} onChange={(e) => setFormulario((f) => ({ ...f, procuracoes_outros: e.target.value }))} placeholder="Ex.: declaração adicional, termo específico..." /></label>
-              </div>
-            </section> : null}
+              <FormGrid className="protocolo-modal-grid">
+                <FormField><span>Procuração</span><Select value={formulario.procuracao_status} onChange={(e) => setFormulario((f) => ({ ...f, procuracao_status: e.target.value }))}>{STATUS_PROCURACAO.map((item) => <option key={item}>{item}</option>)}</Select></FormField>
+                <FormField><span>Declaração de hipossuficiência</span><Select value={formulario.declaracao_hipossuficiencia_status} onChange={(e) => setFormulario((f) => ({ ...f, declaracao_hipossuficiencia_status: e.target.value }))}>{STATUS_PROCURACAO.map((item) => <option key={item}>{item}</option>)}</Select></FormField>
+                <FormField><span>Declaração de IR</span><Select value={formulario.declaracao_ir_status} onChange={(e) => setFormulario((f) => ({ ...f, declaracao_ir_status: e.target.value }))}>{STATUS_PROCURACAO.map((item) => <option key={item}>{item}</option>)}</Select></FormField>
+                <FormField className="wide"><span>Outros configuráveis</span><Input value={formulario.procuracoes_outros} onChange={(e) => setFormulario((f) => ({ ...f, procuracoes_outros: e.target.value }))} placeholder="Ex.: declaração adicional, termo específico..." /></FormField>
+              </FormGrid>
+            </FormSection> : null}
 
-            {etapaFormulario === "crm" ? <section className="protocolo-form-section">
+            {etapaFormulario === "crm" ? <FormSection className="protocolo-form-section">
               <h4>Conferência no CRM</h4>
-              <div className="protocolo-modal-grid">
-                <label><span>Documentos conferidos/anexados no Drive</span><select value={formulario.crm_documentos_status} onChange={(e) => setFormulario((f) => ({ ...f, crm_documentos_status: e.target.value }))}>{STATUS_CRM.map((item) => <option key={item}>{item}</option>)}</select></label>
+              <FormGrid className="protocolo-modal-grid">
+                <FormField><span>Documentos conferidos/anexados no Drive</span><Select value={formulario.crm_documentos_status} onChange={(e) => setFormulario((f) => ({ ...f, crm_documentos_status: e.target.value }))}>{STATUS_CRM.map((item) => <option key={item}>{item}</option>)}</Select></FormField>
                 <div className="sla-preview"><span>Armazenamento</span><strong>Google Drive</strong><small>O sistema registra apenas a conferência. Os arquivos permanecem na pasta oficial do cliente.</small></div>
-              </div>
-            </section> : null}
+              </FormGrid>
+            </FormSection> : null}
 
-            {etapaFormulario === "elite" ? <section className="protocolo-form-section">
+            {etapaFormulario === "elite" ? <FormSection className="protocolo-form-section">
               <h4>Encaminhamento à Elite</h4>
-              <div className="protocolo-modal-grid">
-                <label><span>Elite</span><select value={formulario.documentos_elite_status} onChange={(e) => setFormulario((f) => ({ ...f, documentos_elite_status: e.target.value }))}>{STATUS_ELITE.map((item) => <option key={item}>{item}</option>)}</select></label>
+              <FormGrid className="protocolo-modal-grid">
+                <FormField><span>Elite</span><Select value={formulario.documentos_elite_status} onChange={(e) => setFormulario((f) => ({ ...f, documentos_elite_status: e.target.value }))}>{STATUS_ELITE.map((item) => <option key={item}>{item}</option>)}</Select></FormField>
                 <div className="sla-preview">
                   <span>Enviado</span><strong>{formatarDataHora(processoEditando?.data_envio_elite)}</strong>
                   <small>Ao marcar como Enviado e salvar, o prazo de 15 dias úteis inicia automaticamente.</small>
                 </div>
-              </div>
-            </section> : null}
+              </FormGrid>
+            </FormSection> : null}
 
-            {etapaFormulario === "sla" ? <section className="protocolo-form-section">
+            {etapaFormulario === "sla" ? <FormSection className="protocolo-form-section">
               <h4>Controle do prazo</h4>
               {processoEditando?.data_envio_elite ? (() => {
                 const prazo = calcularPrazoElite(processoEditando.data_envio_elite);
                 return <div className="protocolo-sla-resumo"><div><span>Data inicial</span><strong>{formatarDataHora(processoEditando.data_envio_elite)}</strong></div><div><span>Dias úteis decorridos</span><strong>{prazo.diasUteisDecorridos}</strong></div><div><span>Prazo restante</span><strong>{prazo.diasUteisRestantes}</strong></div><div><span>Data prevista</span><strong>{formatarData(prazo.dataPrevista)}</strong></div><div><span>Situação</span><strong className={`sla-status ${classeSla(prazo.sinalizacao)}`}>{prazo.rotulo}</strong></div></div>;
               })() : <div className="empty-row">O prazo começará quando o encaminhamento à Elite for marcado como Enviado e salvo.</div>}
-            </section> : null}
+            </FormSection> : null}
 
-            {etapaFormulario === "retorno" ? <section className="protocolo-form-section">
+            {etapaFormulario === "retorno" ? <FormSection className="protocolo-form-section">
               <h4>Pasta retornada</h4>
-              <div className="protocolo-modal-grid">
-                <label><span>Status</span><select value={formulario.pasta_retorno_status} onChange={(e) => setFormulario((f) => ({ ...f, pasta_retorno_status: e.target.value }))}>{STATUS_RETORNO.map((item) => <option key={item}>{item}</option>)}</select></label>
-                <label><span>Data do retorno</span><input type="date" value={formulario.pasta_retorno_data} onChange={(e) => setFormulario((f) => ({ ...f, pasta_retorno_data: e.target.value }))} /></label>
-                <label><span>Motivo</span><input value={formulario.pasta_retorno_motivo} onChange={(e) => setFormulario((f) => ({ ...f, pasta_retorno_motivo: e.target.value }))} /></label>
-                <label><span>Responsabilidade</span><select value={formulario.pasta_retorno_responsabilidade} onChange={(e) => setFormulario((f) => ({ ...f, pasta_retorno_responsabilidade: e.target.value }))}>{RESPONSABILIDADES.map((item) => <option key={item}>{item}</option>)}</select></label>
-                <label><span>Documento faltante</span><input value={formulario.pasta_retorno_documento_faltante} onChange={(e) => setFormulario((f) => ({ ...f, pasta_retorno_documento_faltante: e.target.value }))} /></label>
-                <label><span>Impacto no prazo</span><select value={formulario.pasta_retorno_impacto_sla} onChange={(e) => setFormulario((f) => ({ ...f, pasta_retorno_impacto_sla: e.target.value }))}>{IMPACTO_SLA.map((item) => <option key={item}>{item}</option>)}</select></label>
-                <label><span>Data da regularização</span><input type="date" value={formulario.pasta_retorno_data_regularizacao} onChange={(e) => setFormulario((f) => ({ ...f, pasta_retorno_data_regularizacao: e.target.value }))} /></label>
-                <label><span>Data do reenvio</span><input type="date" value={formulario.pasta_retorno_data_reenvio} onChange={(e) => setFormulario((f) => ({ ...f, pasta_retorno_data_reenvio: e.target.value }))} /></label>
-                <label className="wide"><span>Descrição/observação</span><textarea rows={2} value={formulario.pasta_retorno_descricao || formulario.pasta_retorno_observacao} onChange={(e) => setFormulario((f) => ({ ...f, pasta_retorno_descricao: e.target.value, pasta_retorno_observacao: e.target.value }))} /></label>
-              </div>
-            </section> : null}
+              <FormGrid className="protocolo-modal-grid">
+                <FormField><span>Status</span><Select value={formulario.pasta_retorno_status} onChange={(e) => setFormulario((f) => ({ ...f, pasta_retorno_status: e.target.value }))}>{STATUS_RETORNO.map((item) => <option key={item}>{item}</option>)}</Select></FormField>
+                <FormField><span>Data do retorno</span><Input type="date" value={formulario.pasta_retorno_data} onChange={(e) => setFormulario((f) => ({ ...f, pasta_retorno_data: e.target.value }))} /></FormField>
+                <FormField><span>Motivo</span><Input value={formulario.pasta_retorno_motivo} onChange={(e) => setFormulario((f) => ({ ...f, pasta_retorno_motivo: e.target.value }))} /></FormField>
+                <FormField><span>Responsabilidade</span><Select value={formulario.pasta_retorno_responsabilidade} onChange={(e) => setFormulario((f) => ({ ...f, pasta_retorno_responsabilidade: e.target.value }))}>{RESPONSABILIDADES.map((item) => <option key={item}>{item}</option>)}</Select></FormField>
+                <FormField><span>Documento faltante</span><Input value={formulario.pasta_retorno_documento_faltante} onChange={(e) => setFormulario((f) => ({ ...f, pasta_retorno_documento_faltante: e.target.value }))} /></FormField>
+                <FormField><span>Impacto no prazo</span><Select value={formulario.pasta_retorno_impacto_sla} onChange={(e) => setFormulario((f) => ({ ...f, pasta_retorno_impacto_sla: e.target.value }))}>{IMPACTO_SLA.map((item) => <option key={item}>{item}</option>)}</Select></FormField>
+                <FormField><span>Data da regularização</span><Input type="date" value={formulario.pasta_retorno_data_regularizacao} onChange={(e) => setFormulario((f) => ({ ...f, pasta_retorno_data_regularizacao: e.target.value }))} /></FormField>
+                <FormField><span>Data do reenvio</span><Input type="date" value={formulario.pasta_retorno_data_reenvio} onChange={(e) => setFormulario((f) => ({ ...f, pasta_retorno_data_reenvio: e.target.value }))} /></FormField>
+                <FormField className="wide"><span>Descrição/observação</span><Textarea rows={2} value={formulario.pasta_retorno_descricao || formulario.pasta_retorno_observacao} onChange={(e) => setFormulario((f) => ({ ...f, pasta_retorno_descricao: e.target.value, pasta_retorno_observacao: e.target.value }))} /></FormField>
+              </FormGrid>
+            </FormSection> : null}
 
-            {etapaFormulario === "protocolo" ? <section className="protocolo-form-section">
+            {etapaFormulario === "protocolo" ? <FormSection className="protocolo-form-section">
               <h4>Liberação do protocolo</h4>
-              <div className="protocolo-modal-grid">
-                <label><span>Status do protocolo</span><select value={formulario.protocolo_status} onChange={(e) => setFormulario((f) => ({ ...f, protocolo_status: e.target.value }))}>{STATUS_PROTOCOLO.map((item) => <option key={item}>{item}</option>)}</select></label>
-                <label><span>Número do processo *</span><input value={formulario.numero_processo} onChange={(e) => setFormulario((f) => ({ ...f, numero_processo: e.target.value }))} /></label>
-                <label><span>Data da liberação *</span><input type="datetime-local" value={formulario.protocolo_data_liberacao} onChange={(e) => setFormulario((f) => ({ ...f, protocolo_data_liberacao: e.target.value }))} /></label>
-              </div>
-            </section> : null}
+              <FormGrid className="protocolo-modal-grid">
+                <FormField><span>Status do protocolo</span><Select value={formulario.protocolo_status} onChange={(e) => setFormulario((f) => ({ ...f, protocolo_status: e.target.value }))}>{STATUS_PROTOCOLO.map((item) => <option key={item}>{item}</option>)}</Select></FormField>
+                <FormField><span>Número do processo *</span><Input value={formulario.numero_processo} onChange={(e) => setFormulario((f) => ({ ...f, numero_processo: e.target.value }))} /></FormField>
+                <FormField><span>Data da liberação *</span><Input type="datetime-local" value={formulario.protocolo_data_liberacao} onChange={(e) => setFormulario((f) => ({ ...f, protocolo_data_liberacao: e.target.value }))} /></FormField>
+              </FormGrid>
+            </FormSection> : null}
 
-            {etapaFormulario === "distribuicao" ? <section className="protocolo-form-section">
+            {etapaFormulario === "distribuicao" ? <FormSection className="protocolo-form-section">
               <h4>Dados da distribuição</h4>
-              <div className="protocolo-modal-grid">
-                <label><span>Tribunal</span><input value={formulario.tribunal} onChange={(e) => setFormulario((f) => ({ ...f, tribunal: e.target.value }))} /></label>
-                <label><span>Comarca</span><input value={formulario.comarca} onChange={(e) => setFormulario((f) => ({ ...f, comarca: e.target.value }))} /></label>
-                <label><span>Vara</span><input value={formulario.vara} onChange={(e) => setFormulario((f) => ({ ...f, vara: e.target.value }))} /></label>
-                <label><span>Link do processo</span><input value={formulario.link_consulta} onChange={(e) => setFormulario((f) => ({ ...f, link_consulta: e.target.value }))} placeholder="Link de consulta no tribunal" /></label>
-                <label><span>Data da distribuição</span><input type="date" value={formulario.data_distribuicao} onChange={(e) => setFormulario((f) => ({ ...f, data_distribuicao: e.target.value }))} /></label>
-              </div>
-            </section> : null}
+              <FormGrid className="protocolo-modal-grid">
+                <FormField><span>Tribunal</span><Input value={formulario.tribunal} onChange={(e) => setFormulario((f) => ({ ...f, tribunal: e.target.value }))} /></FormField>
+                <FormField><span>Comarca</span><Input value={formulario.comarca} onChange={(e) => setFormulario((f) => ({ ...f, comarca: e.target.value }))} /></FormField>
+                <FormField><span>Vara</span><Input value={formulario.vara} onChange={(e) => setFormulario((f) => ({ ...f, vara: e.target.value }))} /></FormField>
+                <FormField><span>Link do processo</span><Input value={formulario.link_consulta} onChange={(e) => setFormulario((f) => ({ ...f, link_consulta: e.target.value }))} placeholder="Link de consulta no tribunal" /></FormField>
+                <FormField><span>Data da distribuição</span><Input type="date" value={formulario.data_distribuicao} onChange={(e) => setFormulario((f) => ({ ...f, data_distribuicao: e.target.value }))} /></FormField>
+              </FormGrid>
+            </FormSection> : null}
 
-            <footer className="protocolo-modal-actions">
+            <FormActions className="protocolo-modal-actions">
               <button className="btn-secondary" onClick={() => setModalAberto(false)} type="button">Cancelar</button>
               <div className="protocolo-step-actions">
                 {etapaAnterior ? <button className="btn-secondary" onClick={() => setEtapaFormulario(etapaAnterior)} type="button">Anterior</button> : null}
                 {proximaEtapa ? <button className="btn-secondary" onClick={() => setEtapaFormulario(proximaEtapa)} type="button">Próxima etapa</button> : null}
                 <button className="btn-primary" disabled={salvando} type="submit">{salvando ? "Salvando..." : `Salvar ${ETAPAS_FORMULARIO[indiceEtapa][1]}`}</button>
               </div>
-            </footer>
-          </form>
+            </FormActions>
+          </FormSection>
         </div>
       )}
     </div>

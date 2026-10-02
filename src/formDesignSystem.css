@@ -1,0 +1,231 @@
+/* Global entry controls. #root makes the contract independent of lazy CSS order. */
+:root {
+  --form-surface: #fff;
+  --form-label: #00758a;
+  --form-heading: #00516b;
+  --form-text: #344054;
+  --form-muted: #697586;
+  --form-border: #d5d9dc;
+  --form-hover: #8fabb4;
+  --form-focus: #007c91;
+  --form-focus-ring: #007c9126;
+  --form-error: #b54747;
+  --form-error-surface: #fffafa;
+  --form-disabled: #f2f4f5;
+  --form-radius: 11px;
+  --form-height: 44px;
+  --form-gap: 20px;
+  --form-label-gap: 7px;
+  --form-font: 'Manrope', 'Segoe UI', sans-serif;
+}
+
+#root :where(input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]):not([type="range"]):not([type="color"]):not([type="submit"]):not([type="button"]):not([type="image"]):not([type="reset"]), select, textarea):where(:not([hidden])) {
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  min-height: var(--form-height);
+  height: auto;
+  margin: 0;
+  padding: 10px 14px;
+  border: 1px solid var(--form-border);
+  border-radius: var(--form-radius);
+  background: var(--form-surface);
+  color: var(--form-text);
+  font-family: var(--form-font);
+  font-size: 14px;
+  font-weight: 400;
+  line-height: 1.5;
+  box-shadow: none;
+  outline: none;
+  transition: border-color .15s ease, box-shadow .15s ease;
+}
+#root select { padding-right: 30px; cursor: pointer; }
+#root textarea { min-height: 96px; resize: vertical; }
+#root :is(input, textarea)::placeholder { color: #8b929b; opacity: 1; font-weight: 400; }
+#root :is(input, select, textarea):not(:disabled):not([readonly]):hover { border-color: var(--form-hover); }
+#root :is(input, select, textarea):focus-visible,
+#root :is(input, select, textarea):focus {
+  border-color: var(--form-focus);
+  outline: 2px solid transparent;
+  box-shadow: 0 0 0 3px var(--form-focus-ring);
+}
+#root :is(input, select, textarea):disabled,
+#root fieldset:disabled :is(input, select, textarea) {
+  background: var(--form-disabled);
+  color: var(--form-muted);
+  cursor: not-allowed;
+  opacity: 1;
+}
+#root :is(input, textarea)[readonly] { background: #f8fafb; color: #53626b; cursor: default; }
+#root :is(input, select, textarea)[aria-invalid="true"],
+#root :is(.invalid, .field-error, .has-error) :is(input, select, textarea),
+#root :is(input, select, textarea):user-invalid {
+  border-color: var(--form-error);
+  background: var(--form-error-surface);
+}
+#root :is(input, select, textarea)[aria-invalid="true"]:focus { box-shadow: 0 0 0 3px #b5474726; }
+#root .legal-doc-field.imported :is(input, select, textarea) { border-color: #65a595; background: #f7fcfa; }
+#root :is(.legal-doc-field-error, .field-help, .field-error) { font-size: 12px; line-height: 1.5; }
+#root :is(.legal-doc-field-error, .field-error) { color: var(--form-error); }
+
+#root .ui-form-field {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: flex-start;
+  gap: var(--form-label-gap);
+  min-width: 0;
+  color: var(--form-label);
+  font-family: var(--form-font);
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 1.5;
+  text-transform: none;
+  letter-spacing: normal;
+}
+#root .ui-form-field > :is(span, .legal-doc-label-row) {
+  color: var(--form-label);
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 1.5;
+  letter-spacing: normal;
+  text-transform: none;
+  margin: 0;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+#root .ui-form-field > small { color: var(--form-muted); font-size: 12px; font-weight: 400; }
+#root .ui-form-field > :is(.legal-doc-field-error, .field-error, [role="alert"]) { color: var(--form-error); }
+#root .ui-form-field[data-required="true"] > span:first-child::before { content: "* "; color: var(--form-error); }
+#root .ui-form-field:has(> input:is([type="checkbox"], [type="radio"])) {
+  flex-direction: row;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+}
+#root input:is([type="checkbox"], [type="radio"]) {
+  appearance: auto;
+  accent-color: var(--form-focus);
+  width: 18px;
+  height: 18px;
+  min-width: 18px;
+  min-height: 18px;
+  flex: 0 0 18px;
+  padding: 0;
+  margin: 0;
+  border-radius: 4px;
+}
+#root input[type="radio"] { border-radius: 50%; }
+#root input[type="file"] { padding: 6px; overflow: hidden; }
+#root input[type="file"]::file-selector-button {
+  font: inherit;
+  color: var(--form-heading);
+  background: #eff7f9;
+  border: 0;
+  border-radius: 7px;
+  padding: 6px 10px;
+  margin-right: 10px;
+  cursor: pointer;
+}
+
+#root .ui-form-grid {
+  display: grid;
+  gap: var(--form-gap);
+  min-width: 0;
+  align-items: start;
+}
+#root .ui-form-grid > * { min-width: 0; }
+#root .ui-form-grid:not(:is(.process-twelve-grid, .process-summary-grid)) { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+#root .ui-form-grid:is(.process-registration-grid, .protocolo-modal-grid, .processual-dados-grid, .movimentacao-grid, .movement-form-grid) { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+#root .ui-form-grid :is(.wide, .span-12, .timeline-edit-wide),
+#root .ui-form-grid > .ui-form-field:has(textarea) { grid-column: 1 / -1; }
+#root .ui-form-grid > .span-2:not(.process-twelve-grid > *) { grid-column: span 2; }
+#root .ui-form-grid > .ui-form-actions { grid-column: 1 / -1; }
+#root .timeline-edit-form { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--form-gap); }
+#root .timeline-edit-form > div { grid-column: 1 / -1; flex-wrap: wrap; }
+
+/* Only containers devoted to entry fields lose the card presentation. */
+#root .ui-form-section:is(.cliente-form-section, .process-form-section, .protocolo-form-section, .process-inline-summary, .legal-doc-field-group, .processual-dados-form, .movimentacao-form, .timeline-edit-form, .homologacao-informacoes) {
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  background: var(--form-surface);
+  padding: 0;
+  margin-block: 20px;
+}
+#root .ui-form-section.legal-doc-section:not(.legal-doc-model-selected) { background: var(--form-surface); border: 0; border-radius: 0; box-shadow: none; padding: 20px 0; }
+#root .form-entry-section { padding: 0; margin-block: 20px; background: var(--form-surface); border: 0; box-shadow: none; }
+#root .ui-form-section:is(.operacional-form, .gerencial-form) {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--form-gap);
+  border: 0;
+  box-shadow: none;
+  border-radius: 0;
+  background: var(--form-surface);
+  padding: 20px;
+}
+#root :is(.operacional-form, .gerencial-form) > :is(h3, .form-pair, button, .ui-form-field:has(textarea)) { grid-column: 1 / -1; }
+#root .ui-form-section > :is(h3, h4, legend),
+#root .ui-form-section > :is(header, .process-section-heading, .legal-doc-subsection-heading) :is(h3, h4),
+#root .legal-doc-field-group-toggle strong {
+  color: var(--form-heading);
+  font-size: 18px;
+  font-weight: 700;
+  line-height: 1.4;
+  text-transform: none;
+  letter-spacing: normal;
+}
+#root .ui-form-section > :is(h3, h4) { margin: 0 0 18px; }
+#root .cliente-form-section h4::before { display: none; }
+#root .legal-doc-identification-grid > section,
+#root .legal-doc-control-details,
+#root .legal-doc-destination { background: var(--form-surface); border: 0; border-radius: 0; box-shadow: none; padding: 0; }
+#root .legal-doc-destination > div > span { color: var(--form-label); font-size: 14px; font-weight: 500; text-transform: none; }
+#root .legal-doc-field-group-toggle { background: var(--form-surface); border-bottom: 1px solid #e9edef; border-radius: 0; padding: 14px 0; }
+#root .legal-doc-field-group > .ui-form-grid { padding: 18px 0 0; }
+#root .process-summary-editor { border: 0; min-width: 0; padding: 0; }
+#root .ui-form-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; align-items: center; gap: 10px; padding-top: 18px; margin-top: 8px; }
+#root .ui-form-actions > * { max-width: 100%; }
+#root .ui-form-actions button { min-height: var(--form-height); white-space: normal; }
+#root :is(.processos-filters, .timeline-filters, .homologacao-toolbar, .operacional-toolbar, .gerencial-toolbar, .process-status-filters, .training-hub-toolbar, .model-library-filters) { gap: 14px; min-width: 0; flex-wrap: wrap; }
+#root .process-status-filters { grid-template-columns: minmax(0, 1fr); }
+#root :is(.real-search, .model-library-search) > input { padding-left: 40px; }
+
+/* Login uses the same fields; the visibility button stays beside its input. */
+#root .glass-input { min-height: var(--form-height); height: auto; padding: 0; border: 0; background: transparent; border-radius: 0; box-shadow: none; }
+#root .glass-input:focus-within { border: 0; background: transparent; box-shadow: none; }
+#root .glass-input > .ui-icon { display: none; }
+#root .floating-input-wrap { height: auto; width: 100%; }
+#root .floating-input-wrap > span { display: none; }
+#root .glass-input .ui-input { height: auto; min-height: var(--form-height); padding: 10px 14px; border: 1px solid var(--form-border); border-radius: var(--form-radius); background: var(--form-surface); box-shadow: none; }
+#root .glass-input .ui-input:focus { border-color: var(--form-focus); box-shadow: 0 0 0 3px var(--form-focus-ring); }
+#root .glass-field > span { margin: 0; }
+
+@media (max-width: 960px) {
+  #root .ui-form-grid:is(.process-registration-grid, .protocolo-modal-grid, .processual-dados-grid, .movimentacao-grid, .movement-form-grid) { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  #root .ui-form-grid:is(.process-twelve-grid, .process-summary-grid) { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  #root .ui-form-grid:is(.process-twelve-grid, .process-summary-grid) > .ui-form-field { grid-column: auto; }
+  #root .ui-form-grid:is(.process-twelve-grid, .process-summary-grid) > :is(.span-12, .wide, .ui-form-field:has(textarea)) { grid-column: 1 / -1; }
+}
+@media (max-width: 600px) {
+  #root :is(input, select, textarea) { font-size: 16px; }
+  #root .ui-form-grid,
+  #root .ui-form-grid:not(:is(.process-twelve-grid, .process-summary-grid)),
+  #root .ui-form-section:is(.operacional-form, .gerencial-form) { grid-template-columns: minmax(0, 1fr); }
+  #root .ui-form-grid:is(.process-registration-grid, .protocolo-modal-grid, .processual-dados-grid, .movimentacao-grid, .movement-form-grid, .process-twelve-grid, .process-summary-grid),
+  #root .timeline-edit-form,
+  #root .legal-doc-destination { grid-template-columns: minmax(0, 1fr); }
+  #root .ui-form-grid > .ui-form-field,
+  #root .ui-form-grid > .span-2:not(.process-twelve-grid > *) { grid-column: 1 / -1; }
+  #root .ui-form-actions { align-items: stretch; }
+  #root .ui-form-actions button { flex: 1 1 140px; }
+  #root :is(.homologacao-toolbar, .gerencial-toolbar, .operacional-toolbar, .processos-filters, .timeline-filters) { flex-direction: column; align-items: stretch; }
+}
+@media (prefers-reduced-motion: reduce) {
+  #root :is(input, select, textarea) { transition: none; }
+}
+@media (forced-colors: active) {
+  #root :is(input, select, textarea):focus-visible { outline: 2px solid Highlight; }
+}

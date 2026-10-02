@@ -1,3 +1,4 @@
+import { FormActions, FormField, FormGrid, Input, Select, Textarea } from "../common/FormControls";
 import { useMemo, useState } from "react";
 import { supabase } from "../../lib/supabase";
 import { mensagemErroFuncao } from "../../lib/functionError";
@@ -185,46 +186,46 @@ export default function EmailComposer({ cliente, processos, processoInicial, usu
             O sistema prepara o texto e abre o Gmail. Revise as informações antes de enviar; nenhum e-mail é disparado automaticamente.
           </div>
 
-          <div className="cliente-form-grid email-fields">
-            <label>
+          <FormGrid className="cliente-form-grid email-fields">
+            <FormField>
               <span>Modelo</span>
-              <select value={modeloId} onChange={(evento) => aplicarModelo(evento.target.value)}>
+              <Select value={modeloId} onChange={(evento) => aplicarModelo(evento.target.value)}>
                 {EMAIL_TEMPLATES.map((modelo) => <option key={modelo.id} value={modelo.id}>{modelo.nome}</option>)}
-              </select>
-            </label>
-            <label>
+              </Select>
+            </FormField>
+            <FormField>
               <span>Processo relacionado</span>
-              <select value={processoId} onChange={(evento) => alterarProcesso(evento.target.value)}>
+              <Select value={processoId} onChange={(evento) => alterarProcesso(evento.target.value)}>
                 <option value="">Sem processo específico</option>
                 {processos.map((item) => <option key={item.id} value={String(item.id)}>{item.numero_processo || "Processo sem número"}</option>)}
-              </select>
-            </label>
-            <label className="wide">
+              </Select>
+            </FormField>
+            <FormField className="wide">
               <span>Destinatário</span>
-              <input type="email" value={destinatario} onChange={(evento) => setDestinatario(evento.target.value)} placeholder="cliente@exemplo.com" />
-            </label>
-            <label className="wide">
+              <Input type="email" value={destinatario} onChange={(evento) => setDestinatario(evento.target.value)} placeholder="cliente@exemplo.com" />
+            </FormField>
+            <FormField className="wide">
               <span>Assunto</span>
-              <input value={assunto} onChange={(evento) => setAssunto(evento.target.value)} />
-            </label>
-            <label className="wide">
+              <Input value={assunto} onChange={(evento) => setAssunto(evento.target.value)} />
+            </FormField>
+            <FormField className="wide">
               <span>Mensagem</span>
-              <textarea rows={14} value={corpo} onChange={(evento) => setCorpo(evento.target.value)} />
-            </label>
-          </div>
+              <Textarea rows={14} value={corpo} onChange={(evento) => setCorpo(evento.target.value)} />
+            </FormField>
+          </FormGrid>
 
-          <label className="email-history-option">
-            <input type="checkbox" checked={registrarHistorico} onChange={(evento) => setRegistrarHistorico(evento.target.checked)} />
+          <FormField className="email-history-option">
+            <Input type="checkbox" checked={registrarHistorico} onChange={(evento) => setRegistrarHistorico(evento.target.checked)} />
             Registrar como “Rascunho preparado” no histórico de atendimentos
-          </label>
+          </FormField>
         </div>
 
-        <footer className="email-composer-actions">
+        <FormActions className="email-composer-actions">
           <button type="button" className="btn-secondary" onClick={onClose}>Cancelar</button>
           <button type="button" className="btn-secondary" onClick={copiarTexto}>Copiar texto</button>
           <button type="button" className="btn-secondary" disabled={revisando} onClick={revisarComGemini}>{revisando ? "Revisando..." : "Revisar com Gemini"}</button>
           <button type="button" className="btn-primary" disabled={abrindo} onClick={abrirGmail}>{abrindo ? "Registrando..." : "Abrir no Gmail"}</button>
-        </footer>
+        </FormActions>
       </section>
     </div>
   );

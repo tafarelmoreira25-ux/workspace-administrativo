@@ -2,6 +2,7 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import App from './App.jsx'
+import './formDesignSystem.css'
 
 const VERSAO_ATUAL = __APP_VERSION__
 let verificandoVersao = false

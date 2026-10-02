@@ -1,3 +1,4 @@
+import { FormActions, FormField, FormGrid, Input, Select, Textarea } from "../common/FormControls";
 import { ChangeEvent, useMemo, useState } from "react";
 import { supabase } from "../../lib/supabase";
 import { criarContextoAssistente } from "../../lib/emailWorkspace";
@@ -176,24 +177,24 @@ export default function ContentAnalyzer({ cliente, processos, usuario, onClose, 
         </header>
         <div className="email-composer-body">
           <div className="email-safety-note">A análise é uma sugestão. Ela não altera o processo nem cria prazos automaticamente.</div>
-          <div className="cliente-form-grid email-fields">
-            <label className="wide">
+          <FormGrid className="cliente-form-grid email-fields">
+            <FormField className="wide">
               <span>Processo relacionado</span>
-              <select value={processoId} onChange={(evento) => setProcessoId(evento.target.value)}>
+              <Select value={processoId} onChange={(evento) => setProcessoId(evento.target.value)}>
                 <option value="">Sem processo específico</option>
                 {processos.map((item) => <option key={item.id} value={String(item.id)}>{item.numero_processo || "Processo sem número"}</option>)}
-              </select>
-            </label>
-            <label className="wide">
+              </Select>
+            </FormField>
+            <FormField className="wide">
               <span>Conteúdo do e-mail</span>
-              <textarea rows={9} value={conteudo} onChange={(evento) => { setConteudo(evento.target.value); setAnalise(null); }} placeholder="Cole aqui a conversa ou a mensagem recebida..." />
-            </label>
-            <label className="wide">
+              <Textarea rows={9} value={conteudo} onChange={(evento) => { setConteudo(evento.target.value); setAnalise(null); }} placeholder="Cole aqui a conversa ou a mensagem recebida..." />
+            </FormField>
+            <FormField className="wide">
               <span>PDF opcional — máximo 8 MB</span>
-              <input type="file" accept="application/pdf,.pdf" onChange={selecionarArquivo} />
+              <Input type="file" accept="application/pdf,.pdf" onChange={selecionarArquivo} />
               {arquivo ? <small className="selected-file">Selecionado: {arquivo.nome}</small> : null}
-            </label>
-          </div>
+            </FormField>
+          </FormGrid>
           {analise ? (
             <section className="analysis-result" aria-live="polite">
               <h4>Resultado para conferência</h4>
@@ -201,13 +202,13 @@ export default function ContentAnalyzer({ cliente, processos, usuario, onClose, 
             </section>
           ) : null}
         </div>
-        <footer className="email-composer-actions">
+        <FormActions className="email-composer-actions">
           <button type="button" className="btn-secondary" onClick={onClose}>Cancelar</button>
           {analise ? <button type="button" className="btn-secondary" onClick={copiar}>Copiar análise</button> : null}
           {analise ? <button type="button" className="btn-primary" disabled={salvando} onClick={registrar}>{salvando ? "Registrando..." : "Registrar no histórico"}</button> : (
             <button type="button" className="btn-primary" disabled={analisando} onClick={analisar}>{analisando ? "Analisando..." : "Analisar com Gemini"}</button>
           )}
-        </footer>
+        </FormActions>
       </section>
     </div>
   );
