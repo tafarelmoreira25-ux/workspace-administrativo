@@ -1,4 +1,4 @@
-import { FormEvent, lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { FormEvent, type ReactNode, lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "../../lib/supabase";
 import Pagination from "../common/Pagination";
 import { sincronizarClienteDoProcesso, sincronizarProcessosDoCliente } from "../../lib/processDataSync";
@@ -86,6 +86,10 @@ type Props = {
   buscaExterna?: string;
   clienteInicialId?: string | number | null;
   onOpenProcess?: (processoId: string | number) => void;
+  fichaInline?: boolean;
+  clienteFicha?: Cliente | null;
+  processoAtual?: ProcessoResumo | null;
+  children?: ReactNode;
 };
 
 type HistoricoResumo = { id: string; tipo: string; descricao: string; origem?: string | null; processo_id?: string | null; created_at: string; created_by?: string | null };
@@ -173,7 +177,7 @@ function extrairNomeImportacao(linha: string) {
   return nome;
 }
 
-export default function ClientesModule({ usuario, showToast, buscaExterna, clienteInicialId, onOpenProcess }: Props) {
+export default function ClientesModule({ usuario, showToast, buscaExterna, clienteInicialId, onOpenProcess, fichaInline = false, clienteFicha, processoAtual, children }: Props) {
   const [clientes, setClientes] = useState<Cliente[]>([]);
   const [processos, setProcessos] = useState<ProcessoResumo[]>([]);
   const [documentos, setDocumentos] = useState<DocumentoResumo[]>([]);
@@ -182,7 +186,7 @@ export default function ClientesModule({ usuario, showToast, buscaExterna, clien
   const [buscaAplicada, setBuscaAplicada] = useState("");
   const [pagina, setPagina] = useState(1);
   const [totalClientes, setTotalClientes] = useState(0);
-  const [clienteAberto, setClienteAberto] = useState<Cliente | null>(null);
+  const [clienteAberto, setClienteAberto] = useState<Cliente | null>(clienteFicha || null);
   const [abaFicha, setAbaFicha] = useState("resumo");
   const [modalAberto, setModalAberto] = useState(false);
   const [geradorAberto, setGeradorAberto] = useState(false);
@@ -277,8 +281,12 @@ export default function ClientesModule({ usuario, showToast, buscaExterna, clien
   }, [buscaAplicada, pagina]);
 
   useEffect(() => {
-    carregarDados();
-  }, [carregarDados]);
+    if (!fichaInline) carregarDados();
+  }, [carregarDados, fichaInline]);
+
+  useEffect(() => {
+    if (clienteFicha) void abrirFicha(clienteFicha);
+  }, [clienteFicha]);
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -304,13 +312,15 @@ export default function ClientesModule({ usuario, showToast, buscaExterna, clien
     const id = String(clienteAberto.id);
     const cpf = normalizarBusca(clienteAberto.cpf || "");
     const nome = normalizarBusca(clienteAberto.nome_completo || "");
-    return processos.filter((processo) => {
+    const encontrados = processos.filter((processo) => {
       const mesmoId = String(processo.cliente_id || "") === id;
       const mesmoCpf = cpf && normalizarBusca(processo.cpf_cliente || "") === cpf;
       const mesmoNome = nome && normalizarBusca(processo.nome_cliente || "") === nome;
       return mesmoId || mesmoCpf || mesmoNome;
     });
-  }, [clienteAberto, processos]);
+    if (processoAtual && !encontrados.some((processo) => String(processo.id) === String(processoAtual.id))) return [processoAtual, ...encontrados];
+    return encontrados;
+  }, [clienteAberto, processos, processoAtual]);
   const protocoloDoCliente = processosDoCliente.find((processo) => !processo.numero_processo);
 
   const documentosDoCliente = useMemo(() => {
@@ -603,8 +613,8 @@ export default function ClientesModule({ usuario, showToast, buscaExterna, clien
   }
 
   return (
-    <section className="clientes-workspace">
-      <header className="module-page-header">
+    <section className={`clientes-workspace${fichaInline ? " clientes-workspace-inline" : ""}`}>
+      {!fichaInline ? <header className="module-page-header">
         <div>
           <span className="eyebrow">Clientes</span>
           <h2>Base de clientes</h2>
@@ -614,10 +624,10 @@ export default function ClientesModule({ usuario, showToast, buscaExterna, clien
           <button type="button" className="btn-secondary" onClick={() => { setImportacaoAberta(true); prepararImportacao().catch((error) => { setImportacaoCarregando(false); avisar(error instanceof Error ? error.message : "Não foi possível preparar a importação."); }); }}>Importar clientes</button>
           <button type="button" className="btn-primary" onClick={abrirNovoCliente}>+ Novo cliente</button>
         </div>
-      </header>
+      </header> : null}
 
       <div className="clientes-layout">
-        <section className="clientes-list-panel">
+        {!fichaInline ? <section className="clientes-list-panel">
           <div className="clientes-toolbar">
             <span>{buscaAplicada ? `Resultados para “${buscaAplicada}”` : "Todos os clientes"}</span>
             <button type="button" className="btn-secondary" onClick={carregarDados}>Atualizar</button>
@@ -665,20 +675,20 @@ export default function ClientesModule({ usuario, showToast, buscaExterna, clien
             </table>
           </div>
           <Pagination pagina={pagina} total={totalClientes} tamanho={CLIENTES_POR_PAGINA} onChange={setPagina} rotulo="clientes" />
-        </section>
+        </section> : null}
 
         {clienteAberto ? (
-          <div className="cliente-ficha-backdrop" role="presentation" onMouseDown={(evento) => { if (evento.target === evento.currentTarget) fecharFicha(); }}>
-          <section className="cliente-ficha-panel cliente-ficha-page" role="dialog" aria-modal="true" aria-label={`Ficha de ${clienteAberto.nome_completo}`}>
+          <div className={fichaInline ? "cliente-ficha-inline" : "cliente-ficha-backdrop"} role="presentation" onMouseDown={(evento) => { if (!fichaInline && evento.target === evento.currentTarget) fecharFicha(); }}>
+          <section className="cliente-ficha-panel cliente-ficha-page" role={fichaInline ? "region" : "dialog"} aria-modal={fichaInline ? undefined : true} aria-label={`Ficha de ${clienteAberto.nome_completo}`}>
             <header>
-              <button type="button" className="cliente-back-button" onClick={fecharFicha}>← Voltar para clientes</button>
+              {!fichaInline ? <button type="button" className="cliente-back-button" onClick={fecharFicha}>← Voltar para clientes</button> : null}
               <div className="cliente-ficha-heading">
                 <div>
                   <span className="eyebrow">Ficha do cliente</span>
                   <h3>{clienteAberto.nome_completo}</h3>
                 </div>
                 <div className="cliente-quick-actions">
-                  <button type="button" className="btn-primary compact" onClick={() => abrirEmail()}>Preparar e-mail</button>
+                  <button type="button" className="btn-primary compact" onClick={() => abrirEmail(processoAtual)}>Preparar e-mail</button>
                   <button type="button" className="btn-secondary compact" onClick={() => setAnalisadorAberto(true)}>Analisar e-mail/PDF</button>
                   <button type="button" className="btn-secondary compact" onClick={() => abrirEdicao(clienteAberto)}>Editar cadastro</button>
                 </div>
@@ -755,7 +765,7 @@ export default function ClientesModule({ usuario, showToast, buscaExterna, clien
                             <td>{processo.resultado || processo.status_judicial || "—"}</td>
                             <td>{processo.observacoes || "—"}</td>
                             <td>{processo.responsavel || "—"}</td>
-                            <td><div className="table-actions"><button type="button" className="btn-secondary compact" onClick={() => editarProcesso(processo)}>Editar processo</button>{processo.numero_processo && onOpenProcess ? <button type="button" className="btn-secondary compact" onClick={() => onOpenProcess(processo.id)}>Abrir processo</button> : null}<button type="button" className="btn-secondary compact" onClick={() => abrirEmail(processo)}>E-mail</button></div></td>
+                            <td><div className="table-actions"><button type="button" className="btn-secondary compact" onClick={() => editarProcesso(processo)}>Editar processo</button>{(processo.numero_processo || fichaInline) && onOpenProcess ? <button type="button" className="btn-secondary compact" onClick={() => onOpenProcess(processo.id)}>Abrir processo</button> : null}<button type="button" className="btn-secondary compact" onClick={() => abrirEmail(processo)}>E-mail</button></div></td>
                           </tr>
                         ))}</tbody>
                       </table>
@@ -818,6 +828,7 @@ export default function ClientesModule({ usuario, showToast, buscaExterna, clien
                   )}
                 </section>
               ) : null}
+              {(abaFicha === "resumo" || abaFicha === "historico") ? children : null}
             </div>
           </section>
           </div>

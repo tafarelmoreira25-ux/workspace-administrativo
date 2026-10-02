@@ -47,7 +47,7 @@ function atribuirSePreenchido(destino: Record<string, unknown>, campo: string, v
   if (limpo) destino[campo] = limpo;
 }
 
-async function buscarClienteUnico(supabase: SupabaseLike, processo: ProcessoSync) {
+export async function buscarClienteUnico(supabase: SupabaseLike, processo: ProcessoSync) {
   if (processo.cliente_id) {
     const resultado = await supabase.from("clientes").select("*").eq("id", processo.cliente_id).maybeSingle();
     if (!resultado.error && resultado.data) return resultado.data;

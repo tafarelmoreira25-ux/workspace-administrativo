@@ -693,6 +693,15 @@
 }
 
 /* Linha de progresso do histórico */
+.clientes-workspace-inline { display: block; }
+.clientes-workspace-inline .clientes-layout { display: block; }
+.cliente-ficha-inline .cliente-ficha-page { width: 100%; min-height: 0; max-height: none; overflow: visible; }
+.cliente-ficha-inline .cliente-ficha-page > header { padding: 16px; }
+.cliente-ficha-inline .cliente-ficha-content { min-height: 0; overflow: visible; }
+.cliente-ficha-inline .cliente-ficha-heading h3 { margin: 3px 0 0; }
+.cliente-ficha-inline .processual-ficha { margin-top: 18px; }
+.cliente-ficha-inline .processual-contexto { align-items: center; }
+
 .processual-cliente-topo { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); background: #f8fafc; border: 1px solid #e4e9ef; border-radius: 5px; margin: 0; }
 .processual-cliente-topo > div { padding: 14px; min-width: 0; }
 .processual-cliente-topo > div + div { border-left: 1px solid #e4e9ef; }
