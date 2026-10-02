@@ -693,6 +693,20 @@
 }
 
 /* Linha de progresso do histórico */
+.processual-cliente-topo { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); background: #f8fafc; border: 1px solid #e4e9ef; border-radius: 5px; margin: 0; }
+.processual-cliente-topo > div { padding: 14px; min-width: 0; }
+.processual-cliente-topo > div + div { border-left: 1px solid #e4e9ef; }
+.processual-cliente-topo dt { color: #667085; font-size: 10px; font-weight: 800; text-transform: uppercase; }
+.processual-cliente-topo dd { color: #344054; font-size: 13px; font-weight: 700; margin: 3px 0 0; overflow-wrap: anywhere; }
+.processual-contexto { display: flex; flex-wrap: wrap; gap: 10px 24px; color: #53657c; font-size: 12px; }
+.timeline-edit-form .timeline-edit-wide { grid-column: 1 / -1; }
+.timeline-edit-form textarea, .timeline-edit-form select { border: 1px solid #d5dce5; border-radius: 7px; font: inherit; min-width: 0; padding: 9px; width: 100%; }
+@media (max-width: 900px) { .processual-cliente-topo { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 600px) {
+  .processual-cliente-topo { grid-template-columns: 1fr; }
+  .processual-cliente-topo > div + div { border-left: 0; border-top: 1px solid #e4e9ef; }
+}
+
 .processual-progress-title {
   align-items: flex-start;
   border-bottom: 1px solid #e8edf3;
