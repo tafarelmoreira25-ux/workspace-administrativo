@@ -499,6 +499,9 @@ begin
     execute format('revoke all on public.%I from anon', tabela);
     execute format('revoke delete on public.%I from authenticated', tabela);
     execute format('grant select, insert, update on public.%I to authenticated', tabela);
+    if tabela = 'processual_tarefas' then
+      execute format('grant delete on public.%I to authenticated', tabela);
+    end if;
 
     for politica in
       select policyname
@@ -520,6 +523,12 @@ begin
       'create policy "Equipe interna edita registros" on public.%I for update to authenticated using (public.funcionario_id_autenticado() is not null) with check (public.funcionario_id_autenticado() is not null)',
       tabela
     );
+    if tabela = 'processual_tarefas' then
+      execute format(
+        'create policy "Equipe interna exclui tarefas" on public.%I for delete to authenticated using (public.funcionario_id_autenticado() is not null)',
+        tabela
+      );
+    end if;
   end loop;
 end;
 $$;
