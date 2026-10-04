@@ -4,9 +4,11 @@ Data da revisão: 2026-10-04.
 
 ## Padrão adotado
 
-O sistema preenche uma cópia do DOCX oficial, remove os destaques amarelos depois do preenchimento, aplica concordância contextual pelo sexo informado e envia o DOCX preenchido à Edge Function `converter-docx-pdf`. A função usa o Microsoft Graph/Word Online para produzir o PDF e apaga a cópia temporária do drive ao final.
+Por instrução do usuário em 04/10/2026, a geração voltou ao mecanismo local com `pdf-lib`, identificado na versão `c4ee42e` do projeto. A dependência do Microsoft Graph foi removida.
 
-A prévia rápida do navegador é apenas uma prévia de preenchimento. O download final não usa HTML nem canvas como fonte do documento.
+A prévia e o download usam a mesma função `gerarPdfModelo`. Os modelos que já possuíam gerador PDF próprio voltaram a usar esse código. Para os demais, o sistema preenche uma cópia do DOCX oficial, aplica concordância contextual, valida os campos e desenha texto selecionável, imagens e formatação no PDF com `pdf-lib`. Os originais não são sobrescritos e os dados não são enviados a um serviço de conversão.
+
+O mecanismo local é um gerador de PDF do projeto, não um motor completo de layout do Word. Formas complexas, tabelas com células mescladas e novas seções/colunas exigem conferência ao cadastrar novos modelos. A posterior inclusão de um modelo não implica suporte automático a todo recurso do DOCX.
 
 ## Modelos adicionados nesta revisão
 
@@ -40,7 +42,7 @@ Os anexos foram copiados integralmente para `modelos-originais/` e `public/model
 
 ## Pendências registradas
 
-Os cinco modelos abaixo continuam no gerador legado e exibem um aviso de revisão. Nenhum DOCX substituto foi inventado:
+Os cinco modelos abaixo continuam nos geradores PDF anteriores, disponíveis localmente, e exibem um aviso referente ao mapeamento do Word original. Esses avisos não exigem configuração Microsoft. Nenhum DOCX substituto foi inventado:
 
 - **Contestação das taxas - E-mail:** o DOCX possui cinco campos de encargos, enquanto o formulário possui sete; é preciso definir onde entram tarifa de cadastro e demais tarifas.
 - **Termo de Ciência de Pagamento:** o único Word localizado contém dados reais de cliente, banco, contrato e processo, sem marcações variáveis.
@@ -55,7 +57,7 @@ Os cinco modelos abaixo continuam no gerador legado e exibem um aviso de revisã
 - A Declaração de IRPF mantém os exercícios fixos de 2023, 2024 e 2025 e o ano fixo 2025 na assinatura. O sistema bloqueia exercícios ou data divergentes.
 - A Procuração mantém o ano fixo 2025 do Word original e bloqueia data divergente.
 
-## Validações executadas
+## Validações da revisão anterior (histórico)
 
 - Feminino e masculino nos dois modelos adicionados.
 - Nome longo, CPF/CNPJ fragmentados em vários `runs`, campos repetidos, data, parcela, valor e valor por extenso.
@@ -68,13 +70,16 @@ Os cinco modelos abaixo continuam no gerador legado e exibem um aviso de revisã
 - Inspeção visual da página preenchida do Requerimento: texto, alinhamentos, margens, quebras e fim de página sem corte ou sobreposição.
 - `npm run lint`, 42 testes automatizados e `npm run build` concluídos com sucesso.
 
-## Configuração necessária para produção
+## Validação do fluxo local
 
-Publicar a Edge Function `converter-docx-pdf` e cadastrar os segredos:
+- Teste de geração dos 40 modelos, com perfis feminino e masculino e nome longo, rejeitando qualquer requisição fora dos arquivos locais `/modelos/`.
+- Verificação do cabeçalho PDF, leitura das páginas resultantes e teste de texto selecionável, concordância e parcelas repetidas da postergação.
+- Renderização local dos PDFs dos 40 modelos com dados fictícios para conferência visual. Os arquivos de revisão ficam em `.tmp/pdf-review/` e não são versionados.
+- Ajustes de cabeçalho com logotipo, objetos duplicados `Choice/Fallback`, caixas de texto, caracteres de lista e reserva de assinatura.
+- A postergação mantém requerimento e termo em duas páginas. O número da parcela é compartilhado por todas as ocorrências; as duas assinaturas do termo ficam juntas.
+- Nos recibos de boleto/cartão/PIX, cidade, data e horário de assinatura são campos explícitos, evitando marcadores remanescentes e horário inventado. Preencher esses campos não realiza uma assinatura eletrônica.
+- A suíte `npm run check` inclui os testes da geração local.
 
-- `MS_GRAPH_TENANT_ID`
-- `MS_GRAPH_CLIENT_ID`
-- `MS_GRAPH_CLIENT_SECRET`
-- `MS_GRAPH_DRIVE_ID`
+## Publicação
 
-O aplicativo do Microsoft Entra deve ter permissão de aplicação ao drive usado para a conversão. Sem esses segredos, a geração final informa que o conversor ainda não está configurado e não recorre ao PDF simplificado.
+Para esta mudança, basta publicar o frontend atualizado. Não é necessário executar SQL, cadastrar segredos Microsoft ou publicar uma Edge Function de conversão. O Supabase continua sendo usado para os recursos já existentes de login e registros do sistema.

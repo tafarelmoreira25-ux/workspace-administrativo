@@ -8,13 +8,14 @@
     "start": "vite --host 0.0.0.0",
     "build": "vite build",
     "lint": "eslint .",
-    "test": "node --experimental-strip-types --test src/lib/userAccess.test.js src/lib/procuracaoConjunto.test.js src/lib/documentWorkspace.test.js src/lib/trainingResources.test.js src/lib/relatorioAtualizacaoProcessualPdf.test.js src/lib/emailWorkspace.test.js src/lib/historicoAdministrativo.test.js src/lib/protocoloExtrajudicial.test.js src/lib/processReview.test.ts src/lib/processWorkflow.test.ts scripts/import-processos-protocolados.test.mjs src/components/common/FormControls.test.mjs",
+    "test": "node --experimental-strip-types --test src/lib/userAccess.test.js src/lib/procuracaoConjunto.test.js src/lib/documentWorkspace.test.js src/lib/trainingResources.test.js src/lib/relatorioAtualizacaoProcessualPdf.test.js src/lib/emailWorkspace.test.js src/lib/historicoAdministrativo.test.js src/lib/protocoloExtrajudicial.test.js src/lib/processReview.test.ts src/lib/processWorkflow.test.ts scripts/import-processos-protocolados.test.mjs src/components/common/FormControls.test.mjs src/lib/documentPdf.test.js",
     "import:processos": "node scripts/import-processos-protocolados.mjs",
     "import:processos:dry-run": "node scripts/import-processos-protocolados.mjs --dry-run",
     "check": "npm run lint && npm test && npm run build",
     "preview": "vite preview"
   },
   "dependencies": {
+    "@pdf-lib/fontkit": "^1.1.1",
     "@supabase/supabase-js": "^2.106.2",
     "fflate": "^0.8.3",
     "pdf-lib": "^1.17.1",
@@ -26,6 +27,7 @@
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^6.0.1",
+    "@xmldom/xmldom": "^0.9.12",
     "eslint": "^10.3.0",
     "eslint-plugin-react-hooks": "^7.1.1",
     "eslint-plugin-react-refresh": "^0.5.2",

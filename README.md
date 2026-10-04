@@ -67,6 +67,11 @@ Execute uma vez no SQL Editor do Supabase:
 
 Execute também `supabase/documentos_juridicos_workspace.sql` para o gerador de documentos.
 
+Os PDFs são gerados localmente no navegador com `pdf-lib`, a partir de uma
+cópia preenchida do modelo ou dos geradores locais existentes. A prévia e
+o download usam o mesmo gerador. Essa geração não exige Microsoft 365,
+segredos do Microsoft Graph nem publicação de uma função de conversão no Supabase.
+
 Se a exclusão de uma atividade apresentar `permission denied for table processual_tarefas`, execute `supabase/20261002_corrigir_exclusao_tarefas.sql` no SQL Editor, após `configurar_sistema.sql` e `compatibilidade_modulos_processuais_legado.sql`. O script permite excluir tarefas somente a usuários autenticados vinculados à equipe interna e inclui uma consulta para verificar as permissões. Não exclui atividades ao ser aplicado.
 
 Execute `supabase/esteira_processual_platino.sql` para habilitar a nova Esteira Processual PLATINO, depois de concluir a limpeza das tabelas antigas de processos.

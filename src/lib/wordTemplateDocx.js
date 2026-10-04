@@ -98,7 +98,11 @@ function regrasRecibo(d, modo) {
     "recibo-servicos-cartao": [regra("[Nº]", d.quantidadeParcelas, { parte: /^word\/document\.xml$/i }), regra("[Parcela]", semReal(d.valorParcela)), regra("[NSU]", d.nsu), regra("[Código]", d.codigoAutorizacao)],
     "recibo-servicos-pix": [regra("[ID da transação]", d.idTransacao), regra("[E2E]", d.identificadorE2e)],
   };
-  return [...comuns, ...(extras[modo] || [])];
+  return [
+    regra("Estado, dia de mês de 2026", `${t(d.localEmissao)}, ${dataLonga(d.dataPagamento)}`),
+    regra("Documento assinado por Platino Soluções Financeiras em dia/mês/2026 às xx:xx.", `Documento assinado por Platino Soluções Financeiras em ${dataCurta(d.dataAssinatura)} às ${t(d.horarioAssinatura)}.`),
+    ...comuns, ...(extras[modo] || []),
+  ];
 }
 
 function regrasNotificacao(d, modo) {

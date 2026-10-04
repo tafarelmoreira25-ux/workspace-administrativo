@@ -38,6 +38,9 @@ const camposComunsReciboNovo = [
   { nome: "valorRecebidoExtenso", rotulo: "Valor recebido por extenso", obrigatorio: true, largura: "total" },
   { nome: "descricaoServico", rotulo: "Descrição do serviço contratado", obrigatorio: true, largura: "total" },
   { nome: "dataPagamento", rotulo: "Data do pagamento", tipo: "date", obrigatorio: true, valorInicial: "hoje" },
+  { nome: "localEmissao", rotulo: "Cidade/UF de emissão", obrigatorio: true },
+  { nome: "dataAssinatura", rotulo: "Data de assinatura indicada no recibo", tipo: "date", obrigatorio: true },
+  { nome: "horarioAssinatura", rotulo: "Horário de assinatura indicado no recibo", tipo: "time", obrigatorio: true },
 ];
 
 const camposComunsNotificacaoNova = [
