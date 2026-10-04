@@ -53,7 +53,7 @@ function dadosTeste(modelo, genero) {
     rg: "12.345.678-9", orgaoExpedidor: "SSP/SP", cep: "01001-000", cidade: "São Paulo", uf: "SP",
     cidadeEstado: "São Paulo/SP", localEmissao: "São Paulo/SP", banco: "Banco de Teste",
     exercicios: "2023, 2024 e 2025", responsavel: "Responsável de teste", dataEmissao: "2026-10-04",
-    dataDocumento: modelo.modo === "declaracao-isencao-irpf" ? "2025-10-04" : "2026-10-04",
+    dataDocumento: "2026-10-04", parentesco: "mae",
     numeroParcela: "12", numeroParcelaExtenso: "doze", quantidadeParcelasExtenso: "doze", dataVencimento: "2026-10-10", numeroProcesso: "0000000-00.2026.8.26.0000",
     horarioAssinatura: "10:30",
   };
@@ -69,7 +69,7 @@ test("modelos preservam a estrutura original e geram PDF com fontes disponíveis
     return new Response(bytes);
   };
   try {
-    assert.equal(DOCUMENT_TEMPLATES.length, 32);
+    assert.equal(DOCUMENT_TEMPLATES.length, 34);
     for (const modelo of DOCUMENT_TEMPLATES) {
       await t.test(modelo.nome, async () => {
         for (const genero of ["feminino", "masculino"]) {

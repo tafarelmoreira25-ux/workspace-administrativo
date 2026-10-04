@@ -31,7 +31,7 @@ test("as declarações e o requerimento usam seus modelos oficiais", () => {
   );
   assert.equal(
     modelos.find((modelo) => modelo.modo === "declaracao-isencao-irpf").templateDocx,
-    "/modelos/declaracoes/declaracao-isencao-irpf-2026.docx",
+    "/modelos/declaracao-isencao-irpf-atualizado-2026-10-04.docx",
   );
   assert.equal(
     modelos.find((modelo) => modelo.modo === "requerimento-postergacao-parcela").templateDocx,
@@ -55,7 +55,7 @@ test("bloqueia dados que contradizem textos fixos dos modelos oficiais", () => {
   const irpf = modelos.find((modelo) => modelo.modo === "declaracao-isencao-irpf");
   assert.equal(listarConflitosFixos(irpf, {
     exercicios: "2023, 2024 e 2025",
-    dataDocumento: "2025-10-04",
+    dataDocumento: "2026-10-04",
   }).length, 0);
 });
 

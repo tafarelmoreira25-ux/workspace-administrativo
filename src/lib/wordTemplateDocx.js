@@ -1,4 +1,5 @@
 import { strFromU8, strToU8, unzipSync, zipSync } from "fflate";
+import { listarConflitosFixos } from "./documentWorkspace.js";
 
 const MIME_DOCX = "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
 const W_NS = "http://schemas.openxmlformats.org/wordprocessingml/2006/main";
@@ -132,6 +133,7 @@ function regrasProcuracaoDeclaracoes(d, modo) {
     return [
       regra("XXXXXXXXXXXXXXXXXX", d.nomeCliente, { contexto: "OUTORGANTE: " }),
       regra("Nome do titular", d.nomeCliente),
+      regra("o(a) OUTORGANTE", `${f.artigo} OUTORGANTE`),
       regra("nacionalidade", concordarCampoPerfil(d.nacionalidade, d)),
       regra("estado cívil", concordarCampoPerfil(d.estadoCivil, d)),
       regra("estado civil", concordarCampoPerfil(d.estadoCivil, d)),
@@ -327,7 +329,7 @@ function regrasComprovanteEndereco(d) {
   return [
     regra("____________________________________________", d.nomeCliente, { contexto: "Eu, " }),
     regra("____________________________", d.cpfCnpj, { contexto: "CPF nº " }),
-    regra("__________________________", d.rg, { contexto: "" }),
+    regra("__________________________, declaro", `${t(d.rg)}, declaro`),
     regra("________________________________________________________________", d.endereco, { contexto: "Endereço: " }),
     regra("______________________________", d.bairro, { contexto: "Bairro: " }),
     regra("______________________________", d.cidade, { contexto: "Cidade: " }),
@@ -428,6 +430,13 @@ function removerMarcadoresAmarelos(xml) {
 
 export async function gerarWordOficial(dados, modelo) {
   if (!modelo?.templateDocx) throw new Error("Arquivo do modelo oficial não configurado.");
+  if (modelo.templateSha256) {
+    const vazios = (modelo.campos || []).filter((campo) => campo.obrigatorio && !t(dados[campo.nome]));
+    if (vazios.length) throw new Error(`Preencha os campos obrigatórios do modelo: ${vazios.map((campo) => campo.rotulo).join(", ")}.`);
+    if (modelo.modo === "declaracao-isencao-comprovante-endereco" && dados.parentesco === "outro" && !t(dados.outroParentesco)) throw new Error("Informe com quem reside no campo Outro.");
+    const conflitos = listarConflitosFixos(modelo, dados);
+    if (conflitos.length) throw new Error(`Geração bloqueada: ${conflitos.map((conflito) => conflito.mensagem).join(" ")}`);
+  }
   const resposta = await fetch(modelo.templateDocx, { cache: "no-store" });
   if (!resposta.ok) throw new Error(`Não foi possível carregar o modelo oficial (${resposta.status}).`);
   const bytesOriginal = new Uint8Array(await resposta.arrayBuffer());

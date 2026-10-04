@@ -5,6 +5,7 @@ import vm from 'node:vm';
 import { transformWithOxc } from 'vite';
 import * as documentWorkspace from '../src/lib/documentWorkspace.js';
 import { DOCUMENT_TEMPLATES, valorInicialCampo } from '../src/config/documentTemplates.js';
+import { UPDATED_DOCUMENT_MODELS } from '../src/config/updatedDocumentModels.js';
 
 async function carregarCodigo(caminho) {
   const source = await readFile(new URL(caminho, import.meta.url), 'utf8');
@@ -153,7 +154,7 @@ function ambienteTela(code, componente, props, armazenados = new Map()) {
   let effects = [];
   let consultas = 0;
   const context = vm.createContext({
-    ...documentWorkspace, DOCUMENT_TEMPLATES, valorInicialCampo, React, env: {},
+    ...documentWorkspace, DOCUMENT_TEMPLATES, UPDATED_DOCUMENT_MODELS, valorInicialCampo, React, env: {},
     FormSection: 'FormSection', FormField: 'FormField', FormGrid: 'FormGrid', Input: 'Input', Select: 'Select', Textarea: 'Textarea',
     navigator: { onLine: true }, useRef: value => ({ current: value }),
     pendenciaModeloOriginal: () => '', listarDocumentosProcuracao: () => [], criarOpcoesIniciaisProcuracao: () => ({}),
@@ -190,7 +191,7 @@ function elementos(node) {
 }
 
 test('gerador exige categoria e documento antes do formulario', () => {
-  const modelo = documentWorkspace.enriquecerModelos(DOCUMENT_TEMPLATES)[1];
+  const modelo = documentWorkspace.enriquecerModelos(DOCUMENT_TEMPLATES).find(item => item.modo === 'distrato-sem-multa');
   const storage = new Map([[documentWorkspace.DOCUMENT_DRAFT_KEY, JSON.stringify({ schema: 2, salvoEm: new Date().toISOString(), dados: { modeloId: modelo.id, nomeContratante: 'Rascunho' } })], [documentWorkspace.DOCUMENT_HISTORY_KEY, '[{}]']]);
   const selecao = ambienteTela(generatorCode, 'GeradorDocumentos', { usuario: {} }, storage);
   let nodesSelecao = elementos(selecao.render().tree);
@@ -236,6 +237,25 @@ test('kit inicial reune exatamente os tres documentos solicitados', () => {
   kit.props.onClick();
   const nomes = elementos(env.render().tree).filter(node => node.type === 'strong').map(node => node.children[0]);
   assert.deepEqual(nomes.sort(), ['Procuração Ad Judicia', 'Declaração de Hipossuficiência', 'Declaração de Isenção de Imposto de Renda'].sort());
+});
+
+test('biblioteca usa a procuração atualizada e oferece as duas declarações recebidas', () => {
+  const env = ambienteTela(generatorCode, 'GeradorDocumentos', { usuario: {} });
+  let nodes = elementos(env.render().tree);
+  nodes.find(node => node.type === 'button' && elementos(node).some(child => child.type === 'strong' && child.children.includes('Kit Processual Inicial'))).props.onClick();
+  nodes = elementos(env.render().tree);
+  nodes.find(node => node.type === 'button' && elementos(node).some(child => child.type === 'strong' && child.children.includes('Procuração Ad Judicia'))).props.onClick();
+  const procuracao = env.render().tree.props.modeloInicial;
+  assert.equal(procuracao.templateDocx, UPDATED_DOCUMENT_MODELS.procuracao.templateDocx);
+  assert.equal(procuracao.templateSha256, UPDATED_DOCUMENT_MODELS.procuracao.templateSha256);
+  const biblioteca = ambienteTela(generatorCode, 'GeradorDocumentos', { usuario: {} });
+  nodes = elementos(biblioteca.render().tree);
+  nodes.find(node => node.type === 'button' && elementos(node).some(child => child.type === 'strong' && child.children.includes('Declarações'))).props.onClick();
+  nodes = elementos(biblioteca.render().tree);
+  for (const modo of ['declaracao-isencao-comprovante-endereco', 'declaracao-ausencia-carteira-trabalho']) {
+    const modelo = DOCUMENT_TEMPLATES.find(item => item.modo === modo);
+    assert.ok(nodes.some(node => node.type === 'strong' && node.children.includes(modelo.nome)));
+  }
 });
 
 test('renomear modelo fica disponivel apenas para Tafarel ou administrador', () => {

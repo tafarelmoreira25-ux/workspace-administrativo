@@ -192,7 +192,7 @@ const FIELD_GROUPS = [
 export function enriquecerModelos(modelos) {
   return modelos.map((modelo, indice) => {
     const meta = MODEL_META[modelo.modo] || {};
-    const categoria = meta.categoria || "relatorios";
+    const categoria = meta.categoria || modelo.categoria || "relatorios";
     return {
       ...modelo,
       ...meta,
