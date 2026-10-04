@@ -3,8 +3,8 @@ export const DOCUMENTO_HIPOSSUFICIENCIA = "hipossuficiencia";
 export const DOCUMENTO_ISENCAO_IRPF = "isencao-irpf";
 
 export function exerciciosIrpfPadrao(dataIso) {
-  const anoAtual = Number(dataIso?.slice(0, 4)) || new Date().getFullYear();
-  return `${anoAtual - 2}, ${anoAtual - 1} e ${anoAtual}`;
+  void dataIso;
+  return "2023, 2024 e 2025";
 }
 
 export function criarOpcoesIniciaisProcuracao(dataIso) {
@@ -12,6 +12,7 @@ export function criarOpcoesIniciaisProcuracao(dataIso) {
     gerarHipossuficiencia: true,
     gerarIsencaoIrpf: true,
     exercicios: exerciciosIrpfPadrao(dataIso),
+    dataDocumentoIrpf: "",
   };
 }
 
@@ -24,5 +25,5 @@ export function listarDocumentosProcuracao(dados) {
 
 export function mensagemConjuntoGerado(documentos) {
   if (documentos.length === 1) return "Procuração gerada com sucesso!";
-  return `${documentos.length} documentos do conjunto da Procuração gerados em arquivos Word separados!`;
+  return `${documentos.length} documentos do conjunto da Procuração gerados em arquivos PDF separados!`;
 }

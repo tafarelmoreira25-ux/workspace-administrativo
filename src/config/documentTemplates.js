@@ -6,12 +6,11 @@ const campoGenero = {
   opcoes: [
     { valor: "feminino", rotulo: "Feminino" },
     { valor: "masculino", rotulo: "Masculino" },
-    { valor: "neutro", rotulo: "Neutro" },
   ],
 };
 
 const valoresPadrao = {
-  genero: "feminino",
+  genero: "",
   orgaoExpedidor: "SSP/SP",
   cidade: "São Paulo",
   uf: "SP",
@@ -68,7 +67,7 @@ export const DOCUMENT_TEMPLATES = [
     descricao: "Encerramento contratual com multa rescisória e acerto financeiro individualizado.",
     modo: "distrato-com-multa",
     titulo: "Distrato de Contrato de Prestação de Serviços",
-    formato: "docx",
+    formato: "pdf",
     templateDocx: "/modelos/distratos/distrato-com-multa.docx",
     campos: [
       ...camposComunsDistrato,
@@ -88,7 +87,7 @@ export const DOCUMENT_TEMPLATES = [
     descricao: "Encerramento sem multa, conforme as condições específicas do modelo oficial.",
     modo: "distrato-sem-multa",
     titulo: "Distrato de Contrato de Prestação de Serviços",
-    formato: "docx",
+    formato: "pdf",
     templateDocx: "/modelos/distratos/distrato-sem-multa.docx",
     campos: [
       ...camposComunsDistrato,
@@ -102,7 +101,7 @@ export const DOCUMENT_TEMPLATES = [
     descricao: "Direito de arrependimento dentro de sete dias, com restituição integral.",
     modo: "distrato-7-dias-estorno-total",
     titulo: "Distrato de Contrato de Prestação de Serviços",
-    formato: "docx",
+    formato: "pdf",
     templateDocx: "/modelos/distratos/distrato-7-dias-estorno-total.docx",
     campos: [
       ...camposComunsDistrato,
@@ -121,7 +120,7 @@ export const DOCUMENT_TEMPLATES = [
     descricao: "Encerramento com devolução dos valores e identificação própria do beneficiário.",
     modo: "distrato-com-devolucao",
     titulo: "Distrato de Contrato de Prestação de Serviços",
-    formato: "docx",
+    formato: "pdf",
     templateDocx: "/modelos/distratos/distrato-com-devolucao.docx",
     campos: [
       ...camposComunsDistrato,
@@ -140,7 +139,7 @@ export const DOCUMENT_TEMPLATES = [
     descricao: "Encerramento sem devolução, vinculado à prestação de contas dos serviços executados.",
     modo: "distrato-sem-devolucao",
     titulo: "Distrato de Contrato de Prestação de Serviços",
-    formato: "docx",
+    formato: "pdf",
     templateDocx: "/modelos/distratos/distrato-sem-devolucao.docx",
     campos: [
       ...camposComunsDistrato,
@@ -156,7 +155,7 @@ export const DOCUMENT_TEMPLATES = [
     descricao: "Encerramento por falta de colaboração e ausência de resposta após notificação.",
     modo: "distrato-inexecucao-ausencia-resposta",
     titulo: "Distrato de Contrato de Prestação de Serviços",
-    formato: "docx",
+    formato: "pdf",
     templateDocx: "/modelos/distratos/distrato-inexecucao-ausencia-resposta.docx",
     campos: [
       ...camposComunsDistrato,
@@ -171,9 +170,12 @@ export const DOCUMENT_TEMPLATES = [
       "Procuração para Ação de Revisão de Contrato, baseada no modelo oficial enviado.",
     modo: "procuracao",
     titulo: "Procuração ad judicia",
-    formato: "docx",
+    formato: "pdf",
     templateDocx: "/modelos/procuracoes/procuracao-ad-judicia-2026.docx",
     identidadeVisual: true,
+    conflitosFixos: [
+      { campo: "dataEmissao", tipo: "ano", esperado: "2025", trecho: "A data de assinatura do DOCX original termina em 2025." },
+    ],
     campos: [
       { nome: "nomeCliente", rotulo: "Nome completo", obrigatorio: true, largura: "total" },
       campoGenero,
@@ -200,12 +202,16 @@ export const DOCUMENT_TEMPLATES = [
     id: "declaracao-isencao-irpf",
     nome: "Declaração de isenção de Imposto de Renda",
     descricao:
-      "Declaração de isenção de IRPF recriada na mesma formatação atualizada da declaração oficial.",
+      "Declaração de isenção de IRPF preenchida diretamente no arquivo Word original enviado.",
     modo: "declaracao-isencao-irpf",
     titulo: "Declaração de Isenção do Imposto de Renda Pessoa Física (IRPF)",
-    formato: "docx",
-    templateDocx: "/modelos/declaracoes/declaracao-hipossuficiencia-2026.docx",
+    formato: "pdf",
+    templateDocx: "/modelos/declaracoes/declaracao-isencao-irpf-2026.docx",
     identidadeVisual: true,
+    conflitosFixos: [
+      { campo: "exercicios", tipo: "texto", esperado: "2023, 2024 e 2025", trecho: "O corpo do DOCX fixa os exercícios de 2023, 2024 e 2025." },
+      { campo: "dataDocumento", tipo: "ano", esperado: "2025", trecho: "A data de assinatura do DOCX original termina em 2025." },
+    ],
     campos: [
       { nome: "nomeCliente", rotulo: "Nome completo", obrigatorio: true, largura: "total" },
       campoGenero,
@@ -230,16 +236,47 @@ export const DOCUMENT_TEMPLATES = [
       },
       { nome: "cidade", rotulo: "Cidade de assinatura", obrigatorio: true },
       { nome: "uf", rotulo: "UF", obrigatorio: true },
+      { nome: "dataDocumento", rotulo: "Data da declaração", tipo: "date", obrigatorio: true },
+    ],
+  },
+  {
+    id: "requerimento-postergacao-parcela",
+    nome: "Requerimento de Postergação de Parcela",
+    descricao: "Requerimento e Termo de Garantia preenchidos no mesmo arquivo Word original.",
+    modo: "requerimento-postergacao-parcela",
+    titulo: "Requerimento de Postergação de Parcela",
+    formato: "pdf",
+    templateDocx: "/modelos/requerimentos/requerimento-postergacao-parcela-2026.docx",
+    identidadeVisual: true,
+    conflitosFixos: [
+      { campo: "dataVencimento", tipo: "ano", esperado: "2026", trecho: "O requerimento fixa 2026 no primeiro vencimento." },
+      { campo: "dataDocumento", tipo: "ano", esperado: "2026", trecho: "As duas datas de assinatura do DOCX original terminam em 2026." },
+    ],
+    campos: [
+      { nome: "banco", rotulo: "Instituição financeira", obrigatorio: true, largura: "total" },
+      { nome: "cnpjBanco", rotulo: "CNPJ da instituição", obrigatorio: true },
+      { nome: "nomeCliente", rotulo: "Nome completo do cliente", obrigatorio: true, largura: "total" },
+      campoGenero,
+      { nome: "cpfCnpj", rotulo: "CPF do cliente", obrigatorio: true },
+      { nome: "numeroContrato", rotulo: "Número do contrato", obrigatorio: true },
+      { nome: "numeroParcela", rotulo: "Número da parcela", obrigatorio: true },
+      { nome: "numeroParcelaExtenso", rotulo: "Número da parcela por extenso", obrigatorio: true },
+      { nome: "valorParcela", rotulo: "Valor da parcela (R$)", obrigatorio: true },
+      { nome: "valorParcelaExtenso", rotulo: "Valor da parcela por extenso", obrigatorio: true, largura: "total" },
+      { nome: "dataVencimento", rotulo: "Vencimento da parcela", tipo: "date", obrigatorio: true },
+      { nome: "cidade", rotulo: "Cidade de assinatura", obrigatorio: true },
+      { nome: "uf", rotulo: "UF", obrigatorio: true },
+      { nome: "dataDocumento", rotulo: "Data do documento", tipo: "date", obrigatorio: true, valorInicial: "hoje" },
     ],
   },
   {
     id: "declaracao-hipossuficiencia",
     nome: "Declaração de hipossuficiência",
     descricao:
-      "Declaração para solicitação dos benefícios da justiça gratuita, conforme o modelo Word oficial.",
+      "Declaração para solicitação dos benefícios da justiça gratuita, conforme o modelo oficial.",
     modo: "declaracao-hipossuficiencia",
     titulo: "Declaração de Hipossuficiência",
-    formato: "docx",
+    formato: "pdf",
     templateDocx: "/modelos/declaracoes/declaracao-hipossuficiencia-2026.docx",
     identidadeVisual: true,
     campos: [
@@ -270,6 +307,7 @@ export const DOCUMENT_TEMPLATES = [
     modo: "notificacao-extrajudicial",
     titulo: "Notificação Extrajudicial",
     identidadeVisual: true,
+    templateDocx: "/modelos/notificacao-extrajudicial-platino.docx",
     campos: [
       { nome: "nomeCliente", rotulo: "Nome completo do cliente", obrigatorio: true, largura: "total" },
       { nome: "cpfCnpj", rotulo: "CPF do cliente", obrigatorio: true },
@@ -339,6 +377,7 @@ export const DOCUMENT_TEMPLATES = [
     modo: "citacao-judicial",
     titulo: "Citação da Parte Ré",
     identidadeVisual: true,
+    templateDocx: "/modelos/citacao-judicial.docx",
     campos: [
       {
         nome: "numeroProcesso",
@@ -370,6 +409,7 @@ export const DOCUMENT_TEMPLATES = [
     modo: "intimacao-extrajudicial",
     titulo: "Intimação Extrajudicial",
     identidadeVisual: true,
+    templateDocx: "/modelos/citacao-intimacao-extrajudicial.docx",
     localAssinatura: "São Paulo",
     campos: [
       {
@@ -431,6 +471,7 @@ export const DOCUMENT_TEMPLATES = [
     modo: "chargeback",
     titulo: "Contestação de Chargeback",
     identidadeVisual: true,
+    templateDocx: "/modelos/chargeback.docx",
     campos: [
       {
         nome: "nomeCliente",
@@ -474,6 +515,7 @@ export const DOCUMENT_TEMPLATES = [
     modo: "contestacao-taxas-email",
     titulo: "Revisão Contratual e Contestação de Encargos",
     identidadeVisual: true,
+    revisaoWordPendente: "O DOCX possui cinco campos de encargos, enquanto o formulário atual possui sete. Falta definir onde entram tarifa de cadastro e demais tarifas.",
     localAssinatura: "São Paulo",
     campos: [
       {
@@ -536,11 +578,11 @@ export const DOCUMENT_TEMPLATES = [
   {
     id: "termo-ciencia-consentimento-contratacao",
     nome: "Termo de Ciência e Consentimento da Contratação",
-    descricao: "Modelo Word oficial para ciência da contratação e autorização do pagamento pelo titular do cartão.",
+    descricao: "Modelo oficial para ciência da contratação e autorização do pagamento pelo titular do cartão.",
     modo: "termo-ciencia-consentimento-contratacao",
     titulo: "Termo de Ciência e Consentimento da Contratação",
     categoria: "Termos",
-    formato: "docx",
+    formato: "pdf",
     templateDocx: "/modelos/termos/termo-ciencia-consentimento-contratacao.docx",
     campos: [
       { nome: "nomeTitularCartao", rotulo: "Titular do cartão", obrigatorio: true, largura: "total" },
@@ -555,11 +597,11 @@ export const DOCUMENT_TEMPLATES = [
   {
     id: "termo-consentimento-compras-2026",
     nome: "Termo de Consentimento de Compras 2026",
-    descricao: "Modelo Word oficial de consentimento de compras; preserva integralmente o conteúdo recebido.",
+    descricao: "Modelo oficial de consentimento de compras; preserva integralmente o conteúdo recebido.",
     modo: "termo-consentimento-compras-2026",
     titulo: "Termo de Consentimento de Compras 2026",
     categoria: "Termos",
-    formato: "docx",
+    formato: "pdf",
     templateDocx: "/modelos/termos/termo-consentimento-compras-2026.docx",
     campos: [
       { nome: "nomeTitularCartao", rotulo: "Titular do cartão", obrigatorio: true, largura: "total" },
@@ -578,7 +620,7 @@ export const DOCUMENT_TEMPLATES = [
     modo: "termo-pagamento-cartao-terceiro",
     titulo: "Termo de Consentimento e Autorização para Pagamento com Cartão de Terceiro",
     categoria: "Termos",
-    formato: "docx",
+    formato: "pdf",
     templateDocx: "/modelos/termos/termo-pagamento-cartao-terceiro.docx",
     campos: [
       { nome: "nomeTitularCartao", rotulo: "Titular do cartão", obrigatorio: true, largura: "total" },
@@ -599,7 +641,7 @@ export const DOCUMENT_TEMPLATES = [
     modo: "termo-reconhecimento-recompra",
     titulo: "Termo de Reconhecimento de Recompra",
     categoria: "Termos",
-    formato: "docx",
+    formato: "pdf",
     templateDocx: "/modelos/termos/termo-reconhecimento-recompra.docx",
     campos: [
       { nome: "nomeContratante", rotulo: "Nome do contratante", obrigatorio: true, largura: "total" },
@@ -618,7 +660,7 @@ export const DOCUMENT_TEMPLATES = [
     modo: "termo-responsabilidade-parcelas-atraso",
     titulo: "Termo de Responsabilidade e Compromisso — Parcelas em Atraso",
     categoria: "Termos",
-    formato: "docx",
+    formato: "pdf",
     templateDocx: "/modelos/termos/termo-responsabilidade-parcelas-atraso.docx",
     campos: [
       { nome: "nomeCliente", rotulo: "Nome completo do cliente", obrigatorio: true, largura: "total" },
@@ -638,7 +680,7 @@ export const DOCUMENT_TEMPLATES = [
     descricao: "Recibo oficial para pagamento por boleto, com código de barras e nosso número.",
     modo: "recibo-servicos-boleto",
     titulo: "Recibo de Prestação de Serviços — Boleto Bancário",
-    formato: "docx",
+    formato: "pdf",
     templateDocx: "/modelos/recibos/recibo-boleto.docx",
     campos: [...camposComunsReciboNovo,
       { nome: "codigoBarras", rotulo: "Código de barras", obrigatorio: true, largura: "total" },
@@ -651,7 +693,7 @@ export const DOCUMENT_TEMPLATES = [
     descricao: "Recibo oficial para cartão de crédito, com parcelas, NSU e autorização.",
     modo: "recibo-servicos-cartao",
     titulo: "Recibo de Prestação de Serviços — Cartão de Crédito",
-    formato: "docx",
+    formato: "pdf",
     templateDocx: "/modelos/recibos/recibo-cartao.docx",
     campos: [...camposComunsReciboNovo,
       { nome: "quantidadeParcelas", rotulo: "Quantidade de parcelas", tipo: "number", obrigatorio: true, min: "1" },
@@ -666,7 +708,7 @@ export const DOCUMENT_TEMPLATES = [
     descricao: "Recibo oficial para PIX, com identificação da transação e E2E.",
     modo: "recibo-servicos-pix",
     titulo: "Recibo de Prestação de Serviços — PIX",
-    formato: "docx",
+    formato: "pdf",
     templateDocx: "/modelos/recibos/recibo-pix.docx",
     campos: [...camposComunsReciboNovo,
       { nome: "idTransacao", rotulo: "ID da transação", obrigatorio: true, largura: "total" },
@@ -679,7 +721,7 @@ export const DOCUMENT_TEMPLATES = [
     descricao: "Reitera pendências e solicita providências para prosseguimento do procedimento administrativo.",
     modo: "notificacao-prosseguimento-acao",
     titulo: "Notificação Extrajudicial — Prosseguimento da Ação",
-    formato: "docx",
+    formato: "pdf",
     templateDocx: "/modelos/notificacoes/prosseguimento-acao.docx",
     campos: [...camposComunsNotificacaoNova,
       { nome: "protocolo", rotulo: "Protocolo atual", obrigatorio: true },
@@ -697,7 +739,7 @@ export const DOCUMENT_TEMPLATES = [
     descricao: "Comunicação vinculada a procedimento judicial de notificação ou interpelação.",
     modo: "notificacao-via-oficial-justica",
     titulo: "Notificação Extrajudicial — Via Oficial de Justiça",
-    formato: "docx",
+    formato: "pdf",
     templateDocx: "/modelos/notificacoes/via-oficial-justica.docx",
     campos: [...camposComunsNotificacaoNova,
       { nome: "numeroProcedimento", rotulo: "Número do procedimento", obrigatorio: true },
@@ -714,7 +756,7 @@ export const DOCUMENT_TEMPLATES = [
     descricao: "Formaliza a representação da Platino perante a instituição financeira.",
     modo: "notificacao-formalizacao-representacao",
     titulo: "Notificação Extrajudicial — Formalização da Representação",
-    formato: "docx",
+    formato: "pdf",
     templateDocx: "/modelos/notificacoes/formalizacao-representacao.docx",
     campos: camposComunsNotificacaoNova,
   },
@@ -724,7 +766,7 @@ export const DOCUMENT_TEMPLATES = [
     descricao: "Solicita contrato bancário, aditivos e documentos da operação financeira.",
     modo: "notificacao-solicitacao-contrato-bancario",
     titulo: "Notificação Extrajudicial — Solicitação de Contrato Bancário",
-    formato: "docx",
+    formato: "pdf",
     templateDocx: "/modelos/notificacoes/solicitacao-contrato-bancario.docx",
     campos: camposComunsNotificacaoNova,
   },
@@ -734,7 +776,7 @@ export const DOCUMENT_TEMPLATES = [
     descricao: "Solicita manifestação conclusiva e condições para composição extrajudicial.",
     modo: "notificacao-finalizacao-conciliacao",
     titulo: "Notificação Extrajudicial — Finalização da Conciliação",
-    formato: "docx",
+    formato: "pdf",
     templateDocx: "/modelos/notificacoes/finalizacao-conciliacao.docx",
     campos: [...camposComunsNotificacaoNova,
       { nome: "protocolo", rotulo: "Protocolo da tratativa", obrigatorio: true },
@@ -751,7 +793,7 @@ export const DOCUMENT_TEMPLATES = [
     descricao: "Questiona tarifas e encargos e solicita memória de cálculo e restituição.",
     modo: "notificacao-requerimento-taxas",
     titulo: "Notificação Extrajudicial — Requerimento de Taxas",
-    formato: "docx",
+    formato: "pdf",
     templateDocx: "/modelos/notificacoes/requerimento-taxas.docx",
     campos: [...camposComunsNotificacaoNova,
       { nome: "taxasQuestionadas", rotulo: "Identificação das taxas e valores", tipo: "textarea", obrigatorio: true, largura: "total" },
@@ -763,7 +805,7 @@ export const DOCUMENT_TEMPLATES = [
     descricao: "Trecho para restituição das despesas com análise técnica contratual.",
     modo: "liminar-despesas-analise-tecnica",
     titulo: "Das Despesas com Análise Técnica do Contrato",
-    formato: "docx",
+    formato: "pdf",
     templateDocx: "/modelos/liminares/despesas-analise-tecnica.docx",
     campos: [
       { nome: "nomeContratante", rotulo: "Nome do autor/contratante", obrigatorio: true, largura: "total" },
@@ -780,7 +822,7 @@ export const DOCUMENT_TEMPLATES = [
     descricao: "Trecho para restituição das despesas com diligências extrajudiciais.",
     modo: "liminar-despesas-diligencias-extrajudiciais",
     titulo: "Das Despesas com Diligências Extrajudiciais",
-    formato: "docx",
+    formato: "pdf",
     templateDocx: "/modelos/liminares/despesas-diligencias-extrajudiciais.docx",
     campos: [
       { nome: "nomeContratante", rotulo: "Nome do autor/contratante", obrigatorio: true, largura: "total" },
@@ -799,6 +841,7 @@ export const DOCUMENT_TEMPLATES = [
     modo: "termo-compromisso-pagamento",
     titulo: "Termo de Compromisso de Pagamento",
     identidadeVisual: true,
+    templateDocx: "/modelos/termo-compromisso-pagamento.docx",
     campos: [
       {
         nome: "nomeCliente",
@@ -807,6 +850,7 @@ export const DOCUMENT_TEMPLATES = [
         largura: "total",
       },
       { nome: "cpfCnpj", rotulo: "CPF do cliente", obrigatorio: true },
+      campoGenero,
       {
         nome: "valorTotal",
         rotulo: "Valor total (R$)",
@@ -842,6 +886,7 @@ export const DOCUMENT_TEMPLATES = [
     modo: "termo-ciencia-pagamento",
     titulo: "Termo de Ciência de Pagamento",
     identidadeVisual: true,
+    revisaoWordPendente: "O único Word localizado contém nome, CPF, banco, contrato e processo de um cliente real, sem marcações de campos variáveis.",
     campos: [
       {
         nome: "nomeCliente",
@@ -893,6 +938,7 @@ export const DOCUMENT_TEMPLATES = [
     modo: "termo-ciencia-seguranca",
     titulo: "Termo de Ciência, Autorização e Confirmação de Segurança",
     identidadeVisual: true,
+    templateDocx: "/modelos/termo-ciencia-autorizacao-seguranca.docx",
     localAssinatura: "São Paulo/SP",
     campos: [
       {
@@ -932,6 +978,7 @@ export const DOCUMENT_TEMPLATES = [
     modo: "declaracao-ausencia-carteira-trabalho",
     titulo: "Declaração de Ausência de Carteira de Trabalho",
     identidadeVisual: true,
+    templateDocx: "/modelos/declaracao-ausencia-carteira-trabalho.docx",
     campos: [
       {
         nome: "nomeCliente",
@@ -967,6 +1014,7 @@ export const DOCUMENT_TEMPLATES = [
     modo: "certidao-diligencia",
     titulo: "Certidão de Diligência e Contato Profissional",
     identidadeVisual: true,
+    revisaoWordPendente: "O DOCX solicita instituição financeira e nome do consultor, mas esses campos não existem no formulário; a vara também aparece como texto fixo.",
     campos: [
       { nome: "nomeCliente", rotulo: "Nome completo do cliente", obrigatorio: true, largura: "total" },
       campoGenero,
@@ -987,6 +1035,7 @@ export const DOCUMENT_TEMPLATES = [
     modo: "recibo-prestacao-servicos",
     titulo: "Recibo de Prestação de Serviços",
     identidadeVisual: true,
+    templateDocx: "/modelos/recibo-prestacao-servicos.docx",
     campos: [
       { nome: "nomeCliente", rotulo: "Nome completo do cliente", obrigatorio: true, largura: "total" },
       { nome: "cpfCnpj", rotulo: "CPF", obrigatorio: true },
@@ -1007,6 +1056,7 @@ export const DOCUMENT_TEMPLATES = [
     modo: "relatorio-negociacao-homologacao",
     titulo: "Relatório de Negociação e Acordo / Homologação",
     identidadeVisual: true,
+    revisaoWordPendente: "O DOCX contém quatro opções de manifestação com caixas [   ], mas o formulário atual possui um único campo livre. É necessária a definição de como marcar as opções.",
     campos: [
       { nome: "nomeCliente", rotulo: "Nome completo do cliente", obrigatorio: true, largura: "total" },
       { nome: "cpfCnpj", rotulo: "CPF", obrigatorio: true },
@@ -1035,6 +1085,7 @@ export const DOCUMENT_TEMPLATES = [
     titulo: "Relatório de Atualização Processual",
     identidadeVisual: true,
     formato: "pdf",
+    revisaoWordPendente: "Não foi localizado um DOCX original utilizável; existe apenas um arquivo temporário de bloqueio do Word.",
     campos: [
       { nome: "numeroProcesso", rotulo: "Número do processo", obrigatorio: true },
       { nome: "dataDistribuicao", rotulo: "Data de distribuição", tipo: "date" },
@@ -1066,9 +1117,11 @@ export const DOCUMENT_TEMPLATES = [
     modo: "termo-recompra",
     titulo: "Termo de Recompra / Repagamento",
     identidadeVisual: true,
+    templateDocx: "/modelos/termo-recompra.docx",
     campos: [
       { nome: "nomeCliente", rotulo: "Nome completo do cliente", obrigatorio: true, largura: "total" },
       { nome: "cpfCnpj", rotulo: "CPF", obrigatorio: true },
+      campoGenero,
       { nome: "valorRecompra", rotulo: "Valor da recompra", obrigatorio: true },
       { nome: "valorRecompraExtenso", rotulo: "Valor por extenso", obrigatorio: true, largura: "total" },
       { nome: "modalidade", rotulo: "Modalidade de pagamento", obrigatorio: true },

@@ -7,6 +7,7 @@ import {
   erroCampo,
   filtrarModelos,
   enderecoCompletoComCep,
+  listarConflitosFixos,
   normalizarNomeArquivo,
   rascunhoValido,
   sugerirNomeDocumento,
@@ -17,6 +18,49 @@ const modelos = enriquecerModelos(DOCUMENT_TEMPLATES);
 test("organiza todos os modelos na biblioteca jurídica", () => {
   assert.equal(modelos.length, DOCUMENT_TEMPLATES.length);
   assert.ok(modelos.every((modelo) => modelo.categoria && modelo.categoriaNome));
+});
+
+test("todos os modelos são entregues em PDF", () => {
+  assert.ok(modelos.every((modelo) => modelo.formato !== "docx"));
+});
+
+test("o conjunto da procuração usa cada modelo oficial correto", () => {
+  assert.equal(
+    modelos.find((modelo) => modelo.modo === "procuracao").templateDocx,
+    "/modelos/procuracoes/procuracao-ad-judicia-2026.docx",
+  );
+  assert.equal(
+    modelos.find((modelo) => modelo.modo === "declaracao-hipossuficiencia").templateDocx,
+    "/modelos/declaracoes/declaracao-hipossuficiencia-2026.docx",
+  );
+  assert.equal(
+    modelos.find((modelo) => modelo.modo === "declaracao-isencao-irpf").templateDocx,
+    "/modelos/declaracoes/declaracao-isencao-irpf-2026.docx",
+  );
+  assert.equal(
+    modelos.find((modelo) => modelo.modo === "requerimento-postergacao-parcela").templateDocx,
+    "/modelos/requerimentos/requerimento-postergacao-parcela-2026.docx",
+  );
+});
+
+test("bloqueia dados que contradizem textos fixos dos modelos oficiais", () => {
+  const requerimento = modelos.find((modelo) => modelo.modo === "requerimento-postergacao-parcela");
+  assert.equal(listarConflitosFixos(requerimento, {
+    numeroParcela: "10",
+    dataVencimento: "2027-01-10",
+    dataDocumento: "2026-10-04",
+  }).length, 1);
+  assert.equal(listarConflitosFixos(requerimento, {
+    numeroParcela: "10",
+    dataVencimento: "2026-01-10",
+    dataDocumento: "2026-10-04",
+  }).length, 0);
+
+  const irpf = modelos.find((modelo) => modelo.modo === "declaracao-isencao-irpf");
+  assert.equal(listarConflitosFixos(irpf, {
+    exercicios: "2023, 2024 e 2025",
+    dataDocumento: "2025-10-04",
+  }).length, 0);
 });
 
 test("filtra modelos por finalidade sem depender de acentos", () => {

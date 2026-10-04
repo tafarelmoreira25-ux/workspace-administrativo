@@ -92,6 +92,14 @@ const MODEL_META = {
     descricao: "Declara a isenção de apresentação da DIRPF nos exercícios informados.",
     minutos: 3,
   },
+  "requerimento-postergacao-parcela": {
+    nome: "Requerimento de Postergação de Parcela",
+    categoria: "outros",
+    descricao: "Requerimento e termo de garantia para postergação de obrigação financeira.",
+    minutos: 7,
+    selo: "Novo",
+    novo: true,
+  },
   "declaracao-ausencia-carteira-trabalho": {
     nome: "Declaração de Ausência de Carteira de Trabalho",
     categoria: "declaracoes",
@@ -321,6 +329,49 @@ export function erroCampo(campo, valor) {
   if (campo.tipo === "email" && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(texto)) return "Informe um endereço de e-mail válido.";
   if (campo.nome === "uf" && texto.length !== 2) return "Informe a UF com duas letras.";
   return "";
+}
+
+function normalizarComparacaoFixa(valor) {
+  return String(valor ?? "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/\s+/g, " ")
+    .trim()
+    .toLowerCase();
+}
+
+function numeroComparavel(valor) {
+  const numero = String(valor ?? "").replace(/\D/g, "");
+  return numero ? String(Number(numero)) : "";
+}
+
+export function listarConflitosFixos(modelo, dados = {}) {
+  return (modelo?.conflitosFixos || []).flatMap((regra) => {
+    const informado = dados[regra.campo];
+    if (informado === undefined || informado === null || String(informado).trim() === "") return [];
+
+    let atual;
+    let esperado;
+    if (regra.tipo === "ano") {
+      atual = String(informado).slice(0, 4);
+      esperado = String(regra.esperado);
+    } else if (regra.tipo === "numero") {
+      atual = numeroComparavel(informado);
+      esperado = numeroComparavel(regra.esperado);
+    } else {
+      atual = normalizarComparacaoFixa(informado);
+      esperado = normalizarComparacaoFixa(regra.esperado);
+    }
+
+    if (atual === esperado) return [];
+    return [{
+      ...regra,
+      modeloId: modelo.id,
+      modeloNome: modelo.nome,
+      informado: String(informado),
+      mensagem: `${regra.trecho} O campo informado é “${informado}”; o PDF foi bloqueado para evitar contradição.`,
+    }];
+  });
 }
 
 export function formatarDataArquivo(dataIso) {

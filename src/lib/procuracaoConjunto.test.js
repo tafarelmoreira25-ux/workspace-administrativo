@@ -10,7 +10,8 @@ test("marca as duas declarações por padrão", () => {
   assert.deepEqual(criarOpcoesIniciaisProcuracao("2026-08-16"), {
     gerarHipossuficiencia: true,
     gerarIsencaoIrpf: true,
-    exercicios: "2024, 2025 e 2026",
+    exercicios: "2023, 2024 e 2025",
+    dataDocumentoIrpf: "",
   });
 });
 
@@ -37,6 +38,6 @@ test("inclui somente as declarações selecionadas", () => {
 test("informa a quantidade de arquivos gerados", () => {
   assert.equal(
     mensagemConjuntoGerado(["procuracao", "hipossuficiencia", "isencao-irpf"]),
-    "3 documentos do conjunto da Procuração gerados em arquivos Word separados!",
+    "3 documentos do conjunto da Procuração gerados em arquivos PDF separados!",
   );
 });
