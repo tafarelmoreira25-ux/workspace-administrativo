@@ -456,7 +456,7 @@ export default function CarteiraProcessual({ showToast, usuario, processoInicial
           <thead><tr><th>Nome do Cliente</th><th>Protocolo</th><th>Número do Processo</th><th>Status</th><th>Ações</th></tr></thead>
           <tbody>{carregando && !registros.length ? <tr><td colSpan={5}><div className="empty-row">Carregando processos...</div></td></tr> : !registros.length ? <tr><td colSpan={5}><div className="empty-row">Nenhum processo judicial encontrado.</div></td></tr> : registros.map((item) => <tr key={item.id} className="cliente-directory-row">
             <td><strong>{item.nome_cliente || "Não informado"}</strong></td>
-            <td>{item.protocolo_extrajudicial || "Não informado"}</td>
+            <td>{item.numero_processo || "Não informado"}</td>
             <td>{item.numero_processo || "Não informado"}</td>
             <td><span className={"table-chip extrajudicial-status-" + corStatusExtrajudicial(item.situacao || "Em andamento")}>{item.situacao || "Em andamento"}</span></td>
             <td><div className="table-actions"><button type="button" className="btn-secondary compact" disabled={abrindoProcesso !== null} aria-label={"Abrir acompanhamento de " + item.nome_cliente} onClick={() => void abrirProcesso(item)}>Abrir acompanhamento</button></div></td>
