@@ -157,7 +157,7 @@ function ambienteTela(code, componente, props, armazenados = new Map()) {
     FormSection: 'FormSection', FormField: 'FormField', FormGrid: 'FormGrid', Input: 'Input', Select: 'Select', Textarea: 'Textarea',
     navigator: { onLine: true }, useRef: value => ({ current: value }),
     pendenciaModeloOriginal: () => '', listarDocumentosProcuracao: () => [], criarOpcoesIniciaisProcuracao: () => ({}),
-    ModelLibraryModal: 'ModelLibraryModal', Suspense: 'Suspense',
+    ModelLibraryModal: 'ModelLibraryModal', DocumentCategoryIcon: 'DocumentCategoryIcon', DocumentModelIcon: 'DocumentModelIcon', Suspense: 'Suspense',
     window: { ...alvoEventos(), localStorage: { getItem: () => null }, setTimeout() {}, clearTimeout() {}, confirm: () => true },
     localStorage: { getItem: key => armazenados.get(key), setItem: (key, value) => armazenados.set(key, value), removeItem: key => armazenados.delete(key) },
     useState(initial) {
@@ -189,10 +189,17 @@ function elementos(node) {
   return [node, ...elementos(node.children)];
 }
 
-test('gerador abre direto no formulário sem restaurar o rascunho nem gerar PDF', () => {
+test('gerador exige categoria e documento antes do formulario', () => {
   const modelo = documentWorkspace.enriquecerModelos(DOCUMENT_TEMPLATES)[1];
   const storage = new Map([[documentWorkspace.DOCUMENT_DRAFT_KEY, JSON.stringify({ schema: 2, salvoEm: new Date().toISOString(), dados: { modeloId: modelo.id, nomeContratante: 'Rascunho' } })], [documentWorkspace.DOCUMENT_HISTORY_KEY, '[{}]']]);
-  const entrada = ambienteTela(generatorCode, 'GeradorDocumentos', { usuario: {} }, storage).render().tree;
+  const selecao = ambienteTela(generatorCode, 'GeradorDocumentos', { usuario: {} }, storage);
+  let nodesSelecao = elementos(selecao.render().tree);
+  assert.ok(!nodesSelecao.some(node => node.type?.name === 'EditorDocumento'));
+  nodesSelecao.find(node => node.type === 'button' && elementos(node).some(child => child.type === 'strong' && child.children.includes('Distratos'))).props.onClick();
+  nodesSelecao = elementos(selecao.render().tree);
+  assert.ok(!nodesSelecao.some(node => node.type?.name === 'EditorDocumento'));
+  nodesSelecao.find(node => node.type === 'button' && elementos(node).some(child => child.type === 'strong' && child.children.includes(modelo.nome))).props.onClick();
+  const entrada = selecao.render().tree;
   assert.equal(entrada.type.name, 'EditorDocumento');
   const env = ambienteTela(generatorCode, 'EditorDocumento', entrada.props, storage);
   let pdfCalls = 0;
@@ -212,19 +219,31 @@ test('gerador abre direto no formulário sem restaurar o rascunho nem gerar PDF'
   assert.equal(storage.has(documentWorkspace.DOCUMENT_DRAFT_KEY), true);
 });
 
-test('o rascunho só é restaurado por escolha explícita e rascunhos vencidos são descartados', () => {
+test('nao exibe acoes de rascunho e descarta rascunhos vencidos', () => {
   const modelo = documentWorkspace.enriquecerModelos(DOCUMENT_TEMPLATES)[1];
   const chave = documentWorkspace.DOCUMENT_DRAFT_KEY;
-  const storage = new Map([[chave, JSON.stringify({ schema: 2, salvoEm: new Date().toISOString(), dados: { modeloId: modelo.id, nomeContratante: 'Cliente de teste' } })]]);
-  const env = ambienteTela(generatorCode, 'EditorDocumento', { modeloInicial: modelo }, storage);
-  const retomar = elementos(env.render().tree).find(node => node.type === 'button' && node.children.includes('Retomar rascunho'));
-  retomar.props.onClick();
-  const restored = elementos(env.render().tree).find(node => node.type?.name === 'CampoDocumento' && node.props.campo.nome === 'nomeContratante');
-  assert.equal(restored.props.valor, 'Cliente de teste');
-  storage.set(chave, JSON.stringify({ schema: 2, salvoEm: '2020-01-01', dados: { modeloId: modelo.id } }));
-  const nova = ambienteTela(generatorCode, 'EditorDocumento', { modeloInicial: modelo }, storage);
-  nova.render().effects.forEach(fn => fn());
+  const storage = new Map([[chave, JSON.stringify({ schema: 2, salvoEm: '2020-01-01', dados: { modeloId: modelo.id } })]]);
+  const env = ambienteTela(generatorCode, 'EditorDocumento', { modeloInicial: modelo, modelosDaCategoria: [modelo] }, storage);
+  const { tree, effects } = env.render();
+  assert.ok(!elementos(tree).some(node => node.type === 'button' && node.children.some(text => /Salvar rascunho|Retomar rascunho/.test(text))));
+  effects.forEach(fn => fn());
   assert.equal(storage.has(chave), false);
+});
+
+test('kit inicial reune exatamente os tres documentos solicitados', () => {
+  const env = ambienteTela(generatorCode, 'GeradorDocumentos', {});
+  const kit = elementos(env.render().tree).find(node => node.type === 'button' && elementos(node).some(child => child.type === 'strong' && child.children.includes('Kit Processual Inicial')));
+  kit.props.onClick();
+  const nomes = elementos(env.render().tree).filter(node => node.type === 'strong').map(node => node.children[0]);
+  assert.deepEqual(nomes.sort(), ['Procuração Ad Judicia', 'Declaração de Hipossuficiência', 'Declaração de Isenção de Imposto de Renda'].sort());
+});
+
+test('renomear modelo fica disponivel apenas para Tafarel ou administrador', () => {
+  const modelo = documentWorkspace.enriquecerModelos(DOCUMENT_TEMPLATES)[0];
+  for (const [usuario, permitido] of [[{ nome: 'Tafarel', tipo: 'funcionaria' }, true], [{ nome: 'Outro', tipo: 'admin' }, true], [{ nome: 'Outro', role: 'admin' }, true], [{ nome: 'Outro', tipo: 'funcionaria' }, false], [undefined, false]]) {
+    const env = ambienteTela(generatorCode, 'EditorDocumento', { usuario, modeloInicial: modelo, modelosDaCategoria: [modelo] });
+    assert.equal(elementos(env.render().tree).some(node => node.type === 'button' && node.children.includes('Renomear modelo')), permitido);
+  }
 });
 
 test('navegar substitui a tela anterior e voltar ao gerador não conserva o editor', () => {

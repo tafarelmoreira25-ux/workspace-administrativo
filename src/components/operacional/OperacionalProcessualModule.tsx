@@ -48,12 +48,12 @@ const TIPOS_TAREFA = ["Contato cliente", "Revisar processo", "Verificar protocol
 const PRIORIDADES = ["Baixa", "Normal", "Alta", "Crítica"];
 const STATUS_TAREFA = ["Pendente", "Em andamento", "Concluída", "Cancelada", "Atrasada"];
 const CANAIS = ["WhatsApp", "Telefone", "E-mail", "Reunião", "Presencial", "Outro"];
-const EVENTOS = ["Tarefa", "Prazo", "Reunião", "Audiência", "Revisão", "Contato"];
-const VISAO_AGENDA = ["Hoje", "Semana", "Mês", "Lista"];
-
-function hojeInput() {
-  return new Date().toISOString().slice(0, 10);
-}
+type Ocorrencia = { id: string; categoria: string; data: string; prazo: string | null; descricao: string; cliente_nome: string | null; responsavel: string | null; resolvido: boolean };
+const TIPOS_EVENTO = ["Tarefa", "Prazo judicial", "Reunião", "Audiência", "Atendimento", "Ocorrência"];
+function dataLocal(d: Date) { return [d.getFullYear(), String(d.getMonth()+1).padStart(2,"0"), String(d.getDate()).padStart(2,"0")].join("-"); }
+function hojeInput() { return dataLocal(new Date()); }
+function aberta(t: Tarefa) { return !["Concluída", "Cancelada"].includes(t.status); }
+function tipoEvento(t: Tarefa) { return t.tipo === "Prazo processual" ? "Prazo judicial" : ["Reunião", "Audiência"].includes(t.tipo) ? t.tipo : "Tarefa"; }
 
 function horaInput() {
   return new Date().toTimeString().slice(0, 5);
@@ -71,11 +71,6 @@ function normalizar(valor = "") {
 function formatarData(data?: string | null) {
   if (!data) return "—";
   return new Intl.DateTimeFormat("pt-BR").format(new Date(`${data}T00:00:00`));
-}
-
-function formatarDataHora(data?: string | null, hora?: string | null) {
-  if (!data) return "—";
-  return `${formatarData(data)}${hora ? `, ${hora}` : ""}`;
 }
 
 function criarTarefaForm(usuario?: Usuario) {
@@ -109,33 +104,12 @@ function criarAtendimentoForm(usuario?: Usuario) {
   };
 }
 
-function inicioDaSemana(data: Date) {
-  const base = new Date(data);
-  const dia = base.getDay();
-  base.setDate(base.getDate() - (dia === 0 ? 6 : dia - 1));
-  base.setHours(0, 0, 0, 0);
-  return base;
-}
-
-function estaNoPeriodo(data: string, visao: string) {
-  const alvo = new Date(`${data}T00:00:00`);
-  const hoje = new Date();
-  alvo.setHours(0, 0, 0, 0);
-  hoje.setHours(0, 0, 0, 0);
-  if (visao === "Lista") return true;
-  if (visao === "Hoje") return alvo.getTime() === hoje.getTime();
-  if (visao === "Semana") {
-    const inicio = inicioDaSemana(hoje);
-    const fim = new Date(inicio);
-    fim.setDate(fim.getDate() + 6);
-    return alvo >= inicio && alvo <= fim;
-  }
-  return alvo.getMonth() === hoje.getMonth() && alvo.getFullYear() === hoje.getFullYear();
-}
-
 export default function OperacionalProcessualModule({ usuario, showToast, initialView = "agenda", alerta, onLimparAlerta }: Props) {
-  const [view, setView] = useState<View>(initialView);
-  const [agendaView, setAgendaView] = useState(alerta ? "Lista" : "Hoje");
+  const [formAberto, setFormAberto] = useState<View | null>(initialView === "agenda" ? null : initialView);
+  const [tipoFiltro, setTipoFiltro] = useState("");
+  const [diaFiltro, setDiaFiltro] = useState("");
+  const [mes, setMes] = useState(() => hojeInput().slice(0,7));
+  const [ocorrencias, setOcorrencias] = useState<Ocorrencia[]>([]);
   const [tarefas, setTarefas] = useState<Tarefa[]>([]);
   const [atendimentos, setAtendimentos] = useState<Atendimento[]>([]);
   const [processos, setProcessos] = useState<ProcessoOpcao[]>([]);
@@ -154,23 +128,24 @@ export default function OperacionalProcessualModule({ usuario, showToast, initia
   const carregarDados = useCallback(async (signal = new AbortController().signal) => {
     setCarregando(true);
     setErro("");
-    const [tarefasReq, atendimentosReq, processosReq] = await Promise.allSettled([
-      supabase.from("processual_tarefas").select("*").order("data", { ascending: true }).order("horario", { ascending: true }).abortSignal(signal),
-      supabase.from("processual_atendimentos").select("*").order("data", { ascending: false }).order("hora", { ascending: false }).abortSignal(signal),
+    const [agendaReq, processosReq] = await Promise.allSettled([
+      supabase.rpc("agenda_atividades_consolidada").abortSignal(signal),
       supabase.from("processos").select("id, nome_cliente, cpf_cliente, numero_processo, banco_reu, cliente_id").order("updated_at", { ascending: false }).limit(500).abortSignal(signal),
     ]);
     if (signal.aborted) return;
 
-    if (tarefasReq.status === "fulfilled" && !tarefasReq.value.error) setTarefas((tarefasReq.value.data || []) as Tarefa[]);
-    else setErro("Execute a migration da Etapa 7 para ativar tarefas, agenda e atendimentos.");
-
-    if (atendimentosReq.status === "fulfilled" && !atendimentosReq.value.error) setAtendimentos((atendimentosReq.value.data || []) as Atendimento[]);
+    if (agendaReq.status === "fulfilled" && !agendaReq.value.error) {
+      const registros = agendaReq.value.data || [];
+      setTarefas(registros.filter((r: any) => r.origem === "tarefa").map((r: any) => r.registro));
+      setAtendimentos(registros.filter((r: any) => r.origem === "atendimento").map((r: any) => r.registro));
+      setOcorrencias(registros.filter((r: any) => r.origem === "ocorrencia").map((r: any) => r.registro));
+    } else setErro("Não foi possível carregar a agenda. Verifique a conexão e aplique a migration agenda_atividades_consolidada.sql.");
     if (processosReq.status === "fulfilled" && !processosReq.value.error) setProcessos((processosReq.value.data || []) as ProcessoOpcao[]);
     setCarregando(false);
   }, []);
 
   useEffect(() => { const controller = new AbortController(); void carregarDados(controller.signal); return () => controller.abort(); }, [carregarDados]);
-  useEffect(() => { setPaginaLista(1); }, [busca, view, agendaView]);
+  useEffect(() => { setPaginaLista(1); }, [busca, tipoFiltro, diaFiltro, alerta]);
 
   const processosFiltrados = useMemo(() => {
     const termo = normalizar(tarefaForm.cliente || atendimentoForm.cliente);
@@ -183,26 +158,20 @@ export default function OperacionalProcessualModule({ usuario, showToast, initia
     return tarefas.filter((tarefa) => (!alerta || alerta.ids.includes(tarefa.id)) && (!termo || normalizar(`${tarefa.titulo} ${tarefa.cliente_nome || ""} ${tarefa.processo_numero || ""} ${tarefa.responsavel || ""} ${tarefa.tipo}`).includes(termo)));
   }, [alerta, busca, tarefas]);
 
-  const atendimentosFiltrados = useMemo(() => {
-    const termo = normalizar(busca);
-    return atendimentos.filter((atendimento) => !termo || normalizar(`${atendimento.cliente_nome} ${atendimento.processo_numero || ""} ${atendimento.canal} ${atendimento.tipo || ""} ${atendimento.descricao}`).includes(termo));
-  }, [atendimentos, busca]);
-
-  const eventosAgenda = useMemo(() => {
-    return tarefasFiltradas
-      .filter((tarefa) => estaNoPeriodo(tarefa.data, agendaView))
-      .map((tarefa) => ({
-        id: tarefa.id,
-        tipo: tarefa.tipo === "Prazo processual" ? "Prazo" : tarefa.tipo === "Audiência" ? "Audiência" : tarefa.tipo === "Reunião" ? "Reunião" : tarefa.tipo === "Contato cliente" ? "Contato" : "Tarefa",
-        titulo: tarefa.titulo,
-        cliente: tarefa.cliente_nome,
-        data: tarefa.data,
-        hora: tarefa.horario,
-        status: tarefa.status,
-        prioridade: tarefa.prioridade,
-        responsavel: tarefa.responsavel,
-      }));
-  }, [agendaView, tarefasFiltradas]);
+  const hoje = hojeInput();
+  const atrasadas = tarefasFiltradas.filter((t) => aberta(t) && (t.data < hoje || t.status === "Atrasada"));
+  const recentes = ocorrencias.filter((o) => !alerta && normalizar(o.categoria + " " + (o.cliente_nome || "") + " " + o.descricao).includes(normalizar(busca))).sort((a,b) => b.data.localeCompare(a.data));
+  const todosEventos = [
+    ...tarefasFiltradas.filter(aberta).map((t) => ({ chave: "tarefa-"+t.id, tipo: tipoEvento(t), titulo: t.titulo, data: t.data, hora: t.horario, cliente: t.cliente_nome, descricao: t.descricao, responsavel: t.responsavel, tarefa: t })),
+    ...atendimentos.filter((a) => !alerta && normalizar([a.cliente_nome,a.processo_numero,a.descricao,a.responsavel,a.tipo,a.canal].join(" ")).includes(normalizar(busca))).map((a) => ({ chave: "atendimento-"+a.id, tipo: "Atendimento", titulo: a.tipo || a.canal, data: a.data, hora: a.hora, cliente: a.cliente_nome, descricao: a.descricao, responsavel: a.responsavel, tarefa: null })),
+    ...recentes.filter((o) => !o.resolvido).map((o) => ({ chave: "ocorrencia-"+o.id, tipo: "Ocorrência", titulo: o.categoria, data: o.prazo || o.data, hora: null, cliente: o.cliente_nome, descricao: o.descricao, responsavel: o.responsavel, tarefa: null })),
+  ];
+  const eventos = todosEventos.filter((e) => (!tipoFiltro || e.tipo === tipoFiltro) && (diaFiltro ? e.data === diaFiltro : alerta || e.data >= hoje)).sort((a,b) => (a.data+" "+(a.hora || "99:99")).localeCompare(b.data+" "+(b.hora || "99:99")) || a.chave.localeCompare(b.chave));
+  const paginaEventos = eventos.slice((paginaLista-1)*30,paginaLista*30);
+  const dias = [...new Set(paginaEventos.map((e) => e.data))];
+  const amanha = new Date(hoje+"T12:00:00"); amanha.setDate(amanha.getDate()+1);
+  const fimSemana = new Date(hoje+"T12:00:00"); fimSemana.setDate(fimSemana.getDate()+((7-fimSemana.getDay())%7));
+  function tituloDia(d: string) { return d === hoje ? "Hoje" : d === dataLocal(amanha) ? "Amanhã" : d > hoje && d <= dataLocal(fimSemana) ? "Esta semana · "+formatarData(d) : formatarData(d); }
 
   function processoSelecionado(id: string) {
     return processos.find((processo) => String(processo.id) === String(id));
@@ -245,6 +214,8 @@ export default function OperacionalProcessualModule({ usuario, showToast, initia
     setTarefas((atuais) => [...atuais, data as Tarefa]);
     if (processo?.id) await supabase.from("movimentacoes").insert({ processo_id: processo.id, categoria: "Tarefa", titulo: tarefaForm.titulo.trim(), descricao: tarefaForm.descricao.trim() || tarefaForm.titulo.trim(), descricao_tecnica: tarefaForm.descricao.trim() || tarefaForm.titulo.trim(), responsavel: tarefaForm.responsavel || usuario.nome || null, fonte: "Manual", importancia: tarefaForm.prioridade === "Crítica" ? "Crítico" : tarefaForm.prioridade === "Alta" ? "Relevante" : "Normal", origem: "manual", created_by_nome: usuario.nome || usuario.email || null });
     setTarefaForm(criarTarefaForm(usuario));
+    invalidarConsultas();
+    setFormAberto(null);
     avisar("Tarefa criada.");
   }
 
@@ -254,9 +225,10 @@ export default function OperacionalProcessualModule({ usuario, showToast, initia
       avisar("Não foi possível atualizar a tarefa.");
       return;
     }
+    invalidarConsultas();
     setTarefas((atuais) => atuais.map((item) => item.id === tarefa.id ? data as Tarefa : item));
     if (status === "Concluída" && window.confirm("Tarefa concluída. Registrar atendimento agora?")) {
-      setView("atendimentos");
+      setFormAberto("atendimentos");
       setAtendimentoForm((form) => ({ ...form, cliente: tarefa.cliente_nome || "", processo_id: tarefa.processo_id || "", descricao: `Atendimento relacionado à tarefa: ${tarefa.titulo}`, responsavel: tarefa.responsavel || usuario.nome || "" }));
     }
   }
@@ -315,6 +287,8 @@ export default function OperacionalProcessualModule({ usuario, showToast, initia
     }
     setAtendimentos((atuais) => [data as Atendimento, ...atuais]);
     setAtendimentoForm(criarAtendimentoForm(usuario));
+    invalidarConsultas();
+    setFormAberto(null);
     avisar("Atendimento registrado permanentemente.");
   }
 
@@ -326,50 +300,26 @@ export default function OperacionalProcessualModule({ usuario, showToast, initia
           <h2>Agenda e Atividades</h2>
           <p>Controle de tarefas, compromissos, prazos e contatos vinculados a clientes e processos.</p>
         </div>
-        <div className="operacional-tabs">
-          <button className={view === "tarefas" ? "active" : ""} onClick={() => setView("tarefas")} type="button">Tarefas</button>
-          <button className={view === "agenda" ? "active" : ""} onClick={() => setView("agenda")} type="button">Agenda</button>
-          <button className={view === "atendimentos" ? "active" : ""} onClick={() => setView("atendimentos")} type="button">Atendimentos</button>
-          <button className={view === "ocorrencias" ? "active" : ""} onClick={() => setView("ocorrencias")} type="button">Ocorrências</button>
-        </div>
+        <div className="agenda-actions"><button className="btn-primary" type="button" onClick={() => setFormAberto("tarefas")}>Nova atividade</button><button className="btn-secondary" type="button" onClick={() => setFormAberto("atendimentos")}>Registrar atendimento</button></div>
       </header>
 
       {alerta ? <div className="dashboard-filtro-ativo"><span>{alerta.titulo}</span><button type="button" onClick={() => { setPaginaLista(1); onLimparAlerta?.(); }}>Mostrar todos</button></div> : null}
       <div className="operacional-toolbar">
         <Input type="search" value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar cliente, processo, responsável ou tipo..." />
+        <Select aria-label="Filtrar por tipo" value={tipoFiltro} onChange={(e) => setTipoFiltro(e.target.value)}><option value="">Todos os tipos</option>{TIPOS_EVENTO.map((t) => <option key={t}>{t}</option>)}</Select>
         <button className="btn-secondary" onClick={() => { invalidarConsultas(); void carregarDados(); }} type="button">Atualizar</button>
       </div>
 
       {erro ? <div className="empty-row">{erro}</div> : null}
       {carregando ? <div className="panel">Carregando registros...</div> : null}
 
-      {!carregando && view === "tarefas" ? (
-        <div className="operacional-grid">
-          <FormularioTarefa form={tarefaForm} setForm={setTarefaForm} processos={processosFiltrados} onSubmit={salvarTarefa} salvando={salvando} />
-          <ListaTarefas tarefas={tarefasFiltradas.slice((paginaLista - 1) * 30, paginaLista * 30)} onStatus={atualizarStatusTarefa} />
-          <Pagination pagina={paginaLista} total={tarefasFiltradas.length} tamanho={30} onChange={setPaginaLista} rotulo="atividades" />
-        </div>
-      ) : null}
-
-      {!carregando && view === "agenda" ? (
-        <section className="operacional-card">
-          <div className="agenda-tabs">{VISAO_AGENDA.map((item) => <button key={item} type="button" className={agendaView === item ? "active" : ""} onClick={() => setAgendaView(item)}>{item}</button>)}</div>
-          <div className="event-type-row">{EVENTOS.map((item) => <span key={item}>{item}</span>)}</div>
-          <div className="agenda-list">
-            {eventosAgenda.length === 0 ? <div className="empty-row">Nenhum evento encontrado para esta visão.</div> : eventosAgenda.slice((paginaLista - 1) * 30, paginaLista * 30).map((evento) => <article key={evento.id}><strong>{evento.titulo}</strong><span>{evento.tipo} · {evento.cliente || "Cliente não informado"}</span><small>{formatarDataHora(evento.data, evento.hora)} · {evento.status} · {evento.responsavel || "Sem responsável"}</small></article>)}
-          </div>
-          <Pagination pagina={paginaLista} total={eventosAgenda.length} tamanho={30} onChange={setPaginaLista} rotulo="eventos" />
-        </section>
-      ) : null}
-
-      {!carregando && view === "atendimentos" ? (
-        <div className="operacional-grid">
-          <FormularioAtendimento form={atendimentoForm} setForm={setAtendimentoForm} processos={processosFiltrados} onSubmit={salvarAtendimento} salvando={salvando} />
-          <ListaAtendimentos atendimentos={atendimentosFiltrados.slice((paginaLista - 1) * 30, paginaLista * 30)} />
-          <Pagination pagina={paginaLista} total={atendimentosFiltrados.length} tamanho={30} onChange={setPaginaLista} rotulo="atendimentos" />
-        </div>
-      ) : null}
-      {!carregando && view === "ocorrencias" ? <GerencialProcessualModule usuario={usuario} showToast={showToast} initialView="ocorrencias" /> : null}
+      {formAberto ? <section className="agenda-editor"><div className="agenda-section-heading"><h3>{formAberto === "ocorrencias" ? "Gerenciar ocorrências" : "Nova atividade"}</h3><button className="btn-secondary" type="button" onClick={() => { setFormAberto(null); if(formAberto === "ocorrencias") { invalidarConsultas(); void carregarDados(); } }}>Fechar</button></div>{formAberto === "tarefas" ? <FormularioTarefa form={tarefaForm} setForm={setTarefaForm} processos={processosFiltrados} onSubmit={salvarTarefa} salvando={salvando} /> : formAberto === "atendimentos" ? <FormularioAtendimento form={atendimentoForm} setForm={setAtendimentoForm} processos={processosFiltrados} onSubmit={salvarAtendimento} salvando={salvando} /> : <GerencialProcessualModule usuario={usuario} showToast={showToast} initialView="ocorrencias" />}</section> : null}
+      {!carregando && !erro ? <div className="agenda-dashboard"><section className="operacional-card agenda-timeline"><div className="agenda-section-heading"><div><h3>Próximos Compromissos e Prazos</h3><p>{eventos.length} atividade(s){diaFiltro ? " em "+formatarData(diaFiltro) : " a partir de hoje"}</p></div>{diaFiltro ? <button className="btn-secondary" type="button" onClick={() => setDiaFiltro("")}>Todos os dias</button> : null}</div>
+      {dias.length === 0 ? <div className="empty-row">Nenhum compromisso para os filtros selecionados.</div> : dias.map((d) => <section className="agenda-day" key={d}><h4>{tituloDia(d)} <small>{d === hoje || d === dataLocal(amanha) ? formatarData(d) : ""}</small></h4>{paginaEventos.filter((e) => e.data === d).map((e) => <article className="agenda-event" key={e.chave}><time>{e.hora?.slice(0,5) || "Sem horário"}</time><div><span className={"agenda-badge badge-"+TIPOS_EVENTO.indexOf(e.tipo)}>{e.tipo}</span><strong>{e.titulo}</strong><p>{e.cliente || "Sem cliente vinculado"}{e.tarefa?.processo_numero ? " · "+e.tarefa.processo_numero : ""}</p>{e.descricao ? <p>{e.descricao}</p> : null}<small>{e.responsavel || "Sem responsável"}</small></div>{e.tarefa ? <Select aria-label={"Status de "+e.titulo} value={e.tarefa.status} onChange={(ev) => void atualizarStatusTarefa(e.tarefa!,ev.target.value)}>{STATUS_TAREFA.map((st) => <option key={st}>{st}</option>)}</Select> : null}</article>)}</section>)}
+      <Pagination pagina={paginaLista} total={eventos.length} tamanho={30} onChange={setPaginaLista} rotulo="atividades" /></section>
+      <aside className="agenda-summary" aria-label="Resumo de ação"><h3>Resumo de Ação</h3><section className="operacional-card agenda-overdue"><h3>Tarefas Atrasadas <span>{atrasadas.length}</span></h3>{atrasadas.length === 0 ? <p>Nenhuma tarefa atrasada.</p> : atrasadas.map((t) => <article key={t.id}><strong>{t.titulo}</strong><small>{formatarData(t.data)} · {t.cliente_nome || "Sem cliente"}</small><Select aria-label={"Status de "+t.titulo} value={t.status} onChange={(e) => void atualizarStatusTarefa(t,e.target.value)}>{STATUS_TAREFA.map((st) => <option key={st}>{st}</option>)}</Select></article>)}</section>
+      <MiniCalendario mes={mes} onMes={setMes} dia={diaFiltro} onDia={setDiaFiltro} hoje={hoje} datas={new Set(todosEventos.map((e) => e.data))} />
+      <section className="operacional-card agenda-recent"><div className="agenda-section-heading"><h3>Ocorrências Recentes</h3><button className="btn-secondary" type="button" onClick={() => setFormAberto("ocorrencias")}>Gerenciar</button></div>{recentes.length === 0 ? <p>Nenhuma ocorrência encontrada.</p> : recentes.slice(0,5).map((o) => <article key={o.id}><span className="agenda-badge badge-5">{o.resolvido ? "Resolvida" : "Em aberto"}</span><strong>{o.categoria}</strong><p>{o.descricao}</p><small>{formatarData(o.data)} · {o.cliente_nome || "Sem cliente"}</small></article>)}</section></aside></div> : null}
     </section>
   );
 }
@@ -404,10 +354,9 @@ function FormularioAtendimento({ form, setForm, processos, onSubmit, salvando }:
   </FormSection>;
 }
 
-function ListaTarefas({ tarefas, onStatus }: { tarefas: Tarefa[]; onStatus: (tarefa: Tarefa, status: string) => void }) {
-  return <section className="operacional-card"><h3>Tarefas</h3><div className="operacional-table"><table><thead><tr><th>Título</th><th>Cliente</th><th>Tipo</th><th>Data</th><th>Prioridade</th><th>Status</th><th>Responsável</th></tr></thead><tbody>{tarefas.length === 0 ? <tr><td colSpan={7}>Nenhuma tarefa cadastrada.</td></tr> : tarefas.map((tarefa) => <tr key={tarefa.id}><td><strong>{tarefa.titulo}</strong><small>{tarefa.descricao || tarefa.observacao || ""}</small></td><td>{tarefa.cliente_nome || "—"}</td><td>{tarefa.tipo}</td><td>{formatarDataHora(tarefa.data, tarefa.horario)}</td><td>{tarefa.prioridade}</td><td><Select value={tarefa.status} onChange={(e) => onStatus(tarefa, e.target.value)}>{STATUS_TAREFA.map((o) => <option key={o}>{o}</option>)}</Select></td><td>{tarefa.responsavel || "—"}</td></tr>)}</tbody></table></div></section>;
-}
-
-function ListaAtendimentos({ atendimentos }: { atendimentos: Atendimento[] }) {
-  return <section className="operacional-card"><h3>Atendimentos</h3><div className="atendimento-list">{atendimentos.length === 0 ? <div className="empty-row">Nenhum atendimento registrado.</div> : atendimentos.map((atendimento) => <article key={atendimento.id}><strong>{atendimento.cliente_nome}</strong><span>{atendimento.canal} · {atendimento.tipo || "Atendimento"} · {formatarDataHora(atendimento.data, atendimento.hora)}</span><p>{atendimento.descricao}</p><small>Responsável: {atendimento.responsavel || "Não informado"}{atendimento.processo_numero ? ` · Processo ${atendimento.processo_numero}` : ""}</small>{atendimento.anexo_url ? <a href={atendimento.anexo_url} target="_blank" rel="noreferrer">Abrir anexo</a> : null}</article>)}</div></section>;
+function MiniCalendario({ mes, onMes, dia, onDia, hoje, datas }: { mes: string; onMes: (m: string) => void; dia: string; onDia: (d: string) => void; hoje: string; datas: Set<string> }) {
+  const inicio = new Date(mes+"-01T12:00:00");
+  const quantidade = new Date(inicio.getFullYear(),inicio.getMonth()+1,0).getDate();
+  function mudar(delta: number) { const d = new Date(inicio); d.setMonth(d.getMonth()+delta); onMes(dataLocal(d).slice(0,7)); }
+  return <section className="operacional-card mini-calendar"><div className="agenda-section-heading"><button type="button" aria-label="Mês anterior" onClick={() => mudar(-1)}>‹</button><h3>{new Intl.DateTimeFormat("pt-BR", { month: "long", year: "numeric" }).format(inicio)}</h3><button type="button" aria-label="Próximo mês" onClick={() => mudar(1)}>›</button></div><div className="calendar-grid">{["D","S","T","Q","Q","S","S"].map((d,i) => <span key={i}>{d}</span>)}{Array.from({length:inicio.getDay()},(_,i) => <span key={"vazio-"+i} />)}{Array.from({length:quantidade},(_,i) => { const d=mes+"-"+String(i+1).padStart(2,"0"); return <button type="button" key={d} aria-label={formatarData(d)} aria-pressed={dia === d} aria-current={hoje === d ? "date" : undefined} className={[dia === d ? "selected" : "",hoje === d ? "today" : "",datas.has(d) ? "has-events" : ""].join(" ")} onClick={() => onDia(dia === d ? "" : d)}>{i+1}</button>; })}</div><button className="btn-secondary" type="button" onClick={() => { onMes(hoje.slice(0,7)); onDia(""); }}>Voltar aos próximos compromissos</button></section>;
 }

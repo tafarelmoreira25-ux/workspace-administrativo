@@ -66,6 +66,19 @@
 
 /* Single document form: model, fields, generation. */
 .legal-doc-workspace-compact { gap: 16px; }
+.legal-doc-selection { padding: 24px; background: #fff; border: 1px solid #dce6f2; border-radius: 12px; }
+.legal-doc-selection h2 { margin: 16px 0 8px; color: #111827; font-size: 20px; }
+.legal-doc-selection p { margin: 0 0 24px; color: #64748b; }
+.legal-doc-selection-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(240px, 100%), 1fr)); gap: 16px; }
+.legal-doc-selection-card { display: flex; flex-direction: column; align-items: flex-start; gap: 12px; padding: 20px; text-align: left; color: #475569; background: #fff; border: 1px solid #dce6f2; border-radius: 12px; cursor: pointer; transition: border-color .18s, box-shadow .18s; }
+.legal-doc-selection-card strong { color: #111827; font-size: 16px; }
+.legal-doc-selection-card > span:last-child { font-size: 13px; line-height: 1.5; }
+.legal-doc-selection-card:hover { border-color: #94a3b8; box-shadow: 0 4px 14px rgba(15, 23, 42, .08); }
+.legal-doc-selection-card:focus-visible { outline: 3px solid #2563eb; outline-offset: 3px; }
+.legal-doc-back { justify-self: start; }
+#root .legal-doc-workspace .ui-form-field,
+#root .legal-doc-workspace .ui-form-field > span,
+#root .legal-doc-workspace .legal-doc-label-row { color: #1f2937; }
 .legal-doc-compact-header h1 { margin: 0; font-size: 24px; }
 #root .legal-doc-compact-form { display: grid; gap: 20px; padding: 20px; background: #fff; border: 1px solid #dce6f2; border-radius: 12px; box-shadow: none; }
 .legal-doc-model-toolbar { display: flex; align-items: end; gap: 12px; }

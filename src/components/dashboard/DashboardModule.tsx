@@ -11,10 +11,9 @@ function situacaoEncerrada(processo: Processo) {
   return ["encerrado", "arquivado", "baixa", "acordo firmado", "acordo concluido"].some((termo) => valor.includes(termo));
 }
 
-function IconeEtapa({ tipo }: { tipo: "extrajudicial" | "baixa" | "protocolo" | "judicial" | "alerta" | "prazo" }) {
+function IconeEtapa({ tipo }: { tipo: "extrajudicial" | "protocolo" | "judicial" | "alerta" | "prazo" }) {
   const caminhos = {
     extrajudicial: <><path d="M8 3h8v4H8z" /><path d="M6 5H4v16h16V5h-2M8 11h8M8 15h8" /></>,
-    baixa: <><circle cx="12" cy="12" r="9" /><path d="m8 12 2.6 2.6L16.5 9" /></>,
     protocolo: <><path d="M7 3h8l4 4v14H7z" /><path d="M15 3v5h5M10 13h6M10 17h6" /></>,
     judicial: <><path d="M4 20h16M6 17h12M12 4v13M5 8h14M8 8l-3 5h6L8 8Zm8 0-3 5h6l-3-5Z" /></>,
     alerta: <><path d="M12 3 2.8 20h18.4L12 3Z" /><path d="M12 9v5M12 17h.01" /></>,
@@ -50,14 +49,11 @@ export default function DashboardModule({ usuario, onNavigate }: Props) {
     const extrajudiciais = ativos.filter(pertenceAExtrajudiciais);
     const protocolos = ativos.filter((processo) => pertenceAProtocolos(processo) || (!processo.numero_processo && processo.status_judicial === "AGUARDANDO_PROTOCOLO"));
     const judiciais = ativos.filter(pertenceAProcessos);
-    const baixados = dados.processos.filter((processo) => !processo.numero_processo
-      && situacaoEncerrada(processo)
-      && (processo.origem_registro === "acao_extrajudicial_manual" || processo.status_judicial === "EXTRAJUDICIAL"));
     const protocolosComPrazo = protocolos.map((processo) => ({ processo, prazo: calcularPrazoElite(processo.data_envio_elite) }));
     const vencendo = protocolosComPrazo.filter(({ prazo }) => ["atencao", "critico", "vermelho"].includes(prazo.sinalizacao));
     const atrasados = protocolosComPrazo.filter(({ prazo }) => prazo.sinalizacao === "atrasado");
     const atencao = [...atrasados, ...vencendo].sort((a, b) => b.prazo.diasUteisAtraso - a.prazo.diasUteisAtraso || (a.prazo.diasUteisRestantes ?? 99) - (b.prazo.diasUteisRestantes ?? 99));
-    return { extrajudiciais, protocolos, judiciais, baixados, vencendo, atrasados, atencao };
+    return { extrajudiciais, protocolos, judiciais, vencendo, atrasados, atencao };
   }, [dados.processos]);
 
   const etapas = [
@@ -65,7 +61,6 @@ export default function DashboardModule({ usuario, onNavigate }: Props) {
     { titulo: "Protocolos", legenda: "Distribuição em até 15 dias úteis", total: resumo.protocolos.length, destino: "processual-protocolos", icone: "protocolo" as const },
     { titulo: "Processual", legenda: "Com número judicial liberado", total: resumo.judiciais.length, destino: "processual", icone: "judicial" as const },
   ];
-  const baixas = { titulo: "Baixas por acordo", legenda: "Concluídas sem ajuizamento", total: resumo.baixados.length, destino: "processual-extrajudiciais", icone: "baixa" as const };
   const urgencias = [
     { titulo: "Protocolos vencendo", total: resumo.vencendo.length, ids: resumo.vencendo.map(({ processo }) => processo.id), imediato: false, legenda: "Até 5 dias úteis", destino: "processual-protocolos", icone: "prazo" as const },
     { titulo: "Protocolos atrasados", total: resumo.atrasados.length, ids: resumo.atrasados.map(({ processo }) => processo.id), imediato: true, legenda: "Prazo de 15 dias excedido", destino: "processual-protocolos", icone: "alerta" as const },
@@ -75,7 +70,7 @@ export default function DashboardModule({ usuario, onNavigate }: Props) {
 
   return <section className="dashboard-resumo dashboard-esteira">
     <header className="dashboard-cabecalho"><div><span className="eyebrow">Área de trabalho</span><h2>Olá, {usuario?.nome?.split(" ")[0] || "equipe"}</h2><p>Visão direta da jornada do cliente e do que exige ação agora.</p></div><button className="btn-secondary compact" type="button" onClick={() => { invalidarConsultas(); void carregar(); }}>Atualizar</button></header>
-    <section className="dashboard-bloco"><div className="dashboard-fluxo">{etapas.map((etapa, indice) => <div className="dashboard-fluxo-item" key={etapa.titulo}><button type="button" onClick={() => onNavigate(etapa.destino)}><span className={`dashboard-icone dashboard-icone-${etapa.icone}`}><IconeEtapa tipo={etapa.icone} /></span><span><strong>{carregando ? "—" : etapa.total}</strong><b>{etapa.titulo}</b><small>{etapa.legenda}</small></span></button>{indice < etapas.length - 1 ? <i aria-hidden="true">→</i> : null}</div>)}</div><div className="dashboard-saida-acordo"><i aria-hidden="true">↳</i><button type="button" onClick={() => onNavigate(baixas.destino)}><span className={`dashboard-icone dashboard-icone-${baixas.icone}`}><IconeEtapa tipo={baixas.icone} /></span><span><strong>{carregando ? "—" : baixas.total}</strong><b>{baixas.titulo}</b><small>{baixas.legenda}</small></span></button></div></section>
+    <section className="dashboard-bloco"><div className="dashboard-fluxo">{etapas.map((etapa, indice) => <div className="dashboard-fluxo-item" key={etapa.titulo}><button type="button" onClick={() => onNavigate(etapa.destino)}><span className={`dashboard-icone dashboard-icone-${etapa.icone}`}><IconeEtapa tipo={etapa.icone} /></span><span><strong>{carregando ? "—" : etapa.total}</strong><b>{etapa.titulo}</b><small>{etapa.legenda}</small></span></button>{indice < etapas.length - 1 ? <i aria-hidden="true">→</i> : null}</div>)}</div></section>
     <section className="dashboard-bloco dashboard-urgencias"><header className="dashboard-bloco-titulo"><div><h3>Atenção agora</h3><p>Somente pendências com prazo ou necessidade de providência.</p></div></header><div className="dashboard-urgencia-grid">{urgencias.map((item) => <button className={!carregando && item.total > 0 ? (item.imediato ? "com-alerta" : "com-pendencia") : "sem-alerta"} type="button" key={item.titulo} onClick={() => onNavigate(item.destino, { alerta: { titulo: item.titulo, ids: item.ids } })} disabled={carregando}><span className="dashboard-urgencia-icone"><IconeEtapa tipo={item.icone} /></span><span><b>{item.titulo}</b><small>{item.legenda}</small></span><strong>{carregando ? "—" : item.total}</strong></button>)}</div></section>
     {!carregando && resumo.atencao.length > 0 ? <section className="dashboard-atencao-lista"><header><div><h3>Protocolos próximos do limite</h3><p>Ordenados pelos casos mais urgentes.</p></div><button type="button" onClick={() => onNavigate("processual-protocolos")}>Abrir Protocolos</button></header><div>{resumo.atencao.slice(0, 6).map(({ processo, prazo }) => <article key={processo.id}><span className={prazo.sinalizacao === "atrasado" ? "status-atrasado" : "status-atencao"}><IconeEtapa tipo={prazo.sinalizacao === "atrasado" ? "alerta" : "prazo"} /></span><div><strong>{processo.nome_cliente}</strong><small>{processo.fase_atual === "SLA" ? "Prazo" : processo.fase_atual || "Em distribuição"}</small></div><time>{prazo.sinalizacao === "atrasado" ? prazo.rotulo : `${prazo.diasUteisRestantes ?? 0} dias úteis restantes`}</time></article>)}</div></section> : null}
   </section>;

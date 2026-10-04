@@ -3,7 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { DocumentCategoryIcon, DocumentModelIcon } from "./components/documentos/ModelLibraryModal";
 import {
   DOCUMENT_DRAFT_KEY, DOCUMENT_HISTORY_KEY,
-  DOCUMENT_USAGE_KEY, DOCUMENT_WORKSPACE_SCHEMA,
+  DOCUMENT_USAGE_KEY, DOCUMENT_WORKSPACE_SCHEMA, DOCUMENT_CATEGORIES,
   enriquecerModelos, erroCampo, formatarValorCampo, listarConflitosFixos, normalizarBusca,
   normalizarNomeArquivo, proximaVersao, rascunhoValido,
 } from "./lib/documentWorkspace";
@@ -13,7 +13,17 @@ import { DOCUMENT_TEMPLATES, valorInicialCampo } from "./config/documentTemplate
 import { gerarPdfModelo, pendenciaModeloOriginal } from "./lib/documentPdf";
 import "./documentWorkspace.css";
 
-const MODELOS = enriquecerModelos(DOCUMENT_TEMPLATES);
+const MODELO_PROCURACAO = {
+  id: "procuracao-ad-judicia", nome: "Procuração Ad Judicia", titulo: "Procuração Ad Judicia", modo: "procuracao",
+  categoria: "procuracoes", categoriaNome: "Procurações", icone: "signature",
+  descricao: "Procuração para representação judicial do cliente.",
+  templateDocx: "/modelos/procuracoes/procuracao-ad-judicia-2026.docx",
+  revisaoWordPendente: "A Procuração Ad Judicia precisa de revisão do mapeamento e dos textos fixos do DOCX original antes da emissão.",
+  campos: [...DOCUMENT_TEMPLATES.find((modelo) => modelo.modo === "declaracao-hipossuficiencia").campos,
+    { nome: "banco", rotulo: "Banco", obrigatorio: true },
+    { nome: "numeroContrato", rotulo: "Número do contrato", obrigatorio: true }],
+};
+const MODELOS = [...enriquecerModelos(DOCUMENT_TEMPLATES), MODELO_PROCURACAO];
 const DOCUMENT_MODEL_NAMES_KEY = "platino.documentos.nomes-modelos.v1";
 const DOCUMENT_DRAFT_INACTIVITY_MS = 5 * 60 * 1000;
 
@@ -176,10 +186,40 @@ function DocumentosRecentes({ documentos, busca, onBusca, onOpen, onDuplicate, o
 }
 
 export default function GeradorDocumentos(props) {
-  return <EditorDocumento {...props} modeloInicial={MODELOS[0]} />;
+  const [categoria, setCategoria] = useState(null);
+  const [modelo, setModelo] = useState(null);
+  const [nomesCompartilhados, setNomesCompartilhados] = useState(() => lerJsonLocal(DOCUMENT_MODEL_NAMES_KEY, {}));
+  useEffect(() => {
+    let ativo = true;
+    supabase.from("modelos_juridicos_config").select("modelo_id, nome_exibicao").then(({ data, error }) => {
+      if (!ativo || error) return;
+      const nomes = Object.fromEntries((data || []).map((item) => [item.modelo_id, item.nome_exibicao]));
+      setNomesCompartilhados(nomes);
+      localStorage.setItem(DOCUMENT_MODEL_NAMES_KEY, JSON.stringify(nomes));
+    });
+    return () => { ativo = false; };
+  }, []);
+  const kit = ["procuracao", "declaracao-hipossuficiencia", "declaracao-isencao-irpf"];
+  const categorias = [{ id: "kit-inicial", nome: "Kit Processual Inicial", icone: "signature" }, ...DOCUMENT_CATEGORIES.filter((item) => !["todos", "mais-utilizados", "favoritos"].includes(item.id))]
+    .map((item) => ({ ...item, nome: item.id === "notificacao-extrajudicial" ? "Notificações Extrajudiciais" : item.nome, modelos: MODELOS.filter((documento) => item.id === "kit-inicial" ? kit.includes(documento.modo) : !kit.includes(documento.modo) && documento.categoria === item.id) }))
+    .filter((item) => item.modelos.length);
+  const nomes = { ...nomesCompartilhados, ...lerJsonLocal(DOCUMENT_MODEL_NAMES_KEY, {}) };
+  if (modelo) return <EditorDocumento {...props} modeloInicial={modelo} modelosDaCategoria={categoria.modelos} onVoltar={() => setModelo(null)} onNovaSelecao={() => { setModelo(null); setCategoria(null); }} />;
+  return <section className="legal-doc-workspace legal-doc-workspace-compact">
+    <header className="legal-doc-compact-header"><h1>Gerador de Documentos</h1></header>
+    <section className="legal-doc-selection" aria-labelledby="document-selection-title">
+      {categoria ? <button type="button" className="btn-secondary" onClick={() => setCategoria(null)}>Voltar às categorias</button> : null}
+      <h2 id="document-selection-title">{categoria?.nome || "Escolha uma categoria"}</h2>
+      <p>{categoria ? "Selecione o documento que deseja preencher." : "Selecione uma categoria para consultar os documentos disponíveis."}</p>
+      <div className="legal-doc-selection-grid">
+        {categoria ? categoria.modelos.map((item) => <button type="button" className="legal-doc-selection-card" key={item.id} onClick={() => setModelo(item)}><span className="model-card-icon"><DocumentModelIcon size={28} /></span><strong>{nomes[item.id] || item.nome}</strong><span>{item.descricao}</span></button>)
+          : categorias.map((item) => <button type="button" className="legal-doc-selection-card" key={item.id} onClick={() => setCategoria(item)}><span className="model-card-icon"><DocumentCategoryIcon name={item.icone} size={28} /></span><strong>{item.nome}</strong><span>{item.modelos.length} {item.modelos.length === 1 ? "documento disponível" : "documentos disponíveis"}</span></button>)}
+      </div>
+    </section>
+  </section>;
 }
 
-function EditorDocumento({ responsavel, usuario, onSuccess, contextoDocumento, onDocumentoGerado, onStatusDocumento, modeloInicial, dadosIniciais, dataRascunho }) {
+function EditorDocumento({ responsavel, usuario, onSuccess, contextoDocumento, onDocumentoGerado, onStatusDocumento, modeloInicial, dadosIniciais, dataRascunho, modelosDaCategoria, onVoltar, onNovaSelecao }) {
   const departamentoUsuario = usuario?.setor || usuario?.departamento || "Jurídico";
   const [dados, setDados] = useState(() => ({ ...criarFormularioInicial(responsavel, modeloInicial, departamentoUsuario), ...dadosDoContextoDocumento(contextoDocumento), ...(contextoDocumento ? { contextoDocumento } : {}), ...dadosIniciais }));
   const [nomesModelos, setNomesModelos] = useState(() => lerJsonLocal(DOCUMENT_MODEL_NAMES_KEY, {}));
@@ -214,7 +254,7 @@ function EditorDocumento({ responsavel, usuario, onSuccess, contextoDocumento, o
     return () => { ativo = false; };
   }, []);
 
-  const gestor = usuario?.tipo === "admin";
+  const gestor = normalizarBusca(usuario?.nome || "") === "tafarel" || [usuario?.tipo, usuario?.role, usuario?.perfil].some((perfil) => ["admin", "administrador"].includes(normalizarBusca(perfil || "")));
   const modelos = useMemo(() => MODELOS.map((modelo) => ({ ...modelo, nome: nomesModelos[modelo.id] || modelo.nome, totalGeracoes: Number(usoModelos[modelo.id] || 0) })), [nomesModelos, usoModelos]);
   const modeloSelecionado = modelos.find((modelo) => modelo.id === dados.modeloId) || modelos[0];
   const numeroDocumento = useMemo(() => `${dados.dataEmissao?.replaceAll("-", "") || "sem-data"}-${sufixoDocumento}`, [dados.dataEmissao, sufixoDocumento]);
@@ -297,16 +337,17 @@ function EditorDocumento({ responsavel, usuario, onSuccess, contextoDocumento, o
   function marcarTocado(evento) { setTocados((atuais) => new Set([...atuais, evento.target.name])); }
 
   function selecionarModelo(modelo) {
-    if (modelo.id !== modeloSelecionado.id && dirty && !window.confirm("Trocar o modelo? Os campos específicos do documento atual serão substituídos, mas os dados comuns serão preservados.")) return;
     const inicial = criarFormularioInicial(responsavel, modelo, departamentoUsuario);
     modelo.campos.forEach((campo) => { if (dados[campo.nome]) inicial[campo.nome] = dados[campo.nome]; });
     Object.assign(inicial, { ...dadosDoContextoDocumento(dados.contextoDocumento), contextoDocumento: dados.contextoDocumento, dataEmissao: dados.dataEmissao, departamento: dados.departamento, salvarNaPasta: dados.salvarNaPasta, observacaoInterna: dados.observacaoInterna || "", nacionalidadePreenchidaManualmente: Boolean(dados.nacionalidadePreenchidaManualmente) });
+    setEditandoNomeModelo(false);
     atualizarDados(inicial); setTocados(new Set());
     primeiraSecaoRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
   }
 
 
   async function salvarNomeDoModelo() {
+    if (!gestor) return;
     const nome = nomeModeloEmEdicao.trim().replace(/\s{2,}/g, " ");
     if (nome.length < 3) { setErro("Informe pelo menos 3 caracteres para o nome do modelo."); return; }
     setSalvandoNomeModelo(true);
@@ -326,20 +367,6 @@ function EditorDocumento({ responsavel, usuario, onSuccess, contextoDocumento, o
     }
   }
 
-
-  function salvarRascunho() {
-    const dataSalvamento = persistirRascunho(dados);
-    setSalvoEm(dataSalvamento);
-    setDirty(false);
-  }
-
-  function retomarRascunho() {
-    const salvo = lerJsonLocal(DOCUMENT_DRAFT_KEY, null);
-    const modelo = modelos.find((item) => item.id === salvo?.dados?.modeloId);
-    if (!rascunhoValido(salvo) || !modelo) { setErro("Nenhum rascunho válido nas últimas 24 horas."); return; }
-    setDados({ ...criarFormularioInicial(responsavel, modelo, departamentoUsuario), ...salvo.dados });
-    setTocados(new Set()); setErro(""); setSalvoEm(new Date(salvo.salvoEm)); setDirty(false);
-  }
 
   function limparFormulario() {
     const inicial = criarFormularioInicial(responsavel, modeloSelecionado, departamentoUsuario);
@@ -410,8 +437,9 @@ function EditorDocumento({ responsavel, usuario, onSuccess, contextoDocumento, o
     <header className="legal-doc-compact-header"><h1>Gerador de Documentos</h1></header>
     {!online ? <p className="legal-doc-offline" role="status">Sem conexão. Você pode salvar o rascunho localmente.</p> : null}
     <FormSection as="form" className="legal-doc-compact-form" onSubmit={handleGerarPdf} noValidate>
+      <button type="button" className="btn-secondary legal-doc-back" disabled={gerando} onClick={onVoltar}>Voltar aos documentos</button>
       <div className="legal-doc-model-toolbar">
-        <FormField htmlFor="document-model"><span>Modelo</span><Select id="document-model" value={modeloSelecionado.id} disabled={gerando} onChange={(evento) => selecionarModelo(modelos.find((modelo) => modelo.id === evento.target.value))}>{modelos.map((modelo) => <option key={modelo.id} value={modelo.id}>{modelo.nome}</option>)}</Select></FormField>
+        <FormField htmlFor="document-model"><span>Modelo</span><Select id="document-model" value={modeloSelecionado.id} disabled={gerando} onChange={(evento) => selecionarModelo(modelos.find((modelo) => modelo.id === evento.target.value))}>{modelos.filter((modelo) => modelosDaCategoria.some((item) => item.id === modelo.id)).map((modelo) => <option key={modelo.id} value={modelo.id}>{modelo.nome}</option>)}</Select></FormField>
         {gestor ? <button type="button" className="btn-secondary" disabled={gerando} onClick={() => { setNomeModeloEmEdicao(modeloSelecionado.nome); setEditandoNomeModelo((aberto) => !aberto); }}>{editandoNomeModelo ? "Cancelar" : "Renomear modelo"}</button> : null}
       </div>
       {gestor && editandoNomeModelo ? <div className="legal-doc-model-name-editor"><FormField htmlFor="nomeModelo"><span>Nome do modelo</span><Input id="nomeModelo" value={nomeModeloEmEdicao} onChange={(evento) => setNomeModeloEmEdicao(evento.target.value)} maxLength="100" /></FormField><button type="button" className="btn-primary" disabled={salvandoNomeModelo || gerando} onClick={salvarNomeDoModelo}>{salvandoNomeModelo ? "Salvando…" : "Salvar nome"}</button></div> : null}
@@ -442,11 +470,11 @@ function EditorDocumento({ responsavel, usuario, onSuccess, contextoDocumento, o
       {conflitosFixos.length ? <ul className="legal-doc-conflicts" role="alert">{conflitosFixos.map((conflito, indice) => <li key={indice}>{conflito.modeloNome}: {conflito.mensagem}</li>)}</ul> : null}
       {erro ? <p className="legal-doc-form-error" role="alert">{erro}</p> : null}
       <div className="legal-doc-compact-actions">
-        <div><button type="button" className="btn-secondary" disabled={gerando} onClick={salvarRascunho}>Salvar rascunho</button><button type="button" className="btn-secondary" disabled={gerando} onClick={retomarRascunho}>Retomar rascunho</button><button type="button" className="btn-secondary" disabled={gerando} onClick={cancelarEdicao}>Limpar</button>{salvoEm ? <span role="status">Salvo às {salvoEm.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}</span> : null}</div>
+        <div><button type="button" className="btn-secondary" disabled={gerando} onClick={cancelarEdicao}>Limpar</button>{salvoEm ? <span role="status">Salvo às {salvoEm.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}</span> : null}</div>
         <button type="submit" className="btn-primary" disabled={gerando || Boolean(pendenciaOriginal) || conflitosFixos.length > 0}>{gerando ? "Gerando…" : "Gerar PDF"}</button>
       </div>
     </FormSection>
     {historico.length ? <details className="legal-doc-history-details"><summary>Documentos recentes</summary><DocumentosRecentes documentos={historico} busca={buscaHistorico} onBusca={setBuscaHistorico} onOpen={abrirHistorico} onDuplicate={(item) => carregarRegistro(item, false)} onVersion={(item) => carregarRegistro(item, true)} /></details> : null}
-    <ModalSucesso resultado={resultado} onClose={() => setResultado(null)} onDownload={baixarResultadoELimpar} onOpen={() => window.open(resultado.arquivos[0].url, "_blank", "noopener,noreferrer")} onCopy={copiarLink} onSignature={prepararAssinatura} onLibrary={() => { setResultado(null); limparFormulario(); }} onAnother={() => { setResultado(null); setDados((atual) => ({ ...atual, versao: 1 })); setDirty(true); }} />
+    <ModalSucesso resultado={resultado} onClose={() => setResultado(null)} onDownload={baixarResultadoELimpar} onOpen={() => window.open(resultado.arquivos[0].url, "_blank", "noopener,noreferrer")} onCopy={copiarLink} onSignature={prepararAssinatura} onLibrary={() => { setResultado(null); limparFormulario(); onNovaSelecao(); }} onAnother={() => { setResultado(null); setDados((atual) => ({ ...atual, versao: 1 })); setDirty(true); }} />
   </section>;
 }

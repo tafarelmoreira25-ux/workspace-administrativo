@@ -904,3 +904,9 @@
   background: #f1f5f9;
   border-color: #cbd5e1;
 }
+
+.processual-acompanhamento-modal { width: min(1120px, calc(100vw - 32px)); max-height: calc(100dvh - 32px); box-sizing: border-box; overflow: auto; border: 1px solid #e2e8f0; border-radius: 14px; padding: 24px; background: #fff; color: #1e293b; }
+.processual-acompanhamento-modal::backdrop { background: rgb(15 23 42 / 45%); }
+.processual-modal-heading { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 20px; }
+.processual-modal-heading h2 { font-size: 18px; margin: 0; }
+@media (max-width: 600px) { .processual-acompanhamento-modal { padding: 12px; } }

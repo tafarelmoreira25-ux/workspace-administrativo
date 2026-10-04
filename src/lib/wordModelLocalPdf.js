@@ -1,6 +1,7 @@
 import { unzipSync } from "fflate";
 import { PDFDocument, rgb } from "pdf-lib";
 import fontkit from "@pdf-lib/fontkit";
+import { DOCUMENT_FONTS } from "../config/documentFonts.js";
 
 const W = "http://schemas.openxmlformats.org/wordprocessingml/2006/main";
 const R = "http://schemas.openxmlformats.org/officeDocument/2006/relationships";
@@ -123,7 +124,7 @@ function lerParagrafo(node, estilos) {
   return { ...props, segmentos, base, node };
 }
 
-async function fontesDoModelo(pdf, arquivos) {
+async function fontesDoModelo(pdf, arquivos, estilos) {
   pdf.registerFontkit(fontkit);
   const fontes = new Map(); const refs = relacoes(arquivos, "word/fontTable.xml");
   for (const n of Array.from(xml(arquivos, "word/fontTable.xml")?.getElementsByTagNameNS(W, "font") || [])) {
@@ -136,18 +137,24 @@ async function fontesDoModelo(pdf, arquivos) {
       fontes.set(`${atributo(n, "name").toLowerCase()}:${sufixo}`, await pdf.embedFont(dados, { subset: true }));
     }
   }
-  for (const [variante, caminho] of [["00", "/assets/fonts/calibri-light.ttf"], ["01", "/assets/fonts/calibri-light-italic.ttf"]]) {
-    const chave = `calibri light:${variante}`;
-    if (fontes.has(chave)) continue;
-    const resposta = await fetch(caminho);
-    if (!resposta.ok) throw new Error(`Geração bloqueada: não foi possível carregar a fonte original Calibri Light (${resposta.status}).`);
+  const necessarias = new Set();
+  for (const parte of Object.keys(arquivos).filter(p => /^word\/(document|header\d*|footer\d*)\.xml$/.test(p))) {
+    for (const p of Array.from(xml(arquivos, parte)?.getElementsByTagNameNS(W, "p") || [])) {
+      for (const s of lerParagrafo(p, estilos).segmentos.filter(s => s.texto.trim())) {
+        necessarias.add(String(s.familia || "").toLowerCase() + ':' + (s.negrito ? '1' : '0') + (s.italico ? '1' : '0'));
+      }
+    }
+  }
+  for (const chave of necessarias) {
+    if (fontes.has(chave) || !DOCUMENT_FONTS[chave]) continue;
+    const resposta = await fetch('/assets/fonts/' + DOCUMENT_FONTS[chave]);
+    if (!resposta.ok) throw new Error('Gera\u00e7\u00e3o bloqueada: a fonte original ' + chave + ' n\u00e3o p\u00f4de ser carregada (' + resposta.status + ').');
     fontes.set(chave, await pdf.embedFont(await resposta.arrayBuffer(), { subset: true }));
   }
   return (s) => {
     const f = String(s.familia || "").toLowerCase(); const key = `${f}:${s.negrito ? 1 : 0}${s.italico ? 1 : 0}`;
-    if (f !== "calibri light") throw new Error(`Geração bloqueada: o modelo declara a fonte “${s.familia || "não definida"}”, divergente da fonte oficial Calibri Light. Revise o original; sua formatação não foi alterada.`);
     const fonte = fontes.get(key);
-    if (!fonte) throw new Error(`Geração bloqueada: a fonte original “${s.familia}” (${s.negrito ? "negrito" : "normal"}${s.italico ? ", itálico" : ""}) não está incorporada ao DOCX. Não é permitido substituir a fonte do modelo.`);
+    if (!fonte) throw new Error(`Geração bloqueada: a fonte original “${s.familia}” (${s.negrito ? "negrito" : "normal"}${s.italico ? ", itálico" : ""}) não está disponível no DOCX ou nos arquivos locais. Não é permitido substituir a fonte do modelo.`);
     return fonte;
   };
 }
@@ -156,8 +163,7 @@ function montarLinhas(p, largura, fonte) {
   const linhas = []; let tokens = []; let usado = 0; let espaco = 0;
   const concluir = (forcada = false) => { linhas.push({ tokens, largura: usado, forcada }); tokens = []; usado = 0; espaco = 0; };
   for (const s of p.segmentos) {
-    // Marcador circular equivalente disponível nas fontes padrão PDF.
-    for (const palavra of s.texto.replace(/●/g, "•").split(/(\f|\n|\s+)/).filter(Boolean)) {
+    for (const palavra of s.texto.split(/(\f|\n|\s+)/).filter(Boolean)) {
       if (palavra === "\f") { if (tokens.length) concluir(true); linhas.push({ quebraPagina: true }); continue; }
       if (palavra === "\n") { concluir(true); continue; }
       const font = fonte(s);
@@ -250,11 +256,11 @@ function desenharImagens(pagina, node, imagens, config, topo, x = config.esquerd
 }
 
 // Geração local com pdf-lib, como no fluxo anterior. Lê a cópia preenchida do modelo.
-export async function gerarPdfDoWordOficial(bytesDocx, opcoes = {}) {
+export async function gerarPdfDoWordOficial(bytesDocx) {
   if (typeof DOMParser === "undefined") throw new Error("O gerador de PDF requer um leitor XML compatível.");
   const arquivos = unzipSync(bytesDocx instanceof Uint8Array ? bytesDocx : new Uint8Array(bytesDocx));
   const doc = xml(arquivos, "word/document.xml"); if (!doc) throw new Error("O conteúdo do modelo não pôde ser lido.");
-  const pdf = await PDFDocument.create(); const estilos = estilosDoModelo(arquivos); const fonte = await fontesDoModelo(pdf, arquivos);
+  const pdf = await PDFDocument.create(); const estilos = estilosDoModelo(arquivos); const fonte = await fontesDoModelo(pdf, arquivos, estilos);
   const corpo = primeiro(doc, "body"); const secao = filhos(corpo, "sectPr")[0] || primeiro(doc, "sectPr");
   const size = primeiro(secao, "pgSz"); const margin = primeiro(secao, "pgMar");
   const config = { largura: numero(atributo(size, "w"), 11906) / 20, altura: numero(atributo(size, "h"), 16838) / 20 };
@@ -299,61 +305,8 @@ export async function gerarPdfDoWordOficial(bytesDocx, opcoes = {}) {
   };
   novaPagina();
   const nodes = filhos(corpo);
-  const conteudoParagrafo = (n) => Array.from(n.getElementsByTagNameNS(W, "t")).map((t) => t.textContent).join("");
-  const ultimaNota = nodes.findLastIndex((n) => n.localName === "p" && conteudoParagrafo(n).trim());
-  const fechamentoEmpresa = ultimaNota >= 0 && /^PLATINO SOLUÇÕES FINANCEIRAS$/i.test(conteudoParagrafo(nodes[ultimaNota]).trim());
-  const ultimaLinhaAssinatura = nodes.findLastIndex((n) => n.localName === "p" && /^_{10,}$/.test(conteudoParagrafo(n).trim()));
-  let espacosAntesAssinatura = ultimaLinhaAssinatura;
-  while (espacosAntesAssinatura > 0 && nodes[espacosAntesAssinatura - 1].localName === "p" && !conteudoParagrafo(nodes[espacosAntesAssinatura - 1]).trim() && !primeiro(nodes[espacosAntesAssinatura - 1], "drawing")) espacosAntesAssinatura--;
-  const assinaturaInicial = opcoes.assinaturasEmColunas ? nodes.findIndex((n) => n.localName === "p" && /^_{10,}$/.test(conteudoParagrafo(n).trim())) : -1;
-  let inicioAssinaturas = assinaturaInicial;
-  // Os espaços em colunas do Word são uma reserva de assinatura, não páginas vazias.
-  while (inicioAssinaturas > 0 && nodes[inicioAssinaturas - 1].localName === "p" && !conteudoParagrafo(nodes[inicioAssinaturas - 1]).trim()) inicioAssinaturas--;
-  for (let ni = 0; ni < nodes.length; ni++) {
-    const node = nodes[ni];
-    const final = ni === ultimaNota ? conteudoParagrafo(node).trim() : "";
-    if (fechamentoEmpresa && ni === ultimaLinhaAssinatura) continue;
-    if (/^Documento (emitido|assinado)/i.test(final) || (fechamentoEmpresa && ni === ultimaNota)) {
-      const p = lerParagrafo(node, estilos);
-      const linhas = montarLinhas(p, largura, fonte);
-      const height = linhas.reduce((h, l) => h + alturaLinha(l, p), 0);
-      let cursor = config.altura - config.rodape - height;
-      if (fechamentoEmpresa) {
-        const centro = config.esquerda + largura / 2;
-        pagina.drawLine({ start: { x: centro - 110, y: config.altura - cursor + 5 }, end: { x: centro + 110, y: config.altura - cursor + 5 }, thickness: .5 });
-      }
-      linhas.forEach((l, i) => { desenharLinha(pagina, l, p, config.esquerda, cursor, largura, i, i === linhas.length - 1); cursor += alturaLinha(l, p); });
-      continue;
-    }
-    if (!opcoes.assinaturasEmColunas && ni === espacosAntesAssinatura && ni < ultimaLinhaAssinatura) {
-      y += 24;
-      ni = ultimaLinhaAssinatura - 1;
-      continue;
-    }
-    if (assinaturaInicial >= 0 && ni === inicioAssinaturas) {
-      const grupos = [];
-      for (const n of nodes.slice(assinaturaInicial)) {
-        const text = conteudoParagrafo(n).trim();
-        if (!text) continue;
-        if (/^_{10,}$/.test(text)) grupos.push([]);
-        else grupos.at(-1)?.push(n);
-      }
-      const gap = 24; const width = (largura - gap) / grupos.length;
-      const heights = grupos.map((g) => g.reduce((s, n) => {
-        const p = lerParagrafo(n, estilos);
-        return s + montarLinhas(p, width, fonte).reduce((h, l) => h + alturaLinha(l, p), 0) + p.antes + p.depois;
-      }, 0));
-      const height = Math.max(...heights) + 40;
-      if (y + height > config.altura - config.baixo) novaPagina();
-      const topo = y + 35;
-      for (let i = 0; i < grupos.length; i++) {
-        const x = config.esquerda + i * (width + gap);
-        pagina.drawLine({ start: { x: x + 6, y: config.altura - topo }, end: { x: x + width - 6, y: config.altura - topo }, thickness: .6 });
-        y = topo + 3;
-        for (const n of grupos[i]) desenharParagrafo(n, x, width);
-      }
-      break;
-    }
+  // A posi??o de assinaturas e notas segue os par?grafos do DOCX.
+  for (const node of nodes) {
     if (node.localName === "p") desenharParagrafo(node);
     else if (node.localName === "tbl") {
       for (const row of filhos(node, "tr")) {

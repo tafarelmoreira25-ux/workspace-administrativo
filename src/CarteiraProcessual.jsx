@@ -8,7 +8,8 @@ import { numeroProtocoloExtrajudicial } from "./lib/protocoloExtrajudicial";
 import Pagination from "./components/common/Pagination";
 import "./carteiraProcessual.css";
 
-const PAGE_SIZE = 30;
+const PAGE_SIZE = 10;
+const CAMPOS_PROCESSUAIS_LISTA = "id,nome_cliente,protocolo_extrajudicial,numero_processo,situacao";
 const EXTRAJUDICIAIS_POR_PAGINA = 10;
 const CAMPOS_EXTRAJUDICIAIS_LISTA = "id,nome_cliente,protocolo_extrajudicial,id_crm,data_inicio_extrajudicial,created_at,reu,banco_reu,situacao";
 
@@ -24,12 +25,10 @@ const ESPECIALISTAS_DIREITO_BANCARIO = [
   "Tafarel Moreira - Auxiliar Juridico com registro ativo - JUS.BR",
 ];
 const TIPOS_ACAO = ["Ação Revisional Extrajudicial", "Ação Revisional de Juros/Bancária"];
-const STATUS_PROCESSO = ["Em andamento", "Pendente de protocolo", "Suspenso / Sobrestado", "Encerrado", "TRAMITANDO", "ARQUIVADO", "BAIXA DEFINITIVA", "SENTENÇA PROCEDENTE", "SENTENÇA IMPROCEDENTE", "REDISTRIBUIÇÃO", "JULGADO"];
 const ACAO_INICIAL = { tipo: "nenhuma", titulo: "", data: "", hora: "", prioridade: "Normal" };
 const MOVIMENTO_INICIAL = { data: new Date().toISOString().slice(0, 10), tipo: "Publicação", conteudo: "", tratamento: "", observacao: "", responsavel: "" };
 const NOVO_PROCESSO_INICIAL = { natureza: "Extrajudicial", nome_cliente: "", cpf_cliente: "", id_crm: "", numero_processo: "", tipo_acao: "", reu: "", banco_reu: "", tribunal: "", comarca: "", vara: "", data_distribuicao: "", responsavel: "", observacoes: "" };
 const limparBusca = (valor = "") => valor.trim().replace(/[,()"']/g, " ").replace(/\s+/g, " ").slice(0, 120);
-const dataHora = (valor) => valor ? new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeStyle: "short" }).format(new Date(valor)) : "—";
 const dataBR = (valor) => valor ? new Intl.DateTimeFormat("pt-BR").format(new Date(`${String(valor).slice(0, 10)}T12:00:00`)) : "—";
 const ehExtrajudicial = (registro) => registro?.status_judicial === "EXTRAJUDICIAL" || (!registro?.status_judicial && registro?.origem_registro === "acao_extrajudicial_manual" && registro?.fase_atual === "Extrajudicial");
 const emFluxoDeProtocolo = (registro) => !registro?.numero_processo && registro?.status_judicial === "AGUARDANDO_PROTOCOLO";
@@ -64,14 +63,14 @@ export default function CarteiraProcessual({ showToast, usuario, processoInicial
   const carregar = useCallback(async (signal = new AbortController().signal) => {
     setCarregando(true);
     const termo = limparBusca(buscaAplicada);
-    let consulta = supabase.from("processos").select(carteiraExtrajudicial ? CAMPOS_EXTRAJUDICIAIS_LISTA : "id,cliente_id,nome_cliente,cpf_cliente,id_crm,protocolo_extrajudicial,numero_processo,reu,banco_reu,tipo_acao,tribunal,comarca,vara,data_distribuicao,data_inicio_extrajudicial,responsavel,situacao,status_judicial,fase_atual,protocolo_status,ultima_movimentacao,ultima_movimentacao_data,ultima_revisao,origem_registro,observacoes,created_at,updated_at", { count: "exact" });
+    let consulta = supabase.from("processos").select(carteiraExtrajudicial ? CAMPOS_EXTRAJUDICIAIS_LISTA : CAMPOS_PROCESSUAIS_LISTA, { count: "exact" });
     if (alerta) consulta = alerta.ids.length ? consulta.in("id", alerta.ids) : consulta.eq("id", "00000000-0000-0000-0000-000000000000");
     consulta = carteiraExtrajudicial
       ? consulta.or("status_judicial.eq.EXTRAJUDICIAL,and(status_judicial.is.null,origem_registro.eq.acao_extrajudicial_manual,fase_atual.eq.Extrajudicial)").or("numero_processo.is.null,numero_processo.eq.")
       : consulta.not("numero_processo", "is", null).neq("numero_processo", "");
     if (termo) consulta = consulta.or(`nome_cliente.ilike.%${termo}%,cpf_cliente.ilike.%${termo}%,id_crm.ilike.%${termo}%,protocolo_extrajudicial.ilike.%${termo}%,numero_processo.ilike.%${termo}%,reu.ilike.%${termo}%,banco_reu.ilike.%${termo}%,tipo_acao.ilike.%${termo}%`);
     const inicio = (pagina - 1) * tamanhoPagina;
-    const { data, count, error } = await consulta.order("updated_at", { ascending: false }).range(inicio, inicio + tamanhoPagina - 1).abortSignal(signal);
+    const { data, count, error } = await consulta.order("updated_at", { ascending: false }).range(inicio, inicio + tamanhoPagina - 1).limit(10).abortSignal(signal);
     if (signal.aborted) return;
     if (error) showToast?.(`Não foi possível carregar o Processual: ${error.message}`);
     else { setRegistros(data || []); setTotal(count || 0); }
@@ -148,16 +147,6 @@ export default function CarteiraProcessual({ showToast, usuario, processoInicial
       await abrirProcesso(processo);
     } finally {
       setSincronizandoDataJud(false);
-    }
-  }
-
-  async function alterarStatus(item, status) {
-    const anterior = item.situacao;
-    setRegistros((atuais) => atuais.map((registro) => registro.id === item.id ? { ...registro, situacao: status } : registro));
-    const { error } = await supabase.from("processos").update({ situacao: status }).eq("id", item.id);
-    if (error) {
-      setRegistros((atuais) => atuais.map((registro) => registro.id === item.id ? { ...registro, situacao: anterior } : registro));
-      showToast?.(`Não foi possível alterar o status: ${error.message}`);
     }
   }
 
@@ -341,7 +330,7 @@ export default function CarteiraProcessual({ showToast, usuario, processoInicial
 
     const cliente = await sincronizarClienteDoProcesso(supabase, data, usuario).catch(() => null);
     const processoSalvo = cliente?.id ? { ...data, cliente_id: cliente.id } : data;
-    setRegistros((atuais) => [processoSalvo, ...atuais]);
+    setRegistros((atuais) => [processoSalvo, ...atuais].slice(0, tamanhoPagina));
     setTotal((atual) => atual + 1);
     setCadastroAberto(false);
     setSalvandoCadastro(false);
@@ -433,10 +422,18 @@ export default function CarteiraProcessual({ showToast, usuario, processoInicial
     setMovimento({ ...MOVIMENTO_INICIAL, responsavel: usuario?.nome || "" }); setAcao(ACAO_INICIAL); setRegistrando(false); setSalvando(false); showToast?.("Movimentação registrada e histórico atualizado.");
   }
 
-  if (processo) return <FichaProcessual key={processo.id} usuario={usuario} showToast={showToast} onOpenProcess={abrirProcessoDaFicha} processo={processo} cliente={clienteProcesso} atualizarTarefa={atualizarTarefa} excluirTarefa={excluirTarefa} timeline={timeline} registrando={registrando} setRegistrando={setRegistrando} movimento={movimento} setMovimento={setMovimento} acao={acao} setAcao={setAcao} concluir={concluirMovimentacao} atualizarMovimentacao={atualizarMovimentacao} excluirMovimentacao={excluirMovimentacao} encaminharAoProtocolo={encaminharAoProtocolo} salvando={salvando} sincronizarDataJud={sincronizarDataJud} sincronizandoDataJud={sincronizandoDataJud} salvarInformacoes={salvarInformacoes} salvandoInformacoes={salvandoInformacoes} voltar={() => { setProcesso(null); setRegistrando(false); }} />;
+  function fecharAcompanhamento() {
+    if (salvando || salvandoInformacoes || sincronizandoDataJud) return;
+    aberturaAtual.current += 1;
+    setAbrindoProcesso(null);
+    setProcesso(null);
+    setRegistrando(false);
+    void carregar();
+  }
+  if (carteiraExtrajudicial && processo) return <FichaProcessual key={processo.id} usuario={usuario} showToast={showToast} onOpenProcess={abrirProcessoDaFicha} processo={processo} cliente={clienteProcesso} atualizarTarefa={atualizarTarefa} excluirTarefa={excluirTarefa} timeline={timeline} registrando={registrando} setRegistrando={setRegistrando} movimento={movimento} setMovimento={setMovimento} acao={acao} setAcao={setAcao} concluir={concluirMovimentacao} atualizarMovimentacao={atualizarMovimentacao} excluirMovimentacao={excluirMovimentacao} encaminharAoProtocolo={encaminharAoProtocolo} salvando={salvando} sincronizarDataJud={sincronizarDataJud} sincronizandoDataJud={sincronizandoDataJud} salvarInformacoes={salvarInformacoes} salvandoInformacoes={salvandoInformacoes} voltar={fecharAcompanhamento} />;
 
   return <>
-    <section className={carteiraExtrajudicial ? "portfolio-process-section clientes-list-panel" : "portfolio-process-section"}>
+    <section className="portfolio-process-section clientes-list-panel">
       <div className="process-status-section-heading">
         {carteiraExtrajudicial ? <span className="table-chip extrajudicial-scope">Esfera: Extrajudicial</span> : <div><span>Processos com número judicial</span></div>}
         <div className="process-status-heading-actions"><button className="primary" type="button" onClick={abrirCadastro}>{carteiraExtrajudicial ? "Cadastrar ação extrajudicial" : "Cadastrar processo judicial"}</button><button type="button" onClick={() => { invalidarConsultas(); void carregar(); }}>Atualizar</button></div>
@@ -454,18 +451,21 @@ export default function CarteiraProcessual({ showToast, usuario, processoInicial
             <td><div className="table-actions"><button type="button" className="btn-secondary compact" disabled={abrindoProcesso !== null} aria-label={`Abrir acompanhamento de ${item.nome_cliente}`} onClick={(evento) => { evento.stopPropagation(); void abrirProcesso(item); }}>{abrindoProcesso === item.id ? "Abrindo..." : "Abrir acompanhamento"}</button></div></td>
           </tr>)}</tbody>
         </table>
-      </div> : carregando && !registros.length ? <p className="process-status-empty">Carregando processos...</p> : registros.length ? <div className="portfolio-process-list">{registros.map((item) => {
-        const extrajudicial = ehExtrajudicial(item);
-        const protocoloExtrajudicial = numeroProtocoloExtrajudicial(item);
-        return <article className="portfolio-process-card" key={item.id}>
-          <div className="process-status-card-heading"><div><span>{extrajudicial ? "Ação extrajudicial" : "Processo judicial"}</span><div className="process-name-with-protocol"><h3>{item.nome_cliente}</h3>{protocoloExtrajudicial ? <b className="extrajudicial-protocol">Protocolo {protocoloExtrajudicial}</b> : null}</div></div><Select className="process-status-select" aria-label={`Status do processo de ${item.nome_cliente}`} value={item.situacao || "TRAMITANDO"} onChange={(e) => void alterarStatus(item, e.target.value)}>{STATUS_PROCESSO.map((status) => <option key={status} value={status}>{status}</option>)}</Select></div>
-          <div className="portfolio-process-details"><div><span>{extrajudicial ? "Modalidade" : "Processo"}</span><strong>{extrajudicial ? "Extrajudicial" : item.numero_processo || "Não informado"}</strong></div><div><span>Parte contrária</span><strong>{item.reu || item.banco_reu || "Não informado"}</strong></div><div><span>Ação</span><strong>{item.tipo_acao || "Não informada"}</strong></div><div><span>Última atualização</span><strong>{dataHora(item.ultima_movimentacao_data || item.updated_at)}</strong></div></div>
-          {item.ultima_movimentacao ? <p className="process-status-card-note">{item.ultima_movimentacao}</p> : null}
-          <div className="process-status-card-footer"><small>Cadastro disponível para acompanhamento, inclusive quando encerrado.</small><button type="button" onClick={() => abrirProcesso(item)}>Abrir acompanhamento</button></div>
-        </article>;
-      })}</div> : <div className="process-status-empty">{carteiraExtrajudicial ? "Nenhuma ação extrajudicial cadastrada." : "Nenhum processo judicial com número liberado."}</div>}
+      </div> : <div className="clientes-table-wrap">
+        <table className="clientes-table clientes-directory-table" aria-label="Processos judiciais" aria-busy={carregando}>
+          <thead><tr><th>Nome do Cliente</th><th>Protocolo</th><th>Número do Processo</th><th>Status</th><th>Ações</th></tr></thead>
+          <tbody>{carregando && !registros.length ? <tr><td colSpan={5}><div className="empty-row">Carregando processos...</div></td></tr> : !registros.length ? <tr><td colSpan={5}><div className="empty-row">Nenhum processo judicial encontrado.</div></td></tr> : registros.map((item) => <tr key={item.id} className="cliente-directory-row">
+            <td><strong>{item.nome_cliente || "Não informado"}</strong></td>
+            <td>{item.protocolo_extrajudicial || "Não informado"}</td>
+            <td>{item.numero_processo || "Não informado"}</td>
+            <td><span className={"table-chip extrajudicial-status-" + corStatusExtrajudicial(item.situacao || "Em andamento")}>{item.situacao || "Em andamento"}</span></td>
+            <td><div className="table-actions"><button type="button" className="btn-secondary compact" disabled={abrindoProcesso !== null} aria-label={"Abrir acompanhamento de " + item.nome_cliente} onClick={() => void abrirProcesso(item)}>Abrir acompanhamento</button></div></td>
+          </tr>)}</tbody>
+        </table>
+      </div>}
       <Pagination pagina={pagina} total={total} tamanho={tamanhoPagina} onChange={setPagina} rotulo="registros" />
     </section>
+    {!carteiraExtrajudicial && (abrindoProcesso !== null || processo) ? <AcompanhamentoModal onClose={fecharAcompanhamento}>{processo ? <FichaProcessual key={processo.id} usuario={usuario} showToast={showToast} onOpenProcess={abrirProcessoDaFicha} processo={processo} cliente={clienteProcesso} atualizarTarefa={atualizarTarefa} excluirTarefa={excluirTarefa} timeline={timeline} registrando={registrando} setRegistrando={setRegistrando} movimento={movimento} setMovimento={setMovimento} acao={acao} setAcao={setAcao} concluir={concluirMovimentacao} atualizarMovimentacao={atualizarMovimentacao} excluirMovimentacao={excluirMovimentacao} encaminharAoProtocolo={encaminharAoProtocolo} salvando={salvando} sincronizarDataJud={sincronizarDataJud} sincronizandoDataJud={sincronizandoDataJud} salvarInformacoes={salvarInformacoes} salvandoInformacoes={salvandoInformacoes} voltar={fecharAcompanhamento} /> : <p role="status">Carregando acompanhamento...</p>}</AcompanhamentoModal> : null}
     {cadastroAberto ? <FormularioNovoProcesso form={novoProcesso} setForm={setNovoProcesso} salvando={salvandoCadastro} erro={cadastroErro} naturezaFixa={carteiraExtrajudicial ? "Extrajudicial" : "Judicial"} onSubmit={cadastrarProcesso} onClose={() => { setCadastroAberto(false); setCadastroErro(""); }} /> : null}
   </>;
 }
@@ -638,4 +638,24 @@ function CamposEdicaoAtividade({ registro, setRegistro }) {
     <FormField><span>Prioridade</span><Select value={registro.prioridade} onChange={alterar("prioridade")}>{["Baixa", "Normal", "Alta", "Crítica"].map((valor) => <option key={valor}>{valor}</option>)}</Select></FormField>
     <FormField><span>Status</span><Select value={registro.status} onChange={alterar("status")}>{["Pendente", "Em andamento", "Concluída", "Cancelada", "Atrasada"].map((valor) => <option key={valor}>{valor}</option>)}</Select></FormField>
   </>;
+}
+
+function AcompanhamentoModal({ children, onClose }) {
+  const dialog = useRef(null);
+  useEffect(() => {
+    const elemento = dialog.current;
+    const focoAnterior = document.activeElement;
+    const overflowAnterior = document.body.style.overflow;
+    elemento.showModal();
+    document.body.style.overflow = "hidden";
+    return () => {
+      elemento.close();
+      document.body.style.overflow = overflowAnterior;
+      focoAnterior?.focus();
+    };
+  }, []);
+  return <dialog ref={dialog} className="processual-acompanhamento-modal" aria-labelledby="acompanhamento-title" onCancel={(evento) => { evento.preventDefault(); onClose(); }}>
+    <header className="processual-modal-heading"><h2 id="acompanhamento-title">Acompanhamento processual</h2><button type="button" className="btn-secondary compact" aria-label="Fechar acompanhamento" onClick={onClose}>Fechar</button></header>
+    {children}
+  </dialog>;
 }

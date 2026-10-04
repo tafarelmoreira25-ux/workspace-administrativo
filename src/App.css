@@ -3569,3 +3569,9 @@ body,
     border-right: 0 !important;
   }
 }
+
+
+.dashboard-fluxo { gap: 24px; }
+.dashboard-fluxo-item { position: relative; }
+.dashboard-fluxo-item > i { position: absolute; right: -24px; }
+@media (min-width: 701px) and (max-width: 1100px) { .dashboard-fluxo { grid-template-columns: repeat(3, minmax(0, 1fr)); } }

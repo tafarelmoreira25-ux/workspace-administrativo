@@ -147,3 +147,69 @@ test('converte Calibri Light real pelo tema, preserva itálico e tamanho e não 
     PDFPage.prototype.drawRectangle = drawRectangle;
   }
 });
+
+
+test('preserva espacos de assinatura, nota no corpo e marcador do DOCX', async () => {
+  const w = 'http://schemas.openxmlformats.org/wordprocessingml/2006/main';
+  const paragrafo = texto => '<w:p><w:r><w:t>' + texto + '</w:t></w:r></w:p>';
+  const bytes = zipSync({
+    'word/document.xml': strToU8('<w:document xmlns:w="' + w + '"><w:body>' +
+      paragrafo('\u25cf Primeiro') + paragrafo('') + paragrafo('') + paragrafo('') +
+      paragrafo('____________') + paragrafo('Documento emitido em teste') +
+      '<w:sectPr><w:pgSz w:w="11906" w:h="16838"/><w:pgMar w:top="1440" w:bottom="1440" w:left="1440" w:right="1440"/></w:sectPr></w:body></w:document>'),
+    'word/styles.xml': strToU8('<w:styles xmlns:w="' + w + '"><w:docDefaults><w:rPrDefault><w:rPr><w:rFonts w:ascii="Calibri Light"/><w:sz w:val="22"/></w:rPr></w:rPrDefault></w:docDefaults></w:styles>'),
+  });
+  const fetchOriginal = globalThis.fetch;
+  const drawText = PDFPage.prototype.drawText;
+  const textos = [];
+  globalThis.fetch = async path => new Response(await readFile(new URL('../../public' + path, import.meta.url)));
+  PDFPage.prototype.drawText = function(texto, opcoes) {
+    textos.push({ texto, y: opcoes.y });
+    return drawText.call(this, texto, opcoes);
+  };
+  try {
+    await gerarPdfDoWordOficial(bytes);
+    assert.equal(textos[0].texto, '\u25cf');
+    const assinatura = textos.find(t => t.texto === '____________');
+    assert.ok(Math.abs(textos[0].y - assinatura.y - 4 * 11 * 1.15) < .01);
+    const nota = textos.find(t => t.texto === 'Documento');
+    assert.ok(Math.abs(assinatura.y - nota.y - 11 * 1.15) < .01);
+  } finally {
+    globalThis.fetch = fetchOriginal;
+    PDFPage.prototype.drawText = drawText;
+  }
+});
+
+
+test('respeita familias diferentes e variantes do original sem exigir Calibri Light', async () => {
+  const w = 'http://schemas.openxmlformats.org/wordprocessingml/2006/main';
+  const bytes = zipSync({
+    'word/document.xml': strToU8('<w:document xmlns:w="' + w + '"><w:body><w:p>' +
+      '<w:r><w:rPr><w:rFonts w:ascii="Times New Roman"/><w:sz w:val="24"/></w:rPr><w:t>Maria </w:t></w:r>' +
+      '<w:r><w:rPr><w:rFonts w:ascii="Arial"/><w:b/><w:i/><w:sz w:val="20"/></w:rPr><w:t>Silva</w:t></w:r>' +
+      '</w:p><w:sectPr/></w:body></w:document>'),
+  });
+  const fetchOriginal = globalThis.fetch;
+  const drawText = PDFPage.prototype.drawText;
+  const textos = [];
+  const acessos = [];
+  globalThis.fetch = async path => {
+    acessos.push(path);
+    return new Response(await readFile(new URL('../../public' + path, import.meta.url)));
+  };
+  PDFPage.prototype.drawText = function(texto, opcoes) {
+    textos.push({ texto, fonte: opcoes.font.name, tamanho: opcoes.size });
+    return drawText.call(this, texto, opcoes);
+  };
+  try {
+    await gerarPdfDoWordOficial(bytes);
+    assert.match(textos[0].fonte, /TimesNewRoman/i);
+    assert.match(textos[1].fonte, /Arial.*BoldItalic/i);
+    assert.deepEqual(textos.map(t => t.tamanho), [12, 10]);
+    assert.equal(acessos.length, 2);
+    assert.ok(acessos.every(p => !p.includes('calibri')));
+  } finally {
+    globalThis.fetch = fetchOriginal;
+    PDFPage.prototype.drawText = drawText;
+  }
+});
