@@ -1,5 +1,5 @@
 import { unzipSync } from "fflate";
-import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
+import { PDFDocument, rgb } from "pdf-lib";
 import fontkit from "@pdf-lib/fontkit";
 
 const W = "http://schemas.openxmlformats.org/wordprocessingml/2006/main";
@@ -47,20 +47,28 @@ function relacoes(arquivos, parte) {
     }));
 }
 
-function formatoTexto(node, base = {}) {
+function formatoTexto(node, base = {}, tema = {}) {
   const result = { ...base };
   const f = primeiro(node, "rFonts");
-  if (f) result.familia = atributo(f, "ascii") || atributo(f, "hAnsi") || base.familia;
+  if (f) result.familia = tema[atributo(f, "asciiTheme") || atributo(f, "hAnsiTheme")] || atributo(f, "ascii") || atributo(f, "hAnsi") || base.familia;
   if (primeiro(node, "sz")) result.tamanho = numero(val(node, "sz"), 22) / 2;
   for (const [tag, key] of [["b", "negrito"], ["i", "italico"], ["u", "sublinhado"], ["strike", "riscado"]]) {
     if (primeiro(node, tag)) result[key] = Boolean(ligada(primeiro(node, tag)));
   }
   if (primeiro(node, "color")) result.cor = val(node, "color");
+  if (primeiro(node, "highlight")) result.destaque = val(node, "highlight");
+  if (primeiro(node, "shd")) result.fundo = atributo(primeiro(node, "shd"), "fill");
   return result;
 }
 
 function estilosDoModelo(arquivos) {
   const doc = xml(arquivos, "word/styles.xml");
+  const temaDoc = xml(arquivos, "word/theme/theme1.xml");
+  const tema = {};
+  for (const tipo of ["major", "minor"]) {
+    const fonte = atributo(primeiro(primeiro(temaDoc, `${tipo}Font`, A), "latin", A), "typeface", A);
+    for (const sufixo of ["Ascii", "HAnsi"]) tema[`${tipo}${sufixo}`] = fonte;
+  }
   const estilos = new Map(Array.from(doc?.getElementsByTagNameNS(W, "style") || []).map((n) => [atributo(n, "styleId"), n]));
   const resolver = (id, vistos = new Set()) => {
     const n = estilos.get(id);
@@ -68,7 +76,7 @@ function estilosDoModelo(arquivos) {
     vistos.add(id); return [...resolver(val(n, "basedOn"), vistos), n];
   };
   return {
-    padrao: primeiro(doc, "docDefaults"), resolver,
+    padrao: primeiro(doc, "docDefaults"), resolver, tema,
     normal: Array.from(estilos.values()).find((n) => atributo(n, "type") === "paragraph" && atributo(n, "default") === "1"),
   };
 }
@@ -76,10 +84,10 @@ function estilosDoModelo(arquivos) {
 function lerParagrafo(node, estilos) {
   const pPr = filhos(node, "pPr")[0];
   const cadeia = [estilos.padrao, ...estilos.resolver(atributo(estilos.normal, "styleId")), ...estilos.resolver(val(pPr, "pStyle")), node];
-  let base = { tamanho: 11, familia: "Times New Roman", cor: "000000" };
+  let base = { tamanho: 11, familia: "", cor: "000000" };
   const props = { alinhamento: "left", antes: 0, depois: 0, esquerda: 0, direita: 0, primeira: 0, linha: 1.15 };
   for (const parte of cadeia) {
-    base = formatoTexto(parte === node ? primeiro(pPr, "rPr") : primeiro(parte, "rPr"), base);
+    base = formatoTexto(parte === node ? primeiro(pPr, "rPr") : primeiro(parte, "rPr"), base, estilos.tema);
     const pr = parte === node ? pPr : primeiro(parte, "pPr");
     if (!pr) continue;
     const spacing = primeiro(pr, "spacing"); const ind = primeiro(pr, "ind");
@@ -103,8 +111,8 @@ function lerParagrafo(node, estilos) {
     while (ancestor && ancestor !== node && !(ancestor.namespaceURI === W && ancestor.localName === "p")) ancestor = ancestor.parentNode;
     if (ancestor !== node) continue;
     const pr = filhos(run, "rPr")[0]; let formato = { ...base };
-    for (const estilo of estilos.resolver(val(pr, "rStyle"))) formato = formatoTexto(primeiro(estilo, "rPr"), formato);
-    formato = formatoTexto(pr, formato);
+    for (const estilo of estilos.resolver(val(pr, "rStyle"))) formato = formatoTexto(primeiro(estilo, "rPr"), formato, estilos.tema);
+    formato = formatoTexto(pr, formato, estilos.tema);
     if (ligada(primeiro(pr, "vanish"))) continue;
     for (const filho of filhos(run)) {
       if (filho.localName === "t") segmentos.push({ ...formato, texto: filho.textContent });
@@ -128,15 +136,19 @@ async function fontesDoModelo(pdf, arquivos) {
       fontes.set(`${atributo(n, "name").toLowerCase()}:${sufixo}`, await pdf.embedFont(dados, { subset: true }));
     }
   }
-  const padrao = new Map();
-  for (const [familia, nomes] of [
-    ["times", [StandardFonts.TimesRoman, StandardFonts.TimesRomanBold, StandardFonts.TimesRomanItalic, StandardFonts.TimesRomanBoldItalic]],
-    ["sans", [StandardFonts.Helvetica, StandardFonts.HelveticaBold, StandardFonts.HelveticaOblique, StandardFonts.HelveticaBoldOblique]],
-    ["mono", [StandardFonts.Courier, StandardFonts.CourierBold, StandardFonts.CourierOblique, StandardFonts.CourierBoldOblique]],
-  ]) padrao.set(familia, await Promise.all(nomes.map((n) => pdf.embedFont(n))));
+  for (const [variante, caminho] of [["00", "/assets/fonts/calibri-light.ttf"], ["01", "/assets/fonts/calibri-light-italic.ttf"]]) {
+    const chave = `calibri light:${variante}`;
+    if (fontes.has(chave)) continue;
+    const resposta = await fetch(caminho);
+    if (!resposta.ok) throw new Error(`Geração bloqueada: não foi possível carregar a fonte original Calibri Light (${resposta.status}).`);
+    fontes.set(chave, await pdf.embedFont(await resposta.arrayBuffer(), { subset: true }));
+  }
   return (s) => {
     const f = String(s.familia || "").toLowerCase(); const key = `${f}:${s.negrito ? 1 : 0}${s.italico ? 1 : 0}`;
-    return fontes.get(key) || fontes.get(`${f}:00`) || padrao.get(/courier/.test(f) ? "mono" : /times|cambria|georgia/.test(f) ? "times" : "sans")[(s.negrito ? 1 : 0) + (s.italico ? 2 : 0)];
+    if (f !== "calibri light") throw new Error(`Geração bloqueada: o modelo declara a fonte “${s.familia || "não definida"}”, divergente da fonte oficial Calibri Light. Revise o original; sua formatação não foi alterada.`);
+    const fonte = fontes.get(key);
+    if (!fonte) throw new Error(`Geração bloqueada: a fonte original “${s.familia}” (${s.negrito ? "negrito" : "normal"}${s.italico ? ", itálico" : ""}) não está incorporada ao DOCX. Não é permitido substituir a fonte do modelo.`);
+    return fonte;
   };
 }
 

@@ -10,6 +10,7 @@ import {
 import { criarOpcoesIniciaisProcuracao, listarDocumentosProcuracao, mensagemConjuntoGerado } from "./lib/procuracaoConjunto";
 import { supabase } from "./lib/supabase";
 import { DOCUMENT_TEMPLATES, valorInicialCampo } from "./config/documentTemplates";
+import { pendenciaModeloOriginal } from "./lib/documentPdf";
 import "./documentWorkspace.css";
 
 const MODELOS = enriquecerModelos(DOCUMENT_TEMPLATES);
@@ -129,7 +130,7 @@ function carregarRascunho(responsavel, departamento, contextoDocumento) {
     };
   }
   const salvo = lerJsonLocal(DOCUMENT_DRAFT_KEY, null);
-  if (!rascunhoValido(salvo)) {
+  if (!rascunhoValido(salvo) || !MODELOS.some((modelo) => modelo.id === salvo.dados.modeloId)) {
     localStorage.removeItem(DOCUMENT_DRAFT_KEY);
     return criarFormularioInicial(responsavel, MODELOS[0], departamento);
   }
@@ -297,7 +298,8 @@ export default function GeradorDocumentos({ responsavel, usuario, onSuccess, con
     }
     return conflitos;
   }, [modeloSelecionado, modelos, dados]);
-  const podeGerar = identificacaoCompleta && pendentes.length === 0 && !declaracaoIrpfInvalida && conflitosFixos.length === 0 && !gerando;
+  const pendenciaOriginal = pendenciaModeloOriginal(modeloSelecionado);
+  const podeGerar = !pendenciaOriginal && identificacaoCompleta && pendentes.length === 0 && !declaracaoIrpfInvalida && conflitosFixos.length === 0 && !gerando;
   const etapaAtual = !identificacaoCompleta ? 2 : pendentes.length || declaracaoIrpfInvalida || conflitosFixos.length ? 3 : 4;
   const documentosProcuracao = modeloSelecionado.modo === "procuracao" ? listarDocumentosProcuracao(dados) : [];
 
@@ -506,11 +508,11 @@ export default function GeradorDocumentos({ responsavel, usuario, onSuccess, con
   }
 
   async function abrirHistorico(item) { let link = item.link; if (!link && item.storagePath) { const { data } = await supabase.storage.from("documentos-juridicos").createSignedUrl(item.storagePath, 60 * 60); link = data?.signedUrl; } if (link) window.open(link, "_blank", "noopener,noreferrer"); }
-  function carregarRegistro(item, novaVersao = false) { const modelo = modelos.find((modeloItem) => modeloItem.id === item.modeloId) || modeloSelecionado; const dadosSalvos = { ...(item.metadata?.dados || {}) }; delete dadosSalvos.nomeDocumento; const versao = novaVersao ? (Number(item.versao) || 1) + 1 : 1; setDados({ ...criarFormularioInicial(responsavel, modelo, departamentoUsuario), ...dadosSalvos, modeloId: modelo.id, versao }); setDirty(true); setBibliotecaAberta(false); primeiraSecaoRef.current?.scrollIntoView({ behavior: "smooth" }); }
+  function carregarRegistro(item, novaVersao = false) { const modelo = modelos.find((modeloItem) => modeloItem.id === item.modeloId); if (!modelo) { setErro("Este modelo foi removido da biblioteca e não pode ser reutilizado."); return; } const dadosSalvos = { ...(item.metadata?.dados || {}) }; delete dadosSalvos.nomeDocumento; const versao = novaVersao ? (Number(item.versao) || 1) + 1 : 1; setDados({ ...criarFormularioInicial(responsavel, modelo, departamentoUsuario), ...dadosSalvos, modeloId: modelo.id, versao }); setDirty(true); setBibliotecaAberta(false); primeiraSecaoRef.current?.scrollIntoView({ behavior: "smooth" }); }
   async function copiarLink() { if (!resultado?.link) return; await navigator.clipboard.writeText(resultado.link); onSuccess?.("Link interno copiado."); }
   async function prepararAssinatura() { if (resultado?.id && !String(resultado.id).startsWith("local-")) await supabase.from("documentos_juridicos").update({ status: "Aguardando assinatura" }).eq("id", resultado.id); setResultado((atual) => ({ ...atual, status: "Aguardando assinatura" })); onStatusDocumento?.({ ...resultado, status: "Aguardando assinatura" }); onSuccess?.("Documento marcado como pronto para assinatura."); }
 
-  const razaoBloqueio = pendentes.length ? `Preencha os ${pendentes.length} campos obrigatórios pendentes para gerar o PDF.` : declaracaoIrpfInvalida ? "Informe os exercícios e a data da declaração de IRPF." : conflitosFixos.length ? "Resolva as inconsistências fixas do Word original antes de gerar." : "";
+  const razaoBloqueio = pendenciaOriginal || (pendentes.length ? `Preencha os ${pendentes.length} campos obrigatórios pendentes para gerar o PDF.` : declaracaoIrpfInvalida ? "Informe os exercícios e a data da declaração de IRPF." : conflitosFixos.length ? "Resolva as inconsistências fixas do Word original antes de gerar." : "");
 
   return <section className="legal-doc-workspace" ref={primeiraSecaoRef}>
     {!online ? <div className="legal-doc-offline" role="alert">Sem conexão. O rascunho temporário permanece neste dispositivo por até 24 horas.</div> : null}

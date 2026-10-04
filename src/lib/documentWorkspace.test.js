@@ -24,11 +24,7 @@ test("todos os modelos são entregues em PDF", () => {
   assert.ok(modelos.every((modelo) => modelo.formato !== "docx"));
 });
 
-test("o conjunto da procuração usa cada modelo oficial correto", () => {
-  assert.equal(
-    modelos.find((modelo) => modelo.modo === "procuracao").templateDocx,
-    "/modelos/procuracoes/procuracao-ad-judicia-2026.docx",
-  );
+test("as declarações e o requerimento usam seus modelos oficiais", () => {
   assert.equal(
     modelos.find((modelo) => modelo.modo === "declaracao-hipossuficiencia").templateDocx,
     "/modelos/declaracoes/declaracao-hipossuficiencia-2026.docx",
@@ -65,16 +61,16 @@ test("bloqueia dados que contradizem textos fixos dos modelos oficiais", () => {
 
 test("filtra modelos por finalidade sem depender de acentos", () => {
   const encontrados = filtrarModelos(modelos, {
-    busca: "revisao contratual",
+    busca: "hipossuficiencia",
     categoria: "todos",
     favoritos: [],
     recentes: [],
   });
-  assert.ok(encontrados.some((modelo) => modelo.modo === "procuracao"));
+  assert.ok(encontrados.some((modelo) => modelo.modo === "declaracao-hipossuficiencia"));
 });
 
 test("gera nome legível e arquivo técnico seguro", () => {
-  const modelo = modelos.find((item) => item.modo === "procuracao");
+  const modelo = modelos.find((item) => item.modo === "declaracao-hipossuficiencia");
   const nome = sugerirNomeDocumento(
     modelo,
     { nomeCliente: "João da Silva", numeroContrato: "45872", dataEmissao: "2026-08-16" },
@@ -83,23 +79,22 @@ test("gera nome legível e arquivo técnico seguro", () => {
     1,
   );
   assert.match(nome, /João da Silva/);
-  assert.equal(normalizarNomeArquivo(nome), "Procuracao_para_Acao_Revisional_Joao_da_Silva_Contrato_45872_16-08-2026.pdf");
+  assert.equal(normalizarNomeArquivo(nome), "Declaracao_de_Hipossuficiencia_Joao_da_Silva_Contrato_45872_16-08-2026.pdf");
 });
 
 test("agrupa os campos obrigatórios em seções reutilizáveis", () => {
-  const modelo = modelos.find((item) => item.modo === "procuracao");
+  const modelo = modelos.find((item) => item.modo === "declaracao-hipossuficiencia");
   const grupos = agruparCampos(modelo.campos);
   assert.ok(grupos.some((grupo) => grupo.id === "pessoais"));
   assert.equal(grupos.flatMap((grupo) => grupo.campos).length, modelo.campos.length);
 });
 
-test("deixa a nacionalidade em branco e mantém o órgão expedidor junto do RG", () => {
-  const modelo = modelos.find((item) => item.modo === "procuracao");
+test("deixa a nacionalidade em branco e mantém o RG nos dados pessoais", () => {
+  const modelo = modelos.find((item) => item.modo === "declaracao-hipossuficiencia");
   const grupos = agruparCampos(modelo.campos);
   const pessoais = grupos.find((grupo) => grupo.id === "pessoais");
   assert.equal(valorInicialCampo({ nome: "nacionalidade" }), "");
   assert.ok(pessoais.campos.some((campo) => campo.nome === "rg"));
-  assert.ok(pessoais.campos.some((campo) => campo.nome === "orgaoExpedidor"));
 });
 
 test("valida CPF incompleto com mensagem específica", () => {

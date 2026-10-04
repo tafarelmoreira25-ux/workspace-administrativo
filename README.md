@@ -68,7 +68,10 @@ Execute uma vez no SQL Editor do Supabase:
 Execute também `supabase/documentos_juridicos_workspace.sql` para o gerador de documentos.
 
 Os PDFs são gerados localmente no navegador com `pdf-lib`, a partir de uma
-cópia preenchida do modelo ou dos geradores locais existentes. A prévia e
+cópia preenchida do DOCX oficial, preservando suas propriedades. A geração
+fica bloqueada quando falta o original, há mapeamento pendente ou a
+equivalência visual ainda não foi validada. Os geradores antigos foram removidos.
+A prévia e
 o download usam o mesmo gerador. Essa geração não exige Microsoft 365,
 segredos do Microsoft Graph nem publicação de uma função de conversão no Supabase.
 

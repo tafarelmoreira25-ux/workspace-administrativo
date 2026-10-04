@@ -2,6 +2,20 @@
 
 Data da revisão: 2026-10-04.
 
+## Estado atual após a limpeza segura (04/10/2026)
+
+Esta seção substitui as descrições do fluxo anterior abaixo, mantidas como histórico.
+
+- A biblioteca atual tem 32 modelos. As remoções de oito modelos já estavam presentes ao retomar esta auditoria; seus DOCX originais foram preservados.
+- A geração usa somente uma cópia preenchida do DOCX oficial. Não existe alternativa pelos geradores PDF antigos.
+- Ausência do DOCX, mapeamento pendente e falta de validação visual bloqueiam a prévia e a geração. O bloqueio por validação visual agora aparece também junto ao botão de gerar, antes de carregar ou converter arquivos.
+- Nenhum dos 32 modelos declara `validacaoVisualPdf: true`; portanto, todos permanecem bloqueados para emissão até a validação exigida pelo `AGENTS.md`. Testes estruturais não autorizam emissão.
+- Foram removidos 13 módulos PDF antigos sem uso pelo aplicativo e o teste exclusivo de um desses geradores. A lista explícita de testes no `package.json` foi atualizada.
+- Antes da remoção, os 14 arquivos foram arquivados em `.tmp/safe-cleanup-legacy-pdf-20261004.zip`, com conferência SHA-256 de cada entrada. O manifesto está em `.tmp/safe-cleanup-legacy-pdf-20261004-manifest.json`. O backup anterior também foi preservado.
+- Originais Word, fontes, evidências de revisão, dados, arquivos de configuração e scripts SQL foram preservados. Esta limpeza é local e não altera registros no Supabase.
+
+Validação da limpeza: `npm run check` concluído com sucesso — lint, 79 testes aprovados e build de produção. A busca em `src`, `scripts` e `package.json` não encontrou referências aos módulos removidos. `git diff --check` não apontou erros de whitespace. O build ainda avisa sobre o tamanho do módulo de conversão Word/PDF e sobre o import dinâmico de `documentPdf.js`, que também é importado estaticamente; esses avisos não impedem a compilação e ficam registrados para a próxima etapa.
+
 ## Padrão adotado
 
 Por instrução do usuário em 04/10/2026, a geração voltou ao mecanismo local com `pdf-lib`, identificado na versão `c4ee42e` do projeto. A dependência do Microsoft Graph foi removida.

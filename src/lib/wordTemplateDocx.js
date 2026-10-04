@@ -130,7 +130,7 @@ function regrasProcuracaoDeclaracoes(d, modo) {
   const dataLocal = `${t(d.cidade)}${d.uf ? `-${t(d.uf).toUpperCase()}` : ""}, ${dataLonga(dataDocumento)}.`;
   if (modo === "procuracao") {
     return [
-      regra("OUTORGANTE: XXXXXXXXXXXXXXXXXX", `OUTORGANTE: ${t(d.nomeCliente)}`),
+      regra("XXXXXXXXXXXXXXXXXX", d.nomeCliente, { contexto: "OUTORGANTE: " }),
       regra("nacionalidade", concordarCampoPerfil(d.nacionalidade, d)),
       regra("estado cívil", concordarCampoPerfil(d.estadoCivil, d)),
       regra("profissão", concordarCampoPerfil(d.profissao, d)),
@@ -316,6 +316,10 @@ function substituirNoParagrafo(paragrafo, item, indiceInicial) {
     const completo = nos.map((no) => no.textContent || "").join("");
     const inicio = completo.indexOf(item.buscar, buscaAPartir);
     if (inicio < 0) break;
+    if (item.contexto && completo.slice(0, inicio).slice(-item.contexto.length) !== item.contexto) {
+      buscaAPartir = inicio + item.buscar.length;
+      continue;
+    }
     const fim = inicio + item.buscar.length;
     let cursor = 0; let primeiro; let ultimo; let offsetInicio = 0; let offsetFim = 0;
     for (const no of nos) {
@@ -357,14 +361,6 @@ function preencherXml(xml, caminho, regras, contadores) {
       contadores[chave] = (contadores[chave] || 0) + feitas;
     });
   });
-  Array.from(documento.getElementsByTagNameNS(W_NS, "highlight")).forEach((no) => {
-    const valor = no.getAttributeNS(W_NS, "val") || no.getAttribute("w:val") || no.getAttribute("val");
-    if (["yellow", "FFFF00"].includes(valor)) no.parentNode?.removeChild(no);
-  });
-  Array.from(documento.getElementsByTagNameNS(W_NS, "shd")).forEach((no) => {
-    const valor = no.getAttributeNS(W_NS, "fill") || no.getAttribute("w:fill") || no.getAttribute("fill");
-    if (String(valor).toUpperCase() === "FFFF00") no.parentNode?.removeChild(no);
-  });
   return new XMLSerializer().serializeToString(documento);
 }
 
@@ -382,6 +378,20 @@ function validar(arquivos, modelo) {
   if (pendencias.size) throw new Error(`Preencha os campos obrigatórios do modelo: ${[...pendencias].join(", ")}.`);
 }
 
+function removerMarcadoresAmarelos(xml) {
+  const documento = new DOMParser().parseFromString(xml, "application/xml");
+  for (const no of Array.from(documento.getElementsByTagNameNS(W_NS, "highlight"))) {
+    const valor = no.getAttributeNS(W_NS, "val");
+    if (["yellow", "FFFF00"].includes(valor)) no.setAttributeNS(W_NS, "w:val", "none");
+  }
+  for (const no of Array.from(documento.getElementsByTagNameNS(W_NS, "shd"))) {
+    for (const atributo of ["fill", "color"]) {
+      if ((no.getAttributeNS(W_NS, atributo) || "").toUpperCase() === "FFFF00") no.setAttributeNS(W_NS, `w:${atributo}`, "auto");
+    }
+  }
+  return new XMLSerializer().serializeToString(documento);
+}
+
 export async function gerarWordOficial(dados, modelo) {
   if (!modelo?.templateDocx) throw new Error("Arquivo do modelo oficial não configurado.");
   const resposta = await fetch(modelo.templateDocx);
@@ -394,5 +404,11 @@ export async function gerarWordOficial(dados, modelo) {
     arquivos[caminho] = strToU8(preencherXml(strFromU8(arquivos[caminho]), caminho, regras, contadores));
   }
   validar(arquivos, modelo);
+  // Os marcadores servem à identificação no original; a cópia final não os exibe.
+  for (const caminho of Object.keys(arquivos)) {
+    if (!/^word\/.*\.xml$/i.test(caminho)) continue;
+    const xml = strFromU8(arquivos[caminho]);
+    if (/(?:highlight|shd)/.test(xml)) arquivos[caminho] = strToU8(removerMarcadoresAmarelos(xml));
+  }
   return { bytes: zipSync(arquivos, { level: 6 }), mime: MIME_DOCX };
 }
