@@ -1,5 +1,5 @@
 import { FormActions, FormField, FormGrid, FormSection, Input, Select, Textarea } from "../common/FormControls";
-import { FormEvent, useMemo, useState } from "react";
+import { FormEvent, useEffect, useRef, useState } from "react";
 import { supabase } from "../../lib/supabase";
 import {
   type FaseProcessual,
@@ -81,10 +81,6 @@ function isoOuNull(dataLocal: string) {
   if (!dataLocal) return null;
   const parsed = new Date(dataLocal);
   return Number.isNaN(parsed.getTime()) ? null : parsed.toISOString();
-}
-
-function normalizar(valor = "") {
-  return String(valor).normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
 }
 
 function criarFormulario(processo?: Processo | null, responsavel = "") {
@@ -193,29 +189,6 @@ function proximaEtapaPendente(processo: Processo) {
   return ETAPAS_FORMULARIO.find(([chave]) => !timelineConcluida(chave, processo))?.[0] || null;
 }
 
-function colunaProtocolo(processo: Processo): (typeof COLUNAS_PROTOCOLO)[number] {
-  if (processo.numero_processo || processo.protocolo_status === "Liberado") return "Distribuição";
-  if ((processo.documentacao_status || processo.status_documentos) === "Irregular" || processo.pasta_retornada) return "Análise de Documentos";
-  if ([processo.procuracao_status, processo.status_procuracao, processo.declaracao_hipossuficiencia_status, processo.declaracao_ir_status].some((status) => status === "Aguardando assinatura" || status === "Pendente" || status === "Atrasado")) return "Aguardando Assinatura";
-  return "Cadastro/Procuração";
-}
-
-function diasNaEtapa(processo: Processo) {
-  const referencia = processo.updated_at || processo.sla_iniciado_em || processo.data_envio_elite || processo.created_at;
-  if (!referencia) return 0;
-  const inicio = new Date(referencia).getTime();
-  if (Number.isNaN(inicio)) return 0;
-  return Math.max(0, Math.floor((Date.now() - inicio) / 86400000));
-}
-
-function classeSlaCard(processo: Processo) {
-  if ((processo.documentacao_status || processo.status_documentos) === "Irregular" || processo.pasta_retorno_impacto_sla === "pausa") return "sla-pausado";
-  const dias = diasNaEtapa(processo);
-  if (dias >= 7) return "sla-card-critico";
-  if (dias >= 4) return "sla-card-alerta";
-  return "";
-}
-
 function campoMudou(a: unknown, b: unknown) {
   return String(a || "") !== String(b || "");
 }
@@ -262,22 +235,22 @@ export default function EsteiraKanban({
   const [salvando, setSalvando] = useState(false);
   const [etapaFormulario, setEtapaFormulario] = useState<EtapaFormulario>("dados");
 
-  const protocolos = useMemo(() => {
-    const termo = normalizar(busca);
-    return processos.filter((processo) => {
-      if (!termo) return true;
-      return [
-        processo.nome_cliente,
-        processo.cpf_cliente,
-        processo.id_crm,
-        processo.pasta_cliente_id,
-        processo.link_pasta_cliente,
-        processo.banco_reu,
-        processo.numero_processo,
-        processo.responsavel,
-      ].some((valor) => normalizar(valor || "").includes(termo));
-    });
-  }, [busca, processos]);
+  const protocolos = processos;
+  const [carregandoDetalhe, setCarregandoDetalhe] = useState(false);
+  const detalheController = useRef<AbortController | null>(null);
+  useEffect(() => () => detalheController.current?.abort(), []);
+
+  async function abrirDetalhe(processo: Processo) {
+    detalheController.current?.abort();
+    const controller = new AbortController();
+    detalheController.current = controller;
+    setCarregandoDetalhe(true);
+    const { data, error } = await supabase.from("processos").select("*").eq("id", processo.id).single().abortSignal(controller.signal);
+    if (controller.signal.aborted) return;
+    setCarregandoDetalhe(false);
+    if (error || !data) { showToast("Não foi possível carregar os detalhes do protocolo."); return; }
+    setProcessoVisualizando(data as Processo);
+  }
 
   function abrirNovoCadastro() {
     setProcessoEditando(null);
@@ -506,38 +479,28 @@ export default function EsteiraKanban({
   return (
     <div className="protocolos-view protocolos-grid-view">
       <div className="protocolos-toolbar protocolos-page-title">
+        <FormField><span>Buscar protocolo</span><Input value={busca} onChange={(event) => onBusca(event.target.value)} placeholder="Cliente, ID ou banco" /></FormField>
         <div className="protocolos-actions">
           <button className="btn-primary" onClick={abrirNovoCadastro} type="button">Novo encaminhamento</button>
         </div>
       </div>
 
+      {carregandoDetalhe ? <p role="status">Carregando detalhes...</p> : null}
       <div className="protocolos-kanban">
         {COLUNAS_PROTOCOLO.map((coluna) => {
-          const itens = protocolos.filter((processo) => colunaProtocolo(processo) === coluna);
+          const itens = protocolos.filter((processo) => processo.etapa === coluna);
           return <section className="protocolo-kanban-coluna" key={coluna}>
             <header><h3>{coluna}</h3><span>{itens.length}</span></header>
             <div className="protocolo-kanban-lista">
               {itens.map((processo) => {
-                const prazo = calcularPrazoElite(processo.data_envio_elite);
-                const dias = diasNaEtapa(processo);
-                return <article className={`protocolo-kanban-card ${classeSlaCard(processo)}`} key={processo.id}>
-                  <button className="protocolo-ficha-main" type="button" onClick={() => setProcessoVisualizando(processo)}>
-                    <div className="protocolo-ficha-identidade">
-                      <strong>{processo.nome_cliente}{numeroProtocoloExtrajudicial(processo) ? ` · ${numeroProtocoloExtrajudicial(processo)}` : ""}</strong>
-                      <span>{processo.banco_reu || "Instituição não informada"}</span>
-                      {processo.numero_processo ? <code>{processo.numero_processo}</code> : null}
-                    </div>
-                    <div className="protocolo-ficha-status">
-                      <b>Em processo de distribuição</b>
-                      <small>{dias ? `${dias} dia${dias === 1 ? "" : "s"} na etapa` : "Entrada recente"}</small>
-                    </div>
-                    <div className="protocolo-ficha-meta">
-                      <span>{etapaAtual(processo) === "SLA" ? "Prazo" : etapaAtual(processo)}</span>
-                      {processo.data_envio_elite ? <small>{prazo.rotulo}</small> : null}
-                    </div>
-                  </button>
-                  <button className="protocolo-editar-btn" type="button" onClick={() => abrirEdicao(processo)}>Editar</button>
-                </article>;
+                const dias = processo.dias_na_etapa || 0;
+                return <button className="protocolo-list-item" key={processo.id} type="button" onClick={() => void abrirDetalhe(processo)} aria-label={`Abrir protocolo de ${processo.nome_cliente}`}>
+                  <span className="protocolo-list-identidade"><strong>{processo.nome_cliente}</strong><small> ? {processo.id_crm || processo.id}</small></span>
+                  <span className="protocolo-list-banco">{processo.banco_reu || "Instituição não informada"}</span>
+                  <span className="protocolo-list-tempo">{dias} {dias === 1 ? "dia" : "dias"}</span>
+                  <span className="protocolo-list-badge">{processo.status_principal || "Em preparação"}</span>
+                  <span className="protocolo-list-abrir" aria-hidden="true">&#8250;</span>
+                </button>;
               })}
               {!itens.length && <p className="kanban-vazio">Nenhum protocolo nesta etapa.</p>}
             </div>

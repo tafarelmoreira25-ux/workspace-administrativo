@@ -40,13 +40,6 @@
   resize: vertical;
 }
 
-.homologacao-layout {
-  display: grid;
-  grid-template-columns: minmax(280px, 360px) 1fr;
-  gap: 14px;
-  align-items: start;
-}
-
 .homologacao-list,
 .homologacao-ficha,
 .homologacao-card {
@@ -59,9 +52,50 @@
 }
 
 .homologacao-list {
-  max-height: calc(100vh - 230px);
-  overflow: auto;
+  min-width: 0;
 }
+
+.homologacao-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
+.homologacao-row { align-content: start; min-height: 170px; transition: border-color .15s, box-shadow .15s; }
+.homologacao-row:hover { border-color: #b9cbff; box-shadow: 0 3px 12px #17243a0d; }
+.homologacao-row:focus-visible { outline: 3px solid #7596ef; outline-offset: 3px; }
+.homologacao-status { display: inline-block; width: fit-content; border-radius: 6px; background: #eef4ff; padding: 5px 8px; color: #2557d6; font-size: 12px; }
+.homologacao-drawer { position: fixed; inset: 0 0 0 auto; margin: 0; width: min(1000px, 90vw); max-width: 100vw; height: 100dvh; max-height: 100dvh; padding: 0; border: 0; color: #17243a; background: #f7f9fc; box-sizing: border-box; overflow: hidden; box-shadow: -12px 0 40px #17243a26; }
+.homologacao-drawer[open] { display: flex; flex-direction: column; animation: homologacao-slide .2s ease-out; }
+.homologacao-drawer::backdrop, .homologacao-modal::backdrop { background: #10182880; }
+body:has(.homologacao-drawer[open], .homologacao-modal[open]) { overflow: hidden; }
+.homologacao-drawer-header { flex-shrink: 0; display: grid; grid-template-columns: 1fr auto; gap: 12px; padding: 22px 24px; border-bottom: 1px solid #e2e6ec; background: #fff; }
+.homologacao-drawer-header h2 { margin: 5px 0; font-size: 22px; overflow-wrap: anywhere; }
+.homologacao-drawer-header p { margin: 5px 0 10px; font-size: 13px; color: #667085; overflow-wrap: anywhere; }
+.homologacao-drawer-header > .btn-primary { grid-column: 1 / -1; justify-self: start; }
+.homologacao-drawer-body { overflow-y: auto; min-height: 0; padding: 18px 24px; }
+.homologacao-drawer-body .homologacao-ficha { padding: 0; border: 0; background: transparent; }
+.homologacao-drawer .homologacao-top { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.homologacao-drawer .homologacao-details { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.negotiation-timeline { position: relative; padding-left: 22px; }
+.negotiation-timeline::before { content: ""; position: absolute; left: 5px; top: 10px; bottom: 10px; width: 2px; background: #d5e0f6; }
+.negotiation-timeline article { position: relative; border-left: 1px solid #edf0f4; padding: 16px; }
+.negotiation-timeline article::before { content: ""; position: absolute; left: -23px; top: 19px; width: 10px; height: 10px; border-radius: 50%; background: #2557d6; border: 3px solid #f7f9fc; }
+.negotiation-timeline time { font-size: 12px; color: #667085; }
+.negotiation-timeline p { white-space: pre-wrap; overflow-wrap: anywhere; }
+.tratativa-valores { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin: 8px 0; }
+.tratativa-valores span { display: grid; gap: 5px; }
+.tratativa-valores strong { color: #17243a; font-size: 14px; }
+.tratativa-fields { border: 0; padding: 0; margin: 0; min-width: 0; }
+dialog.homologacao-modal { border: 1px solid #e2e6ec; padding: 0; border-radius: 12px; color: #17243a; }
+.homologacao-modal > .homologacao-form { padding: 20px; }
+.homologacao-grid > .empty-row { grid-column: 1 / -1; }
+@keyframes homologacao-slide { from { transform: translateX(100%); } to { transform: translateX(0); } }
+@media (min-width: 1700px) { .homologacao-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+@media (max-width: 1050px) { .homologacao-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 640px) {
+  .homologacao-grid { grid-template-columns: 1fr; }
+  .homologacao-drawer { width: 100vw; }
+  .homologacao-drawer-header, .homologacao-drawer-body { padding: 16px; }
+  .homologacao-drawer .homologacao-top, .homologacao-drawer .homologacao-details, .tratativa-valores { grid-template-columns: 1fr; }
+}
+@media (prefers-reduced-motion: reduce) { .homologacao-drawer[open] { animation: none; } }
+@media print { .homologacao-drawer[open] { position: static; display: block; width: 100%; height: auto; max-height: none; overflow: visible; box-shadow: none; } .homologacao-drawer-header { display: none; } .homologacao-drawer-body { overflow: visible; padding: 0; } }
 
 .homologacao-row {
   display: grid;

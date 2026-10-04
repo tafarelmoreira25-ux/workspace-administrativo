@@ -42,6 +42,9 @@ export type PrazoElite = {
 export const PRAZO_PROTOCOLO_DIAS_UTEIS = 15;
 
 export type Processo = {
+  etapa?: string;
+  dias_na_etapa?: number;
+  status_principal?: string;
   id: string;
   cliente_id?: string | null;
   pasta_cliente_id: string | null;

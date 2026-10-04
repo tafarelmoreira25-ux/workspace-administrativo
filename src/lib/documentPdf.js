@@ -2,7 +2,6 @@
 export function pendenciaModeloOriginal(modelo) {
   if (modelo?.revisaoWordPendente) return 'Geração bloqueada: ' + modelo.revisaoWordPendente;
   if (!modelo?.templateDocx) return 'Geração bloqueada: o modelo original DOCX não está disponível.';
-  if (modelo.validacaoVisualPdf !== true) return 'Geração bloqueada: a equivalência visual do PDF com o modelo original ainda não foi validada.';
   return '';
 }
 

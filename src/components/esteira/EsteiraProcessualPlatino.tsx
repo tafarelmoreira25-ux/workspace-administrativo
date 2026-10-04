@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { supabase } from "../../lib/supabase";
 import { type Processo } from "../../lib/esteiraProcessual";
-import { FASES_DE_PROTOCOLO, possuiNumeroProcessual } from "../../lib/processWorkflow";
 import Pagination from "../common/Pagination";
 import EsteiraKanban from "./EsteiraKanban";
 import PainelJudicial from "./PainelJudicial";
@@ -54,6 +53,9 @@ export default function EsteiraProcessualPlatino({ usuario, showToast, initialVi
   const [buscaAplicada, setBuscaAplicada] = useState("");
   const [pagina, setPagina] = useState(1);
   const [total, setTotal] = useState(0);
+  const [erroListagem, setErroListagem] = useState(false);
+
+  const tamanhoPagina = visualizacao === "protocolos" ? 10 : 30;
 
   const avisar = useCallback(
     (mensagem: string) => {
@@ -64,37 +66,40 @@ export default function EsteiraProcessualPlatino({ usuario, showToast, initialVi
 
   const carregarProcessos = useCallback(async (signal = new AbortController().signal) => {
     setCarregando(true);
+    setErroListagem(false);
     const termo = buscaAplicada.trim().replace(/[,()"']/g, " ").replace(/\s+/g, " ").slice(0, 120);
-    let consulta = supabase.from("processos").select(CAMPOS_PROCESSO_LISTA, { count: "exact" });
+    let consulta = supabase.from(visualizacao === "protocolos" ? "protocolos_lista" : "processos").select(visualizacao === "protocolos" ? "id,nome_cliente,id_crm,banco_reu,etapa,dias_na_etapa,status_principal" : CAMPOS_PROCESSO_LISTA, { count: "exact" });
     if (alerta) consulta = alerta.ids.length ? consulta.in("id", alerta.ids) : consulta.eq("id", "00000000-0000-0000-0000-000000000000");
-    consulta = visualizacao === "protocolos" && !alerta
-      ? consulta.or("numero_processo.is.null,numero_processo.eq.").in("fase_atual", [...FASES_DE_PROTOCOLO])
-      : visualizacao === "processos" ? consulta.not("numero_processo", "is", null).neq("numero_processo", "") : consulta;
-    if (termo) consulta = consulta.or(`nome_cliente.ilike.%${termo}%,cpf_cliente.ilike.%${termo}%,id_crm.ilike.%${termo}%,numero_processo.ilike.%${termo}%,reu.ilike.%${termo}%,banco_reu.ilike.%${termo}%,tipo_acao.ilike.%${termo}%`);
-    const inicio = (pagina - 1) * 30;
-    const { data, count, error } = await consulta.order("updated_at", { ascending: false }).range(inicio, inicio + 29).abortSignal(signal);
+    if (visualizacao === "processos") consulta = consulta.not("numero_processo", "is", null).neq("numero_processo", "");
+    if (termo) consulta = consulta.or(visualizacao === "protocolos"
+      ? `nome_cliente.ilike.%${termo}%,id_crm.ilike.%${termo}%,banco_reu.ilike.%${termo}%`
+      : `nome_cliente.ilike.%${termo}%,cpf_cliente.ilike.%${termo}%,id_crm.ilike.%${termo}%,numero_processo.ilike.%${termo}%,reu.ilike.%${termo}%,banco_reu.ilike.%${termo}%,tipo_acao.ilike.%${termo}%`);
+    const inicio = (pagina - 1) * tamanhoPagina;
+    const { data, count, error } = await consulta.order("updated_at", { ascending: false }).order("id").range(inicio, inicio + tamanhoPagina - 1).limit(tamanhoPagina).abortSignal(signal);
     if (signal.aborted) return;
 
     if (error) {
+      setErroListagem(true);
+      setProcessos([]);
+      setTotal(0);
       avisar("Não foi possível carregar o módulo Processual.");
       setCarregando(false);
       return;
     }
 
+    if (pagina > 1 && !(data || []).length && count) {
+      setPagina(Math.max(1, Math.ceil(count / tamanhoPagina)));
+    }
     setProcessos((data || []) as Processo[]);
     setTotal(count || 0);
     setCarregando(false);
-  }, [alerta, avisar, buscaAplicada, pagina, visualizacao]);
+  }, [alerta, avisar, buscaAplicada, pagina, tamanhoPagina, visualizacao]);
 
   useEffect(() => { const controller = new AbortController(); void carregarProcessos(controller.signal); return () => controller.abort(); }, [carregarProcessos]);
   useEffect(() => { const timer = window.setTimeout(() => { setPagina(1); setBuscaAplicada(busca); }, 350); return () => window.clearTimeout(timer); }, [busca]);
 
   function atualizarProcessoLocal(processoAtualizado: Processo) {
-    if (visualizacao === "protocolos" && possuiNumeroProcessual(processoAtualizado)) {
-      setProcessos((atuais) => atuais.filter((item) => item.id !== processoAtualizado.id));
-      setTotal((quantidade) => Math.max(0, quantidade - 1));
-      return;
-    }
+    if (visualizacao === "protocolos") { void carregarProcessos(); return; }
     setProcessos((atuais) => {
       const existe = atuais.some((item) => item.id === processoAtualizado.id);
       if (!existe) return [processoAtualizado, ...atuais];
@@ -107,6 +112,7 @@ export default function EsteiraProcessualPlatino({ usuario, showToast, initialVi
   return (
     <section className="esteira-workspace" aria-label="Módulo Processual Platino">
       {alerta ? <div className="dashboard-filtro-ativo"><span>{alerta.titulo}</span><button type="button" onClick={() => { setPagina(1); onLimparAlerta?.(); }}>Mostrar todos</button></div> : null}
+      {erroListagem ? <div className="panel" role="alert">Não foi possível carregar a listagem. Verifique a conexão e a migração de Protocolos. <button type="button" onClick={() => void carregarProcessos()}>Tentar novamente</button></div> : null}
       {carregando && !processos.length ? (
         <div className="panel">Carregando processos...</div>
       ) : visualizacao === "protocolos" ? (
@@ -129,7 +135,7 @@ export default function EsteiraProcessualPlatino({ usuario, showToast, initialVi
           initialFilters={initialFilters}
         />
       )}
-      {!carregando ? <Pagination pagina={pagina} total={total} tamanho={30} onChange={setPagina} rotulo={visualizacao === "protocolos" ? "protocolos" : "processos"} /> : null}
+      {!carregando ? <Pagination pagina={pagina} total={total} tamanho={tamanhoPagina} onChange={setPagina} rotulo={visualizacao === "protocolos" ? "protocolos" : "processos"} /> : null}
     </section>
   );
 }

@@ -59,7 +59,16 @@ test("modelos preservam a estrutura original e bloqueiam PDF sem as fontes origi
               assert.deepEqual(copia[path], bytes, path);
             }
           }
-          await assert.rejects(gerarPdfModelo(dados, modelo), /Geração bloqueada: (a fonte original|a equivalência visual|o modelo declara)/);
+          let pdfBytes;
+          try {
+            pdfBytes = await gerarPdfModelo(dados, modelo);
+          } catch (error) {
+            assert.match(error.message, /Geração bloqueada: (a fonte original|o modelo declara)/);
+          }
+          if (pdfBytes) {
+            const pdf = await PDFDocument.load(pdfBytes);
+            assert.ok(pdf.getPageCount() > 0);
+          }
         }
       });
     }
@@ -86,16 +95,17 @@ test('bloqueia modelos sem original mesmo quando existe gerador antigo', async (
   await assert.rejects(gerarPdfModelo({}, { nome: 'Modelo antigo', modo: 'citacao-judicial' }), /modelo original DOCX/);
 });
 
-test('expõe a validação visual pendente e bloqueia antes de carregar arquivos', async () => {
+test('modelo com original não exige liberação manual e pendências reais bloqueiam antes de carregar arquivos', async () => {
   const modelo = { templateDocx: '/modelos/teste.docx' };
-  assert.match(pendenciaModeloOriginal(modelo), /equivalência visual/);
+  assert.equal(pendenciaModeloOriginal(modelo), '');
+  assert.equal(pendenciaModeloOriginal({ ...modelo, validacaoVisualPdf: false }), '');
   assert.equal(pendenciaModeloOriginal({ ...modelo, validacaoVisualPdf: true }), '');
   assert.match(pendenciaModeloOriginal({ ...modelo, revisaoWordPendente: 'Mapeamento pendente' }), /Mapeamento pendente/);
   const fetchOriginal = globalThis.fetch;
   let acessos = 0;
   globalThis.fetch = async () => { acessos++; throw new Error('Carregamento indevido'); };
   try {
-    await assert.rejects(gerarPdfModelo({}, modelo), /equivalência visual/);
+    await assert.rejects(gerarPdfModelo({}, { ...modelo, revisaoWordPendente: 'Mapeamento pendente' }), /Mapeamento pendente/);
     assert.equal(acessos, 0);
   } finally { globalThis.fetch = fetchOriginal; }
 });

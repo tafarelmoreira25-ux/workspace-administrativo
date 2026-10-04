@@ -438,8 +438,8 @@ function Workspace({ usuario, onLogout, showToast }) {
       itens: [
         ["inicio", "Área de Trabalho", "dashboard"],
         ["clientes", "Clientes", "clientes"],
-        ["homologacao-quitacao", "Homologação e Quitação", "homologacao"],
         ...(podeVerProcessual ? [["processual-extrajudiciais", "Extrajudiciais", "extrajudicial"], ["processual-protocolos", "Protocolos", "protocolo"], ["processual", "Processual", "esteira"]] : []),
+        ["homologacao-quitacao", "Homologação e Quitação", "homologacao"],
         ["agenda-atividades", "Agenda e Atividades", "agenda"],
       ],
     },

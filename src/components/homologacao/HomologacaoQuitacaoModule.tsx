@@ -1,9 +1,11 @@
 import { FormActions, FormField, FormGrid, FormSection, Input, Select, Textarea } from "../common/FormControls";
-import { type FormEvent, useCallback, useEffect, useMemo, useState } from "react";
+import { type FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { supabase, invalidarConsultas } from "../../lib/supabase";
 import "./homologacaoQuitacao.css";
 
 type Usuario = { nome?: string; email?: string; id?: string };
+type Anexo = { nome: string; caminho: string };
+type HomologacaoResumo = Pick<Homologacao, "id" | "cliente_nome" | "instituicao_financeira" | "numero_contrato" | "status" | "ultima_movimentacao" | "updated_at">;
 type ClienteOpcao = { id: string; nome_completo: string; cpf: string | null; telefone: string | null; link_pasta_cliente: string | null; responsavel: string | null };
 type ProcessoOpcao = { id: string; cliente_id: string | null; numero_processo: string | null; banco_reu: string | null; reu: string | null; nome_cliente: string | null; cpf_cliente: string | null; responsavel: string | null };
 type RegistroBase = { id: string; created_at?: string | null; updated_at?: string | null; created_by_nome?: string | null; updated_by_nome?: string | null };
@@ -16,7 +18,7 @@ type Homologacao = RegistroBase & {
   data_inicio: string | null; status: string; ultima_movimentacao: string | null; proxima_providencia: string | null; data_prevista_retorno: string | null;
   prioridade: string | null; responsavel_atual: string | null; motivo_pendencia: string | null; resultado_final: string | null;
 };
-type Movimentacao = RegistroBase & { homologacao_id: string; data_hora: string; tipo: string; canal: string | null; pessoa_contatada: string | null; instituicao: string | null; contato_utilizado: string | null; protocolo: string | null; descricao: string; resultado_contato: string | null; pendencia_identificada: string | null; proxima_providencia: string | null; responsavel_proxima: string | null; prazo_retorno: string | null; arquivos_evidencias: string | null };
+type Movimentacao = RegistroBase & { valor_original?: number | null; valor_ofertado?: number | null; percentual_desconto?: number | null; tipo_contato?: string | null; anexos?: Anexo[]; homologacao_id: string; data_hora: string; tipo: string; canal: string | null; pessoa_contatada: string | null; instituicao: string | null; contato_utilizado: string | null; protocolo: string | null; descricao: string; resultado_contato: string | null; pendencia_identificada: string | null; proxima_providencia: string | null; responsavel_proxima: string | null; prazo_retorno: string | null; arquivos_evidencias: string | null };
 type Proposta = RegistroBase & { homologacao_id: string; data_proposta: string | null; saldo_banco: number | null; valor_cliente: number | null; valor_banco: number | null; valor_contraproposta: number | null; valor_final: number | null; percentual_desconto: number | null; quantidade_parcelas: number | null; valor_entrada: number | null; valor_parcelas: number | null; vencimento: string | null; validade: string | null; parcelas_atraso: number | null; encargos: string | null; condicoes_quitacao: string | null; representante: string | null; decisao: string; justificativa: string | null; comprovante_url: string | null };
 type Reuniao = RegistroBase & { homologacao_id: string; data_hora: string | null; participantes: string | null; representante_instituicao: string | null; local_plataforma: string | null; link_reuniao: string | null; pauta: string | null; assuntos_discutidos: string | null; deliberacoes: string | null; compromissos: string | null; prazos_definidos: string | null; ata_gravacao_url: string | null; proxima_reuniao: string | null };
 type Diligencia = RegistroBase & { homologacao_id: string; tipo_diligencia: string | null; solicitante: string | null; destinatario: string | null; data_solicitacao: string | null; prazo: string | null; finalidade: string | null; resultado: string | null; custos: number | null; comprovante_url: string | null; situacao: string | null };
@@ -30,6 +32,8 @@ const CANAIS = ["WhatsApp", "Telefone", "E-mail", "Presencial", "Videoconferênc
 const PRIORIDADES = ["Baixa", "Normal", "Alta", "Crítica"];
 const DECISOES_PROPOSTA = ["Em análise", "Aceita", "Recusada", "Vencida"];
 const ABAS = ["Visão geral", "Histórico", "Dados do contrato", "Negociações", "Reuniões", "Diligências", "Documentos", "Quitação", "Relatório"];
+const TIPOS_CONTATO = ["Assessoria", "Banco", "Portal", "Acordo", "Quitação"];
+const tratativaInicial = () => ({ data: hoje(), tipo_contato: "Banco", valor_original: "", valor_ofertado: "", observacoes: "" });
 
 const homologacaoInicial = (usuario?: Usuario) => ({
   cliente_id: "", processo_id: "", cliente_nome: "", cpf_cnpj: "", telefone: "", numero_contrato: "", instituicao_financeira: "",
@@ -45,7 +49,7 @@ const documentoInicial = { categoria: "Proposta", nome: "", url: "", obrigatorio
 const quitacaoInicial = { valor_pago: "", data_pagamento: "", forma_pagamento: "", instituicao_recebedora: "", identificacao_boleto: "", comprovante_pagamento_url: "", confirmacao_instituicao_url: "", termo_quitacao_url: "", data_baixa_gravame: "", situacao_gravame: "", documento_final_url: "", observacoes_encerramento: "", justificativa_documentos_ausentes: "", autorizado_por: "" };
 const atualizacaoContratoInicial = { data_atualizacao: new Date().toISOString().slice(0, 16), saldo_devedor_atual: "", parcelas_em_atraso: "", valor_quitacao_hoje: "", percentual_desconto: "", validade_proposta: "", protocolo: "", observacoes: "", comprovante_url: "" };
 
-function hoje() { return new Date().toISOString().slice(0, 10); }
+function hoje() { return new Intl.DateTimeFormat("sv-SE", { timeZone: "America/Sao_Paulo" }).format(new Date()); }
 function limpar(valor: unknown) { const texto = String(valor ?? "").trim(); return texto || null; }
 function numero(valor: unknown) { const texto = String(valor ?? "").replace(/\./g, "").replace(",", ".").trim(); return texto ? Number(texto) : null; }
 function normalizar(valor = "") { return String(valor).normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase(); }
@@ -56,7 +60,15 @@ function diasDesde(data?: string | null) { if (!data) return 0; return Math.max(
 function usuarioNome(usuario: Usuario) { return usuario.nome || usuario.email || "Usuário não identificado"; }
 
 export default function HomologacaoQuitacaoModule({ usuario, showToast }: { usuario: Usuario; showToast?: (mensagem: string) => void }) {
-  const [homologacoes, setHomologacoes] = useState<Homologacao[]>([]);
+  const [homologacoes, setHomologacoes] = useState<HomologacaoResumo[]>([]);
+  const fichaRequest = useRef(0);
+  const [resumoAberto, setResumoAberto] = useState<HomologacaoResumo | null>(null);
+  const [carregandoFicha, setCarregandoFicha] = useState(false);
+  const [erroFicha, setErroFicha] = useState("");
+  const [tratativaForm, setTratativaForm] = useState(tratativaInicial);
+  const [anexosTratativa, setAnexosTratativa] = useState<File[]>([]);
+  const [salvandoTratativa, setSalvandoTratativa] = useState(false);
+  const [erroTratativa, setErroTratativa] = useState("");
   const [clientes, setClientes] = useState<ClienteOpcao[]>([]);
   const [processos, setProcessos] = useState<ProcessoOpcao[]>([]);
   const [selecionada, setSelecionada] = useState<Homologacao | null>(null);
@@ -74,7 +86,7 @@ export default function HomologacaoQuitacaoModule({ usuario, showToast }: { usua
   const [formAberto, setFormAberto] = useState(false);
   const [informacoes, setInformacoes] = useState("");
   const [salvandoInformacoes, setSalvandoInformacoes] = useState(false);
-  const [modal, setModal] = useState<"" | "movimentacao" | "proposta" | "reuniao" | "diligencia" | "documento" | "quitacao" | "atualizacao_contrato">("");
+  const [modal, setModal] = useState<"" | "movimentacao" | "proposta" | "reuniao" | "diligencia" | "documento" | "quitacao" | "atualizacao_contrato" | "tratativa">("");
   const [form, setForm] = useState(() => homologacaoInicial(usuario));
   const [movForm, setMovForm] = useState(() => movimentacaoInicial(usuario));
   const [propostaForm, setPropostaForm] = useState(propostaInicial);
@@ -88,24 +100,37 @@ export default function HomologacaoQuitacaoModule({ usuario, showToast }: { usua
 
   const carregar = useCallback(async (signal = new AbortController().signal) => {
     setCarregando(true); setErro("");
-    const [homReq, clientesReq, processosReq] = await Promise.allSettled([
-      supabase.from("homologacoes").select("*").order("updated_at", { ascending: false }).limit(500).abortSignal(signal),
-      supabase.from("clientes").select("id, nome_completo, cpf, telefone, link_pasta_cliente, responsavel").order("nome_completo").limit(500).abortSignal(signal),
-      supabase.from("processos").select("id, cliente_id, numero_processo, banco_reu, reu, nome_cliente, cpf_cliente, responsavel").order("updated_at", { ascending: false }).limit(500).abortSignal(signal),
-    ]);
+    try {
+      const { data, error } = await supabase.from("homologacoes").select("id, cliente_nome, instituicao_financeira, numero_contrato, status, ultima_movimentacao, updated_at").order("updated_at", { ascending: false }).limit(500).abortSignal(signal);
+      if (signal.aborted) return;
+      if (error) setErro("Não foi possível carregar as homologações. Tente atualizar a lista.");
+      else setHomologacoes((data || []) as HomologacaoResumo[]);
+    } catch {
+      if (!signal.aborted) setErro("Não foi possível carregar as homologações. Tente atualizar a lista.");
+    }
     if (signal.aborted) return;
-    if (homReq.status === "fulfilled" && !homReq.value.error) setHomologacoes((homReq.value.data || []) as Homologacao[]);
-    else setErro("Execute a migration supabase/20260921_homologacao_quitacao.sql para ativar Homologação e Quitação.");
-    if (clientesReq.status === "fulfilled" && !clientesReq.value.error) setClientes((clientesReq.value.data || []) as ClienteOpcao[]);
-    if (processosReq.status === "fulfilled" && !processosReq.value.error) setProcessos((processosReq.value.data || []) as ProcessoOpcao[]);
     setCarregando(false);
   }, []);
 
   useEffect(() => { const controller = new AbortController(); void carregar(controller.signal); return () => controller.abort(); }, [carregar]);
+  useEffect(() => () => { fichaRequest.current += 1; }, []);
+  useEffect(() => {
+    if (!formAberto) return;
+    const controller = new AbortController();
+    void Promise.allSettled([
+      supabase.from("clientes").select("id, nome_completo, cpf, telefone, link_pasta_cliente, responsavel").order("nome_completo").limit(500).abortSignal(controller.signal),
+      supabase.from("processos").select("id, cliente_id, numero_processo, banco_reu, reu, nome_cliente, cpf_cliente, responsavel").order("updated_at", { ascending: false }).limit(500).abortSignal(controller.signal),
+    ]).then(([c, p]) => {
+      if (controller.signal.aborted) return;
+      if (c.status === "fulfilled" && !c.value.error) setClientes(c.value.data || []);
+      if (p.status === "fulfilled" && !p.value.error) setProcessos(p.value.data || []);
+    });
+    return () => controller.abort();
+  }, [formAberto]);
 
   const filtradas = useMemo(() => {
     const termo = normalizar(busca);
-    return homologacoes.filter((item) => !termo || normalizar(`${item.cliente_nome} ${item.cpf_cnpj || ""} ${item.numero_contrato || ""} ${item.instituicao_financeira || ""} ${item.status}`).includes(termo));
+    return homologacoes.filter((item) => !termo || normalizar(`${item.cliente_nome} ${item.numero_contrato || ""} ${item.instituicao_financeira || ""} ${item.status}`).includes(termo));
   }, [busca, homologacoes]);
 
   const topo = useMemo(() => {
@@ -129,11 +154,21 @@ export default function HomologacaoQuitacaoModule({ usuario, showToast }: { usua
     setForm((atual) => ({ ...atual, processo_id: processoId, numero_contrato: atual.numero_contrato || processo?.numero_processo || "", instituicao_financeira: atual.instituicao_financeira || processo?.banco_reu || processo?.reu || "", cliente_id: atual.cliente_id || processo?.cliente_id || "", cliente_nome: atual.cliente_nome || processo?.nome_cliente || "", cpf_cnpj: atual.cpf_cnpj || processo?.cpf_cliente || "", negociador_responsavel: atual.negociador_responsavel || processo?.responsavel || "" }));
   }
 
-  async function abrirFicha(item: Homologacao) {
-    setSelecionada(item); setAba("Visão geral");
-    setInformacoes(item.motivo_pendencia || "");
+  function fecharFicha() {
+    if (salvandoTratativa) return;
+    fichaRequest.current += 1;
+    setResumoAberto(null); setSelecionada(null); setModal("");
+  }
+
+  async function abrirFicha(item: HomologacaoResumo) {
+    const request = ++fichaRequest.current;
+    setResumoAberto(item); setSelecionada(null); setAba("Histórico");
+    setCarregandoFicha(true); setErroFicha(""); setInformacoes("");
+    setMovimentacoes([]); setPropostas([]); setReunioes([]); setDiligencias([]);
+    setDocumentos([]); setQuitacao(null); setQuitacaoForm(quitacaoInicial); setAtualizacoesContrato([]);
     const id = item.id;
-    const [movReq, propReq, reunReq, dilReq, docReq, quitReq, atualizacoesReq] = await Promise.allSettled([
+    const [fichaReq, movReq, propReq, reunReq, dilReq, docReq, quitReq, atualizacoesReq] = await Promise.allSettled([
+      supabase.from("homologacoes").select("*").eq("id", id).single(),
       supabase.from("homologacao_movimentacoes").select("*").eq("homologacao_id", id).order("data_hora", { ascending: false }),
       supabase.from("homologacao_propostas").select("*").eq("homologacao_id", id).order("data_proposta", { ascending: false }),
       supabase.from("homologacao_reunioes").select("*").eq("homologacao_id", id).order("data_hora", { ascending: false }),
@@ -142,6 +177,15 @@ export default function HomologacaoQuitacaoModule({ usuario, showToast }: { usua
       supabase.from("homologacao_quitacoes").select("*").eq("homologacao_id", id).maybeSingle(),
       supabase.from("homologacao_atualizacoes_contrato").select("*").eq("homologacao_id", id).order("data_atualizacao", { ascending: false }),
     ]);
+    if (request !== fichaRequest.current) return;
+    setCarregandoFicha(false);
+    if ([fichaReq, movReq, propReq, reunReq, dilReq, docReq, quitReq, atualizacoesReq].some((r) => r.status === "rejected" || r.value.error)) {
+      setErroFicha("Não foi possível carregar a ficha completa. Tente novamente."); return;
+    }
+    if (fichaReq.status === "fulfilled") {
+      setSelecionada(fichaReq.value.data as Homologacao);
+      setInformacoes(fichaReq.value.data.motivo_pendencia || "");
+    }
     if (movReq.status === "fulfilled" && !movReq.value.error) setMovimentacoes((movReq.value.data || []) as Movimentacao[]);
     if (propReq.status === "fulfilled" && !propReq.value.error) setPropostas((propReq.value.data || []) as Proposta[]);
     if (reunReq.status === "fulfilled" && !reunReq.value.error) setReunioes((reunReq.value.data || []) as Reuniao[]);
@@ -225,6 +269,60 @@ export default function HomologacaoQuitacaoModule({ usuario, showToast }: { usua
     if (selecionada) await supabase.from("homologacoes").update({ ultima_movimentacao: new Date(movForm.data_hora).toISOString(), proxima_providencia: limpar(movForm.proxima_providencia), data_prevista_retorno: limpar(movForm.prazo_retorno), updated_by_nome: usuarioNome(usuario) }).eq("id", selecionada.id);
   }
 
+  function novaTratativa() {
+    setTratativaForm(tratativaInicial()); setAnexosTratativa([]); setErroTratativa(""); setModal("tratativa");
+  }
+
+  async function salvarTratativa(evento: FormEvent<HTMLFormElement>) {
+    evento.preventDefault();
+    if (!selecionada || salvandoTratativa) return;
+    const original = Number(tratativaForm.valor_original);
+    const ofertado = Number(tratativaForm.valor_ofertado);
+    if (!tratativaForm.data || !tratativaForm.valor_ofertado || !Number.isFinite(original) || original <= 0 || !Number.isFinite(ofertado) || ofertado < 0 || !tratativaForm.observacoes.trim()) {
+      setErroTratativa("Informe valores válidos e as observações da tratativa."); return;
+    }
+    if (!anexosTratativa.length) { setErroTratativa("Anexe ao menos uma evidência da tratativa."); return; }
+    const clienteId = selecionada.id;
+    const request = fichaRequest.current;
+    const enviados: Anexo[] = [];
+    setSalvandoTratativa(true); setErroTratativa("");
+    let persistido = false;
+    try {
+      for (const arquivo of anexosTratativa) {
+        const extensao = arquivo.name.split(".").pop()?.toLowerCase();
+        if (!extensao || !["pdf", "png", "jpg", "jpeg", "webp"].includes(extensao) || arquivo.size > 10 * 1024 * 1024) throw new Error("Use imagens ou PDF de até 10 MB por arquivo.");
+        const caminho = `${clienteId}/${crypto.randomUUID()}.${extensao}`;
+        const { error } = await supabase.storage.from("homologacao-anexos").upload(caminho, arquivo);
+        if (error) throw error;
+        enviados.push({ nome: arquivo.name, caminho });
+      }
+      const { data, error } = await supabase.from("homologacao_movimentacoes").insert({
+        homologacao_id: clienteId, data_hora: new Date(`${tratativaForm.data}T12:00:00`).toISOString(),
+        tipo: "Diligência", tipo_contato: tratativaForm.tipo_contato,
+        descricao: tratativaForm.observacoes.trim(), valor_original: original, valor_ofertado: ofertado,
+        percentual_desconto: Number(((1 - ofertado / original) * 100).toFixed(2)), anexos: enviados,
+        origem_alteracao: "tratativa_quinzenal", created_by_nome: usuarioNome(usuario), updated_by_nome: usuarioNome(usuario),
+      }).select("*").single();
+      if (error) throw error;
+      persistido = true;
+      if (request === fichaRequest.current) {
+        setMovimentacoes((atuais) => [data as Movimentacao, ...atuais].sort((a, b) => b.data_hora.localeCompare(a.data_hora)));
+        setModal(""); setAnexosTratativa([]);
+      }
+      invalidarConsultas();
+      await carregar();
+      if (request === fichaRequest.current) {
+        const { data: ficha, error: fichaError } = await supabase.from("homologacoes").select("*").eq("id", clienteId).single();
+        if (request === fichaRequest.current && ficha) setSelecionada(ficha as Homologacao);
+        if (fichaError) avisar("Tratativa salva. Atualize a ficha para consultar o resumo.");
+        else avisar("Tratativa registrada. Próximo acompanhamento em 15 dias.");
+      }
+    } catch (error) {
+      if (!persistido && enviados.length) await supabase.storage.from("homologacao-anexos").remove(enviados.map((a) => a.caminho));
+      setErroTratativa(error instanceof Error ? error.message : "Não foi possível salvar a tratativa.");
+    } finally { setSalvandoTratativa(false); }
+  }
+
   async function salvarProposta(evento: FormEvent<HTMLFormElement>) {
     evento.preventDefault();
     await inserir("homologacao_propostas", Object.fromEntries(Object.entries(propostaForm).map(([k, v]) => [k, ["saldo_banco", "valor_cliente", "valor_banco", "valor_contraproposta", "valor_final", "percentual_desconto", "quantidade_parcelas", "valor_entrada", "valor_parcelas", "parcelas_atraso"].includes(k) ? numero(v) : limpar(v) || v])), () => { setModal(""); setPropostaForm(propostaInicial); }, "Proposta salva separadamente.");
@@ -268,22 +366,33 @@ export default function HomologacaoQuitacaoModule({ usuario, showToast }: { usua
       <button className="btn-primary" type="button" onClick={() => setFormAberto(true)}>Nova homologação</button>
     </header>
 
-    <div className="homologacao-toolbar"><Input type="search" value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar cliente, CPF/CNPJ, contrato, banco ou status..." /><button className="btn-secondary" type="button" onClick={() => { invalidarConsultas(); void carregar(); }}>Atualizar</button></div>
+    <div className="homologacao-toolbar"><Input type="search" value={busca} onChange={(e) => setBusca(e.target.value)} aria-label="Buscar homologações" placeholder="Buscar cliente, contrato, banco ou status..." /><button className="btn-secondary" type="button" onClick={() => { invalidarConsultas(); void carregar(); }}>Atualizar</button></div>
     {erro ? <div className="empty-row">{erro}</div> : null}
     {carregando ? <div className="panel">Carregando homologações...</div> : null}
 
-    <div className="homologacao-layout">
-      <section className="homologacao-list">
-        {filtradas.length === 0 && !carregando ? <div className="empty-row">Nenhuma homologação cadastrada.</div> : filtradas.map((item) => {
+    <section className="homologacao-list" aria-label="Clientes em homologação">
+      <div className="section-actions"><strong>{filtradas.length} homologações</strong><span>Acompanhamento quinzenal das negociações</span></div>
+      <div className="homologacao-grid">
+        {filtradas.length === 0 && !carregando && !erro ? <div className="empty-row">{busca ? "Nenhuma homologação encontrada para esta busca." : "Nenhuma homologação cadastrada."}</div> : filtradas.map((item) => {
           const dias = diasDesde(item.ultima_movimentacao || item.updated_at);
-          return <button key={item.id} type="button" className={selecionada?.id === item.id ? "homologacao-row active" : "homologacao-row"} onClick={() => abrirFicha(item)}>
-            <strong>{item.cliente_nome}</strong><span>{item.instituicao_financeira || "Instituição não informada"} · Contrato {item.numero_contrato || "pendente"}</span>
-            <small>{item.status} · {item.responsavel_atual || item.negociador_responsavel || "Sem responsável"}</small>
-            {dias >= 15 ? <em>Alerta: {dias} dias sem atualização</em> : null}
+          return <button key={item.id} type="button" className="homologacao-row" onClick={() => void abrirFicha(item)} aria-label={`Abrir ficha de ${item.cliente_nome}`}>
+            <strong>{item.cliente_nome}</strong><span>{item.instituicao_financeira || "Banco não informado"}</span>
+            <span>Contrato {item.numero_contrato || "não informado"}</span><small className="homologacao-status">{item.status}</small>
+            {dias >= 15 ? <em>{dias} dias sem tratativa · Atualização pendente</em> : <small>Última atualização: {dataBr(item.ultima_movimentacao || item.updated_at)}</small>}
           </button>;
         })}
-      </section>
+      </div>
+    </section>
 
+    {resumoAberto ? <Dialog className="homologacao-drawer" label={`Ficha de ${resumoAberto.cliente_nome}`} onClose={fecharFicha}>
+      <header className="homologacao-drawer-header">
+        <div><span className="eyebrow">Homologação e Quitação</span><h2>{resumoAberto.cliente_nome}</h2><p>{resumoAberto.instituicao_financeira || "Banco não informado"} · Contrato {resumoAberto.numero_contrato || "não informado"}</p><span className="homologacao-status">{selecionada?.status || resumoAberto.status}</span></div>
+        <button type="button" className="drawer-close" onClick={fecharFicha} disabled={salvandoTratativa} aria-label="Fechar ficha">×</button>
+        <button type="button" className="btn-primary" onClick={novaTratativa} disabled={!selecionada || carregandoFicha}>Registrar Nova Tratativa</button>
+      </header>
+      <div className="homologacao-drawer-body">
+      {carregandoFicha ? <div className="empty-row" role="status">Carregando ficha e hist?rico...</div> : null}
+      {erroFicha ? <div className="empty-row" role="alert">{erroFicha}<button type="button" className="btn-secondary" onClick={() => void abrirFicha(resumoAberto)}>Tentar novamente</button></div> : null}
       {selecionada ? <section className="homologacao-ficha">
         <div className="homologacao-top">
           <FormField><span>Status atual</span><Select value={selecionada.status} onChange={(e) => atualizarStatus(e.target.value)}>{STATUS.map((status) => <option key={status}>{status}</option>)}</Select></FormField>
@@ -297,7 +406,7 @@ export default function HomologacaoQuitacaoModule({ usuario, showToast }: { usua
         </div>
         <nav className="homologacao-tabs">{ABAS.map((item) => <button key={item} type="button" className={aba === item ? "active" : ""} onClick={() => setAba(item)}>{item}</button>)}</nav>
         {aba === "Visão geral" ? <VisaoGeral h={selecionada} dias={topo?.diasSemAtualizacao || 0} informacoes={informacoes} setInformacoes={setInformacoes} salvando={salvandoInformacoes} onSalvar={salvarInformacoes} /> : null}
-        {aba === "Histórico" ? <Timeline movimentacoes={movimentacoes} onNova={() => setModal("movimentacao")} /> : null}
+        {aba === "Histórico" ? <Timeline movimentacoes={movimentacoes} onNova={novaTratativa} /> : null}
         {aba === "Dados do contrato" ? <AtualizacoesContrato atualizacoes={atualizacoesContrato} onNova={() => setModal("atualizacao_contrato")} /> : null}
         {aba === "Negociações" ? <ListaPropostas propostas={propostas} onNova={() => setModal("proposta")} /> : null}
         {aba === "Reuniões" ? <ListaSimples titulo="Reuniões" itens={reunioes} onNova={() => setModal("reuniao")} render={(r: Reuniao) => `${dataHoraBr(r.data_hora)} · ${r.pauta || "Sem pauta"} · ${r.deliberacoes || "Sem deliberação"}`} /> : null}
@@ -305,8 +414,9 @@ export default function HomologacaoQuitacaoModule({ usuario, showToast }: { usua
         {aba === "Documentos" ? <Documentos documentos={documentos} onNovo={() => setModal("documento")} /> : null}
         {aba === "Quitação" ? <QuitacaoView quitacao={quitacao} podeQuitar={podeQuitar()} onEditar={() => setModal("quitacao")} /> : null}
         {aba === "Relatório" ? <Relatorio texto={relatorio} /> : null}
-      </section> : <section className="homologacao-ficha empty-state">Selecione uma homologação para abrir a ficha.</section>}
-    </div>
+      </section> : null}
+      </div>
+    </Dialog> : null}
 
     {formAberto ? <Modal titulo="Abrir homologação" onClose={() => setFormAberto(false)}><FormSection as="form" className="homologacao-form" onSubmit={salvarHomologacao}>
       <FormSection className="form-entry-section"><h4>Cliente</h4><FormGrid className="form-grid">
@@ -316,6 +426,20 @@ export default function HomologacaoQuitacaoModule({ usuario, showToast }: { usua
       </FormGrid></FormSection><FormActions><button type="button" className="btn-secondary" onClick={() => setFormAberto(false)}>Cancelar</button><button className="btn-primary" type="submit">Salvar homologação</button></FormActions>
     </FormSection></Modal> : null}
 
+    {modal === "tratativa" ? <Modal titulo="Registrar Nova Tratativa" onClose={() => { if (!salvandoTratativa) setModal(""); }}><FormSection as="form" className="homologacao-form" onSubmit={salvarTratativa}>
+      <p>Registre o contato e a oferta obtida. O próximo acompanhamento será previsto para 15 dias após a diligência.</p>
+      <fieldset disabled={salvandoTratativa} className="tratativa-fields"><FormGrid className="form-grid">
+        <FormField><span>Data da Diligência *</span><Input required type="date" value={tratativaForm.data} onChange={(e) => setTratativaForm((f) => ({ ...f, data: e.target.value }))} /></FormField>
+        <FormField><span>Tipo de Contato *</span><Select required value={tratativaForm.tipo_contato} onChange={(e) => setTratativaForm((f) => ({ ...f, tipo_contato: e.target.value }))}>{TIPOS_CONTATO.map((t) => <option key={t}>{t}</option>)}</Select></FormField>
+        <FormField><span>Valor Original da Dívida (R$) *</span><Input required type="number" min="0.01" step="0.01" value={tratativaForm.valor_original} onChange={(e) => setTratativaForm((f) => ({ ...f, valor_original: e.target.value }))} /></FormField>
+        <FormField><span>Valor Atualizado/Ofertado pelo Banco (R$) *</span><Input required type="number" min="0" step="0.01" value={tratativaForm.valor_ofertado} onChange={(e) => setTratativaForm((f) => ({ ...f, valor_ofertado: e.target.value }))} /></FormField>
+        <FormField><span>% de Desconto Alcançado</span><Input readOnly value={Number(tratativaForm.valor_original) > 0 && tratativaForm.valor_ofertado !== "" ? ((1 - Number(tratativaForm.valor_ofertado) / Number(tratativaForm.valor_original)) * 100).toFixed(2) + "%" : "—"} /><small>Percentual negativo indica aumento da dívida.</small></FormField>
+        <FormField className="wide"><span>Observações / Relatório quinzenal *</span><Textarea required rows={5} value={tratativaForm.observacoes} onChange={(e) => setTratativaForm((f) => ({ ...f, observacoes: e.target.value }))} /></FormField>
+        <FormField className="wide"><span>Anexos — prints, propostas ou boletos</span><Input required type="file" multiple accept=".pdf,.png,.jpg,.jpeg,.webp" onChange={(e) => setAnexosTratativa(Array.from(e.target.files || []))} /><small>Anexe ao menos uma evidência. Imagens ou PDF, até 10 MB por arquivo.</small>{anexosTratativa.map((a, i) => <small key={i}>{a.name}</small>)}</FormField>
+      </FormGrid></fieldset>
+      {erroTratativa ? <p role="alert">{erroTratativa}</p> : null}
+      <FormActions><button className="btn-secondary" type="button" disabled={salvandoTratativa} onClick={() => setModal("")}>Cancelar</button><button className="btn-primary" type="submit" disabled={salvandoTratativa}>{salvandoTratativa ? "Salvando tratativa..." : "Salvar tratativa"}</button></FormActions>
+    </FormSection></Modal> : null}
     {modal === "movimentacao" ? <Modal titulo="Nova movimentação" onClose={() => setModal("")}><FormMov form={movForm} setForm={setMovForm} onSubmit={salvarMovimentacao} /></Modal> : null}
     {modal === "proposta" ? <Modal titulo="Nova proposta" onClose={() => setModal("")}><FormGenerico form={propostaForm} setForm={setPropostaForm} onSubmit={salvarProposta} selects={{ decisao: DECISOES_PROPOSTA }} /></Modal> : null}
     {modal === "reuniao" ? <Modal titulo="Registrar reunião" onClose={() => setModal("")}><FormGenerico form={reuniaoForm} setForm={setReuniaoForm} onSubmit={(e) => inserir("homologacao_reunioes", reuniaoForm, () => setModal(""), "Reunião registrada.").then(() => e.preventDefault())} /></Modal> : null}
@@ -331,9 +455,33 @@ export default function HomologacaoQuitacaoModule({ usuario, showToast }: { usua
 }
 
 function Info({ label, value, destaque = false }: { label: string; value: string; destaque?: boolean }) { return <div className={destaque ? "top-info alert" : "top-info"}><span>{label}</span><strong>{value}</strong></div>; }
-function Modal({ titulo, children, onClose }: { titulo: string; children: React.ReactNode; onClose: () => void }) { return <div className="modal-backdrop"><section className="cliente-modal homologacao-modal"><header><div><span className="eyebrow">Homologação e Quitação</span><h3>{titulo}</h3></div><button className="drawer-close" type="button" onClick={onClose}>×</button></header>{children}</section></div>; }
+function Dialog({ children, className, label, onClose }: { children: React.ReactNode; className: string; label: string; onClose: () => void }) {
+  const ref = useRef<HTMLDialogElement>(null);
+  useEffect(() => { const dialog = ref.current; dialog?.showModal(); return () => dialog?.close(); }, []);
+  return <dialog ref={ref} className={className} aria-label={label} onCancel={(e) => { e.preventDefault(); onClose(); }} onClick={(e) => { if (e.target === e.currentTarget) { const r = e.currentTarget.getBoundingClientRect(); if (e.clientX < r.left || e.clientX > r.right || e.clientY < r.top || e.clientY > r.bottom) onClose(); } }}>{children}</dialog>;
+}
+function Modal({ titulo, children, onClose }: { titulo: string; children: React.ReactNode; onClose: () => void }) { return <Dialog className="cliente-modal homologacao-modal" label={titulo} onClose={onClose}><header><div><span className="eyebrow">Homologação e Quitação</span><h3>{titulo}</h3></div><button className="drawer-close" type="button" onClick={onClose} aria-label="Fechar formulário">×</button></header>{children}</Dialog>; }
+
 function VisaoGeral({ h, dias, informacoes, setInformacoes, salvando, onSalvar }: { h: Homologacao; dias: number; informacoes: string; setInformacoes: (valor: string) => void; salvando: boolean; onSalvar: (evento: FormEvent<HTMLFormElement>) => void }) { const dados = [["Cliente", h.cliente_nome], ["CPF/CNPJ", h.cpf_cnpj], ["Telefone", h.telefone], ["Contrato", h.numero_contrato], ["Instituição", h.instituicao_financeira], ["Assessoria", h.assessoria_banco], ["Representante", `${h.representante_nome || "—"} ${h.representante_contato || ""}`], ["Veículo", h.veiculo], ["Placa", h.placa], ["Valor parcela", dinheiro(h.valor_parcela)], ["Parcelas", h.quantidade_parcelas], ["Atraso", h.parcelas_atraso], ["Saldo", dinheiro(h.saldo_devedor_atualizado)], ["Quitação hoje", dinheiro(h.valor_quitacao_hoje)], ["Minuta", dinheiro(h.valor_previsto_minuta)], ["Prioridade", h.prioridade], ["Dias sem atualização", String(dias)], ["Próxima providência", h.proxima_providencia], ["Fontes importadas", h.fontes_importacao], ["Campos divergentes", h.campos_divergentes]]; return <section className="homologacao-card"><h3>Visão geral</h3><dl className="homologacao-details">{dados.map(([k, v]) => <div key={String(k)}><dt>{k}</dt><dd>{v || "—"}</dd></div>)}</dl><FormSection as="form" className="homologacao-informacoes" onSubmit={onSalvar}><FormField><span>Informações</span><Textarea rows={5} value={informacoes} onChange={(evento) => setInformacoes(evento.target.value)} placeholder="Digite observações, pendências ou outras informações importantes..." /></FormField><button className="btn-primary compact" type="submit" disabled={salvando}>{salvando ? "Salvando..." : "Salvar informações"}</button></FormSection><div className="report-actions">{h.link_pasta_cliente ? <a className="report-action" href={h.link_pasta_cliente} target="_blank" rel="noreferrer">Abrir pasta no Google Drive</a> : null}{h.link_minuta_homologacao ? <a className="report-action" href={h.link_minuta_homologacao} target="_blank" rel="noreferrer">Abrir minuta de homologação</a> : null}</div></section>; }
-function Timeline({ movimentacoes, onNova }: { movimentacoes: Movimentacao[]; onNova: () => void }) { return <section className="homologacao-card"><div className="section-actions"><h3>Histórico cronológico</h3><button className="btn-primary compact" type="button" onClick={onNova}>Nova movimentação</button></div><div className="timeline">{movimentacoes.length ? movimentacoes.map((m) => <article key={m.id}><strong>{m.tipo} · {dataHoraBr(m.data_hora)}</strong><p>{m.descricao}</p><small>{m.canal || "Canal não informado"} · {m.pessoa_contatada || "Pessoa não informada"} · Próxima: {m.proxima_providencia || "—"}</small></article>) : <div className="empty-row">Nenhuma movimentação registrada.</div>}</div></section>; }
+function AnexoTratativa({ anexo }: { anexo: Anexo }) {
+  const [abrindo, setAbrindo] = useState(false);
+  const [erro, setErro] = useState("");
+  async function abrir() {
+    const janela = window.open("about:blank", "_blank");
+    if (janela) janela.opener = null;
+    setAbrindo(true); setErro("");
+    try {
+      const { data, error } = await supabase.storage.from("homologacao-anexos").createSignedUrl(anexo.caminho, 60);
+      if (error || !data) throw error || new Error("Anexo indispon?vel");
+      if (janela) janela.location.href = data.signedUrl;
+      else setErro("Permita abrir uma nova aba para visualizar o anexo.");
+    } catch { janela?.close(); setErro("N?o foi poss?vel abrir o anexo. Tente novamente."); }
+    finally { setAbrindo(false); }
+  }
+  return <span><button type="button" className="btn-secondary compact" disabled={abrindo} onClick={() => void abrir()}>{abrindo ? "Abrindo..." : anexo.nome}</button>{erro ? <small role="alert">{erro}</small> : null}</span>;
+}
+function Timeline({ movimentacoes, onNova }: { movimentacoes: Movimentacao[]; onNova: () => void }) { return <section className="homologacao-card"><div className="section-actions"><div><h3>Histórico de tratativas</h3><p>Acompanhamento das ofertas e diligências, do primeiro contato à quitação.</p></div><button className="btn-primary compact" type="button" onClick={onNova}>Registrar Nova Tratativa</button></div><div className="timeline negotiation-timeline">{movimentacoes.length ? movimentacoes.map((m) => <article key={m.id}><time dateTime={m.data_hora}>{dataHoraBr(m.data_hora)}</time><strong>{m.tipo_contato || m.tipo}</strong>{m.valor_original != null ? <div className="tratativa-valores"><span>Dívida original<strong>{dinheiro(m.valor_original)}</strong></span><span>Oferta do banco<strong>{dinheiro(m.valor_ofertado)}</strong></span><span>Desconto<strong>{m.percentual_desconto?.toLocaleString("pt-BR") ?? "—"}%</strong></span></div> : null}<p>{m.descricao}</p><small>{m.created_by_nome || "Operador não informado"} · Próximo retorno: {dataBr(m.prazo_retorno)}</small>{m.proxima_providencia ? <small>Próxima providência: {m.proxima_providencia}</small> : null}{m.arquivos_evidencias ? <p>Evidências: {m.arquivos_evidencias}</p> : null}<div className="report-actions">{(m.anexos || []).map((anexo) => <AnexoTratativa key={anexo.caminho} anexo={anexo} />)}</div></article>) : <div className="empty-row">Nenhuma tratativa registrada. Registre o primeiro contato para iniciar o acompanhamento.</div>}</div></section>; }
+
 function AtualizacoesContrato({ atualizacoes, onNova }: { atualizacoes: AtualizacaoContrato[]; onNova: () => void }) { return <section className="homologacao-card"><div className="section-actions"><h3>Atualizações dos dados do contrato</h3><button className="btn-primary compact" type="button" onClick={onNova}>Registrar atualização</button></div><div className="proposal-grid">{atualizacoes.length ? atualizacoes.map((item) => <article key={item.id}><strong>{dataHoraBr(item.data_atualizacao)}</strong><span>Saldo: {dinheiro(item.saldo_devedor_atual)} · Atrasadas: {item.parcelas_em_atraso ?? "—"} · Quitação hoje: {dinheiro(item.valor_quitacao_hoje)}</span><small>Desconto: {item.percentual_desconto ?? "—"}% · Validade: {dataBr(item.validade_proposta)} · Protocolo: {item.protocolo || "—"}</small>{item.observacoes ? <p>{item.observacoes}</p> : null}{item.comprovante_url ? <a href={item.comprovante_url} target="_blank" rel="noreferrer">Abrir comprovante</a> : null}</article>) : <div className="empty-row">Nenhuma atualização contratual registrada.</div>}</div></section>; }
 function ListaPropostas({ propostas, onNova }: { propostas: Proposta[]; onNova: () => void }) { return <section className="homologacao-card"><div className="section-actions"><h3>Propostas apresentadas</h3><button className="btn-primary compact" type="button" onClick={onNova}>Nova proposta</button></div><div className="proposal-grid">{propostas.length ? propostas.map((p) => <article key={p.id}><strong>{p.decisao} · {dataBr(p.data_proposta)}</strong><span>Banco: {dinheiro(p.valor_banco)} · Cliente: {dinheiro(p.valor_cliente)} · Final: {dinheiro(p.valor_final)}</span><small>Desconto {p.percentual_desconto ?? "—"}% · validade {dataBr(p.validade)} · {p.representante || "sem representante"}</small><p>{p.condicoes_quitacao || p.justificativa || "Sem observações."}</p>{p.comprovante_url ? <a href={p.comprovante_url} target="_blank" rel="noreferrer">Abrir documento</a> : null}</article>) : <div className="empty-row">Nenhuma proposta salva.</div>}</div></section>; }
 function ListaSimples<T extends RegistroBase>({ titulo, itens, onNova, render }: { titulo: string; itens: T[]; onNova: () => void; render: (item: T) => string }) { return <section className="homologacao-card"><div className="section-actions"><h3>{titulo}</h3><button className="btn-primary compact" type="button" onClick={onNova}>Novo registro</button></div><div className="timeline">{itens.length ? itens.map((item) => <article key={item.id}><span>{render(item)}</span><small>Criado por {item.created_by_nome || "—"} em {dataHoraBr(item.created_at)}</small></article>) : <div className="empty-row">Nenhum registro.</div>}</div></section>; }
