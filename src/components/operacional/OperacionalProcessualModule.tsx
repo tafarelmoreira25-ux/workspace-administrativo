@@ -1,6 +1,6 @@
 import { FormField, FormGrid, FormSection, Input, Select, Textarea } from "../common/FormControls";
 import { type Dispatch, type FormEvent, type SetStateAction, useCallback, useEffect, useMemo, useState } from "react";
-import { supabase } from "../../lib/supabase";
+import { supabase, invalidarConsultas } from "../../lib/supabase";
 import GerencialProcessualModule from "../gerencial/GerencialProcessualModule";
 import Pagination from "../common/Pagination";
 import "./operacionalProcessual.css";
@@ -151,14 +151,15 @@ export default function OperacionalProcessualModule({ usuario, showToast, initia
     if (showToast) showToast(mensagem);
   }, [showToast]);
 
-  const carregarDados = useCallback(async () => {
+  const carregarDados = useCallback(async (signal = new AbortController().signal) => {
     setCarregando(true);
     setErro("");
     const [tarefasReq, atendimentosReq, processosReq] = await Promise.allSettled([
-      supabase.from("processual_tarefas").select("*").order("data", { ascending: true }).order("horario", { ascending: true }),
-      supabase.from("processual_atendimentos").select("*").order("data", { ascending: false }).order("hora", { ascending: false }),
-      supabase.from("processos").select("id, nome_cliente, cpf_cliente, numero_processo, banco_reu, cliente_id").order("updated_at", { ascending: false }).limit(500),
+      supabase.from("processual_tarefas").select("*").order("data", { ascending: true }).order("horario", { ascending: true }).abortSignal(signal),
+      supabase.from("processual_atendimentos").select("*").order("data", { ascending: false }).order("hora", { ascending: false }).abortSignal(signal),
+      supabase.from("processos").select("id, nome_cliente, cpf_cliente, numero_processo, banco_reu, cliente_id").order("updated_at", { ascending: false }).limit(500).abortSignal(signal),
     ]);
+    if (signal.aborted) return;
 
     if (tarefasReq.status === "fulfilled" && !tarefasReq.value.error) setTarefas((tarefasReq.value.data || []) as Tarefa[]);
     else setErro("Execute a migration da Etapa 7 para ativar tarefas, agenda e atendimentos.");
@@ -168,7 +169,7 @@ export default function OperacionalProcessualModule({ usuario, showToast, initia
     setCarregando(false);
   }, []);
 
-  useEffect(() => { carregarDados(); }, [carregarDados]);
+  useEffect(() => { const controller = new AbortController(); void carregarDados(controller.signal); return () => controller.abort(); }, [carregarDados]);
   useEffect(() => { setPaginaLista(1); }, [busca, view, agendaView]);
 
   const processosFiltrados = useMemo(() => {
@@ -335,7 +336,7 @@ export default function OperacionalProcessualModule({ usuario, showToast, initia
 
       <div className="operacional-toolbar">
         <Input type="search" value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar cliente, processo, responsável ou tipo..." />
-        <button className="btn-secondary" onClick={carregarDados} type="button">Atualizar</button>
+        <button className="btn-secondary" onClick={() => { invalidarConsultas(); void carregarDados(); }} type="button">Atualizar</button>
       </div>
 
       {erro ? <div className="empty-row">{erro}</div> : null}

@@ -3,6 +3,8 @@ import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 import vm from 'node:vm';
 import { transformWithOxc } from 'vite';
+import * as documentWorkspace from '../src/lib/documentWorkspace.js';
+import { DOCUMENT_TEMPLATES } from '../src/config/documentTemplates.js';
 
 async function carregarCodigo(caminho) {
   const source = await readFile(new URL(caminho, import.meta.url), 'utf8');
@@ -140,4 +142,99 @@ test('a consulta vigente preserva resultados e tolera falha em uma das fontes', 
   assert.equal(env.states[2][0].titulo, 'Cliente');
   assert.equal(env.states[3], false);
   dispose();
+});
+
+const generatorCode = await carregarCodigo('../src/GeradorDocumentos.jsx');
+const appCode = (await carregarCodigo('../src/App.jsx')).replaceAll('import.meta.env', 'env');
+
+function ambienteTela(code, componente, props, armazenados = new Map()) {
+  const states = [];
+  let index = 0;
+  let effects = [];
+  let consultas = 0;
+  const context = vm.createContext({
+    ...documentWorkspace, DOCUMENT_TEMPLATES, React, env: {},
+    FormSection: 'FormSection', FormField: 'FormField', Input: 'Input',
+    ModelLibraryModal: 'ModelLibraryModal', Suspense: 'Suspense',
+    window: { localStorage: { getItem: () => null } },
+    localStorage: { getItem: key => armazenados.get(key), setItem: (key, value) => armazenados.set(key, value), removeItem: key => armazenados.delete(key) },
+    useState(initial) {
+      const id = index++;
+      if (!(id in states)) states[id] = typeof initial === 'function' ? initial() : initial;
+      return [states[id], value => { states[id] = typeof value === 'function' ? value(states[id]) : value; }];
+    },
+    useMemo: fn => fn(), useCallback: fn => fn, useEffect: fn => effects.push(fn),
+    lazy: loader => ({ loader }),
+    supabase: { from() { consultas++; return { select: () => Promise.resolve({ data: [], error: null }) }; } },
+    props,
+  });
+  vm.runInContext(code, context);
+  return {
+    context, armazenados,
+    consultas: () => consultas,
+    render() {
+      index = 0;
+      effects = [];
+      const tree = vm.runInContext(`${componente}(props)`, context);
+      return { tree, effects };
+    },
+  };
+}
+
+function elementos(node) {
+  if (Array.isArray(node)) return node.flatMap(elementos);
+  if (!node || typeof node !== 'object') return [];
+  return [node, ...elementos(node.children)];
+}
+
+test('gerador abre sem modelo, consulta ou PDF mesmo quando existe rascunho anterior', () => {
+  const modelo = documentWorkspace.enriquecerModelos(DOCUMENT_TEMPLATES)[1];
+  const storage = new Map([[documentWorkspace.DOCUMENT_DRAFT_KEY, JSON.stringify({ schema: 2, salvoEm: new Date().toISOString(), dados: { modeloId: modelo.id } })], [documentWorkspace.DOCUMENT_HISTORY_KEY, '[{}]']]);
+  const env = ambienteTela(generatorCode, 'GeradorDocumentos', { usuario: {} }, storage);
+  const { tree, effects } = env.render();
+  effects.forEach(fn => fn());
+  const modal = elementos(tree).find(node => node.type === 'ModelLibraryModal');
+  assert.equal(modal.props.selecionadoId, null);
+  assert.equal(modal.props.aberto, false);
+  assert.equal(env.consultas(), 0);
+  assert.equal(storage.has(documentWorkspace.DOCUMENT_HISTORY_KEY), false);
+  assert.equal(storage.has(documentWorkspace.DOCUMENT_DRAFT_KEY), true);
+  modal.props.onSelect(modelo);
+  const editor = env.render().tree;
+  assert.equal(editor.type.name, 'EditorDocumento');
+  assert.equal(editor.props.modeloInicial.id, modelo.id);
+  assert.equal(editor.props.dadosIniciais, undefined);
+  editor.props.onEncerrar();
+  assert.equal(elementos(env.render().tree).find(node => node.type === 'ModelLibraryModal').props.selecionadoId, null);
+});
+
+test('o rascunho só é restaurado por escolha explícita e rascunhos vencidos são descartados', () => {
+  const modelo = documentWorkspace.enriquecerModelos(DOCUMENT_TEMPLATES)[1];
+  const chave = documentWorkspace.DOCUMENT_DRAFT_KEY;
+  const storage = new Map([[chave, JSON.stringify({ schema: 2, salvoEm: new Date().toISOString(), dados: { modeloId: modelo.id, nomeCliente: 'Cliente de teste' } })]]);
+  const env = ambienteTela(generatorCode, 'GeradorDocumentos', {}, storage);
+  const retomar = elementos(env.render().tree).find(node => node.type === 'button' && node.children.includes('Retomar rascunho salvo'));
+  retomar.props.onClick();
+  assert.equal(env.render().tree.props.dadosIniciais.nomeCliente, 'Cliente de teste');
+  storage.set(chave, JSON.stringify({ schema: 2, salvoEm: '2020-01-01', dados: { modeloId: modelo.id } }));
+  const nova = ambienteTela(generatorCode, 'GeradorDocumentos', {}, storage);
+  nova.render().effects.forEach(fn => fn());
+  assert.equal(storage.has(chave), false);
+});
+
+test('navegar substitui a tela anterior e voltar ao gerador não conserva o editor', () => {
+  const env = ambienteTela(appCode, 'Workspace', { usuario: { id: 'teste', tipo: 'admin', nome: 'Teste' } });
+  let tree = env.render().tree;
+  const navegar = titulo => {
+    elementos(tree).find(node => node.type?.name === 'NavItem' && node.children.includes(titulo)).props.onClick();
+    tree = env.render().tree;
+  };
+  navegar('Clientes');
+  assert.ok(elementos(tree).some(node => node.type === vm.runInContext('ClientesModule', env.context)));
+  assert.ok(!elementos(tree).some(node => node.type?.name === 'AreaTrabalho'));
+  navegar('Gerador de Documentos');
+  assert.ok(!elementos(tree).some(node => node.type === vm.runInContext('ClientesModule', env.context)));
+  assert.ok(elementos(tree).some(node => node.type === vm.runInContext('GeradorDocumentos', env.context)));
+  navegar('Agenda e Atividades');
+  assert.ok(!elementos(tree).some(node => node.type === vm.runInContext('GeradorDocumentos', env.context)));
 });

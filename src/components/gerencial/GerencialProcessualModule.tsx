@@ -1,6 +1,6 @@
 import { FormField, FormSection, Input, Select, Textarea } from "../common/FormControls";
 import { type FormEvent, useCallback, useEffect, useMemo, useState } from "react";
-import { supabase } from "../../lib/supabase";
+import { supabase, invalidarConsultas } from "../../lib/supabase";
 import { calcularPrazoElite } from "../../lib/esteiraProcessual";
 import "./gerencialProcessual.css";
 
@@ -118,16 +118,17 @@ export default function GerencialProcessualModule({ usuario, showToast, initialV
 
   const avisar = useCallback((mensagem: string) => showToast?.(mensagem), [showToast]);
 
-  const carregar = useCallback(async () => {
+  const carregar = useCallback(async (signal = new AbortController().signal) => {
     setCarregando(true);
     const [processosReq, tarefasReq, documentosReq, ocorrenciasReq, custasReq, movimentacoesReq] = await Promise.allSettled([
-      supabase.from("processos").select(CAMPOS_PROCESSOS_GERENCIAL).order("updated_at", { ascending: false }).limit(800),
-      supabase.from("processual_tarefas").select(CAMPOS_TAREFAS_GERENCIAL).order("data", { ascending: false }).limit(800),
-      supabase.from("documentos_juridicos").select(CAMPOS_DOCUMENTOS_GERENCIAL).order("created_at", { ascending: false }).limit(800),
-      supabase.from("processual_ocorrencias").select(CAMPOS_OCORRENCIAS_GERENCIAL).order("data", { ascending: false }).limit(800),
-      supabase.from("processual_custas").select(CAMPOS_CUSTAS_GERENCIAL).order("vencimento", { ascending: true }).limit(800),
-      supabase.from("movimentacoes").select("id, categoria, created_at").is("deleted_at", null).order("created_at", { ascending: false }).limit(1200),
+      supabase.from("processos").select(CAMPOS_PROCESSOS_GERENCIAL).order("updated_at", { ascending: false }).limit(800).abortSignal(signal),
+      supabase.from("processual_tarefas").select(CAMPOS_TAREFAS_GERENCIAL).order("data", { ascending: false }).limit(800).abortSignal(signal),
+      supabase.from("documentos_juridicos").select(CAMPOS_DOCUMENTOS_GERENCIAL).order("created_at", { ascending: false }).limit(800).abortSignal(signal),
+      supabase.from("processual_ocorrencias").select(CAMPOS_OCORRENCIAS_GERENCIAL).order("data", { ascending: false }).limit(800).abortSignal(signal),
+      supabase.from("processual_custas").select(CAMPOS_CUSTAS_GERENCIAL).order("vencimento", { ascending: true }).limit(800).abortSignal(signal),
+      supabase.from("movimentacoes").select("id, categoria, created_at").is("deleted_at", null).order("created_at", { ascending: false }).limit(1200).abortSignal(signal),
     ]);
+    if (signal.aborted) return;
     if (processosReq.status === "fulfilled" && !processosReq.value.error) setProcessos(processosReq.value.data || []);
     if (tarefasReq.status === "fulfilled" && !tarefasReq.value.error) setTarefas(tarefasReq.value.data || []);
     if (documentosReq.status === "fulfilled" && !documentosReq.value.error) setDocumentos(documentosReq.value.data || []);
@@ -137,7 +138,7 @@ export default function GerencialProcessualModule({ usuario, showToast, initialV
     setCarregando(false);
   }, []);
 
-  useEffect(() => { carregar(); }, [carregar]);
+  useEffect(() => { const controller = new AbortController(); void carregar(controller.signal); return () => controller.abort(); }, [carregar]);
 
   const processosPorId = useMemo(() => new Map(processos.map((p) => [String(p.id), p])), [processos]);
   const processosOpcao = useMemo(() => processos.slice(0, 300), [processos]);
@@ -229,7 +230,7 @@ export default function GerencialProcessualModule({ usuario, showToast, initialV
 
   return <section className="gerencial-module">
     <header className="module-page-header"><div><span className="eyebrow">Controle gerencial</span><h2>{view === "ocorrencias" ? "Ocorrências" : "Indicadores"}</h2><p>Auditoria operacional, riscos e visão executiva da carteira.</p></div><div className="gerencial-tabs"><button className={view === "indicadores" ? "active" : ""} onClick={() => setView("indicadores")} type="button">Indicadores</button><button className={view === "ocorrencias" ? "active" : ""} onClick={() => setView("ocorrencias")} type="button">Ocorrências</button></div></header>
-    <div className="gerencial-toolbar"><Input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Pesquisar cliente, processo, banco, ocorrência ou alerta..." /><button className="btn-secondary" onClick={carregar} type="button">Atualizar</button></div>
+    <div className="gerencial-toolbar"><Input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Pesquisar cliente, processo, banco, ocorrência ou alerta..." /><button className="btn-secondary" onClick={() => { invalidarConsultas(); void carregar(); }} type="button">Atualizar</button></div>
     {erroOperacao ? <div className="empty-row" role="alert">{erroOperacao}</div> : null}
     {carregando ? <div className="panel">Carregando controle gerencial...</div> : null}
     {!carregando && view === "indicadores" ? <Indicadores indicadores={indicadores} onNavigate={onNavigate} /> : null}

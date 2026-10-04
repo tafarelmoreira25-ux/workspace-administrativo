@@ -1,6 +1,6 @@
 import { FormActions, FormField, FormGrid, FormSection, Input, Select, Textarea } from "../common/FormControls";
 import { type FormEvent, useCallback, useEffect, useMemo, useState } from "react";
-import { supabase } from "../../lib/supabase";
+import { supabase, invalidarConsultas } from "../../lib/supabase";
 import "./homologacaoQuitacao.css";
 
 type Usuario = { nome?: string; email?: string; id?: string };
@@ -86,13 +86,14 @@ export default function HomologacaoQuitacaoModule({ usuario, showToast }: { usua
 
   const avisar = useCallback((mensagem: string) => showToast ? showToast(mensagem) : window.alert(mensagem), [showToast]);
 
-  const carregar = useCallback(async () => {
+  const carregar = useCallback(async (signal = new AbortController().signal) => {
     setCarregando(true); setErro("");
     const [homReq, clientesReq, processosReq] = await Promise.allSettled([
-      supabase.from("homologacoes").select("*").order("updated_at", { ascending: false }).limit(500),
-      supabase.from("clientes").select("id, nome_completo, cpf, telefone, link_pasta_cliente, responsavel").order("nome_completo").limit(500),
-      supabase.from("processos").select("id, cliente_id, numero_processo, banco_reu, reu, nome_cliente, cpf_cliente, responsavel").order("updated_at", { ascending: false }).limit(500),
+      supabase.from("homologacoes").select("*").order("updated_at", { ascending: false }).limit(500).abortSignal(signal),
+      supabase.from("clientes").select("id, nome_completo, cpf, telefone, link_pasta_cliente, responsavel").order("nome_completo").limit(500).abortSignal(signal),
+      supabase.from("processos").select("id, cliente_id, numero_processo, banco_reu, reu, nome_cliente, cpf_cliente, responsavel").order("updated_at", { ascending: false }).limit(500).abortSignal(signal),
     ]);
+    if (signal.aborted) return;
     if (homReq.status === "fulfilled" && !homReq.value.error) setHomologacoes((homReq.value.data || []) as Homologacao[]);
     else setErro("Execute a migration supabase/20260921_homologacao_quitacao.sql para ativar Homologação e Quitação.");
     if (clientesReq.status === "fulfilled" && !clientesReq.value.error) setClientes((clientesReq.value.data || []) as ClienteOpcao[]);
@@ -100,7 +101,7 @@ export default function HomologacaoQuitacaoModule({ usuario, showToast }: { usua
     setCarregando(false);
   }, []);
 
-  useEffect(() => { void carregar(); }, [carregar]);
+  useEffect(() => { const controller = new AbortController(); void carregar(controller.signal); return () => controller.abort(); }, [carregar]);
 
   const filtradas = useMemo(() => {
     const termo = normalizar(busca);
@@ -267,7 +268,7 @@ export default function HomologacaoQuitacaoModule({ usuario, showToast }: { usua
       <button className="btn-primary" type="button" onClick={() => setFormAberto(true)}>Nova homologação</button>
     </header>
 
-    <div className="homologacao-toolbar"><Input type="search" value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar cliente, CPF/CNPJ, contrato, banco ou status..." /><button className="btn-secondary" type="button" onClick={carregar}>Atualizar</button></div>
+    <div className="homologacao-toolbar"><Input type="search" value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar cliente, CPF/CNPJ, contrato, banco ou status..." /><button className="btn-secondary" type="button" onClick={() => { invalidarConsultas(); void carregar(); }}>Atualizar</button></div>
     {erro ? <div className="empty-row">{erro}</div> : null}
     {carregando ? <div className="panel">Carregando homologações...</div> : null}
 

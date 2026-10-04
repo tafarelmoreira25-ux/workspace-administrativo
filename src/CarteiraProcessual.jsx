@@ -1,6 +1,6 @@
 import { FormActions, FormField, FormGrid, FormSection, Input, Select, Textarea } from "./components/common/FormControls";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { supabase } from "./lib/supabase";
+import { supabase, invalidarConsultas } from "./lib/supabase";
 import { buscarClienteUnico, sincronizarClienteDoProcesso } from "./lib/processDataSync";
 import ClientesModule from "./components/clientes/ClientesModule";
 import { agruparTimelineProcessual, descricoesDiferentes, mapearMovimentacaoTimeline, ordenarTimelineProcessual } from "./lib/historicoAdministrativo";
@@ -49,7 +49,7 @@ export default function CarteiraProcessual({ showToast, usuario, processoInicial
   const [acao, setAcao] = useState(ACAO_INICIAL);
   const processoInicialCarregado = useRef(null);
 
-  const carregar = useCallback(async () => {
+  const carregar = useCallback(async (signal = new AbortController().signal) => {
     setCarregando(true);
     const termo = limparBusca(buscaAplicada);
     let consulta = supabase.from("processos").select("id,cliente_id,nome_cliente,cpf_cliente,id_crm,protocolo_extrajudicial,numero_processo,reu,banco_reu,tipo_acao,tribunal,comarca,vara,data_distribuicao,data_inicio_extrajudicial,responsavel,situacao,status_judicial,fase_atual,protocolo_status,ultima_movimentacao,ultima_movimentacao_data,ultima_revisao,origem_registro,observacoes,created_at,updated_at", { count: "exact" });
@@ -58,13 +58,14 @@ export default function CarteiraProcessual({ showToast, usuario, processoInicial
       : consulta.not("numero_processo", "is", null).neq("numero_processo", "");
     if (termo) consulta = consulta.or(`nome_cliente.ilike.%${termo}%,cpf_cliente.ilike.%${termo}%,id_crm.ilike.%${termo}%,protocolo_extrajudicial.ilike.%${termo}%,numero_processo.ilike.%${termo}%,reu.ilike.%${termo}%,banco_reu.ilike.%${termo}%,tipo_acao.ilike.%${termo}%`);
     const inicio = (pagina - 1) * PAGE_SIZE;
-    const { data, count, error } = await consulta.order("updated_at", { ascending: false }).range(inicio, inicio + PAGE_SIZE - 1);
+    const { data, count, error } = await consulta.order("updated_at", { ascending: false }).range(inicio, inicio + PAGE_SIZE - 1).abortSignal(signal);
+    if (signal.aborted) return;
     if (error) showToast?.(`Não foi possível carregar o Processual: ${error.message}`);
     else { setRegistros(data || []); setTotal(count || 0); }
     setCarregando(false);
   }, [buscaAplicada, carteiraExtrajudicial, pagina, showToast]);
 
-  useEffect(() => { const timer = window.setTimeout(() => void carregar(), 0); return () => window.clearTimeout(timer); }, [carregar]);
+  useEffect(() => { const controller = new AbortController(); const timer = window.setTimeout(() => void carregar(controller.signal), 0); return () => { window.clearTimeout(timer); controller.abort(); }; }, [carregar]);
   useEffect(() => { const timer = window.setTimeout(() => { setPagina(1); setBuscaAplicada(busca); }, 350); return () => window.clearTimeout(timer); }, [busca]);
 
   useEffect(() => {
@@ -413,7 +414,7 @@ export default function CarteiraProcessual({ showToast, usuario, processoInicial
     <section className="portfolio-process-section">
       <div className="process-status-section-heading">
         {!carteiraExtrajudicial ? <div><span>Processos com número judicial</span></div> : null}
-        <div className="process-status-heading-actions"><button className="primary" type="button" onClick={abrirCadastro}>{carteiraExtrajudicial ? "Cadastrar ação extrajudicial" : "Cadastrar processo judicial"}</button><button type="button" onClick={carregar}>Atualizar</button></div>
+        <div className="process-status-heading-actions"><button className="primary" type="button" onClick={abrirCadastro}>{carteiraExtrajudicial ? "Cadastrar ação extrajudicial" : "Cadastrar processo judicial"}</button><button type="button" onClick={() => { invalidarConsultas(); void carregar(); }}>Atualizar</button></div>
       </div>
       <div className="process-status-filters"><Input type="search" value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar nome, CPF, ID CRM, CNJ, réu, banco ou ação..." /></div>
       {carregando && !registros.length ? <p className="process-status-empty">Carregando processos...</p> : registros.length ? <div className="portfolio-process-list">{registros.map((item) => {

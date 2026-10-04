@@ -1,6 +1,6 @@
 import { FormActions, FormField, FormGrid, FormSection, Input, Textarea } from "../common/FormControls";
 import { FormEvent, type ReactNode, lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { supabase } from "../../lib/supabase";
+import { supabase, invalidarConsultas } from "../../lib/supabase";
 import Pagination from "../common/Pagination";
 import { sincronizarClienteDoProcesso, sincronizarProcessosDoCliente } from "../../lib/processDataSync";
 
@@ -220,7 +220,7 @@ export default function ClientesModule({ usuario, showToast, buscaExterna, clien
     else window.alert(mensagem);
   }, [showToast]);
 
-  const carregarDados = useCallback(async () => {
+  const carregarDados = useCallback(async (signal = new AbortController().signal) => {
     const requisicao = ++listaRequisicao.current;
     setCarregando(true);
     setErro("");
@@ -233,7 +233,8 @@ export default function ClientesModule({ usuario, showToast, buscaExterna, clien
         .select("cliente_id")
         .ilike("numero_processo", `%${termo}%`)
         .not("cliente_id", "is", null)
-        .limit(500);
+        .limit(500).abortSignal(signal);
+      if (signal.aborted) return;
       clientesPorProcesso = [...new Set((encontrados || []).map((item) => item.cliente_id).filter(Boolean))] as Array<string | number>;
     }
 
@@ -251,7 +252,8 @@ export default function ClientesModule({ usuario, showToast, buscaExterna, clien
     const inicio = (pagina - 1) * CLIENTES_POR_PAGINA;
     const { data, count, error } = await consulta
       .order("nome_completo", { ascending: true })
-      .range(inicio, inicio + CLIENTES_POR_PAGINA - 1);
+      .range(inicio, inicio + CLIENTES_POR_PAGINA - 1).abortSignal(signal);
+    if (signal.aborted) return;
 
     if (requisicao !== listaRequisicao.current) return;
     if (error) {
@@ -270,19 +272,23 @@ export default function ClientesModule({ usuario, showToast, buscaExterna, clien
         .from("processos")
         .select("id, cliente_id, nome_cliente, cpf_cliente, reu, banco_reu, numero_processo, fase_atual, situacao, resultado, status_judicial, justica_gratuita, responsavel, updated_at")
         .in("cliente_id", ids)
-        .order("updated_at", { ascending: false });
+        .order("updated_at", { ascending: false }).abortSignal(signal);
+      if (signal.aborted) return;
       if (requisicao !== listaRequisicao.current) return;
       if (!processosPagina) return;
       setProcessos((atuais) => [
         ...(processosPagina as ProcessoResumo[]).map((item) => ({ ...atuais.find((atual) => String(atual.id) === String(item.id)), ...item })),
         ...atuais.filter((item) => String(item.cliente_id) === String(fichaClienteId.current) && !ids.some((id) => String(id) === String(item.cliente_id))),
       ]);
+    if (signal.aborted) return;
     }
 
   }, [buscaAplicada, pagina]);
 
   useEffect(() => {
-    if (!fichaInline) carregarDados();
+    const controller = new AbortController();
+    if (!fichaInline) void carregarDados(controller.signal);
+    return () => controller.abort();
   }, [carregarDados, fichaInline]);
 
   useEffect(() => {
@@ -626,7 +632,7 @@ export default function ClientesModule({ usuario, showToast, buscaExterna, clien
         {!fichaInline ? <section className="clientes-list-panel">
           <div className="clientes-toolbar">
             <span>{buscaAplicada ? `Resultados para “${buscaAplicada}”` : "Todos os clientes"}</span>
-            <button type="button" className="btn-secondary" onClick={carregarDados}>Atualizar</button>
+            <button type="button" className="btn-secondary" onClick={() => { invalidarConsultas(); void carregarDados(); }}>Atualizar</button>
           </div>
 
           {erro ? <div className="client-warning">{erro}</div> : null}

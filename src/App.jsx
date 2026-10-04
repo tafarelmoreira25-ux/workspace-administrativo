@@ -1,18 +1,32 @@
 import { FormField, FormSection, Input } from "./components/common/FormControls";
-import { Activity, lazy, Suspense, useCallback, useEffect, useState, useTransition } from "react";
-import { supabase } from "./lib/supabase";
+import { lazy, Suspense, useCallback, useEffect, useState } from "react";
+import { supabase, invalidarConsultas } from "./lib/supabase";
 import { resolverTipoAcesso } from "./lib/userAccess";
 import "./App.css";
-const TreinamentosOperacionais = lazy(() => import("./components/TreinamentosOperacionais"));
-const GeradorDocumentos = lazy(() => import("./GeradorDocumentos"));
-const EsteiraProcessualPlatino = lazy(() => import("./components/esteira/EsteiraProcessualPlatino"));
-const ClientesModule = lazy(() => import("./components/clientes/ClientesModule"));
-const OperacionalProcessualModule = lazy(() => import("./components/operacional/OperacionalProcessualModule"));
-const GerencialProcessualModule = lazy(() => import("./components/gerencial/GerencialProcessualModule"));
-const GlobalSearch = lazy(() => import("./components/gerencial/GlobalSearch"));
-const DashboardModule = lazy(() => import("./components/dashboard/DashboardModule"));
-const CarteiraProcessual = lazy(() => import("./CarteiraProcessual"));
-const HomologacaoQuitacaoModule = lazy(() => import("./components/homologacao/HomologacaoQuitacaoModule"));
+const carregadores = {
+  TreinamentosOperacionais: () => import("./components/TreinamentosOperacionais"),
+  GeradorDocumentos: () => import("./GeradorDocumentos"),
+  EsteiraProcessualPlatino: () => import("./components/esteira/EsteiraProcessualPlatino"),
+  ClientesModule: () => import("./components/clientes/ClientesModule"),
+  OperacionalProcessualModule: () => import("./components/operacional/OperacionalProcessualModule"),
+  GerencialProcessualModule: () => import("./components/gerencial/GerencialProcessualModule"),
+  GlobalSearch: () => import("./components/gerencial/GlobalSearch"),
+  DashboardModule: () => import("./components/dashboard/DashboardModule"),
+  CarteiraProcessual: () => import("./CarteiraProcessual"),
+  HomologacaoQuitacaoModule: () => import("./components/homologacao/HomologacaoQuitacaoModule"),
+};
+const carregadoresPorAba = { inicio: carregadores.DashboardModule, clientes: carregadores.ClientesModule, "homologacao-quitacao": carregadores.HomologacaoQuitacaoModule, documentos: carregadores.GeradorDocumentos, "processual-extrajudiciais": carregadores.CarteiraProcessual, "processual-protocolos": carregadores.EsteiraProcessualPlatino, processual: carregadores.CarteiraProcessual, "agenda-atividades": carregadores.OperacionalProcessualModule, indicadores: carregadores.GerencialProcessualModule, treinamentos: carregadores.TreinamentosOperacionais };
+function anteciparAba(id) { carregadoresPorAba[id]?.().catch(() => {}); }
+const TreinamentosOperacionais = lazy(carregadores.TreinamentosOperacionais);
+const GeradorDocumentos = lazy(carregadores.GeradorDocumentos);
+const EsteiraProcessualPlatino = lazy(carregadores.EsteiraProcessualPlatino);
+const ClientesModule = lazy(carregadores.ClientesModule);
+const OperacionalProcessualModule = lazy(carregadores.OperacionalProcessualModule);
+const GerencialProcessualModule = lazy(carregadores.GerencialProcessualModule);
+const GlobalSearch = lazy(carregadores.GlobalSearch);
+const DashboardModule = lazy(carregadores.DashboardModule);
+const CarteiraProcessual = lazy(carregadores.CarteiraProcessual);
+const HomologacaoQuitacaoModule = lazy(carregadores.HomologacaoQuitacaoModule);
 const ADMIN_EMAIL = (import.meta.env.VITE_ADMIN_EMAIL || "tafarel@platino.com").toLowerCase();
 
 function normalizarDataColada(valor, tipo) {
@@ -137,9 +151,9 @@ function UiIcon({ name, size = 20 }) {
   );
 }
 
-function NavItem({ active, icon, children, onClick, disabled = false }) {
+function NavItem({ active, icon, children, onClick, onPreload, disabled = false }) {
   return (
-    <button className={`nav-item ${active ? "active-tab" : ""}`} disabled={disabled} onClick={onClick} title={String(children)}>
+    <button className={`nav-item ${active ? "active-tab" : ""}`} disabled={disabled} onClick={onClick} onPointerEnter={onPreload} onFocus={onPreload} title={String(children)}>
       <UiIcon name={icon} size={18} />
       <span>{children}</span>
     </button>
@@ -399,8 +413,6 @@ function RedefinirSenha({ onConcluida }) {
 
 function Workspace({ usuario, onLogout, showToast }) {
   const [aba, setAba] = useState("inicio");
-  const [abasVisitadas, setAbasVisitadas] = useState(["inicio"]);
-  const [navegando, startTransition] = useTransition();
   const [buscaModulo, setBuscaModulo] = useState("");
   const [menuRecolhido, setMenuRecolhido] = useState(() => window.localStorage.getItem("platino-menu-recolhido") === "1");
   const [menuContaAberto, setMenuContaAberto] = useState(false);
@@ -443,13 +455,10 @@ function Workspace({ usuario, onLogout, showToast }) {
   };
   function navegar(id, opcoes = {}) {
     if (id === "processos") id = "processual";
-    startTransition(() => {
-      setAba(id);
-      setAbasVisitadas((atuais) => atuais.includes(id) ? atuais : [...atuais, id]);
-      setBuscaModulo("");
-      if (id === "clientes") setClienteSelecionadoId(opcoes.clienteId || null);
-      if (["processual", "processual-extrajudiciais"].includes(id)) setProcessosSelecionados((atuais) => ({ ...atuais, [id]: opcoes.processoId || null }));
-    });
+    setAba(id);
+    setBuscaModulo("");
+    setClienteSelecionadoId(id === "clientes" ? opcoes.clienteId || null : null);
+    setProcessosSelecionados(["processual", "processual-extrajudiciais"].includes(id) ? { [id]: opcoes.processoId || null } : {});
     if (id === "feedbacks") carregarFeedbacks();
   }
 
@@ -481,13 +490,13 @@ function Workspace({ usuario, onLogout, showToast }) {
           <section className="nav-group" key={grupo.titulo}>
             <span>{grupo.titulo}</span>
             {grupo.itens.map(([id, nome, icon]) => (
-              <NavItem key={id} active={aba === id} icon={icon} onClick={() => navegar(id)}>{nome}</NavItem>
+              <NavItem key={id} active={aba === id} icon={icon} onClick={() => navegar(id)} onPreload={() => anteciparAba(id)}>{nome}</NavItem>
             ))}
           </section>
         ))}
       </nav>
     </aside>
-    <main className="main-content" aria-busy={navegando}>
+    <main className="main-content">
       <header className="topbar">
         <div>
           <h1>{rotuloAtual}</h1>
@@ -501,17 +510,17 @@ function Workspace({ usuario, onLogout, showToast }) {
           {menuContaAberto ? <div className="account-menu"><div className="account-menu-identity"><strong>{usuario.nome || "Usuário"}</strong><span>{usuario.email || "Conta autenticada"}</span></div>{admin ? <button type="button" onClick={() => navegar("administracao")}>Configurações</button> : null}<button type="button" onClick={onLogout}>Sair</button></div> : null}
         </div>
       </header>
-      {abasVisitadas.includes("inicio") && <Activity mode={aba === "inicio" ? "visible" : "hidden"}><AreaTrabalho usuario={usuario} onNavigate={navegar} /></Activity>}
-      {abasVisitadas.includes("clientes") && <Activity mode={aba === "clientes" ? "visible" : "hidden"}><Suspense fallback={<section className="panel">Carregando clientes...</section>}><ClientesModule usuario={usuario} showToast={showToast} buscaExterna={buscaModulo} clienteInicialId={clienteSelecionadoId} onOpenProcess={abrirProcessoNoProcessual} /></Suspense></Activity>}
-      {abasVisitadas.includes("homologacao-quitacao") && <Activity mode={aba === "homologacao-quitacao" ? "visible" : "hidden"}><Suspense fallback={<section className="panel">Carregando Homologação e Quitação...</section>}><HomologacaoQuitacaoModule usuario={usuario} showToast={showToast} /></Suspense></Activity>}
-      {abasVisitadas.includes("documentos") && <Activity mode={aba === "documentos" ? "visible" : "hidden"}><Suspense fallback={<section className="panel">Carregando documentos...</section>}><GeradorDocumentos usuario={usuario} responsavel={usuario.nome} onSuccess={showToast} /></Suspense></Activity>}
-      {abasVisitadas.includes("processual-extrajudiciais") && <Activity mode={aba === "processual-extrajudiciais" ? "visible" : "hidden"}><Suspense fallback={<section className="panel">Carregando ações extrajudiciais...</section>}><CarteiraProcessual showToast={showToast} usuario={usuario} processoInicialId={processosSelecionados["processual-extrajudiciais"]} modo="extrajudicial" /></Suspense></Activity>}
-      {abasVisitadas.includes("processual-protocolos") && <Activity mode={aba === "processual-protocolos" ? "visible" : "hidden"}><Suspense fallback={<section className="panel">Carregando protocolos...</section>}><EsteiraProcessualPlatino usuario={usuario} showToast={showToast} initialView="protocolos" /></Suspense></Activity>}
-      {abasVisitadas.includes("processual") && <Activity mode={aba === "processual" ? "visible" : "hidden"}><Suspense fallback={<section className="panel">Carregando Processual...</section>}><CarteiraProcessual showToast={showToast} usuario={usuario} processoInicialId={processosSelecionados.processual} modo="judicial" /></Suspense></Activity>}
-      {abasVisitadas.includes("agenda-atividades") && <Activity mode={aba === "agenda-atividades" ? "visible" : "hidden"}><Suspense fallback={<section className="panel">Carregando agenda...</section>}><OperacionalProcessualModule usuario={usuario} showToast={showToast} initialView="agenda" /></Suspense></Activity>}
-      {abasVisitadas.includes("indicadores") && <Activity mode={aba === "indicadores" ? "visible" : "hidden"}><Suspense fallback={<section className="panel">Carregando indicadores...</section>}><GerencialProcessualModule usuario={usuario} showToast={showToast} initialView="indicadores" onNavigate={navegar} /></Suspense></Activity>}
-      {abasVisitadas.includes("treinamentos") && <Activity mode={aba === "treinamentos" ? "visible" : "hidden"}><Suspense fallback={<section className="panel">Carregando treinamentos...</section>}><TreinamentosOperacionais usuario={usuario} /></Suspense></Activity>}
-      {aba === "feedbacks" && <section className="panel"><h2>Meus feedbacks</h2><button className="btn-secondary" onClick={carregarFeedbacks}>Atualizar</button><ListaFeedbacks feedbacks={feedbacks} /></section>}
+      {aba === "inicio" && <AreaTrabalho usuario={usuario} onNavigate={navegar} />}
+      {aba === "clientes" && <Suspense fallback={<section className="panel">Carregando clientes...</section>}><ClientesModule usuario={usuario} showToast={showToast} buscaExterna={buscaModulo} clienteInicialId={clienteSelecionadoId} onOpenProcess={abrirProcessoNoProcessual} /></Suspense>}
+      {aba === "homologacao-quitacao" && <Suspense fallback={<section className="panel">Carregando Homologação e Quitação...</section>}><HomologacaoQuitacaoModule usuario={usuario} showToast={showToast} /></Suspense>}
+      {aba === "documentos" && <Suspense fallback={<section className="panel">Carregando documentos...</section>}><GeradorDocumentos usuario={usuario} responsavel={usuario.nome} onSuccess={showToast} /></Suspense>}
+      {aba === "processual-extrajudiciais" && <Suspense fallback={<section className="panel">Carregando ações extrajudiciais...</section>}><CarteiraProcessual showToast={showToast} usuario={usuario} processoInicialId={processosSelecionados["processual-extrajudiciais"]} modo="extrajudicial" /></Suspense>}
+      {aba === "processual-protocolos" && <Suspense fallback={<section className="panel">Carregando protocolos...</section>}><EsteiraProcessualPlatino usuario={usuario} showToast={showToast} initialView="protocolos" /></Suspense>}
+      {aba === "processual" && <Suspense fallback={<section className="panel">Carregando Processual...</section>}><CarteiraProcessual showToast={showToast} usuario={usuario} processoInicialId={processosSelecionados.processual} modo="judicial" /></Suspense>}
+      {aba === "agenda-atividades" && <Suspense fallback={<section className="panel">Carregando agenda...</section>}><OperacionalProcessualModule usuario={usuario} showToast={showToast} initialView="agenda" /></Suspense>}
+      {aba === "indicadores" && <Suspense fallback={<section className="panel">Carregando indicadores...</section>}><GerencialProcessualModule usuario={usuario} showToast={showToast} initialView="indicadores" onNavigate={navegar} /></Suspense>}
+      {aba === "treinamentos" && <Suspense fallback={<section className="panel">Carregando treinamentos...</section>}><TreinamentosOperacionais usuario={usuario} /></Suspense>}
+      {aba === "feedbacks" && <section className="panel"><h2>Meus feedbacks</h2><button className="btn-secondary" onClick={() => { invalidarConsultas(); void carregarFeedbacks(); }}>Atualizar</button><ListaFeedbacks feedbacks={feedbacks} /></section>}
       {placeholderTextos[aba] && <PlaceholderModulo titulo={placeholderTextos[aba][0]} descricao={placeholderTextos[aba][1]} />}
     </main>
   </div>;

@@ -59,7 +59,7 @@ export default function EsteiraProcessualPlatino({ usuario, showToast, initialVi
     [showToast],
   );
 
-  const carregarProcessos = useCallback(async () => {
+  const carregarProcessos = useCallback(async (signal = new AbortController().signal) => {
     setCarregando(true);
     const termo = buscaAplicada.trim().replace(/[,()"']/g, " ").replace(/\s+/g, " ").slice(0, 120);
     let consulta = supabase.from("processos").select(CAMPOS_PROCESSO_LISTA, { count: "exact" });
@@ -68,7 +68,8 @@ export default function EsteiraProcessualPlatino({ usuario, showToast, initialVi
       : consulta.not("numero_processo", "is", null).neq("numero_processo", "");
     if (termo) consulta = consulta.or(`nome_cliente.ilike.%${termo}%,cpf_cliente.ilike.%${termo}%,id_crm.ilike.%${termo}%,numero_processo.ilike.%${termo}%,reu.ilike.%${termo}%,banco_reu.ilike.%${termo}%,tipo_acao.ilike.%${termo}%`);
     const inicio = (pagina - 1) * 30;
-    const { data, count, error } = await consulta.order("updated_at", { ascending: false }).range(inicio, inicio + 29);
+    const { data, count, error } = await consulta.order("updated_at", { ascending: false }).range(inicio, inicio + 29).abortSignal(signal);
+    if (signal.aborted) return;
 
     if (error) {
       avisar("Não foi possível carregar o módulo Processual.");
@@ -81,9 +82,7 @@ export default function EsteiraProcessualPlatino({ usuario, showToast, initialVi
     setCarregando(false);
   }, [avisar, buscaAplicada, pagina, visualizacao]);
 
-  useEffect(() => {
-    carregarProcessos();
-  }, [carregarProcessos]);
+  useEffect(() => { const controller = new AbortController(); void carregarProcessos(controller.signal); return () => controller.abort(); }, [carregarProcessos]);
   useEffect(() => { const timer = window.setTimeout(() => { setPagina(1); setBuscaAplicada(busca); }, 350); return () => window.clearTimeout(timer); }, [busca]);
 
   function atualizarProcessoLocal(processoAtualizado: Processo) {
