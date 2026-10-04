@@ -1,3 +1,4 @@
+import { formatarParteContraria } from "../../lib/formatarParteContraria";
 import AcompanhamentoReport from "../common/AcompanhamentoReport";
 import DetailWindow from "../common/DetailWindow";
 import { FormActions, FormField, FormGrid, FormSection, Input, Select, Textarea } from "../common/FormControls";
@@ -995,8 +996,8 @@ export default function PainelJudicial({
                 <tr key={processo.id}>
                   <td><strong>{processo.nome_cliente}</strong><small>{processo.cpf_cliente || processo.id_crm || "Sem CPF/ID"}</small>{cadastroIncompleto(processo) ? <span className="process-incomplete-tag">[Cadastro Incompleto]</span> : null}</td>
                   <td>{processo.numero_processo || "Pendente"}</td>
-                  <td>{processo.reu || processo.banco_reu || "—"}</td>
-                  <td>{processo.banco_reu || "—"}</td>
+                  <td>{formatarParteContraria(processo.reu || processo.banco_reu) || "—"}</td>
+                  <td>{formatarParteContraria(processo.banco_reu) || "—"}</td>
                   <td><div className="process-status-cell"><Select className="process-status-inline-select" aria-label={`Situação do processo de ${processo.nome_cliente}`} value={processo.situacao || SITUACOES[0]} onChange={(e) => void alterarSituacaoNaLista(processo, e.target.value)}>{SITUACOES.map((opcao) => <option key={opcao} value={opcao}>{opcao}</option>)}</Select>{fase !== situacao || resultado !== situacao ? <small>{fase !== situacao ? fase : null}{fase !== situacao && resultado !== situacao ? " · " : null}{resultado !== situacao ? resultado : null}</small> : null}</div></td>
                   <td><span className="truncate-cell">{processo.ultima_movimentacao || "—"}</span></td>
                   <td>{formatarData(processo.ultima_revisao)}</td>

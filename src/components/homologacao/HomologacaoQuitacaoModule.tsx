@@ -1,3 +1,4 @@
+import { formatarParteContraria } from "../../lib/formatarParteContraria";
 import AcompanhamentoReport from "../common/AcompanhamentoReport";
 import DetailWindow from "../common/DetailWindow";
 import { FormActions, FormField, FormGrid, FormSection, Input, Select, Textarea } from "../common/FormControls";
@@ -35,6 +36,7 @@ const PRIORIDADES = ["Baixa", "Normal", "Alta", "Crítica"];
 const DECISOES_PROPOSTA = ["Em análise", "Aceita", "Recusada", "Vencida"];
 const ABAS = ["Visão geral", "Histórico", "Dados do contrato", "Negociações", "Reuniões", "Diligências", "Documentos", "Quitação", "Relatório"];
 const TIPOS_CONTATO = ["Assessoria", "Banco", "Portal", "Acordo", "Quitação"];
+const ITENS_POR_PAGINA = 12;
 const tratativaInicial = () => ({ data: hoje(), tipo_contato: "Banco", valor_original: "", valor_ofertado: "", observacoes: "" });
 
 const homologacaoInicial = (usuario?: Usuario) => ({
@@ -54,7 +56,6 @@ const atualizacaoContratoInicial = { data_atualizacao: new Date().toISOString().
 function hoje() { return new Intl.DateTimeFormat("sv-SE", { timeZone: "America/Sao_Paulo" }).format(new Date()); }
 function limpar(valor: unknown) { const texto = String(valor ?? "").trim(); return texto || null; }
 function numero(valor: unknown) { const texto = String(valor ?? "").replace(/\./g, "").replace(",", ".").trim(); return texto ? Number(texto) : null; }
-function normalizar(valor = "") { return String(valor).normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase(); }
 function dinheiro(valor?: number | null) { return typeof valor === "number" ? valor.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }) : "—"; }
 function dataBr(data?: string | null) { return data ? new Intl.DateTimeFormat("pt-BR").format(new Date(data.length === 10 ? `${data}T00:00:00` : data)) : "—"; }
 function dataHoraBr(data?: string | null) { return data ? new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeStyle: "short" }).format(new Date(data)) : "—"; }
@@ -63,6 +64,10 @@ function usuarioNome(usuario: Usuario) { return usuario.nome || usuario.email ||
 
 export default function HomologacaoQuitacaoModule({ usuario, showToast }: { usuario: Usuario; showToast?: (mensagem: string) => void }) {
   const [homologacoes, setHomologacoes] = useState<HomologacaoResumo[]>([]);
+  const [pagina, setPagina] = useState(1);
+  const [total, setTotal] = useState(0);
+  const listaRequest = useRef(0);
+  const totalPaginas = Math.max(1, Math.ceil(total / ITENS_POR_PAGINA));
   const fichaRequest = useRef(0);
   const [resumoAberto, setResumoAberto] = useState<HomologacaoResumo | null>(null);
   const [carregandoFicha, setCarregandoFicha] = useState(false);
@@ -101,18 +106,28 @@ export default function HomologacaoQuitacaoModule({ usuario, showToast }: { usua
   const avisar = useCallback((mensagem: string) => showToast ? showToast(mensagem) : window.alert(mensagem), [showToast]);
 
   const carregar = useCallback(async (signal = new AbortController().signal) => {
+    const request = ++listaRequest.current;
     setCarregando(true); setErro("");
     try {
-      const { data, error } = await supabase.from("homologacoes").select("id, cliente_nome, instituicao_financeira, numero_contrato, status, ultima_movimentacao, updated_at").order("updated_at", { ascending: false }).limit(500).abortSignal(signal);
-      if (signal.aborted) return;
+      let consulta = supabase.from("homologacoes").select("id, cliente_nome, instituicao_financeira, numero_contrato, status, ultima_movimentacao, updated_at", { count: "exact" });
+      const termo = busca.trim().replace(/[,()"'\\%_*]/g, " ").replace(/\s+/g, " ").slice(0, 120).trim();
+      if (termo) consulta = consulta.or(`cliente_nome.ilike.%${termo}%,numero_contrato.ilike.%${termo}%,instituicao_financeira.ilike.%${termo}%,status.ilike.%${termo}%`);
+      const inicio = (pagina - 1) * ITENS_POR_PAGINA;
+      const { data, count, error } = await consulta.order("updated_at", { ascending: false }).order("id").range(inicio, inicio + ITENS_POR_PAGINA - 1).abortSignal(signal);
+      if (signal.aborted || request !== listaRequest.current) return;
       if (error) setErro("Não foi possível carregar as homologações. Tente atualizar a lista.");
-      else setHomologacoes((data || []) as HomologacaoResumo[]);
+      else {
+        const quantidade = count || 0;
+        setTotal(quantidade);
+        setHomologacoes((data || []) as HomologacaoResumo[]);
+        setPagina((atual) => Math.min(atual, Math.max(1, Math.ceil(quantidade / ITENS_POR_PAGINA))));
+      }
     } catch {
-      if (!signal.aborted) setErro("Não foi possível carregar as homologações. Tente atualizar a lista.");
+      if (!signal.aborted && request === listaRequest.current) setErro("Não foi possível carregar as homologações. Tente atualizar a lista.");
     }
-    if (signal.aborted) return;
+    if (signal.aborted || request !== listaRequest.current) return;
     setCarregando(false);
-  }, []);
+  }, [busca, pagina]);
 
   useEffect(() => { const controller = new AbortController(); void carregar(controller.signal); return () => controller.abort(); }, [carregar]);
   useEffect(() => () => { fichaRequest.current += 1; }, []);
@@ -129,11 +144,6 @@ export default function HomologacaoQuitacaoModule({ usuario, showToast }: { usua
     });
     return () => controller.abort();
   }, [formAberto]);
-
-  const filtradas = useMemo(() => {
-    const termo = normalizar(busca);
-    return homologacoes.filter((item) => !termo || normalizar(`${item.cliente_nome} ${item.numero_contrato || ""} ${item.instituicao_financeira || ""} ${item.status}`).includes(termo));
-  }, [busca, homologacoes]);
 
   const topo = useMemo(() => {
     if (!selecionada) return null;
@@ -213,7 +223,9 @@ export default function HomologacaoQuitacaoModule({ usuario, showToast }: { usua
     };
     const { data, error } = await supabase.from("homologacoes").insert({ ...payload, created_by_nome: usuarioNome(usuario) }).select("*").single();
     if (error) { avisar(`Não foi possível salvar: ${error.message}`); return; }
-    setHomologacoes((atuais) => [data as Homologacao, ...atuais]);
+    invalidarConsultas();
+    if (pagina === 1) void carregar();
+    else setPagina(1);
     setFormAberto(false); setForm(homologacaoInicial(usuario)); avisar("Homologação aberta.");
   }
 
@@ -368,22 +380,27 @@ export default function HomologacaoQuitacaoModule({ usuario, showToast }: { usua
       <button className="btn-primary" type="button" onClick={() => setFormAberto(true)}>Nova homologação</button>
     </header>
 
-    <div className="homologacao-toolbar"><Input type="search" value={busca} onChange={(e) => setBusca(e.target.value)} aria-label="Buscar homologações" placeholder="Buscar cliente, contrato, banco ou status..." /><button className="btn-secondary" type="button" onClick={() => { invalidarConsultas(); void carregar(); }}>Atualizar</button></div>
+    <div className="homologacao-toolbar"><Input type="search" value={busca} onChange={(e) => { setBusca(e.target.value); setPagina(1); }} aria-label="Buscar homologações" placeholder="Buscar cliente, contrato, banco ou status..." /><button className="btn-secondary" type="button" onClick={() => { invalidarConsultas(); void carregar(); }}>Atualizar</button></div>
     {erro ? <div className="empty-row">{erro}</div> : null}
     {carregando ? <div className="panel">Carregando homologações...</div> : null}
 
     <section className="homologacao-list" aria-label="Clientes em homologação">
-      <div className="section-actions"><strong>{filtradas.length} homologações</strong><span>Acompanhamento quinzenal das negociações</span></div>
-      <div className="homologacao-grid">
-        {filtradas.length === 0 && !carregando && !erro ? <div className="empty-row">{busca ? "Nenhuma homologação encontrada para esta busca." : "Nenhuma homologação cadastrada."}</div> : filtradas.map((item) => {
+      <div className="section-actions"><strong>{total} homologações</strong><span>Acompanhamento quinzenal das negociações</span></div>
+      <div className="homologacao-grid" aria-busy={carregando}>
+        {!carregando && !erro && (homologacoes.length === 0 ? <div className="empty-row">{busca ? "Nenhuma homologação encontrada para esta busca." : "Nenhuma homologação cadastrada."}</div> : homologacoes.map((item) => {
           const dias = diasDesde(item.ultima_movimentacao || item.updated_at);
           return <button key={item.id} type="button" className="homologacao-row" onClick={() => void abrirFicha(item)} aria-label={`Abrir ficha de ${item.cliente_nome}`}>
-            <strong>{item.cliente_nome}</strong><span>{item.instituicao_financeira || "Banco não informado"}</span>
+            <strong>{item.cliente_nome}</strong><span>{formatarParteContraria(item.instituicao_financeira) || "Banco não informado"}</span>
             <span>Contrato {item.numero_contrato || "não informado"}</span><small className="homologacao-status">{item.status}</small>
             {dias >= 15 ? <em>{dias} dias sem tratativa · Atualização pendente</em> : <small>Última atualização: {dataBr(item.ultima_movimentacao || item.updated_at)}</small>}
           </button>;
-        })}
+        }))}
       </div>
+      <nav className="homologacao-pagination" aria-label="Paginação de homologações">
+        <button className="btn-secondary" type="button" disabled={carregando || pagina === 1} onClick={() => setPagina((atual) => atual - 1)}>‹ Anterior</button>
+        <span role="status" aria-live="polite">Página {pagina} de {totalPaginas}</span>
+        <button className="btn-secondary" type="button" disabled={carregando || !!erro || pagina >= totalPaginas} onClick={() => setPagina((atual) => atual + 1)}>Próxima ›</button>
+      </nav>
     </section>
 
     {resumoAberto ? <DetailWindow entityId={resumoAberto.id} context="homologacao" title={`Ficha de ${resumoAberto.cliente_nome}`} onClose={fecharFicha}>

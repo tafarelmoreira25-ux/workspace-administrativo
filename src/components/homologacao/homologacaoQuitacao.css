@@ -56,6 +56,8 @@
 }
 
 .homologacao-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
+.homologacao-pagination { display: flex; justify-content: center; align-items: center; gap: 16px; flex-wrap: wrap; padding-top: 20px; }
+.homologacao-pagination span { color: #596579; font-size: 14px; }
 .homologacao-row { align-content: start; min-height: 170px; transition: border-color .15s, box-shadow .15s; }
 .homologacao-row:hover { border-color: #b9cbff; box-shadow: 0 3px 12px #17243a0d; }
 .homologacao-row:focus-visible { outline: 3px solid #7596ef; outline-offset: 3px; }

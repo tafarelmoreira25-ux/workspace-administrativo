@@ -915,3 +915,21 @@
 .processual-contexto { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
 .processual-contexto > .processual-actions-menu { order: 10; margin-left: auto; }
 .processual-contexto > .processual-actions-menu > div { left: auto; right: 0; }
+
+.portfolio-process-section .process-status-filters { grid-template-columns: minmax(0, 1fr); }
+.process-list-table .process-centered { text-align: center; }
+.process-list-table .process-centered .table-actions { justify-content: center; }
+.process-list-table .process-checkbox-cell { width: 48px; text-align: center; }
+.process-checkbox-cell input { width: 18px; height: 18px; accent-color: #173f70; cursor: pointer; vertical-align: middle; }
+.process-checkbox-cell input:focus-visible { outline: 2px solid #2164b5; outline-offset: 3px; }
+.process-list-table .process-row-selected { background: #eef4ff; }
+.process-bulk-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; padding: 14px 18px; background: #eef4ff; border: 1px solid #c7d7fe; border-radius: 12px; }
+.process-bulk-actions > span { margin-right: auto; color: #17375f; font-weight: 700; }
+.process-skeleton { display: block; height: 16px; width: 75%; background: #e2e8f0; border-radius: 5px; }
+.process-skeleton-check { width: 18px; height: 18px; margin: auto; }
+.process-list-table .animate-pulse { animation: process-list-pulse 1.6s ease-in-out infinite; }
+@keyframes process-list-pulse { 50% { opacity: .4; } }
+.process-list-empty { display: grid; justify-items: center; gap: 14px; padding: 42px 20px; color: #627792; text-align: center; }
+.process-list-empty p { margin: 0; font-weight: 600; }
+.process-loading-label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+@media (prefers-reduced-motion: reduce) { .process-list-table .animate-pulse { animation: none; } }

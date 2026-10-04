@@ -18,7 +18,6 @@ const MODELO_PROCURACAO = {
   categoria: "procuracoes", categoriaNome: "Procurações", icone: "signature",
   descricao: "Procuração para representação judicial do cliente.",
   templateDocx: "/modelos/procuracoes/procuracao-ad-judicia-2026.docx",
-  revisaoWordPendente: "A Procuração Ad Judicia precisa de revisão do mapeamento e dos textos fixos do DOCX original antes da emissão.",
   campos: [...DOCUMENT_TEMPLATES.find((modelo) => modelo.modo === "declaracao-hipossuficiencia").campos,
     { nome: "banco", rotulo: "Banco", obrigatorio: true },
     { nome: "numeroContrato", rotulo: "Número do contrato", obrigatorio: true }],

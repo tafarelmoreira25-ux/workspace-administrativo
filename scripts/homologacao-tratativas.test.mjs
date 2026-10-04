@@ -3,6 +3,7 @@ import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 import vm from 'node:vm';
 import { transformWithOxc } from 'vite';
+import { formatarParteContraria } from '../src/lib/formatarParteContraria.js';
 
 const path = '../src/components/homologacao/HomologacaoQuitacaoModule.tsx';
 const source = await readFile(new URL(path, import.meta.url), 'utf8');
@@ -16,10 +17,11 @@ function elementos(tree) {
   return [tree, ...elementos(tree.children)];
 }
 
-function ambiente({ pendente = false, erroDetalhe = false, erroInsercao = false } = {}) {
+function ambiente({ pendente = false, erroDetalhe = false, erroInsercao = false, totalLista = 2 } = {}) {
   const states = [], refs = [], effects = [], requests = [], uploads = [], removed = [], pending = [];
   let stateIndex = 0, refIndex = 0;
   const context = vm.createContext({
+    formatarParteContraria,
     React: { createElement: (type, props, ...children) => ({ type, props, children }) },
     DetailWindow: 'DetailWindow', AbortController, console, crypto: { randomUUID: () => 'arquivo-id' },
     window: { alert() {} }, invalidarConsultas() {},
@@ -40,11 +42,17 @@ function ambiente({ pendente = false, erroDetalhe = false, erroInsercao = false 
         const request = { table }; requests.push(request);
         function resultado() {
           if (request.payload) return { data: { id: 'tratativa', ...request.payload }, error: erroInsercao ? { message: 'Falha ao inserir' } : null };
-          if (table === 'homologacoes') return { data: request.filter ? resumo(request.filter[1]) : [resumo('a'), resumo('b')], error: request.filter && erroDetalhe ? { message: 'Falha' } : null };
+          if (table === 'homologacoes') {
+            const lista = Array.from({ length: totalLista }, (_, i) => resumo(i === 0 ? 'a' : i === 1 ? 'b' : String(i)));
+            const filtrada = request.search ? lista.filter(item => item.cliente_nome.includes('Cliente a')) : lista;
+            return { data: request.filter ? resumo(request.filter[1]) : filtrada.slice(request.range?.[0] || 0, (request.range?.[1] ?? totalLista - 1) + 1), count: filtrada.length, error: request.filter && erroDetalhe ? { message: 'Falha' } : null };
+          }
           return { data: table === 'homologacao_quitacoes' ? null : [], error: null };
         }
         const builder = {
-          select(fields) { request.fields = fields; return builder; },
+          select(fields, options) { request.fields = fields; request.options = options; return builder; },
+          range(inicio, fim) { request.range = [inicio, fim]; return builder; },
+          or(search) { request.search = search; return builder; },
           eq(field, value) { request.filter = [field, value]; return builder; },
           order() { return builder; }, limit() { return builder; },
           abortSignal() { return builder; },
@@ -81,8 +89,33 @@ test('lista busca só resumo, sem históricos nem cadastros auxiliares', async (
   const env = ambiente(); const tree = await listar(env);
   assert.equal(env.requests.length, 1);
   assert.equal(env.requests[0].fields, 'id, cliente_nome, instituicao_financeira, numero_contrato, status, ultima_movimentacao, updated_at');
+  assert.equal(env.requests[0].options.count, 'exact');
+  assert.deepEqual(env.requests[0].range, [0, 11]);
   assert.equal(drawer(tree), undefined);
   assert.equal(elementos(tree).filter(n => n.props?.className === 'homologacao-row').length, 2);
+});
+
+test('pagina cards no banco, limita a última página e reinicia a busca na primeira', async () => {
+  const env = ambiente({ totalLista: 25 });
+  let tree = await listar(env);
+  const cards = () => elementos(tree).filter(n => n.props?.className === 'homologacao-row');
+  const botao = texto => elementos(tree).find(n => n.type === 'button' && n.children.includes(texto));
+  assert.equal(cards().length, 12);
+  assert.equal(botao('‹ Anterior').props.disabled, true);
+  for (const inicio of [12, 24]) {
+    botao('Próxima ›').props.onClick();
+    env.render().effects[0](); await tick(); tree = env.render().tree;
+    assert.deepEqual(env.requests.at(-1).range, [inicio, inicio + 11]);
+  }
+  assert.equal(cards().length, 1);
+  assert.equal(botao('Próxima ›').props.disabled, true);
+  elementos(tree).find(n => n.props?.type === 'search').props.onChange({ target: { value: 'Cliente a' } });
+  env.render().effects[0](); await tick(); tree = env.render().tree;
+  assert.deepEqual(env.requests.at(-1).range, [0, 11]);
+  assert.match(env.requests.at(-1).search, /cliente_nome\.ilike\.%Cliente a%/);
+  assert.equal(cards().length, 1);
+  assert.equal(botao('‹ Anterior').props.disabled, true);
+  assert.equal(botao('Próxima ›').props.disabled, true);
 });
 
 test('clique busca ficha e coleções apenas por ID; abre na timeline', async () => {

@@ -1,3 +1,4 @@
+import { formatarParteContraria } from "./lib/formatarParteContraria";
 import AcompanhamentoReport from "./components/common/AcompanhamentoReport";
 import DetailWindow from "./components/common/DetailWindow";
 import ActionMenu from "./components/common/ActionMenu";
@@ -42,6 +43,7 @@ export default function CarteiraProcessual({ showToast, usuario, processoInicial
   const [abrindoProcesso, setAbrindoProcesso] = useState(null);
   const aberturaAtual = useRef(0);
   const [registros, setRegistros] = useState([]);
+  const [selectedRows, setSelectedRows] = useState([]);
   const [total, setTotal] = useState(0);
   const [pagina, setPagina] = useState(1);
   const [busca, setBusca] = useState("");
@@ -65,6 +67,7 @@ export default function CarteiraProcessual({ showToast, usuario, processoInicial
 
   const carregar = useCallback(async (signal = new AbortController().signal) => {
     setCarregando(true);
+    setSelectedRows([]);
     const termo = limparBusca(buscaAplicada);
     let consulta = supabase.from("processos").select(carteiraExtrajudicial ? CAMPOS_EXTRAJUDICIAIS_LISTA : CAMPOS_PROCESSUAIS_LISTA, { count: "exact" });
     if (alerta) consulta = alerta.ids.length ? consulta.in("id", alerta.ids) : consulta.eq("id", "00000000-0000-0000-0000-000000000000");
@@ -425,6 +428,22 @@ export default function CarteiraProcessual({ showToast, usuario, processoInicial
     setMovimento({ ...MOVIMENTO_INICIAL, responsavel: usuario?.nome || "" }); setAcao(ACAO_INICIAL); setRegistrando(false); setSalvando(false); showToast?.("Movimentação registrada e histórico atualizado.");
   }
 
+  function exportarSelecionados() {
+    const itens = registros.filter((item) => selectedRows.includes(item.id));
+    if (!itens.length || carregando) return;
+    const campoCsv = (valor) => {
+      const texto = String(valor ?? "");
+      return '"' + (/^\s*[=+@-]/.test(texto) ? "'" + texto : texto).replaceAll('"', '""') + '"';
+    };
+    const linhas = [["Cliente", carteiraExtrajudicial ? "Número da Ação" : "Número do Processo", "Status"], ...itens.map((item) => [item.nome_cliente, carteiraExtrajudicial ? numeroProtocoloExtrajudicial(item) : item.numero_processo, item.situacao || "TRAMITANDO"])];
+    const url = URL.createObjectURL(new Blob(["\uFEFF" + linhas.map((linha) => linha.map(campoCsv).join(";")).join("\r\n")], { type: "text/csv;charset=utf-8;" }));
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = (carteiraExtrajudicial ? "extrajudiciais" : "processos") + "-selecionados.csv";
+    link.click();
+    window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }
+
   function fecharAcompanhamento() {
     if (salvando || salvandoInformacoes || sincronizandoDataJud) return;
     aberturaAtual.current += 1;
@@ -441,30 +460,22 @@ export default function CarteiraProcessual({ showToast, usuario, processoInicial
         <div className="process-status-heading-actions"><button className="primary" type="button" onClick={abrirCadastro}>{carteiraExtrajudicial ? "Cadastrar ação extrajudicial" : "Cadastrar processo judicial"}</button><button type="button" onClick={() => { invalidarConsultas(); void carregar(); }}>Atualizar</button></div>
       </div>
       {alerta ? <div className="dashboard-filtro-ativo"><span>{alerta.titulo}</span><button type="button" onClick={() => { setPagina(1); onLimparAlerta?.(); }}>Mostrar todos</button></div> : null}
-      <div className="process-status-filters"><Input type="search" value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar nome, CPF, ID CRM, CNJ, réu, banco ou ação..." /></div>
-      {carteiraExtrajudicial ? <div className="clientes-table-wrap">
-        <table className="clientes-table clientes-directory-table" aria-label="Acompanhamentos extrajudiciais" aria-busy={carregando || abrindoProcesso !== null}>
-          <thead><tr><th>Nome do Cliente</th><th>Protocolo</th><th>Parte Contrária (Banco)</th><th>Status</th><th>Ações</th></tr></thead>
-          <tbody>{carregando && !registros.length ? <tr><td colSpan={5}><div className="empty-row">Carregando acompanhamentos...</div></td></tr> : !registros.length ? <tr><td colSpan={5}><div className="empty-row">Nenhuma ação extrajudicial encontrada.</div></td></tr> : registros.map((item) => <tr key={item.id} className="cliente-directory-row" onClick={() => { if (abrindoProcesso === null) void abrirProcesso(item); }}>
+      <div className="process-status-filters"><Input type="search" aria-label="Pesquisar nesta listagem" value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar nome, CPF, ID CRM, CNJ, réu, banco ou ação..." /></div>
+      {selectedRows.length > 0 && !carregando ? <div className="process-bulk-actions"><span role="status">{selectedRows.length} selecionado(s) nesta página</span><button type="button" className="btn-primary compact" onClick={exportarSelecionados}>Exportar para Excel (CSV)</button><button type="button" className="btn-secondary compact" onClick={() => setSelectedRows([])}>Limpar seleção</button></div> : null}
+      <div className="clientes-table-wrap">
+        <table className="clientes-table clientes-directory-table process-list-table" aria-label={carteiraExtrajudicial ? "Acompanhamentos extrajudiciais" : "Processos judiciais"} aria-busy={carregando}>
+          <thead><tr><th className="process-checkbox-cell"><Input type="checkbox" aria-label="Selecionar todos os itens desta página" disabled={carregando || !registros.length} checked={registros.length > 0 && selectedRows.length === registros.length} ref={(el) => { if (el) el.indeterminate = selectedRows.length > 0 && selectedRows.length < registros.length; }} onChange={(e) => setSelectedRows(e.target.checked ? registros.map((item) => item.id) : [])} /></th><th scope="col">Nome do Cliente</th><th scope="col">{carteiraExtrajudicial ? "Número da Ação" : "Número do Processo"}</th>{carteiraExtrajudicial ? <th scope="col">Parte Contrária (Banco)</th> : null}<th scope="col" className="process-centered">Status</th><th scope="col" className="process-centered">Ações</th></tr></thead>
+          <tbody>{carregando ? Array.from({ length: 7 }, (_, linha) => <tr key={linha} aria-hidden="true">{Array.from({ length: carteiraExtrajudicial ? 6 : 5 }, (_, coluna) => <td key={coluna}><span className={coluna === 0 ? "process-skeleton process-skeleton-check animate-pulse" : "process-skeleton animate-pulse"} /></td>)}</tr>) : !registros.length ? <tr><td colSpan={carteiraExtrajudicial ? 6 : 5}><div className="process-list-empty"><svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true"><circle cx="10" cy="10" r="6" /><path d="m15 15 5 5M7 10h6" /></svg><p>{carteiraExtrajudicial ? "Nenhuma ação extrajudicial encontrada com estes filtros" : "Nenhum processo encontrado com estes filtros"}</p><button type="button" className="btn-secondary" onClick={() => { setBusca(""); setBuscaAplicada(""); setPagina(1); onLimparAlerta?.(); }}>Limpar filtros</button></div></td></tr> : registros.map((item) => <tr key={item.id} className={"cliente-directory-row" + (selectedRows.includes(item.id) ? " process-row-selected" : "")} onClick={() => { if (abrindoProcesso === null) void abrirProcesso(item); }}>
+            <td className="process-checkbox-cell" onClick={(evento) => evento.stopPropagation()}><Input type="checkbox" aria-label={"Selecionar " + (item.nome_cliente || "processo")} checked={selectedRows.includes(item.id)} onChange={(e) => setSelectedRows((atuais) => e.target.checked ? [...atuais, item.id] : atuais.filter((id) => id !== item.id))} /></td>
             <td><strong>{item.nome_cliente || "Não informado"}</strong></td>
-            <td>{numeroProtocoloExtrajudicial(item) || "Não informado"}</td>
-            <td>{item.banco_reu || item.reu || "Não informado"}</td>
-            <td><span className={`table-chip extrajudicial-status-${corStatusExtrajudicial(item.situacao || "TRAMITANDO")}`}>{item.situacao || "TRAMITANDO"}</span></td>
-            <td><div className="table-actions"><button type="button" className="btn-secondary compact" disabled={abrindoProcesso !== null} aria-label={`Abrir acompanhamento de ${item.nome_cliente}`} onClick={(evento) => { evento.stopPropagation(); void abrirProcesso(item); }}>{abrindoProcesso === item.id ? "Abrindo..." : "Abrir acompanhamento"}</button></div></td>
+            <td>{carteiraExtrajudicial ? numeroProtocoloExtrajudicial(item) || "Não informado" : item.numero_processo}</td>
+            {carteiraExtrajudicial ? <td>{formatarParteContraria(item.banco_reu || item.reu) || "Não informado"}</td> : null}
+            <td className="process-centered"><span className={"table-chip extrajudicial-status-" + corStatusExtrajudicial(item.situacao || "TRAMITANDO")}>{item.situacao || "TRAMITANDO"}</span></td>
+            <td className="process-centered"><div className="table-actions"><button type="button" className="btn-secondary compact" disabled={abrindoProcesso !== null} aria-label={"Abrir acompanhamento de " + item.nome_cliente} onClick={(evento) => { evento.stopPropagation(); void abrirProcesso(item); }}>{abrindoProcesso === item.id ? "Abrindo..." : "Abrir acompanhamento"}</button></div></td>
           </tr>)}</tbody>
         </table>
-      </div> : <div className="clientes-table-wrap">
-        <table className="clientes-table clientes-directory-table" aria-label="Processos judiciais" aria-busy={carregando}>
-          <thead><tr><th>Nome do Cliente</th><th>Protocolo</th><th>Número do Processo</th><th>Status</th><th>Ações</th></tr></thead>
-          <tbody>{carregando && !registros.length ? <tr><td colSpan={5}><div className="empty-row">Carregando processos...</div></td></tr> : !registros.length ? <tr><td colSpan={5}><div className="empty-row">Nenhum processo judicial encontrado.</div></td></tr> : registros.map((item) => <tr key={item.id} className="cliente-directory-row">
-            <td><strong>{item.nome_cliente || "Não informado"}</strong></td>
-            <td>{item.numero_processo || "Não informado"}</td>
-            <td>{item.numero_processo || "Não informado"}</td>
-            <td><span className={"table-chip extrajudicial-status-" + corStatusExtrajudicial(item.situacao || "Em andamento")}>{item.situacao || "Em andamento"}</span></td>
-            <td><div className="table-actions"><button type="button" className="btn-secondary compact" disabled={abrindoProcesso !== null} aria-label={"Abrir acompanhamento de " + item.nome_cliente} onClick={() => void abrirProcesso(item)}>Abrir acompanhamento</button></div></td>
-          </tr>)}</tbody>
-        </table>
-      </div>}
+        {carregando ? <span className="process-loading-label" role="status">Carregando processos...</span> : null}
+      </div>
       <Pagination pagina={pagina} total={total} tamanho={tamanhoPagina} onChange={setPagina} rotulo="registros" />
     </section>
     {(abrindoProcesso !== null || processo) ? <DetailWindow entityId={processo?.id || abrindoProcesso} context={carteiraExtrajudicial ? "extrajudicial" : "processual"} title={carteiraExtrajudicial ? "Acompanhamento extrajudicial" : "Acompanhamento processual"} onClose={fecharAcompanhamento}>{processo ? <FichaProcessual key={processo.id} usuario={usuario} showToast={showToast} onOpenProcess={abrirProcessoDaFicha} processo={processo} cliente={clienteProcesso} atualizarTarefa={atualizarTarefa} excluirTarefa={excluirTarefa} timeline={timeline} registrando={registrando} setRegistrando={setRegistrando} movimento={movimento} setMovimento={setMovimento} acao={acao} setAcao={setAcao} concluir={concluirMovimentacao} atualizarMovimentacao={atualizarMovimentacao} excluirMovimentacao={excluirMovimentacao} encaminharAoProtocolo={encaminharAoProtocolo} salvando={salvando} sincronizarDataJud={sincronizarDataJud} sincronizandoDataJud={sincronizandoDataJud} salvarInformacoes={salvarInformacoes} salvandoInformacoes={salvandoInformacoes} voltar={fecharAcompanhamento} /> : <p role="status">Carregando acompanhamento...</p>}</DetailWindow> : null}
@@ -573,7 +584,7 @@ function FichaProcessual({ usuario, showToast, onOpenProcess, processo, cliente,
     <div className="processual-contexto">
       {cliente ? <ActionMenu className="processual-actions-menu"><button onClick={iniciarEdicao} disabled={editandoInformacoes || salvandoInformacoes} type="button">Editar informações do processo</button><button onClick={() => setRegistrando(true)} type="button">Registrar movimentação</button>{extrajudicial ? <button onClick={iniciarEncaminhamento} disabled={salvando} type="button">Encaminhar para Protocolos</button> : <button disabled={sincronizandoDataJud} onClick={sincronizarDataJud} type="button">Consultar DataJud</button>}</ActionMenu> : null}
       {!extrajudicial ? <span><b>Número do processo:</b> {processo.numero_processo || "Não informado"}</span> : null}
-      <span><b>Parte contrária:</b> {processo.reu || processo.banco_reu || "Não informada"}</span>
+      <span><b>Parte contrária:</b> {formatarParteContraria(processo.reu || processo.banco_reu) || "Não informada"}</span>
     </div>
     {editandoInformacoes ? <FormSection as="form" className="processual-dados-form" onSubmit={concluirEdicao}>
       <h3>Editar informações da ação</h3>

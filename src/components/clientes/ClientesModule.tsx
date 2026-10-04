@@ -1,3 +1,4 @@
+import { formatarParteContraria } from "../../lib/formatarParteContraria";
 import AcompanhamentoReport from "../common/AcompanhamentoReport";
 import DetailWindow from "../common/DetailWindow";
 import { FormActions, FormField, FormGrid, FormSection, Input, Textarea } from "../common/FormControls";
@@ -119,7 +120,7 @@ const FORMULARIO_INICIAL = {
   observacoes: "",
 };
 
-const CLIENTES_POR_PAGINA = 30;
+const CLIENTES_POR_PAGINA = 10;
 const DETALHES_FICHA_LIMITE = 60;
 const CAMPOS_CLIENTE = "id,nome_completo,cpf,rg,data_nascimento,telefone,email,endereco,id_crm,link_pasta_cliente,responsavel,observacoes,created_at,created_by,updated_at,updated_by";
 const CAMPOS_ATENDIMENTO_CLIENTE = "id,cliente_id,processo_id,cliente_nome,processo_numero,data,hora,canal,tipo,descricao,responsavel,anexo_url,created_at";
@@ -250,7 +251,7 @@ export default function ClientesModule({ usuario, showToast, buscaExterna, clien
       setPagina(Math.max(1, Math.ceil(total / CLIENTES_POR_PAGINA)));
       return;
     }
-    setClientes(resultado?.clientes || []);
+    setClientes((resultado?.clientes || []).slice(0, CLIENTES_POR_PAGINA));
     setTotalClientes(total);
     setCarregando(false);
 
@@ -740,8 +741,8 @@ export default function ClientesModule({ usuario, showToast, buscaExterna, clien
                         <tbody>{processosDoCliente.map((processo) => (
                           <tr key={processo.id}>
                             <td>{processo.numero_processo || "Pendente"}</td>
-                            <td>{processo.reu || processo.banco_reu || "—"}</td>
-                            <td>{processo.banco_reu || "—"}</td>
+                            <td>{formatarParteContraria(processo.reu || processo.banco_reu) || "—"}</td>
+                            <td>{formatarParteContraria(processo.banco_reu) || "—"}</td>
                             <td><span className="table-chip">{processo.situacao || (processo.numero_processo ? "Protocolado" : "Pendente")}</span></td>
                             <td>{processo.fase_atual || "—"}</td>
                             <td>{processo.resultado || processo.status_judicial || "—"}</td>

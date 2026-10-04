@@ -1,3 +1,4 @@
+import { formatarParteContraria } from "../../lib/formatarParteContraria";
 import { FormActions, FormField, FormGrid, FormSection, Input, Select, Textarea } from "../common/FormControls";
 import { FormEvent, useEffect, useRef, useState } from "react";
 import { supabase } from "../../lib/supabase";
@@ -496,7 +497,7 @@ export default function EsteiraKanban({
                 const dias = processo.dias_na_etapa || 0;
                 return <button className="protocolo-list-item" key={processo.id} type="button" onClick={() => void abrirDetalhe(processo)} aria-label={`Abrir protocolo de ${processo.nome_cliente}`}>
                   <span className="protocolo-list-identidade"><strong>{processo.nome_cliente}</strong><small> ? {processo.id_crm || processo.id}</small></span>
-                  <span className="protocolo-list-banco">{processo.banco_reu || "Instituição não informada"}</span>
+                  <span className="protocolo-list-banco">{formatarParteContraria(processo.banco_reu) || "Instituição não informada"}</span>
                   <span className="protocolo-list-tempo">{dias} {dias === 1 ? "dia" : "dias"}</span>
                   <span className="protocolo-list-badge">{processo.status_principal || "Em preparação"}</span>
                   <span className="protocolo-list-abrir" aria-hidden="true">&#8250;</span>

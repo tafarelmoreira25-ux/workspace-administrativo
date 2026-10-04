@@ -506,9 +506,9 @@ function Workspace({ usuario, onLogout, showToast }) {
         <div>
           <h1>{rotuloAtual}</h1>
         </div>
-        <div className="global-search">
+        {!["processual", "processual-extrajudiciais"].includes(aba) && <div className="global-search">
           {aba === "clientes" ? <><UiIcon name="busca" size={17} /><Input type="search" value={buscaModulo} onChange={(evento) => setBuscaModulo(evento.target.value)} placeholder="Buscar cliente, CPF, ID CRM ou processo..." aria-label="Buscar clientes" /></> : <Suspense fallback={<><UiIcon name="busca" size={17} /><Input type="search" placeholder="Buscar cliente, CPF, ID, processo ou banco..." aria-label="Busca global" /></>}><GlobalSearch onSelect={selecionarResultadoBusca} /></Suspense>}
-        </div>
+        </div>}
         <div className="topbar-actions">
           <button type="button" className="icon-button" aria-label="Notificações"><UiIcon name="sino" size={18} /></button>
           <button type="button" className="account-avatar" onClick={() => setMenuContaAberto((atual) => !atual)} aria-label="Abrir menu da conta" title="Conta"><img src="/assets/platino-profile-avatar.png" alt="Perfil Platino Assessoria" /></button>
