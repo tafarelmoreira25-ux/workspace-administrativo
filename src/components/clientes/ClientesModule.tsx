@@ -616,11 +616,6 @@ export default function ClientesModule({ usuario, showToast, buscaExterna, clien
   return (
     <section className={`clientes-workspace${fichaInline ? " clientes-workspace-inline" : ""}`}>
       {!fichaInline ? <header className="module-page-header">
-        <div>
-          <span className="eyebrow">Clientes</span>
-          <h2>Base de clientes</h2>
-          <p>Cadastro único do cliente, separado dos processos judiciais e preparado para múltiplas demandas.</p>
-        </div>
         <div className="ficha-section-actions">
           <button type="button" className="btn-secondary" onClick={() => { setImportacaoAberta(true); prepararImportacao().catch((error) => { setImportacaoCarregando(false); avisar(error instanceof Error ? error.message : "Não foi possível preparar a importação."); }); }}>Importar clientes</button>
           <button type="button" className="btn-primary" onClick={abrirNovoCliente}>+ Novo cliente</button>

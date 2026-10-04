@@ -10,7 +10,7 @@ import {
 import { criarOpcoesIniciaisProcuracao, listarDocumentosProcuracao, mensagemConjuntoGerado } from "./lib/procuracaoConjunto";
 import { supabase } from "./lib/supabase";
 import { DOCUMENT_TEMPLATES, valorInicialCampo } from "./config/documentTemplates";
-import { pendenciaModeloOriginal } from "./lib/documentPdf";
+import { gerarPdfModelo, pendenciaModeloOriginal } from "./lib/documentPdf";
 import "./documentWorkspace.css";
 
 const MODELOS = enriquecerModelos(DOCUMENT_TEMPLATES);
@@ -157,7 +157,6 @@ function criarArquivo(tipo, nome, bytes, criarUrl = true, mime = "application/pd
 
 async function gerarArquivos(dados, modelo, nomeDocumento, criarUrls = true, nomesDoConjunto = {}) {
   const base = normalizarNomeArquivo(nomeDocumento || modelo.nome).replace(/\.(pdf|docx)$/i, "");
-  const { gerarPdfModelo } = await import("./lib/documentPdf.js");
   if (modelo.modo === "procuracao") {
     const documentos = listarDocumentosProcuracao(dados);
     const modos = {

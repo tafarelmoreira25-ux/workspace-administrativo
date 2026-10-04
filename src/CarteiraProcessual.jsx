@@ -412,7 +412,7 @@ export default function CarteiraProcessual({ showToast, usuario, processoInicial
   return <>
     <section className="portfolio-process-section">
       <div className="process-status-section-heading">
-        <div><span>{carteiraExtrajudicial ? "Ações antes do ajuizamento" : "Processos com número judicial"}</span><h2>{carteiraExtrajudicial ? "Extrajudiciais" : "Processual"}</h2><p>{carteiraExtrajudicial ? "Negociações e movimentações extrajudiciais, antes do envio para Protocolos." : "Processos protocolados com todo o histórico extrajudicial preservado."}</p></div>
+        {!carteiraExtrajudicial ? <div><span>Processos com número judicial</span></div> : null}
         <div className="process-status-heading-actions"><button className="primary" type="button" onClick={abrirCadastro}>{carteiraExtrajudicial ? "Cadastrar ação extrajudicial" : "Cadastrar processo judicial"}</button><button type="button" onClick={carregar}>Atualizar</button></div>
       </div>
       <div className="process-status-filters"><Input type="search" value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar nome, CPF, ID CRM, CNJ, réu, banco ou ação..." /></div>

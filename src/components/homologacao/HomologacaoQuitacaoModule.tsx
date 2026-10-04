@@ -264,7 +264,6 @@ export default function HomologacaoQuitacaoModule({ usuario, showToast }: { usua
 
   return <section className="homologacao-module">
     <header className="module-page-header">
-      <div><span className="eyebrow">Operação financeira</span><h2>Homologação e Quitação</h2><p>Ficha contínua vinculada ao cliente e ao contrato do veículo, com histórico preservado até a quitação definitiva.</p></div>
       <button className="btn-primary" type="button" onClick={() => setFormAberto(true)}>Nova homologação</button>
     </header>
 

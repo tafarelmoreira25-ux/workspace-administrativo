@@ -506,9 +506,6 @@ export default function EsteiraKanban({
   return (
     <div className="protocolos-view protocolos-grid-view">
       <div className="protocolos-toolbar protocolos-page-title">
-        <div>
-          <span className="eyebrow">Protocolos</span>
-        </div>
         <div className="protocolos-actions">
           <button className="btn-primary" onClick={abrirNovoCadastro} type="button">Novo encaminhamento</button>
         </div>

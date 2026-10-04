@@ -20,15 +20,16 @@ export default function GlobalSearch({ onSelect }: Props) {
 
   useEffect(() => {
     let ativo = true;
+    const controlador = new AbortController();
     async function buscar() {
-      if (debounced.length < 2) { setResultados([]); return; }
+      if (debounced.length < 2) { setResultados([]); setCarregando(false); return; }
       setCarregando(true);
       const like = `%${debounced}%`;
       const [clientes, processos, documentos, atendimentos] = await Promise.allSettled([
-        supabase.from("clientes").select("id, nome_completo, cpf, id_crm, telefone").or(`nome_completo.ilike.${like},cpf.ilike.${like},id_crm.ilike.${like}`).limit(6),
-        supabase.from("processos").select("id, nome_cliente, cpf_cliente, id_crm, protocolo_extrajudicial, numero_processo, banco_reu, status_judicial, fase_atual, origem_registro").or(`nome_cliente.ilike.${like},cpf_cliente.ilike.${like},id_crm.ilike.${like},protocolo_extrajudicial.ilike.${like},numero_processo.ilike.${like},banco_reu.ilike.${like}`).limit(6),
-        supabase.from("documentos_juridicos").select("id, nome_documento, modelo_nome, cliente_nome, numero_processo").or(`nome_documento.ilike.${like},modelo_nome.ilike.${like},cliente_nome.ilike.${like},numero_processo.ilike.${like}`).limit(6),
-        supabase.from("processual_atendimentos").select("id, cliente_nome, processo_numero, canal, descricao").or(`cliente_nome.ilike.${like},processo_numero.ilike.${like},descricao.ilike.${like}`).limit(6),
+        supabase.from("clientes").select("id, nome_completo, cpf, id_crm, telefone").or(`nome_completo.ilike.${like},cpf.ilike.${like},id_crm.ilike.${like}`).limit(6).abortSignal(controlador.signal),
+        supabase.from("processos").select("id, nome_cliente, cpf_cliente, id_crm, protocolo_extrajudicial, numero_processo, banco_reu, status_judicial, fase_atual, origem_registro").or(`nome_cliente.ilike.${like},cpf_cliente.ilike.${like},id_crm.ilike.${like},protocolo_extrajudicial.ilike.${like},numero_processo.ilike.${like},banco_reu.ilike.${like}`).limit(6).abortSignal(controlador.signal),
+        supabase.from("documentos_juridicos").select("id, nome_documento, modelo_nome, cliente_nome, numero_processo").or(`nome_documento.ilike.${like},modelo_nome.ilike.${like},cliente_nome.ilike.${like},numero_processo.ilike.${like}`).limit(6).abortSignal(controlador.signal),
+        supabase.from("processual_atendimentos").select("id, cliente_nome, processo_numero, canal, descricao").or(`cliente_nome.ilike.${like},processo_numero.ilike.${like},descricao.ilike.${like}`).limit(6).abortSignal(controlador.signal),
       ]);
       if (!ativo) return;
       const lista: Resultado[] = [];
@@ -43,7 +44,7 @@ export default function GlobalSearch({ onSelect }: Props) {
       setCarregando(false);
     }
     buscar();
-    return () => { ativo = false; };
+    return () => { ativo = false; controlador.abort(); };
   }, [debounced]);
 
   const grupos = useMemo(() => {

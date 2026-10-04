@@ -1,0 +1,2371 @@
+{
+  "date": "2026-10-04",
+  "projectRoot": "C:/Users/User/Documents/Tafarel/tafa-performance/tafa-performance",
+  "note": "Invent?rio final; classifica??es n?o s?o autoriza??o de exclus?o. Conte?do de .env n?o foi inclu?do. Diret?rios gerados resumidos.",
+  "generatedDirectories": [
+    {
+      "directory": ".git",
+      "files": 255,
+      "bytes": 104904389
+    },
+    {
+      "directory": ".tmp",
+      "files": 866,
+      "bytes": 234684938
+    },
+    {
+      "directory": "dist",
+      "files": 88,
+      "bytes": 37236211
+    },
+    {
+      "directory": "node_modules",
+      "files": 6484,
+      "bytes": 121384708
+    }
+  ],
+  "codeGraph": {
+    "codeFiles": 65,
+    "appReachable": 44,
+    "eagerModules": [
+      "src/App.css",
+      "src/App.jsx",
+      "src/components/common/FormControls.jsx",
+      "src/formDesignSystem.css",
+      "src/lib/supabase.js",
+      "src/lib/userAccess.js",
+      "src/main.jsx"
+    ],
+    "missing": [],
+    "cycles": [],
+    "dynamicNonliteral": [
+      {
+        "file": "src/components/common/FormControls.test.mjs",
+        "line": 15,
+        "kind": "nonliteral-import"
+      }
+    ],
+    "notApp": [
+      "src/lib/processReview.ts"
+    ],
+    "notAny": [],
+    "edges": {
+      "src/App.css": [],
+      "src/App.jsx": [
+        {
+          "target": "src/components/common/FormControls.jsx",
+          "kind": "static"
+        },
+        {
+          "target": "src/lib/supabase.js",
+          "kind": "static"
+        },
+        {
+          "target": "src/lib/userAccess.js",
+          "kind": "static"
+        },
+        {
+          "target": "src/App.css",
+          "kind": "static"
+        },
+        {
+          "target": "src/components/TreinamentosOperacionais.jsx",
+          "kind": "dynamic"
+        },
+        {
+          "target": "src/GeradorDocumentos.jsx",
+          "kind": "dynamic"
+        },
+        {
+          "target": "src/components/esteira/EsteiraProcessualPlatino.tsx",
+          "kind": "dynamic"
+        },
+        {
+          "target": "src/components/clientes/ClientesModule.tsx",
+          "kind": "dynamic"
+        },
+        {
+          "target": "src/components/operacional/OperacionalProcessualModule.tsx",
+          "kind": "dynamic"
+        },
+        {
+          "target": "src/components/gerencial/GerencialProcessualModule.tsx",
+          "kind": "dynamic"
+        },
+        {
+          "target": "src/components/gerencial/GlobalSearch.tsx",
+          "kind": "dynamic"
+        },
+        {
+          "target": "src/components/dashboard/DashboardModule.tsx",
+          "kind": "dynamic"
+        },
+        {
+          "target": "src/CarteiraProcessual.jsx",
+          "kind": "dynamic"
+        },
+        {
+          "target": "src/components/homologacao/HomologacaoQuitacaoModule.tsx",
+          "kind": "dynamic"
+        }
+      ],
+      "src/carteiraProcessual.css": [],
+      "src/CarteiraProcessual.jsx": [
+        {
+          "target": "src/components/common/FormControls.jsx",
+          "kind": "static"
+        },
+        {
+          "target": "src/lib/supabase.js",
+          "kind": "static"
+        },
+        {
+          "target": "src/lib/processDataSync.ts",
+          "kind": "static"
+        },
+        {
+          "target": "src/components/clientes/ClientesModule.tsx",
+          "kind": "static"
+        },
+        {
+          "target": "src/lib/historicoAdministrativo.js",
+          "kind": "static"
+        },
+        {
+          "target": "src/lib/protocoloExtrajudicial.js",
+          "kind": "static"
+        },
+        {
+          "target": "src/components/common/Pagination.tsx",
+          "kind": "static"
+        },
+        {
+          "target": "src/carteiraProcessual.css",
+          "kind": "static"
+        }
+      ],
+      "src/components/clientes/ClientesModule.tsx": [
+        {
+          "target": "src/components/common/FormControls.jsx",
+          "kind": "static"
+        },
+        {
+          "target": "src/lib/supabase.js",
+          "kind": "static"
+        },
+        {
+          "target": "src/components/common/Pagination.tsx",
+          "kind": "static"
+        },
+        {
+          "target": "src/lib/processDataSync.ts",
+          "kind": "static"
+        },
+        {
+          "target": "src/GeradorDocumentos.jsx",
+          "kind": "dynamic"
+        },
+        {
+          "target": "src/components/comunicacao/EmailComposer.tsx",
+          "kind": "dynamic"
+        },
+        {
+          "target": "src/components/comunicacao/ContentAnalyzer.tsx",
+          "kind": "dynamic"
+        }
+      ],
+      "src/components/common/FormControls.jsx": [],
+      "src/components/common/FormControls.test.mjs": [],
+      "src/components/common/Pagination.tsx": [],
+      "src/components/comunicacao/ContentAnalyzer.tsx": [
+        {
+          "target": "src/components/common/FormControls.jsx",
+          "kind": "static"
+        },
+        {
+          "target": "src/lib/supabase.js",
+          "kind": "static"
+        },
+        {
+          "target": "src/lib/emailWorkspace.js",
+          "kind": "static"
+        },
+        {
+          "target": "src/lib/functionError.ts",
+          "kind": "static"
+        }
+      ],
+      "src/components/comunicacao/EmailComposer.tsx": [
+        {
+          "target": "src/components/common/FormControls.jsx",
+          "kind": "static"
+        },
+        {
+          "target": "src/lib/supabase.js",
+          "kind": "static"
+        },
+        {
+          "target": "src/lib/functionError.ts",
+          "kind": "static"
+        },
+        {
+          "target": "src/lib/emailWorkspace.js",
+          "kind": "static"
+        }
+      ],
+      "src/components/dashboard/DashboardModule.tsx": [
+        {
+          "target": "src/lib/supabase.js",
+          "kind": "static"
+        },
+        {
+          "target": "src/lib/esteiraProcessual.ts",
+          "kind": "static"
+        },
+        {
+          "target": "src/lib/processWorkflow.ts",
+          "kind": "static"
+        }
+      ],
+      "src/components/documentos/ModelLibraryModal.jsx": [
+        {
+          "target": "src/components/common/FormControls.jsx",
+          "kind": "static"
+        },
+        {
+          "target": "src/lib/documentWorkspace.js",
+          "kind": "static"
+        }
+      ],
+      "src/components/esteira/EsteiraKanban.tsx": [
+        {
+          "target": "src/components/common/FormControls.jsx",
+          "kind": "static"
+        },
+        {
+          "target": "src/lib/supabase.js",
+          "kind": "static"
+        },
+        {
+          "target": "src/lib/esteiraProcessual.ts",
+          "kind": "static"
+        },
+        {
+          "target": "src/lib/processDataSync.ts",
+          "kind": "static"
+        },
+        {
+          "target": "src/lib/protocoloExtrajudicial.js",
+          "kind": "static"
+        }
+      ],
+      "src/components/esteira/EsteiraProcessualPlatino.tsx": [
+        {
+          "target": "src/lib/supabase.js",
+          "kind": "static"
+        },
+        {
+          "target": "src/lib/esteiraProcessual.ts",
+          "kind": "static"
+        },
+        {
+          "target": "src/lib/processWorkflow.ts",
+          "kind": "static"
+        },
+        {
+          "target": "src/components/common/Pagination.tsx",
+          "kind": "static"
+        },
+        {
+          "target": "src/components/esteira/EsteiraKanban.tsx",
+          "kind": "static"
+        },
+        {
+          "target": "src/components/esteira/PainelJudicial.tsx",
+          "kind": "static"
+        },
+        {
+          "target": "src/esteiraProcessual.css",
+          "kind": "static"
+        }
+      ],
+      "src/components/esteira/PainelJudicial.tsx": [
+        {
+          "target": "src/components/common/FormControls.jsx",
+          "kind": "static"
+        },
+        {
+          "target": "src/lib/supabase.js",
+          "kind": "static"
+        },
+        {
+          "target": "src/lib/esteiraProcessual.ts",
+          "kind": "static"
+        },
+        {
+          "target": "src/lib/processDataSync.ts",
+          "kind": "static"
+        },
+        {
+          "target": "src/lib/historicoAdministrativo.js",
+          "kind": "static"
+        },
+        {
+          "target": "src/GeradorDocumentos.jsx",
+          "kind": "dynamic"
+        }
+      ],
+      "src/components/gerencial/gerencialProcessual.css": [],
+      "src/components/gerencial/GerencialProcessualModule.tsx": [
+        {
+          "target": "src/components/common/FormControls.jsx",
+          "kind": "static"
+        },
+        {
+          "target": "src/lib/supabase.js",
+          "kind": "static"
+        },
+        {
+          "target": "src/lib/esteiraProcessual.ts",
+          "kind": "static"
+        },
+        {
+          "target": "src/components/gerencial/gerencialProcessual.css",
+          "kind": "static"
+        }
+      ],
+      "src/components/gerencial/GlobalSearch.tsx": [
+        {
+          "target": "src/components/common/FormControls.jsx",
+          "kind": "static"
+        },
+        {
+          "target": "src/lib/supabase.js",
+          "kind": "static"
+        }
+      ],
+      "src/components/homologacao/homologacaoQuitacao.css": [],
+      "src/components/homologacao/HomologacaoQuitacaoModule.tsx": [
+        {
+          "target": "src/components/common/FormControls.jsx",
+          "kind": "static"
+        },
+        {
+          "target": "src/lib/supabase.js",
+          "kind": "static"
+        },
+        {
+          "target": "src/components/homologacao/homologacaoQuitacao.css",
+          "kind": "static"
+        }
+      ],
+      "src/components/operacional/operacionalProcessual.css": [],
+      "src/components/operacional/OperacionalProcessualModule.tsx": [
+        {
+          "target": "src/components/common/FormControls.jsx",
+          "kind": "static"
+        },
+        {
+          "target": "src/lib/supabase.js",
+          "kind": "static"
+        },
+        {
+          "target": "src/components/gerencial/GerencialProcessualModule.tsx",
+          "kind": "static"
+        },
+        {
+          "target": "src/components/common/Pagination.tsx",
+          "kind": "static"
+        },
+        {
+          "target": "src/components/operacional/operacionalProcessual.css",
+          "kind": "static"
+        }
+      ],
+      "src/components/TreinamentosOperacionais.jsx": [
+        {
+          "target": "src/components/common/FormControls.jsx",
+          "kind": "static"
+        },
+        {
+          "target": "src/lib/trainingResources.js",
+          "kind": "static"
+        },
+        {
+          "target": "src/trainingResources.css",
+          "kind": "static"
+        }
+      ],
+      "src/config/documentTemplates.js": [],
+      "src/documentWorkspace.css": [],
+      "src/esteiraProcessual.css": [],
+      "src/formDesignSystem.css": [],
+      "src/GeradorDocumentos.jsx": [
+        {
+          "target": "src/components/common/FormControls.jsx",
+          "kind": "static"
+        },
+        {
+          "target": "src/components/documentos/ModelLibraryModal.jsx",
+          "kind": "static"
+        },
+        {
+          "target": "src/lib/documentWorkspace.js",
+          "kind": "static"
+        },
+        {
+          "target": "src/lib/procuracaoConjunto.js",
+          "kind": "static"
+        },
+        {
+          "target": "src/lib/supabase.js",
+          "kind": "static"
+        },
+        {
+          "target": "src/config/documentTemplates.js",
+          "kind": "static"
+        },
+        {
+          "target": "src/lib/documentPdf.js",
+          "kind": "static"
+        },
+        {
+          "target": "src/documentWorkspace.css",
+          "kind": "static"
+        }
+      ],
+      "src/lib/documentPdf.js": [
+        {
+          "target": "src/lib/wordTemplateDocx.js",
+          "kind": "dynamic"
+        },
+        {
+          "target": "src/lib/wordModelLocalPdf.js",
+          "kind": "dynamic"
+        }
+      ],
+      "src/lib/documentPdf.test.js": [
+        {
+          "target": "src/lib/wordModelLocalPdf.js",
+          "kind": "static"
+        },
+        {
+          "target": "src/lib/wordTemplateDocx.js",
+          "kind": "static"
+        },
+        {
+          "target": "src/config/documentTemplates.js",
+          "kind": "static"
+        },
+        {
+          "target": "src/lib/documentPdf.js",
+          "kind": "static"
+        }
+      ],
+      "src/lib/documentWorkspace.js": [],
+      "src/lib/documentWorkspace.test.js": [
+        {
+          "target": "src/config/documentTemplates.js",
+          "kind": "static"
+        },
+        {
+          "target": "src/lib/documentWorkspace.js",
+          "kind": "static"
+        }
+      ],
+      "src/lib/emailWorkspace.js": [],
+      "src/lib/emailWorkspace.test.js": [
+        {
+          "target": "src/lib/emailWorkspace.js",
+          "kind": "static"
+        }
+      ],
+      "src/lib/esteiraProcessual.ts": [],
+      "src/lib/functionError.ts": [],
+      "src/lib/historicoAdministrativo.js": [],
+      "src/lib/historicoAdministrativo.test.js": [
+        {
+          "target": "src/lib/historicoAdministrativo.js",
+          "kind": "static"
+        }
+      ],
+      "src/lib/processDataSync.ts": [],
+      "src/lib/processReview.test.ts": [
+        {
+          "target": "src/lib/processReview.ts",
+          "kind": "static"
+        }
+      ],
+      "src/lib/processReview.ts": [],
+      "src/lib/processWorkflow.test.ts": [
+        {
+          "target": "src/lib/processWorkflow.ts",
+          "kind": "static"
+        }
+      ],
+      "src/lib/processWorkflow.ts": [],
+      "src/lib/procuracaoConjunto.js": [],
+      "src/lib/procuracaoConjunto.test.js": [
+        {
+          "target": "src/lib/procuracaoConjunto.js",
+          "kind": "static"
+        }
+      ],
+      "src/lib/protocoloExtrajudicial.js": [],
+      "src/lib/protocoloExtrajudicial.test.js": [
+        {
+          "target": "src/lib/protocoloExtrajudicial.js",
+          "kind": "static"
+        }
+      ],
+      "src/lib/supabase.js": [],
+      "src/lib/trainingResources.js": [],
+      "src/lib/trainingResources.test.js": [
+        {
+          "target": "src/lib/trainingResources.js",
+          "kind": "static"
+        }
+      ],
+      "src/lib/userAccess.js": [],
+      "src/lib/userAccess.test.js": [
+        {
+          "target": "src/lib/userAccess.js",
+          "kind": "static"
+        }
+      ],
+      "src/lib/wordModelLocalPdf.js": [],
+      "src/lib/wordTemplateDocx.js": [],
+      "src/lib/wordTemplateDocx.test.js": [
+        {
+          "target": "src/lib/wordTemplateDocx.js",
+          "kind": "static"
+        }
+      ],
+      "src/main.jsx": [
+        {
+          "target": "src/App.jsx",
+          "kind": "static"
+        },
+        {
+          "target": "src/formDesignSystem.css",
+          "kind": "static"
+        }
+      ],
+      "src/trainingResources.css": [],
+      "scripts/import-processos-protocolados.mjs": [],
+      "scripts/import-processos-protocolados.test.mjs": [
+        {
+          "target": "scripts/import-processos-protocolados.mjs",
+          "kind": "static"
+        }
+      ],
+      "scripts/runtime-lifecycle.test.mjs": [],
+      "supabase/functions/assistente-juridico/index.ts": [],
+      "supabase/functions/escavador-webhook/index.ts": [],
+      "supabase/functions/processual-datajud-sync/index.ts": [],
+      "vite.config.js": [],
+      "eslint.config.js": []
+    }
+  },
+  "declaredPackagesObserved": [
+    "@eslint/js",
+    "@pdf-lib/fontkit",
+    "@supabase/supabase-js",
+    "@vitejs/plugin-react",
+    "@xmldom/xmldom",
+    "eslint",
+    "eslint-plugin-react-hooks",
+    "eslint-plugin-react-refresh",
+    "fflate",
+    "globals",
+    "pdf-lib",
+    "react",
+    "react-dom",
+    "vite"
+  ],
+  "publicResources": {
+    "references": [
+      {
+        "file": "public/assets/document-model-icon.svg",
+        "refs": [
+          "src/components/documentos/ModelLibraryModal.jsx"
+        ]
+      },
+      {
+        "file": "public/assets/fonts/calibri-light-italic.ttf",
+        "refs": [
+          "src/lib/wordModelLocalPdf.js"
+        ]
+      },
+      {
+        "file": "public/assets/fonts/calibri-light.ttf",
+        "refs": [
+          "src/lib/wordModelLocalPdf.js"
+        ]
+      },
+      {
+        "file": "public/assets/icons/pdf-treinamento.png",
+        "refs": [
+          "src/components/TreinamentosOperacionais.jsx"
+        ]
+      },
+      {
+        "file": "public/assets/pdf-document-icon.png",
+        "refs": [
+          "src/components/documentos/ModelLibraryModal.jsx"
+        ]
+      },
+      {
+        "file": "public/assets/platino-login-background.png",
+        "refs": [
+          "src/App.css"
+        ]
+      },
+      {
+        "file": "public/assets/platino-orbital-logo.png",
+        "refs": [
+          "src/App.jsx"
+        ]
+      },
+      {
+        "file": "public/assets/platino-profile-avatar.png",
+        "refs": [
+          "src/App.jsx"
+        ]
+      },
+      {
+        "file": "public/favicon.svg",
+        "refs": [
+          "index.html"
+        ]
+      },
+      {
+        "file": "public/importacoes/clientes-processual.txt",
+        "refs": [
+          "src/components/clientes/ClientesModule.tsx"
+        ]
+      },
+      {
+        "file": "public/logo.png",
+        "refs": [
+          "src/lib/wordTemplateDocx.test.js"
+        ]
+      },
+      {
+        "file": "public/modelos/citacao-intimacao-extrajudicial.docx",
+        "refs": [
+          "src/config/documentTemplates.js"
+        ]
+      },
+      {
+        "file": "public/modelos/citacao-judicial.docx",
+        "refs": [
+          "src/config/documentTemplates.js"
+        ]
+      },
+      {
+        "file": "public/modelos/declaracoes/declaracao-hipossuficiencia-2026.docx",
+        "refs": [
+          "src/config/documentTemplates.js",
+          "src/lib/documentWorkspace.test.js"
+        ]
+      },
+      {
+        "file": "public/modelos/declaracoes/declaracao-isencao-irpf-2026.docx",
+        "refs": [
+          "src/config/documentTemplates.js",
+          "src/lib/documentWorkspace.test.js"
+        ]
+      },
+      {
+        "file": "public/modelos/distratos/distrato-7-dias-estorno-total.docx",
+        "refs": [
+          "src/config/documentTemplates.js"
+        ]
+      },
+      {
+        "file": "public/modelos/distratos/distrato-com-devolucao.docx",
+        "refs": [
+          "src/config/documentTemplates.js"
+        ]
+      },
+      {
+        "file": "public/modelos/distratos/distrato-com-multa.docx",
+        "refs": [
+          "src/config/documentTemplates.js"
+        ]
+      },
+      {
+        "file": "public/modelos/distratos/distrato-inexecucao-ausencia-resposta.docx",
+        "refs": [
+          "src/config/documentTemplates.js"
+        ]
+      },
+      {
+        "file": "public/modelos/distratos/distrato-sem-devolucao.docx",
+        "refs": [
+          "src/config/documentTemplates.js"
+        ]
+      },
+      {
+        "file": "public/modelos/distratos/distrato-sem-multa.docx",
+        "refs": [
+          "src/config/documentTemplates.js"
+        ]
+      },
+      {
+        "file": "public/modelos/liminares/despesas-analise-tecnica.docx",
+        "refs": [
+          "src/config/documentTemplates.js"
+        ]
+      },
+      {
+        "file": "public/modelos/liminares/despesas-diligencias-extrajudiciais.docx",
+        "refs": [
+          "src/config/documentTemplates.js"
+        ]
+      },
+      {
+        "file": "public/modelos/notificacoes/finalizacao-conciliacao.docx",
+        "refs": [
+          "src/config/documentTemplates.js"
+        ]
+      },
+      {
+        "file": "public/modelos/notificacoes/formalizacao-representacao.docx",
+        "refs": [
+          "src/config/documentTemplates.js"
+        ]
+      },
+      {
+        "file": "public/modelos/notificacoes/prosseguimento-acao.docx",
+        "refs": [
+          "src/config/documentTemplates.js"
+        ]
+      },
+      {
+        "file": "public/modelos/notificacoes/requerimento-taxas.docx",
+        "refs": [
+          "src/config/documentTemplates.js"
+        ]
+      },
+      {
+        "file": "public/modelos/notificacoes/solicitacao-contrato-bancario.docx",
+        "refs": [
+          "src/config/documentTemplates.js"
+        ]
+      },
+      {
+        "file": "public/modelos/notificacoes/via-oficial-justica.docx",
+        "refs": [
+          "src/config/documentTemplates.js"
+        ]
+      },
+      {
+        "file": "public/modelos/recibos/recibo-boleto.docx",
+        "refs": [
+          "src/config/documentTemplates.js"
+        ]
+      },
+      {
+        "file": "public/modelos/recibos/recibo-cartao.docx",
+        "refs": [
+          "src/config/documentTemplates.js"
+        ]
+      },
+      {
+        "file": "public/modelos/recibos/recibo-pix.docx",
+        "refs": [
+          "src/config/documentTemplates.js"
+        ]
+      },
+      {
+        "file": "public/modelos/requerimentos/requerimento-postergacao-parcela-2026.docx",
+        "refs": [
+          "src/config/documentTemplates.js",
+          "src/lib/documentWorkspace.test.js"
+        ]
+      },
+      {
+        "file": "public/modelos/termo-recompra.docx",
+        "refs": [
+          "src/config/documentTemplates.js"
+        ]
+      },
+      {
+        "file": "public/modelos/termos/termo-ciencia-consentimento-contratacao.docx",
+        "refs": [
+          "src/config/documentTemplates.js"
+        ]
+      },
+      {
+        "file": "public/modelos/termos/termo-consentimento-compras-2026.docx",
+        "refs": [
+          "src/config/documentTemplates.js"
+        ]
+      },
+      {
+        "file": "public/modelos/termos/termo-pagamento-cartao-terceiro.docx",
+        "refs": [
+          "src/config/documentTemplates.js"
+        ]
+      },
+      {
+        "file": "public/modelos/termos/termo-reconhecimento-recompra.docx",
+        "refs": [
+          "src/config/documentTemplates.js"
+        ]
+      },
+      {
+        "file": "public/modelos/termos/termo-responsabilidade-parcelas-atraso.docx",
+        "refs": [
+          "src/config/documentTemplates.js"
+        ]
+      }
+    ],
+    "noLiteralReference": [
+      {
+        "file": "public/modelos/certidao-diligencia-contato-profissional.docx",
+        "refs": []
+      },
+      {
+        "file": "public/modelos/chargeback.docx",
+        "refs": []
+      },
+      {
+        "file": "public/modelos/contestacao-taxas-email-assinatura.png",
+        "refs": []
+      },
+      {
+        "file": "public/modelos/contestacao-taxas-email-fundo.jpg",
+        "refs": []
+      },
+      {
+        "file": "public/modelos/contestacao-taxas-email.docx",
+        "refs": []
+      },
+      {
+        "file": "public/modelos/contestacao-taxas-email.pdf",
+        "refs": []
+      },
+      {
+        "file": "public/modelos/declaracao-ausencia-carteira-trabalho.docx",
+        "refs": []
+      },
+      {
+        "file": "public/modelos/laudo-pericial-contabil-layout.pdf",
+        "refs": []
+      },
+      {
+        "file": "public/modelos/notificacao-extrajudicial-platino.docx",
+        "refs": []
+      },
+      {
+        "file": "public/modelos/procuracoes/procuracao-ad-judicia-2026.docx",
+        "refs": []
+      },
+      {
+        "file": "public/modelos/recibo-prestacao-servicos.docx",
+        "refs": []
+      },
+      {
+        "file": "public/modelos/relatorio-negociacao-acordo-homologacao.docx",
+        "refs": []
+      },
+      {
+        "file": "public/modelos/termo-ciencia-autorizacao-seguranca.docx",
+        "refs": []
+      },
+      {
+        "file": "public/modelos/termo-ciencia-seguranca-assinatura.png",
+        "refs": []
+      },
+      {
+        "file": "public/modelos/termo-compromisso-pagamento.docx",
+        "refs": []
+      }
+    ],
+    "note": "Aus?ncia de refer?ncia literal n?o prova aus?ncia de uso; recursos preservados."
+  },
+  "css": {
+    "stats": [
+      {
+        "file": "src\\App.css",
+        "bytes": 118494,
+        "lines": 3447,
+        "longestLine": 656,
+        "rules": 848
+      },
+      {
+        "file": "src\\carteiraProcessual.css",
+        "bytes": 25439,
+        "lines": 891,
+        "longestLine": 259,
+        "rules": 221
+      },
+      {
+        "file": "src\\components\\gerencial\\gerencialProcessual.css",
+        "bytes": 6549,
+        "lines": 389,
+        "longestLine": 80,
+        "rules": 58
+      },
+      {
+        "file": "src\\components\\homologacao\\homologacaoQuitacao.css",
+        "bytes": 6835,
+        "lines": 415,
+        "longestLine": 75,
+        "rules": 54
+      },
+      {
+        "file": "src\\components\\operacional\\operacionalProcessual.css",
+        "bytes": 3814,
+        "lines": 217,
+        "longestLine": 62,
+        "rules": 29
+      },
+      {
+        "file": "src\\documentWorkspace.css",
+        "bytes": 37537,
+        "lines": 73,
+        "longestLine": 5285,
+        "rules": 357
+      },
+      {
+        "file": "src\\esteiraProcessual.css",
+        "bytes": 58896,
+        "lines": 2809,
+        "longestLine": 302,
+        "rules": 472
+      },
+      {
+        "file": "src\\formDesignSystem.css",
+        "bytes": 10895,
+        "lines": 232,
+        "longestLine": 247,
+        "rules": 73
+      },
+      {
+        "file": "src\\trainingResources.css",
+        "bytes": 5024,
+        "lines": 45,
+        "longestLine": 321,
+        "rules": 41
+      }
+    ],
+    "duplicates": [
+      {
+        "file": "src\\App.css",
+        "selector": ".login-page-liquid",
+        "first": 232,
+        "line": 902
+      },
+      {
+        "file": "src\\App.css",
+        "selector": ".login-page-liquid::after,\r\n.login-page-liquid .liquid-bg",
+        "first": 239,
+        "line": 909
+      },
+      {
+        "file": "src\\App.css",
+        "selector": ".login-page-liquid .login-card",
+        "first": 244,
+        "line": 914
+      },
+      {
+        "file": "src\\App.css",
+        "selector": ".login-page-liquid .login-card::before,\r\n.login-page-liquid .login-footer",
+        "first": 259,
+        "line": 929
+      },
+      {
+        "file": "src\\App.css",
+        "selector": ".login-page-liquid .login-form",
+        "first": 264,
+        "line": 934
+      },
+      {
+        "file": "src\\App.css",
+        "selector": ".login-page-liquid::after,\r\n.login-page-liquid .liquid-bg",
+        "first": 239,
+        "line": 957
+      },
+      {
+        "file": "src\\App.css",
+        "selector": ".login-page-liquid .login-submit::before",
+        "first": 885,
+        "line": 1090
+      },
+      {
+        "file": "src\\App.css",
+        "selector": ".login-page-liquid",
+        "first": 811,
+        "line": 1186
+      },
+      {
+        "file": "src\\App.css",
+        "selector": ".login-page-liquid::before,\r\n.login-page-liquid::after,\r\n.login-page-liquid .liquid-bg",
+        "first": 825,
+        "line": 1200
+      },
+      {
+        "file": "src\\App.css",
+        "selector": ".login-page-liquid .login-card::before,\r\n.login-page-liquid .login-footer,\r\n.login-page-liquid .login-brand,\r\n.login-page-liquid .login-heading,\r\n.login-page-liquid .forgot-password",
+        "first": 846,
+        "line": 1221
+      },
+      {
+        "file": "src\\App.css",
+        "selector": ".login-page-liquid .login-form",
+        "first": 264,
+        "line": 1229
+      },
+      {
+        "file": "src\\App.css",
+        "selector": ".login-page-liquid",
+        "first": 888,
+        "line": 1251
+      },
+      {
+        "file": "src\\App.css",
+        "selector": ".login-page-liquid .login-card",
+        "first": 893,
+        "line": 1257
+      },
+      {
+        "file": "src\\App.css",
+        "selector": ".login-page-liquid",
+        "first": 897,
+        "line": 1265
+      },
+      {
+        "file": "src\\App.css",
+        "selector": "*, *::before, *::after",
+        "first": 1150,
+        "line": 2648
+      },
+      {
+        "file": "src\\App.css",
+        "selector": ".login-page-liquid::before,\r\n.login-page-liquid::after,\r\n.login-page-liquid .liquid-bg",
+        "first": 825,
+        "line": 3122
+      },
+      {
+        "file": "src\\App.css",
+        "selector": ".login-page-liquid .login-card::before,\r\n.login-page-liquid .login-footer,\r\n.login-page-liquid .login-brand,\r\n.login-page-liquid .login-heading,\r\n.login-page-liquid .forgot-password",
+        "first": 846,
+        "line": 3134
+      },
+      {
+        "file": "src\\App.css",
+        "selector": ".login-page-liquid .login-form",
+        "first": 854,
+        "line": 3139
+      },
+      {
+        "file": "src\\App.css",
+        "selector": ".login-page-liquid .glass-input input",
+        "first": 875,
+        "line": 3141
+      },
+      {
+        "file": "src\\App.css",
+        "selector": ".login-page-liquid .login-submit::before",
+        "first": 885,
+        "line": 3143
+      },
+      {
+        "file": "src\\esteiraProcessual.css",
+        "selector": ".process-ficha-content",
+        "first": 1874,
+        "line": 2528
+      },
+      {
+        "file": "src\\esteiraProcessual.css",
+        "selector": ".process-ficha",
+        "first": 1890,
+        "line": 2560
+      },
+      {
+        "file": "src\\esteiraProcessual.css",
+        "selector": ".process-summary-grid",
+        "first": 2550,
+        "line": 2788
+      },
+      {
+        "file": "src\\esteiraProcessual.css",
+        "selector": ".process-summary-grid,\r\n  .process-twelve-grid,\r\n  .process-control-options",
+        "first": 2588,
+        "line": 2798
+      }
+    ]
+  },
+  "files": [
+    {
+      "file": ".env",
+      "bytes": 150,
+      "classification": "Preservar",
+      "reason": "Arquivo de manuten??o/configura??o; nenhuma exclus?o comprovada."
+    },
+    {
+      "file": ".env.example",
+      "bytes": 588,
+      "classification": "Preservar",
+      "reason": "Arquivo de manuten??o/configura??o; nenhuma exclus?o comprovada."
+    },
+    {
+      "file": ".gitignore",
+      "bytes": 337,
+      "classification": "Preservar",
+      "reason": "Arquivo de manuten??o/configura??o; nenhuma exclus?o comprovada."
+    },
+    {
+      "file": ".tools/browser/package-lock.json",
+      "bytes": 692,
+      "classification": "Preservar",
+      "reason": "Runtime/ferramenta externa versionada; exclu?da de busca e observa??o sem apagar."
+    },
+    {
+      "file": ".tools/browser/package.json",
+      "bytes": 64,
+      "classification": "Preservar",
+      "reason": "Runtime/ferramenta externa versionada; exclu?da de busca e observa??o sem apagar."
+    },
+    {
+      "file": ".tools/node-v24.18.0-win-x64/CHANGELOG.md",
+      "bytes": 56323,
+      "classification": "Preservar",
+      "reason": "Runtime/ferramenta externa versionada; exclu?da de busca e observa??o sem apagar."
+    },
+    {
+      "file": ".tools/node-v24.18.0-win-x64/corepack",
+      "bytes": 334,
+      "classification": "Preservar",
+      "reason": "Runtime/ferramenta externa versionada; exclu?da de busca e observa??o sem apagar."
+    },
+    {
+      "file": ".tools/node-v24.18.0-win-x64/corepack.cmd",
+      "bytes": 218,
+      "classification": "Preservar",
+      "reason": "Runtime/ferramenta externa versionada; exclu?da de busca e observa??o sem apagar."
+    },
+    {
+      "file": ".tools/node-v24.18.0-win-x64/install_tools.bat",
+      "bytes": 3094,
+      "classification": "Preservar",
+      "reason": "Runtime/ferramenta externa versionada; exclu?da de busca e observa??o sem apagar."
+    },
+    {
+      "file": ".tools/node-v24.18.0-win-x64/LICENSE",
+      "bytes": 160552,
+      "classification": "Preservar",
+      "reason": "Runtime/ferramenta externa versionada; exclu?da de busca e observa??o sem apagar."
+    },
+    {
+      "file": ".tools/node-v24.18.0-win-x64/node.exe",
+      "bytes": 92534088,
+      "classification": "Preservar",
+      "reason": "Runtime/ferramenta externa versionada; exclu?da de busca e observa??o sem apagar."
+    },
+    {
+      "file": ".tools/node-v24.18.0-win-x64/nodevars.bat",
+      "bytes": 702,
+      "classification": "Preservar",
+      "reason": "Runtime/ferramenta externa versionada; exclu?da de busca e observa??o sem apagar."
+    },
+    {
+      "file": ".tools/node-v24.18.0-win-x64/npm",
+      "bytes": 2138,
+      "classification": "Preservar",
+      "reason": "Runtime/ferramenta externa versionada; exclu?da de busca e observa??o sem apagar."
+    },
+    {
+      "file": ".tools/node-v24.18.0-win-x64/npm.cmd",
+      "bytes": 538,
+      "classification": "Preservar",
+      "reason": "Runtime/ferramenta externa versionada; exclu?da de busca e observa??o sem apagar."
+    },
+    {
+      "file": ".tools/node-v24.18.0-win-x64/npm.ps1",
+      "bytes": 1700,
+      "classification": "Preservar",
+      "reason": "Runtime/ferramenta externa versionada; exclu?da de busca e observa??o sem apagar."
+    },
+    {
+      "file": ".tools/node-v24.18.0-win-x64/npx",
+      "bytes": 2138,
+      "classification": "Preservar",
+      "reason": "Runtime/ferramenta externa versionada; exclu?da de busca e observa??o sem apagar."
+    },
+    {
+      "file": ".tools/node-v24.18.0-win-x64/npx.cmd",
+      "bytes": 538,
+      "classification": "Preservar",
+      "reason": "Runtime/ferramenta externa versionada; exclu?da de busca e observa??o sem apagar."
+    },
+    {
+      "file": ".tools/node-v24.18.0-win-x64/npx.ps1",
+      "bytes": 1700,
+      "classification": "Preservar",
+      "reason": "Runtime/ferramenta externa versionada; exclu?da de busca e observa??o sem apagar."
+    },
+    {
+      "file": ".tools/node-v24.18.0-win-x64/README.md",
+      "bytes": 42374,
+      "classification": "Preservar",
+      "reason": "Runtime/ferramenta externa versionada; exclu?da de busca e observa??o sem apagar."
+    },
+    {
+      "file": ".vscode/settings.json",
+      "bytes": 365,
+      "classification": "Preservar",
+      "reason": "Arquivo de manuten??o/configura??o; nenhuma exclus?o comprovada."
+    },
+    {
+      "file": "AGENTS.md",
+      "bytes": 4753,
+      "classification": "Preservar",
+      "reason": "Arquivo de manuten??o/configura??o; nenhuma exclus?o comprovada."
+    },
+    {
+      "file": "data/processos-protocolados-fonte.json",
+      "bytes": 169238,
+      "classification": "Preservar",
+      "reason": "Arquivo de manuten??o/configura??o; nenhuma exclus?o comprovada."
+    },
+    {
+      "file": "docs/document-generator-audit.md",
+      "bytes": 8753,
+      "classification": "Preservar",
+      "reason": "Arquivo de manuten??o/configura??o; nenhuma exclus?o comprovada."
+    },
+    {
+      "file": "docs/form-design-system.md",
+      "bytes": 4450,
+      "classification": "Preservar",
+      "reason": "Arquivo de manuten??o/configura??o; nenhuma exclus?o comprovada."
+    },
+    {
+      "file": "docs/technical-audit-2026-10-04.md",
+      "bytes": 21747,
+      "classification": "Preservar",
+      "reason": "Arquivo de manuten??o/configura??o; nenhuma exclus?o comprovada."
+    },
+    {
+      "file": "eslint.config.js",
+      "bytes": 808,
+      "classification": "Preservar",
+      "reason": "Arquivo de manuten??o/configura??o; nenhuma exclus?o comprovada."
+    },
+    {
+      "file": "index.html",
+      "bytes": 885,
+      "classification": "Preservar",
+      "reason": "Arquivo de manuten??o/configura??o; nenhuma exclus?o comprovada."
+    },
+    {
+      "file": "modelos-originais/~$LATÓRIO DE ATUALIZAÇÃO DO PROCESSO JUDICIAL - MODELO.docx",
+      "bytes": 162,
+      "classification": "Preservar",
+      "reason": "Recurso p?blico ou original de documento; refer?ncias diretas e uso externo precisam ser preservados."
+    },
+    {
+      "file": "modelos-originais/certidao-diligencia-contato-profissional.docx",
+      "bytes": 134221,
+      "classification": "Preservar",
+      "reason": "Recurso p?blico ou original de documento; refer?ncias diretas e uso externo precisam ser preservados."
+    },
+    {
+      "file": "modelos-originais/chargeback.docx",
+      "bytes": 2225610,
+      "classification": "Preservar",
+      "reason": "Recurso p?blico ou original de documento; refer?ncias diretas e uso externo precisam ser preservados."
+    },
+    {
+      "file": "modelos-originais/citacao-intimacao-extrajudicial.docx",
+      "bytes": 2221782,
+      "classification": "Preservar",
+      "reason": "Recurso p?blico ou original de documento; refer?ncias diretas e uso externo precisam ser preservados."
+    },
+    {
+      "file": "modelos-originais/citacao-judicial.docx",
+      "bytes": 2221748,
+      "classification": "Preservar",
+      "reason": "Recurso p?blico ou original de documento; refer?ncias diretas e uso externo precisam ser preservados."
+    },
+    {
+      "file": "modelos-originais/contestacao-taxas-email.docx",
+      "bytes": 60455,
+      "classification": "Preservar",
+      "reason": "Recurso p?blico ou original de documento; refer?ncias diretas e uso externo precisam ser preservados."
+    },
+    {
+      "file": "modelos-originais/declaracao-ausencia-carteira-trabalho.docx",
+      "bytes": 2224232,
+      "classification": "Preservar",
+      "reason": "Recurso p?blico ou original de documento; refer?ncias diretas e uso externo precisam ser preservados."
+    },
+    {
+      "file": "modelos-originais/declaracao-hipossuficiencia.docx",
+      "bytes": 452921,
+      "classification": "Preservar",
+      "reason": "Recurso p?blico ou original de documento; refer?ncias diretas e uso externo precisam ser preservados."
+    },
+    {
+      "file": "modelos-originais/declaracao-isencao-irpf-anexo-2026.docx",
+      "bytes": 4053366,
+      "classification": "Preservar",
+      "reason": "Recurso p?blico ou original de documento; refer?ncias diretas e uso externo precisam ser preservados."
+    },
+    {
+      "file": "modelos-originais/declaracao-isencao-irpf.docx",
+      "bytes": 324243,
+      "classification": "Preservar",
+      "reason": "Recurso p?blico ou original de documento; refer?ncias diretas e uso externo precisam ser preservados."
+    },
+    {
+      "file": "modelos-originais/laudo-pericial-contabil-layout.pdf",
+      "bytes": 298823,
+      "classification": "Preservar",
+      "reason": "Recurso p?blico ou original de documento; refer?ncias diretas e uso externo precisam ser preservados."
+    },
+    {
+      "file": "modelos-originais/notificacao-extrajudicial-platino.docx",
+      "bytes": 2224662,
+      "classification": "Preservar",
+      "reason": "Recurso p?blico ou original de documento; refer?ncias diretas e uso externo precisam ser preservados."
+    },
+    {
+      "file": "modelos-originais/procuracao-dra-juliane.docx",
+      "bytes": 589762,
+      "classification": "Preservar",
+      "reason": "Recurso p?blico ou original de documento; refer?ncias diretas e uso externo precisam ser preservados."
+    },
+    {
+      "file": "modelos-originais/recibo-prestacao-servicos.docx",
+      "bytes": 401987,
+      "classification": "Preservar",
+      "reason": "Recurso p?blico ou original de documento; refer?ncias diretas e uso externo precisam ser preservados."
+    },
+    {
+      "file": "modelos-originais/relatorio-negociacao-acordo-homologacao.docx",
+      "bytes": 2673579,
+      "classification": "Preservar",
+      "reason": "Recurso p?blico ou original de documento; refer?ncias diretas e uso externo precisam ser preservados."
+    },
+    {
+      "file": "modelos-originais/requerimento-postergacao-parcela-anexo-2026.docx",
+      "bytes": 43788,
+      "classification": "Preservar",
+      "reason": "Recurso p?blico ou original de documento; refer?ncias diretas e uso externo precisam ser preservados."
+    },
+    {
+      "file": "modelos-originais/Termo de Compromisso de Pagamento.docx",
+      "bytes": 204922,
+      "classification": "Preservar",
+      "reason": "Recurso p?blico ou original de documento; refer?ncias diretas e uso externo precisam ser preservados."
+    },
+    {
+      "file": "modelos-originais/termo-ciencia-autorizacao-seguranca.docx",
+      "bytes": 2282096,
+      "classification": "Preservar",
+      "reason": "Recurso p?blico ou original de documento; refer?ncias diretas e uso externo precisam ser preservados."
+    },
+    {
+      "file": "modelos-originais/termo-de-ciencia - de-pagamento.docx",
+      "bytes": 30146,
+      "classification": "Preservar",
+      "reason": "Recurso p?blico ou original de documento; refer?ncias diretas e uso externo precisam ser preservados."
+    },
+    {
+      "file": "modelos-originais/termo-recompra.docx",
+      "bytes": 473259,
+      "classification": "Preservar",
+      "reason": "Recurso p?blico ou original de documento; refer?ncias diretas e uso externo precisam ser preservados."
+    },
+    {
+      "file": "package-lock.json",
+      "bytes": 90169,
+      "classification": "Preservar",
+      "reason": "Arquivo de manuten??o/configura??o; nenhuma exclus?o comprovada."
+    },
+    {
+      "file": "package.json",
+      "bytes": 1574,
+      "classification": "Preservar",
+      "reason": "Arquivo de manuten??o/configura??o; nenhuma exclus?o comprovada."
+    },
+    {
+      "file": "public/assets/document-model-icon.svg",
+      "bytes": 1835,
+      "classification": "Preservar",
+      "reason": "Recurso p?blico ou original de documento; refer?ncias diretas e uso externo precisam ser preservados."
+    },
+    {
+      "file": "public/assets/fonts/calibri-light-italic.ttf",
+      "bytes": 1065868,
+      "classification": "Preservar",
+      "reason": "Recurso p?blico ou original de documento; refer?ncias diretas e uso externo precisam ser preservados."
+    },
+    {
+      "file": "public/assets/fonts/calibri-light.ttf",
+      "bytes": 1441448,
+      "classification": "Preservar",
+      "reason": "Recurso p?blico ou original de documento; refer?ncias diretas e uso externo precisam ser preservados."
+    },
+    {
+      "file": "public/assets/icons/pdf-treinamento.png",
+      "bytes": 537298,
+      "classification": "Preservar",
+      "reason": "Recurso p?blico ou original de documento; refer?ncias diretas e uso externo precisam ser preservados."
+    },
+    {
+      "file": "public/assets/pdf-document-icon.png",
+      "bytes": 983146,
+      "classification": "Preservar",
+      "reason": "Recurso p?blico ou original de documento; refer?ncias diretas e uso externo precisam ser preservados."
+    },
+    {
+      "file": "public/assets/platino-login-background.png",
+      "bytes": 1419368,
+      "classification": "Preservar",
+      "reason": "Recurso p?blico ou original de documento; refer?ncias diretas e uso externo precisam ser preservados."
+    },
+    {
+      "file": "public/assets/platino-orbital-logo.png",
+      "bytes": 30076,
+      "classification": "Preservar",
+      "reason": "Recurso p?blico ou original de documento; refer?ncias diretas e uso externo precisam ser preservados."
+    },
+    {
+      "file": "public/assets/platino-profile-avatar.png",
+      "bytes": 30076,
+      "classification": "Preservar",
+      "reason": "Recurso p?blico ou original de documento; refer?ncias diretas e uso externo precisam ser preservados."
+    },
+    {
+      "file": "public/favicon.svg",
+      "bytes": 9522,
+      "classification": "Preservar",
+      "reason": "Recurso p?blico ou original de documento; refer?ncias diretas e uso externo precisam ser preservados."
+    },
+    {
+      "file": "public/importacoes/clientes-processual.txt",
+      "bytes": 37565,
+      "classification": "Preservar",
+      "reason": "Recurso p?blico ou original de documento; refer?ncias diretas e uso externo precisam ser preservados."
+    },
+    {
+      "file": "public/logo.png",
+      "bytes": 1231096,
+      "classification": "Preservar",
+      "reason": "Recurso p?blico ou original de documento; refer?ncias diretas e uso externo precisam ser preservados."
+    },
+    {
+      "file": "public/modelos/certidao-diligencia-contato-profissional.docx",
+      "bytes": 134221,
+      "classification": "Preservar",
+      "reason": "Recurso p?blico ou original de documento; refer?ncias diretas e uso externo precisam ser preservados."
+    },
+    {
+      "file": "public/modelos/chargeback.docx",
+      "bytes": 2225610,
+      "classification": "Preservar",
+      "reason": "Recurso p?blico ou original de documento; refer?ncias diretas e uso externo precisam ser preservados."
+    },
+    {
+      "file": "public/modelos/citacao-intimacao-extrajudicial.docx",
+      "bytes": 2221782,
+      "classification": "Preservar",
+      "reason": "Recurso p?blico ou original de documento; refer?ncias diretas e uso externo precisam ser preservados."
+    },
+    {
+      "file": "public/modelos/citacao-judicial.docx",
+      "bytes": 2221748,
+      "classification": "Preservar",
+      "reason": "Recurso p?blico ou original de documento; refer?ncias diretas e uso externo precisam ser preservados."
+    },
+    {
+      "file": "public/modelos/contestacao-taxas-email-assinatura.png",
+      "bytes": 4010,
+      "classification": "Preservar",
+      "reason": "Recurso p?blico ou original de documento; refer?ncias diretas e uso externo precisam ser preservados."
+    },
+    {
+      "file": "public/modelos/contestacao-taxas-email-fundo.jpg",
+      "bytes": 19068,
+      "classification": "Preservar",
+      "reason": "Recurso p?blico ou original de documento; refer?ncias diretas e uso externo precisam ser preservados."
+    },
+    {
+      "file": "public/modelos/contestacao-taxas-email.docx",
+      "bytes": 51019,
+      "classification": "Preservar",
+      "reason": "Recurso p?blico ou original de documento; refer?ncias diretas e uso externo precisam ser preservados."
+    },
+    {
+      "file": "public/modelos/contestacao-taxas-email.pdf",
+      "bytes": 160327,
+      "classification": "Preservar",
+      "reason": "Recurso p?blico ou original de documento; refer?ncias diretas e uso externo precisam ser preservados."
+    },
+    {
+      "file": "public/modelos/declaracao-ausencia-carteira-trabalho.docx",
+      "bytes": 2224232,
+      "classification": "Preservar",
+      "reason": "Recurso p?blico ou original de documento; refer?ncias diretas e uso externo precisam ser preservados."
+    },
+    {
+      "file": "public/modelos/declaracoes/declaracao-hipossuficiencia-2026.docx",
+      "bytes": 452921,
+      "classification": "Preservar",
+      "reason": "Recurso p?blico ou original de documento; refer?ncias diretas e uso externo precisam ser preservados."
+    },
+    {
+      "file": "public/modelos/declaracoes/declaracao-isencao-irpf-2026.docx",
+      "bytes": 4053366,
+      "classification": "Preservar",
+      "reason": "Recurso p?blico ou original de documento; refer?ncias diretas e uso externo precisam ser preservados."
+    },
+    {
+      "file": "public/modelos/distratos/distrato-7-dias-estorno-total.docx",
+      "bytes": 295497,
+      "classification": "Preservar",
+      "reason": "Recurso p?blico ou original de documento; refer?ncias diretas e uso externo precisam ser preservados."
+    },
+    {
+      "file": "public/modelos/distratos/distrato-com-devolucao.docx",
+      "bytes": 295392,
+      "classification": "Preservar",
+      "reason": "Recurso p?blico ou original de documento; refer?ncias diretas e uso externo precisam ser preservados."
+    },
+    {
+      "file": "public/modelos/distratos/distrato-com-multa.docx",
+      "bytes": 295445,
+      "classification": "Preservar",
+      "reason": "Recurso p?blico ou original de documento; refer?ncias diretas e uso externo precisam ser preservados."
+    },
+    {
+      "file": "public/modelos/distratos/distrato-inexecucao-ausencia-resposta.docx",
+      "bytes": 295239,
+      "classification": "Preservar",
+      "reason": "Recurso p?blico ou original de documento; refer?ncias diretas e uso externo precisam ser preservados."
+    },
+    {
+      "file": "public/modelos/distratos/distrato-sem-devolucao.docx",
+      "bytes": 295293,
+      "classification": "Preservar",
+      "reason": "Recurso p?blico ou original de documento; refer?ncias diretas e uso externo precisam ser preservados."
+    },
+    {
+      "file": "public/modelos/distratos/distrato-sem-multa.docx",
+      "bytes": 295135,
+      "classification": "Preservar",
+      "reason": "Recurso p?blico ou original de documento; refer?ncias diretas e uso externo precisam ser preservados."
+    },
+    {
+      "file": "public/modelos/laudo-pericial-contabil-layout.pdf",
+      "bytes": 298823,
+      "classification": "Preservar",
+      "reason": "Recurso p?blico ou original de documento; refer?ncias diretas e uso externo precisam ser preservados."
+    },
+    {
+      "file": "public/modelos/liminares/despesas-analise-tecnica.docx",
+      "bytes": 310858,
+      "classification": "Preservar",
+      "reason": "Recurso p?blico ou original de documento; refer?ncias diretas e uso externo precisam ser preservados."
+    },
+    {
+      "file": "public/modelos/liminares/despesas-diligencias-extrajudiciais.docx",
+      "bytes": 310864,
+      "classification": "Preservar",
+      "reason": "Recurso p?blico ou original de documento; refer?ncias diretas e uso externo precisam ser preservados."
+    },
+    {
+      "file": "public/modelos/notificacao-extrajudicial-platino.docx",
+      "bytes": 2224662,
+      "classification": "Preservar",
+      "reason": "Recurso p?blico ou original de documento; refer?ncias diretas e uso externo precisam ser preservados."
+    },
+    {
+      "file": "public/modelos/notificacoes/finalizacao-conciliacao.docx",
+      "bytes": 299226,
+      "classification": "Preservar",
+      "reason": "Recurso p?blico ou original de documento; refer?ncias diretas e uso externo precisam ser preservados."
+    },
+    {
+      "file": "public/modelos/notificacoes/formalizacao-representacao.docx",
+      "bytes": 299113,
+      "classification": "Preservar",
+      "reason": "Recurso p?blico ou original de documento; refer?ncias diretas e uso externo precisam ser preservados."
+    },
+    {
+      "file": "public/modelos/notificacoes/prosseguimento-acao.docx",
+      "bytes": 299177,
+      "classification": "Preservar",
+      "reason": "Recurso p?blico ou original de documento; refer?ncias diretas e uso externo precisam ser preservados."
+    },
+    {
+      "file": "public/modelos/notificacoes/requerimento-taxas.docx",
+      "bytes": 299163,
+      "classification": "Preservar",
+      "reason": "Recurso p?blico ou original de documento; refer?ncias diretas e uso externo precisam ser preservados."
+    },
+    {
+      "file": "public/modelos/notificacoes/solicitacao-contrato-bancario.docx",
+      "bytes": 299123,
+      "classification": "Preservar",
+      "reason": "Recurso p?blico ou original de documento; refer?ncias diretas e uso externo precisam ser preservados."
+    },
+    {
+      "file": "public/modelos/notificacoes/via-oficial-justica.docx",
+      "bytes": 299117,
+      "classification": "Preservar",
+      "reason": "Recurso p?blico ou original de documento; refer?ncias diretas e uso externo precisam ser preservados."
+    },
+    {
+      "file": "public/modelos/procuracoes/procuracao-ad-judicia-2026.docx",
+      "bytes": 589762,
+      "classification": "Preservar",
+      "reason": "Recurso p?blico ou original de documento; refer?ncias diretas e uso externo precisam ser preservados."
+    },
+    {
+      "file": "public/modelos/README.txt",
+      "bytes": 292,
+      "classification": "Preservar",
+      "reason": "Recurso p?blico ou original de documento; refer?ncias diretas e uso externo precisam ser preservados."
+    },
+    {
+      "file": "public/modelos/recibo-prestacao-servicos.docx",
+      "bytes": 401987,
+      "classification": "Preservar",
+      "reason": "Recurso p?blico ou original de documento; refer?ncias diretas e uso externo precisam ser preservados."
+    },
+    {
+      "file": "public/modelos/recibos/recibo-boleto.docx",
+      "bytes": 106876,
+      "classification": "Preservar",
+      "reason": "Recurso p?blico ou original de documento; refer?ncias diretas e uso externo precisam ser preservados."
+    },
+    {
+      "file": "public/modelos/recibos/recibo-cartao.docx",
+      "bytes": 106901,
+      "classification": "Preservar",
+      "reason": "Recurso p?blico ou original de documento; refer?ncias diretas e uso externo precisam ser preservados."
+    },
+    {
+      "file": "public/modelos/recibos/recibo-pix.docx",
+      "bytes": 106866,
+      "classification": "Preservar",
+      "reason": "Recurso p?blico ou original de documento; refer?ncias diretas e uso externo precisam ser preservados."
+    },
+    {
+      "file": "public/modelos/relatorio-negociacao-acordo-homologacao.docx",
+      "bytes": 2673579,
+      "classification": "Preservar",
+      "reason": "Recurso p?blico ou original de documento; refer?ncias diretas e uso externo precisam ser preservados."
+    },
+    {
+      "file": "public/modelos/requerimentos/requerimento-postergacao-parcela-2026.docx",
+      "bytes": 43788,
+      "classification": "Preservar",
+      "reason": "Recurso p?blico ou original de documento; refer?ncias diretas e uso externo precisam ser preservados."
+    },
+    {
+      "file": "public/modelos/termo-ciencia-autorizacao-seguranca.docx",
+      "bytes": 2282096,
+      "classification": "Preservar",
+      "reason": "Recurso p?blico ou original de documento; refer?ncias diretas e uso externo precisam ser preservados."
+    },
+    {
+      "file": "public/modelos/termo-ciencia-seguranca-assinatura.png",
+      "bytes": 17608,
+      "classification": "Preservar",
+      "reason": "Recurso p?blico ou original de documento; refer?ncias diretas e uso externo precisam ser preservados."
+    },
+    {
+      "file": "public/modelos/termo-compromisso-pagamento.docx",
+      "bytes": 20715,
+      "classification": "Preservar",
+      "reason": "Recurso p?blico ou original de documento; refer?ncias diretas e uso externo precisam ser preservados."
+    },
+    {
+      "file": "public/modelos/termo-recompra.docx",
+      "bytes": 473259,
+      "classification": "Preservar",
+      "reason": "Recurso p?blico ou original de documento; refer?ncias diretas e uso externo precisam ser preservados."
+    },
+    {
+      "file": "public/modelos/termos/termo-ciencia-consentimento-contratacao.docx",
+      "bytes": 292621,
+      "classification": "Preservar",
+      "reason": "Recurso p?blico ou original de documento; refer?ncias diretas e uso externo precisam ser preservados."
+    },
+    {
+      "file": "public/modelos/termos/termo-consentimento-compras-2026.docx",
+      "bytes": 292711,
+      "classification": "Preservar",
+      "reason": "Recurso p?blico ou original de documento; refer?ncias diretas e uso externo precisam ser preservados."
+    },
+    {
+      "file": "public/modelos/termos/termo-pagamento-cartao-terceiro.docx",
+      "bytes": 253791,
+      "classification": "Preservar",
+      "reason": "Recurso p?blico ou original de documento; refer?ncias diretas e uso externo precisam ser preservados."
+    },
+    {
+      "file": "public/modelos/termos/termo-reconhecimento-recompra.docx",
+      "bytes": 92532,
+      "classification": "Preservar",
+      "reason": "Recurso p?blico ou original de documento; refer?ncias diretas e uso externo precisam ser preservados."
+    },
+    {
+      "file": "public/modelos/termos/termo-responsabilidade-parcelas-atraso.docx",
+      "bytes": 16965,
+      "classification": "Preservar",
+      "reason": "Recurso p?blico ou original de documento; refer?ncias diretas e uso externo precisam ser preservados."
+    },
+    {
+      "file": "README.md",
+      "bytes": 5689,
+      "classification": "Preservar",
+      "reason": "Arquivo de manuten??o/configura??o; nenhuma exclus?o comprovada."
+    },
+    {
+      "file": "scripts/gerar-import-homologacao-backup.ps1",
+      "bytes": 10191,
+      "classification": "Preservar",
+      "reason": "Entrada CLI ou teste, incluindo execu??o fora da aplica??o."
+    },
+    {
+      "file": "scripts/import-processos-protocolados.mjs",
+      "bytes": 16323,
+      "classification": "Preservar",
+      "reason": "Entrada CLI ou teste, incluindo execu??o fora da aplica??o."
+    },
+    {
+      "file": "scripts/import-processos-protocolados.test.mjs",
+      "bytes": 3531,
+      "classification": "Preservar",
+      "reason": "Entrada CLI ou teste, incluindo execu??o fora da aplica??o."
+    },
+    {
+      "file": "scripts/run-import-processos-management.ps1",
+      "bytes": 3357,
+      "classification": "Preservar",
+      "reason": "Entrada CLI ou teste, incluindo execu??o fora da aplica??o."
+    },
+    {
+      "file": "scripts/runtime-lifecycle.test.mjs",
+      "bytes": 5908,
+      "classification": "Preservar",
+      "reason": "Entrada CLI ou teste, incluindo execu??o fora da aplica??o."
+    },
+    {
+      "file": "scripts/validate-processos-management.ps1",
+      "bytes": 2732,
+      "classification": "Preservar",
+      "reason": "Entrada CLI ou teste, incluindo execu??o fora da aplica??o."
+    },
+    {
+      "file": "src/App.css",
+      "bytes": 118494,
+      "classification": "Precisa de refatora??o",
+      "reason": "Arquivo extenso ou CSS acumulado; preservar at? separar responsabilidades/validar cascata."
+    },
+    {
+      "file": "src/App.jsx",
+      "bytes": 29268,
+      "classification": "Preservar",
+      "reason": "C?digo/estilo alcan?ado pela aplica??o ou tipos internos; preservar."
+    },
+    {
+      "file": "src/carteiraProcessual.css",
+      "bytes": 25439,
+      "classification": "Preservar",
+      "reason": "C?digo/estilo alcan?ado pela aplica??o ou tipos internos; preservar."
+    },
+    {
+      "file": "src/CarteiraProcessual.jsx",
+      "bytes": 51190,
+      "classification": "Precisa de refatora??o",
+      "reason": "Arquivo extenso ou CSS acumulado; preservar at? separar responsabilidades/validar cascata."
+    },
+    {
+      "file": "src/components/clientes/ClientesModule.tsx",
+      "bytes": 57101,
+      "classification": "Precisa de refatora??o",
+      "reason": "Arquivo extenso ou CSS acumulado; preservar at? separar responsabilidades/validar cascata."
+    },
+    {
+      "file": "src/components/common/FormControls.jsx",
+      "bytes": 1709,
+      "classification": "Preservar",
+      "reason": "C?digo/estilo alcan?ado pela aplica??o ou tipos internos; preservar."
+    },
+    {
+      "file": "src/components/common/FormControls.test.mjs",
+      "bytes": 4322,
+      "classification": "Preservar",
+      "reason": "Teste automatizado preservado."
+    },
+    {
+      "file": "src/components/common/Pagination.tsx",
+      "bytes": 1558,
+      "classification": "Preservar",
+      "reason": "C?digo/estilo alcan?ado pela aplica??o ou tipos internos; preservar."
+    },
+    {
+      "file": "src/components/comunicacao/ContentAnalyzer.tsx",
+      "bytes": 8981,
+      "classification": "Preservar",
+      "reason": "C?digo/estilo alcan?ado pela aplica??o ou tipos internos; preservar."
+    },
+    {
+      "file": "src/components/comunicacao/EmailComposer.tsx",
+      "bytes": 9238,
+      "classification": "Preservar",
+      "reason": "C?digo/estilo alcan?ado pela aplica??o ou tipos internos; preservar."
+    },
+    {
+      "file": "src/components/dashboard/DashboardModule.tsx",
+      "bytes": 8690,
+      "classification": "Preservar",
+      "reason": "C?digo/estilo alcan?ado pela aplica??o ou tipos internos; preservar."
+    },
+    {
+      "file": "src/components/documentos/ModelLibraryModal.jsx",
+      "bytes": 10463,
+      "classification": "Preservar",
+      "reason": "C?digo/estilo alcan?ado pela aplica??o ou tipos internos; preservar."
+    },
+    {
+      "file": "src/components/esteira/EsteiraKanban.tsx",
+      "bytes": 45850,
+      "classification": "Preservar",
+      "reason": "C?digo/estilo alcan?ado pela aplica??o ou tipos internos; preservar."
+    },
+    {
+      "file": "src/components/esteira/EsteiraProcessualPlatino.tsx",
+      "bytes": 4902,
+      "classification": "Preservar",
+      "reason": "C?digo/estilo alcan?ado pela aplica??o ou tipos internos; preservar."
+    },
+    {
+      "file": "src/components/esteira/PainelJudicial.tsx",
+      "bytes": 85922,
+      "classification": "Precisa de refatora??o",
+      "reason": "Arquivo extenso ou CSS acumulado; preservar at? separar responsabilidades/validar cascata."
+    },
+    {
+      "file": "src/components/gerencial/gerencialProcessual.css",
+      "bytes": 6549,
+      "classification": "Preservar",
+      "reason": "C?digo/estilo alcan?ado pela aplica??o ou tipos internos; preservar."
+    },
+    {
+      "file": "src/components/gerencial/GerencialProcessualModule.tsx",
+      "bytes": 28045,
+      "classification": "Preservar",
+      "reason": "C?digo/estilo alcan?ado pela aplica??o ou tipos internos; preservar."
+    },
+    {
+      "file": "src/components/gerencial/GlobalSearch.tsx",
+      "bytes": 5693,
+      "classification": "Preservar",
+      "reason": "C?digo/estilo alcan?ado pela aplica??o ou tipos internos; preservar."
+    },
+    {
+      "file": "src/components/homologacao/homologacaoQuitacao.css",
+      "bytes": 6835,
+      "classification": "Preservar",
+      "reason": "C?digo/estilo alcan?ado pela aplica??o ou tipos internos; preservar."
+    },
+    {
+      "file": "src/components/homologacao/HomologacaoQuitacaoModule.tsx",
+      "bytes": 54276,
+      "classification": "Precisa de refatora??o",
+      "reason": "Arquivo extenso ou CSS acumulado; preservar at? separar responsabilidades/validar cascata."
+    },
+    {
+      "file": "src/components/operacional/operacionalProcessual.css",
+      "bytes": 3814,
+      "classification": "Preservar",
+      "reason": "C?digo/estilo alcan?ado pela aplica??o ou tipos internos; preservar."
+    },
+    {
+      "file": "src/components/operacional/OperacionalProcessualModule.tsx",
+      "bytes": 24835,
+      "classification": "Preservar",
+      "reason": "C?digo/estilo alcan?ado pela aplica??o ou tipos internos; preservar."
+    },
+    {
+      "file": "src/components/TreinamentosOperacionais.jsx",
+      "bytes": 3831,
+      "classification": "Preservar",
+      "reason": "C?digo/estilo alcan?ado pela aplica??o ou tipos internos; preservar."
+    },
+    {
+      "file": "src/config/documentTemplates.js",
+      "bytes": 42982,
+      "classification": "Preservar",
+      "reason": "C?digo/estilo alcan?ado pela aplica??o ou tipos internos; preservar."
+    },
+    {
+      "file": "src/documentWorkspace.css",
+      "bytes": 37537,
+      "classification": "Precisa de refatora??o",
+      "reason": "Arquivo extenso ou CSS acumulado; preservar at? separar responsabilidades/validar cascata."
+    },
+    {
+      "file": "src/esteiraProcessual.css",
+      "bytes": 58896,
+      "classification": "Preservar",
+      "reason": "C?digo/estilo alcan?ado pela aplica??o ou tipos internos; preservar."
+    },
+    {
+      "file": "src/formDesignSystem.css",
+      "bytes": 10895,
+      "classification": "Preservar",
+      "reason": "C?digo/estilo alcan?ado pela aplica??o ou tipos internos; preservar."
+    },
+    {
+      "file": "src/GeradorDocumentos.jsx",
+      "bytes": 54813,
+      "classification": "Preservar",
+      "reason": "C?digo/estilo alcan?ado pela aplica??o ou tipos internos; preservar."
+    },
+    {
+      "file": "src/lib/documentPdf.js",
+      "bytes": 932,
+      "classification": "Preservar",
+      "reason": "C?digo/estilo alcan?ado pela aplica??o ou tipos internos; preservar."
+    },
+    {
+      "file": "src/lib/documentPdf.test.js",
+      "bytes": 8038,
+      "classification": "Preservar",
+      "reason": "Teste automatizado preservado."
+    },
+    {
+      "file": "src/lib/documentWorkspace.js",
+      "bytes": 17626,
+      "classification": "Preservar",
+      "reason": "C?digo/estilo alcan?ado pela aplica??o ou tipos internos; preservar."
+    },
+    {
+      "file": "src/lib/documentWorkspace.test.js",
+      "bytes": 5024,
+      "classification": "Preservar",
+      "reason": "Teste automatizado preservado."
+    },
+    {
+      "file": "src/lib/emailWorkspace.js",
+      "bytes": 3885,
+      "classification": "Preservar",
+      "reason": "C?digo/estilo alcan?ado pela aplica??o ou tipos internos; preservar."
+    },
+    {
+      "file": "src/lib/emailWorkspace.test.js",
+      "bytes": 1678,
+      "classification": "Preservar",
+      "reason": "Teste automatizado preservado."
+    },
+    {
+      "file": "src/lib/esteiraProcessual.ts",
+      "bytes": 8845,
+      "classification": "Preservar",
+      "reason": "C?digo/estilo alcan?ado pela aplica??o ou tipos internos; preservar."
+    },
+    {
+      "file": "src/lib/functionError.ts",
+      "bytes": 538,
+      "classification": "Preservar",
+      "reason": "C?digo/estilo alcan?ado pela aplica??o ou tipos internos; preservar."
+    },
+    {
+      "file": "src/lib/historicoAdministrativo.js",
+      "bytes": 3346,
+      "classification": "Preservar",
+      "reason": "C?digo/estilo alcan?ado pela aplica??o ou tipos internos; preservar."
+    },
+    {
+      "file": "src/lib/historicoAdministrativo.test.js",
+      "bytes": 1526,
+      "classification": "Preservar",
+      "reason": "Teste automatizado preservado."
+    },
+    {
+      "file": "src/lib/processDataSync.ts",
+      "bytes": 4884,
+      "classification": "Preservar",
+      "reason": "C?digo/estilo alcan?ado pela aplica??o ou tipos internos; preservar."
+    },
+    {
+      "file": "src/lib/processReview.test.ts",
+      "bytes": 811,
+      "classification": "Preservar",
+      "reason": "Teste automatizado preservado."
+    },
+    {
+      "file": "src/lib/processReview.ts",
+      "bytes": 1131,
+      "classification": "Investigar",
+      "reason": "Alcan?ado por teste, n?o pela entrada de navegador; preservado."
+    },
+    {
+      "file": "src/lib/processWorkflow.test.ts",
+      "bytes": 1965,
+      "classification": "Preservar",
+      "reason": "Teste automatizado preservado."
+    },
+    {
+      "file": "src/lib/processWorkflow.ts",
+      "bytes": 1276,
+      "classification": "Preservar",
+      "reason": "C?digo/estilo alcan?ado pela aplica??o ou tipos internos; preservar."
+    },
+    {
+      "file": "src/lib/procuracaoConjunto.js",
+      "bytes": 1012,
+      "classification": "Preservar",
+      "reason": "C?digo/estilo alcan?ado pela aplica??o ou tipos internos; preservar."
+    },
+    {
+      "file": "src/lib/procuracaoConjunto.test.js",
+      "bytes": 1204,
+      "classification": "Preservar",
+      "reason": "Teste automatizado preservado."
+    },
+    {
+      "file": "src/lib/protocoloExtrajudicial.js",
+      "bytes": 657,
+      "classification": "Preservar",
+      "reason": "C?digo/estilo alcan?ado pela aplica??o ou tipos internos; preservar."
+    },
+    {
+      "file": "src/lib/protocoloExtrajudicial.test.js",
+      "bytes": 869,
+      "classification": "Preservar",
+      "reason": "Teste automatizado preservado."
+    },
+    {
+      "file": "src/lib/supabase.js",
+      "bytes": 451,
+      "classification": "Preservar",
+      "reason": "C?digo/estilo alcan?ado pela aplica??o ou tipos internos; preservar."
+    },
+    {
+      "file": "src/lib/trainingResources.js",
+      "bytes": 6989,
+      "classification": "Preservar",
+      "reason": "C?digo/estilo alcan?ado pela aplica??o ou tipos internos; preservar."
+    },
+    {
+      "file": "src/lib/trainingResources.test.js",
+      "bytes": 456,
+      "classification": "Preservar",
+      "reason": "Teste automatizado preservado."
+    },
+    {
+      "file": "src/lib/userAccess.js",
+      "bytes": 765,
+      "classification": "Preservar",
+      "reason": "C?digo/estilo alcan?ado pela aplica??o ou tipos internos; preservar."
+    },
+    {
+      "file": "src/lib/userAccess.test.js",
+      "bytes": 547,
+      "classification": "Preservar",
+      "reason": "Teste automatizado preservado."
+    },
+    {
+      "file": "src/lib/wordModelLocalPdf.js",
+      "bytes": 23970,
+      "classification": "Preservar",
+      "reason": "C?digo/estilo alcan?ado pela aplica??o ou tipos internos; preservar."
+    },
+    {
+      "file": "src/lib/wordTemplateDocx.js",
+      "bytes": 32051,
+      "classification": "Preservar",
+      "reason": "C?digo/estilo alcan?ado pela aplica??o ou tipos internos; preservar."
+    },
+    {
+      "file": "src/lib/wordTemplateDocx.test.js",
+      "bytes": 2940,
+      "classification": "Preservar",
+      "reason": "Teste automatizado preservado."
+    },
+    {
+      "file": "src/main.jsx",
+      "bytes": 3279,
+      "classification": "Preservar",
+      "reason": "C?digo/estilo alcan?ado pela aplica??o ou tipos internos; preservar."
+    },
+    {
+      "file": "src/trainingResources.css",
+      "bytes": 5024,
+      "classification": "Preservar",
+      "reason": "C?digo/estilo alcan?ado pela aplica??o ou tipos internos; preservar."
+    },
+    {
+      "file": "supabase/.temp/cli-latest",
+      "bytes": 8,
+      "classification": "Preservar",
+      "reason": "Migration ou Edge Function executada fora do navegador; hist?rico preservado."
+    },
+    {
+      "file": "supabase/.temp/linked-project.json",
+      "bytes": 148,
+      "classification": "Preservar",
+      "reason": "Migration ou Edge Function executada fora do navegador; hist?rico preservado."
+    },
+    {
+      "file": "supabase/20260910_fluxo_clientes_processos.sql",
+      "bytes": 2139,
+      "classification": "Preservar",
+      "reason": "Migration ou Edge Function executada fora do navegador; hist?rico preservado."
+    },
+    {
+      "file": "supabase/20260910_remove_triggers_duplicados.sql",
+      "bytes": 475,
+      "classification": "Preservar",
+      "reason": "Migration ou Edge Function executada fora do navegador; hist?rico preservado."
+    },
+    {
+      "file": "supabase/20260915_escavador_webhooks.sql",
+      "bytes": 899,
+      "classification": "Preservar",
+      "reason": "Migration ou Edge Function executada fora do navegador; hist?rico preservado."
+    },
+    {
+      "file": "supabase/20260916_datajud_processual.sql",
+      "bytes": 889,
+      "classification": "Preservar",
+      "reason": "Migration ou Edge Function executada fora do navegador; hist?rico preservado."
+    },
+    {
+      "file": "supabase/20260921_homologacao_quitacao.sql",
+      "bytes": 11800,
+      "classification": "Preservar",
+      "reason": "Migration ou Edge Function executada fora do navegador; hist?rico preservado."
+    },
+    {
+      "file": "supabase/20260927_datajud_separacao_movimentacoes.sql",
+      "bytes": 928,
+      "classification": "Preservar",
+      "reason": "Migration ou Edge Function executada fora do navegador; hist?rico preservado."
+    },
+    {
+      "file": "supabase/20260927_fases_historico_processual.sql",
+      "bytes": 2786,
+      "classification": "Preservar",
+      "reason": "Migration ou Edge Function executada fora do navegador; hist?rico preservado."
+    },
+    {
+      "file": "supabase/20260927_historico_administrativo_extrajudicial.sql",
+      "bytes": 9028,
+      "classification": "Preservar",
+      "reason": "Migration ou Edge Function executada fora do navegador; hist?rico preservado."
+    },
+    {
+      "file": "supabase/20260927_import_homologacao_backup.sql",
+      "bytes": 367202,
+      "classification": "Preservar",
+      "reason": "Migration ou Edge Function executada fora do navegador; hist?rico preservado."
+    },
+    {
+      "file": "supabase/20260928_fluxo_extrajudicial_independente.sql",
+      "bytes": 6344,
+      "classification": "Preservar",
+      "reason": "Migration ou Edge Function executada fora do navegador; hist?rico preservado."
+    },
+    {
+      "file": "supabase/20260929_restaurar_historico_e_separar_extrajudiciais.sql",
+      "bytes": 4090,
+      "classification": "Preservar",
+      "reason": "Migration ou Edge Function executada fora do navegador; hist?rico preservado."
+    },
+    {
+      "file": "supabase/20260930_protocolo_extrajudicial_id_crm_ano.sql",
+      "bytes": 2096,
+      "classification": "Preservar",
+      "reason": "Migration ou Edge Function executada fora do navegador; hist?rico preservado."
+    },
+    {
+      "file": "supabase/20261001_historico_25_registros_extrajudiciais.sql",
+      "bytes": 8414,
+      "classification": "Preservar",
+      "reason": "Migration ou Edge Function executada fora do navegador; hist?rico preservado."
+    },
+    {
+      "file": "supabase/20261002_aplicar_historico_cliente_edgar.sql",
+      "bytes": 2266,
+      "classification": "Preservar",
+      "reason": "Migration ou Edge Function executada fora do navegador; hist?rico preservado."
+    },
+    {
+      "file": "supabase/20261002_corrigir_exclusao_tarefas.sql",
+      "bytes": 1708,
+      "classification": "Preservar",
+      "reason": "Migration ou Edge Function executada fora do navegador; hist?rico preservado."
+    },
+    {
+      "file": "supabase/ajuste_feedbacks.sql",
+      "bytes": 3270,
+      "classification": "Preservar",
+      "reason": "Migration ou Edge Function executada fora do navegador; hist?rico preservado."
+    },
+    {
+      "file": "supabase/clientes_processual.sql",
+      "bytes": 5416,
+      "classification": "Preservar",
+      "reason": "Migration ou Edge Function executada fora do navegador; hist?rico preservado."
+    },
+    {
+      "file": "supabase/compatibilidade_modulos_processuais_legado.sql",
+      "bytes": 25356,
+      "classification": "Preservar",
+      "reason": "Migration ou Edge Function executada fora do navegador; hist?rico preservado."
+    },
+    {
+      "file": "supabase/configurar_sistema.sql",
+      "bytes": 4887,
+      "classification": "Preservar",
+      "reason": "Migration ou Edge Function executada fora do navegador; hist?rico preservado."
+    },
+    {
+      "file": "supabase/controle_gerencial_auditoria.sql",
+      "bytes": 8320,
+      "classification": "Preservar",
+      "reason": "Migration ou Edge Function executada fora do navegador; hist?rico preservado."
+    },
+    {
+      "file": "supabase/corrigir_compatibilidade_clientes_legado.sql",
+      "bytes": 4577,
+      "classification": "Preservar",
+      "reason": "Migration ou Edge Function executada fora do navegador; hist?rico preservado."
+    },
+    {
+      "file": "supabase/diagnosticar_dependencias_modulos.sql",
+      "bytes": 3190,
+      "classification": "Preservar",
+      "reason": "Migration ou Edge Function executada fora do navegador; hist?rico preservado."
+    },
+    {
+      "file": "supabase/documentos_integracao_processual.sql",
+      "bytes": 3068,
+      "classification": "Preservar",
+      "reason": "Migration ou Edge Function executada fora do navegador; hist?rico preservado."
+    },
+    {
+      "file": "supabase/documentos_juridicos_workspace.sql",
+      "bytes": 5333,
+      "classification": "Preservar",
+      "reason": "Migration ou Edge Function executada fora do navegador; hist?rico preservado."
+    },
+    {
+      "file": "supabase/drive_como_arquivo_oficial.sql",
+      "bytes": 2060,
+      "classification": "Preservar",
+      "reason": "Migration ou Edge Function executada fora do navegador; hist?rico preservado."
+    },
+    {
+      "file": "supabase/esteira_processual_platino.sql",
+      "bytes": 7445,
+      "classification": "Preservar",
+      "reason": "Migration ou Edge Function executada fora do navegador; hist?rico preservado."
+    },
+    {
+      "file": "supabase/functions/assistente-juridico/index.ts",
+      "bytes": 6359,
+      "classification": "Preservar",
+      "reason": "Migration ou Edge Function executada fora do navegador; hist?rico preservado."
+    },
+    {
+      "file": "supabase/functions/escavador-webhook/index.ts",
+      "bytes": 3439,
+      "classification": "Preservar",
+      "reason": "Migration ou Edge Function executada fora do navegador; hist?rico preservado."
+    },
+    {
+      "file": "supabase/functions/processual-datajud-sync/index.ts",
+      "bytes": 6397,
+      "classification": "Preservar",
+      "reason": "Migration ou Edge Function executada fora do navegador; hist?rico preservado."
+    },
+    {
+      "file": "supabase/historico_movimentacoes_processuais.sql",
+      "bytes": 2730,
+      "classification": "Preservar",
+      "reason": "Migration ou Edge Function executada fora do navegador; hist?rico preservado."
+    },
+    {
+      "file": "supabase/processos_ficha_individual.sql",
+      "bytes": 4690,
+      "classification": "Preservar",
+      "reason": "Migration ou Edge Function executada fora do navegador; hist?rico preservado."
+    },
+    {
+      "file": "supabase/processos_protocolados_historicos_2026.sql",
+      "bytes": 21317,
+      "classification": "Preservar",
+      "reason": "Migration ou Edge Function executada fora do navegador; hist?rico preservado."
+    },
+    {
+      "file": "supabase/protocolos_sla.sql",
+      "bytes": 8970,
+      "classification": "Preservar",
+      "reason": "Migration ou Edge Function executada fora do navegador; hist?rico preservado."
+    },
+    {
+      "file": "supabase/remover_modulos_descontinuados.sql",
+      "bytes": 9758,
+      "classification": "Preservar",
+      "reason": "Migration ou Edge Function executada fora do navegador; hist?rico preservado."
+    },
+    {
+      "file": "supabase/tarefas_agenda_atendimentos.sql",
+      "bytes": 5093,
+      "classification": "Preservar",
+      "reason": "Migration ou Edge Function executada fora do navegador; hist?rico preservado."
+    },
+    {
+      "file": "supabase/validar_importacao_processos_protocolados_2026.sql",
+      "bytes": 5675,
+      "classification": "Preservar",
+      "reason": "Migration ou Edge Function executada fora do navegador; hist?rico preservado."
+    },
+    {
+      "file": "tmp/pdfs/contestacao-taxas-assinatura.png",
+      "bytes": 6116,
+      "classification": "Preservar",
+      "reason": "Arquivo de manuten??o/configura??o; nenhuma exclus?o comprovada."
+    },
+    {
+      "file": "tmp/pdfs/notificacao-extrajudicial-assinatura-v2.png",
+      "bytes": 6116,
+      "classification": "Preservar",
+      "reason": "Arquivo de manuten??o/configura??o; nenhuma exclus?o comprovada."
+    },
+    {
+      "file": "tmp/pdfs/notificacao-extrajudicial-assinatura.png",
+      "bytes": 6116,
+      "classification": "Preservar",
+      "reason": "Arquivo de manuten??o/configura??o; nenhuma exclus?o comprovada."
+    },
+    {
+      "file": "vercel.json",
+      "bytes": 539,
+      "classification": "Preservar",
+      "reason": "Arquivo de manuten??o/configura??o; nenhuma exclus?o comprovada."
+    },
+    {
+      "file": "vite.config.js",
+      "bytes": 523,
+      "classification": "Preservar",
+      "reason": "Arquivo de manuten??o/configura??o; nenhuma exclus?o comprovada."
+    }
+  ]
+}

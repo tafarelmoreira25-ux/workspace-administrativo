@@ -2,8 +2,8 @@ import { FormField, FormSection, Input } from "./components/common/FormControls"
 import { Activity, lazy, Suspense, useCallback, useEffect, useState, useTransition } from "react";
 import { supabase } from "./lib/supabase";
 import { resolverTipoAcesso } from "./lib/userAccess";
-import TreinamentosOperacionais from "./components/TreinamentosOperacionais";
 import "./App.css";
+const TreinamentosOperacionais = lazy(() => import("./components/TreinamentosOperacionais"));
 const GeradorDocumentos = lazy(() => import("./GeradorDocumentos"));
 const EsteiraProcessualPlatino = lazy(() => import("./components/esteira/EsteiraProcessualPlatino"));
 const ClientesModule = lazy(() => import("./components/clientes/ClientesModule"));
@@ -491,7 +491,6 @@ function Workspace({ usuario, onLogout, showToast }) {
       <header className="topbar">
         <div>
           <h1>{rotuloAtual}</h1>
-          <p>Gestão operacional do escritório em um fluxo único.</p>
         </div>
         <div className="global-search">
           {aba === "clientes" ? <><UiIcon name="busca" size={17} /><Input type="search" value={buscaModulo} onChange={(evento) => setBuscaModulo(evento.target.value)} placeholder="Buscar cliente, CPF, ID CRM ou processo..." aria-label="Buscar clientes" /></> : <Suspense fallback={<><UiIcon name="busca" size={17} /><Input type="search" placeholder="Buscar cliente, CPF, ID, processo ou banco..." aria-label="Busca global" /></>}><GlobalSearch onSelect={selecionarResultadoBusca} /></Suspense>}
@@ -511,7 +510,7 @@ function Workspace({ usuario, onLogout, showToast }) {
       {abasVisitadas.includes("processual") && <Activity mode={aba === "processual" ? "visible" : "hidden"}><Suspense fallback={<section className="panel">Carregando Processual...</section>}><CarteiraProcessual showToast={showToast} usuario={usuario} processoInicialId={processosSelecionados.processual} modo="judicial" /></Suspense></Activity>}
       {abasVisitadas.includes("agenda-atividades") && <Activity mode={aba === "agenda-atividades" ? "visible" : "hidden"}><Suspense fallback={<section className="panel">Carregando agenda...</section>}><OperacionalProcessualModule usuario={usuario} showToast={showToast} initialView="agenda" /></Suspense></Activity>}
       {abasVisitadas.includes("indicadores") && <Activity mode={aba === "indicadores" ? "visible" : "hidden"}><Suspense fallback={<section className="panel">Carregando indicadores...</section>}><GerencialProcessualModule usuario={usuario} showToast={showToast} initialView="indicadores" onNavigate={navegar} /></Suspense></Activity>}
-      {abasVisitadas.includes("treinamentos") && <Activity mode={aba === "treinamentos" ? "visible" : "hidden"}><TreinamentosOperacionais usuario={usuario} /></Activity>}
+      {abasVisitadas.includes("treinamentos") && <Activity mode={aba === "treinamentos" ? "visible" : "hidden"}><Suspense fallback={<section className="panel">Carregando treinamentos...</section>}><TreinamentosOperacionais usuario={usuario} /></Suspense></Activity>}
       {aba === "feedbacks" && <section className="panel"><h2>Meus feedbacks</h2><button className="btn-secondary" onClick={carregarFeedbacks}>Atualizar</button><ListaFeedbacks feedbacks={feedbacks} /></section>}
       {placeholderTextos[aba] && <PlaceholderModulo titulo={placeholderTextos[aba][0]} descricao={placeholderTextos[aba][1]} />}
     </main>

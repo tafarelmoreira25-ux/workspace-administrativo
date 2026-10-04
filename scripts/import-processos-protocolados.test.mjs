@@ -5,8 +5,24 @@ import {
   normalizeProcessNumber,
   parseDistributionDate,
   prepareSource,
+  samples,
   splitParties,
 } from "./import-processos-protocolados.mjs";
+
+test("o relatório seleciona a amostra incompleta sem interromper a finalização da importação", () => {
+  const primeiro = { cliente_id: "1", status_categoria: "tramitando", fontes_linhas: [2], incompleto: false };
+  const incompleto = { cliente_id: "1", status_categoria: "arquivado", fontes_linhas: [3, 4], incompleto: true };
+  const resultado = samples([primeiro, incompleto]);
+  assert.equal(resultado.incompleto, incompleto);
+  assert.equal(resultado.tramitando, primeiro);
+  assert.equal(resultado.arquivado, incompleto);
+  assert.equal(resultado.processo_duplicado_na_fonte, incompleto);
+  assert.equal(resultado.inicio_da_fonte, primeiro);
+  assert.equal(resultado.final_da_fonte, incompleto);
+  assert.deepEqual(resultado.cliente_com_multiplos_processos, [primeiro, incompleto]);
+  assert.equal(samples([primeiro]).incompleto, null);
+  assert.equal(samples([]).incompleto, null);
+});
 
 test("normaliza número CNJ sem inventar identificador", () => {
   assert.equal(normalizeProcessNumber(" 4011007-41.2025.8.26.0002. "), "4011007-41.2025.8.26.0002");
