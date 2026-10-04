@@ -1,3 +1,6 @@
+import AcompanhamentoReport from "./components/common/AcompanhamentoReport";
+import DetailWindow from "./components/common/DetailWindow";
+import ActionMenu from "./components/common/ActionMenu";
 import { FormActions, FormField, FormGrid, FormSection, Input, Select, Textarea } from "./components/common/FormControls";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { supabase, invalidarConsultas } from "./lib/supabase";
@@ -430,7 +433,6 @@ export default function CarteiraProcessual({ showToast, usuario, processoInicial
     setRegistrando(false);
     void carregar();
   }
-  if (carteiraExtrajudicial && processo) return <FichaProcessual key={processo.id} usuario={usuario} showToast={showToast} onOpenProcess={abrirProcessoDaFicha} processo={processo} cliente={clienteProcesso} atualizarTarefa={atualizarTarefa} excluirTarefa={excluirTarefa} timeline={timeline} registrando={registrando} setRegistrando={setRegistrando} movimento={movimento} setMovimento={setMovimento} acao={acao} setAcao={setAcao} concluir={concluirMovimentacao} atualizarMovimentacao={atualizarMovimentacao} excluirMovimentacao={excluirMovimentacao} encaminharAoProtocolo={encaminharAoProtocolo} salvando={salvando} sincronizarDataJud={sincronizarDataJud} sincronizandoDataJud={sincronizandoDataJud} salvarInformacoes={salvarInformacoes} salvandoInformacoes={salvandoInformacoes} voltar={fecharAcompanhamento} />;
 
   return <>
     <section className="portfolio-process-section clientes-list-panel">
@@ -465,7 +467,7 @@ export default function CarteiraProcessual({ showToast, usuario, processoInicial
       </div>}
       <Pagination pagina={pagina} total={total} tamanho={tamanhoPagina} onChange={setPagina} rotulo="registros" />
     </section>
-    {!carteiraExtrajudicial && (abrindoProcesso !== null || processo) ? <AcompanhamentoModal onClose={fecharAcompanhamento}>{processo ? <FichaProcessual key={processo.id} usuario={usuario} showToast={showToast} onOpenProcess={abrirProcessoDaFicha} processo={processo} cliente={clienteProcesso} atualizarTarefa={atualizarTarefa} excluirTarefa={excluirTarefa} timeline={timeline} registrando={registrando} setRegistrando={setRegistrando} movimento={movimento} setMovimento={setMovimento} acao={acao} setAcao={setAcao} concluir={concluirMovimentacao} atualizarMovimentacao={atualizarMovimentacao} excluirMovimentacao={excluirMovimentacao} encaminharAoProtocolo={encaminharAoProtocolo} salvando={salvando} sincronizarDataJud={sincronizarDataJud} sincronizandoDataJud={sincronizandoDataJud} salvarInformacoes={salvarInformacoes} salvandoInformacoes={salvandoInformacoes} voltar={fecharAcompanhamento} /> : <p role="status">Carregando acompanhamento...</p>}</AcompanhamentoModal> : null}
+    {(abrindoProcesso !== null || processo) ? <DetailWindow entityId={processo?.id || abrindoProcesso} context={carteiraExtrajudicial ? "extrajudicial" : "processual"} title={carteiraExtrajudicial ? "Acompanhamento extrajudicial" : "Acompanhamento processual"} onClose={fecharAcompanhamento}>{processo ? <FichaProcessual key={processo.id} usuario={usuario} showToast={showToast} onOpenProcess={abrirProcessoDaFicha} processo={processo} cliente={clienteProcesso} atualizarTarefa={atualizarTarefa} excluirTarefa={excluirTarefa} timeline={timeline} registrando={registrando} setRegistrando={setRegistrando} movimento={movimento} setMovimento={setMovimento} acao={acao} setAcao={setAcao} concluir={concluirMovimentacao} atualizarMovimentacao={atualizarMovimentacao} excluirMovimentacao={excluirMovimentacao} encaminharAoProtocolo={encaminharAoProtocolo} salvando={salvando} sincronizarDataJud={sincronizarDataJud} sincronizandoDataJud={sincronizandoDataJud} salvarInformacoes={salvarInformacoes} salvandoInformacoes={salvandoInformacoes} voltar={fecharAcompanhamento} /> : <p role="status">Carregando acompanhamento...</p>}</DetailWindow> : null}
     {cadastroAberto ? <FormularioNovoProcesso form={novoProcesso} setForm={setNovoProcesso} salvando={salvandoCadastro} erro={cadastroErro} naturezaFixa={carteiraExtrajudicial ? "Extrajudicial" : "Judicial"} onSubmit={cadastrarProcesso} onClose={() => { setCadastroAberto(false); setCadastroErro(""); }} /> : null}
   </>;
 }
@@ -481,11 +483,15 @@ function SeletorEspecialista({ value, onChange, required = false }) {
 }
 
 function FichaProcessual({ usuario, showToast, onOpenProcess, processo, cliente, atualizarTarefa, excluirTarefa, timeline, registrando, setRegistrando, movimento, setMovimento, acao, setAcao, concluir, atualizarMovimentacao, excluirMovimentacao, encaminharAoProtocolo, salvando, sincronizarDataJud, sincronizandoDataJud, salvarInformacoes, salvandoInformacoes, voltar }) {
+  const [abaAcompanhamento, setAbaAcompanhamento] = useState("historico");
   const [editandoInformacoes, setEditandoInformacoes] = useState(false);
   const [informacoes, setInformacoes] = useState(null);
   const [registroEditando, setRegistroEditando] = useState(null);
   const [encaminhamento, setEncaminhamento] = useState(null);
   const [maisRecentesPrimeiro, setMaisRecentesPrimeiro] = useState(true);
+  const [paginaHistorico, setPaginaHistorico] = useState(1);
+  const paginaAtual = Math.min(paginaHistorico, Math.max(1, Math.ceil(timeline.length / 8)));
+  const timelinePaginada = [...timeline].sort((a, b) => ordenarTimelineProcessual(a, b, maisRecentesPrimeiro)).slice((paginaAtual - 1) * 8, paginaAtual * 8);
   const extrajudicial = ehExtrajudicial(processo);
   const protocoloExtrajudicial = numeroProtocoloExtrajudicial(processo);
 
@@ -551,15 +557,12 @@ function FichaProcessual({ usuario, showToast, onOpenProcess, processo, cliente,
         <span className="eyebrow">Ficha do cliente · {extrajudicial ? "Ação extrajudicial" : "Processo judicial"}</span>
         <div className="process-name-with-protocol"><h2>{cliente?.nome_completo || processo.nome_cliente}</h2>{protocoloExtrajudicial ? <b className="extrajudicial-protocol">Protocolo {protocoloExtrajudicial}</b> : null}</div>
       </div>
-      <details className="processual-actions-menu">
-        <summary aria-label="Abrir ações" title="Ações">•••</summary>
-        <div>
+      <ActionMenu className="processual-actions-menu">
           <button onClick={iniciarEdicao} disabled={editandoInformacoes || salvandoInformacoes} type="button">Editar informações</button>
           <button onClick={() => setRegistrando(true)} type="button">Registrar movimentação</button>
           {extrajudicial ? <button onClick={iniciarEncaminhamento} disabled={salvando} type="button">Encaminhar para Protocolos</button> : null}
           {!extrajudicial && processo.numero_processo ? <button disabled={sincronizandoDataJud} onClick={sincronizarDataJud} type="button">{sincronizandoDataJud ? "Consultando DataJud..." : "Consultar DataJud"}</button> : null}
-        </div>
-      </details>
+        </ActionMenu>
     </header> : null}
     {!cliente ? <dl className="processual-cliente-topo">
       <div><dt>CPF</dt><dd>{cliente?.cpf || processo.cpf_cliente || "Não informado"}</dd></div>
@@ -568,7 +571,7 @@ function FichaProcessual({ usuario, showToast, onOpenProcess, processo, cliente,
       <div><dt>Responsável</dt><dd>{processo.responsavel || cliente?.responsavel || "Não informado"}</dd></div>
     </dl> : null}
     <div className="processual-contexto">
-      {cliente ? <details className="processual-actions-menu"><summary aria-label="Abrir ações do processo" title="Ações do processo">•••</summary><div><button onClick={iniciarEdicao} disabled={editandoInformacoes || salvandoInformacoes} type="button">Editar informações do processo</button><button onClick={() => setRegistrando(true)} type="button">Registrar movimentação</button>{extrajudicial ? <button onClick={iniciarEncaminhamento} disabled={salvando} type="button">Encaminhar para Protocolos</button> : <button disabled={sincronizandoDataJud} onClick={sincronizarDataJud} type="button">Consultar DataJud</button>}</div></details> : null}
+      {cliente ? <ActionMenu className="processual-actions-menu"><button onClick={iniciarEdicao} disabled={editandoInformacoes || salvandoInformacoes} type="button">Editar informações do processo</button><button onClick={() => setRegistrando(true)} type="button">Registrar movimentação</button>{extrajudicial ? <button onClick={iniciarEncaminhamento} disabled={salvando} type="button">Encaminhar para Protocolos</button> : <button disabled={sincronizandoDataJud} onClick={sincronizarDataJud} type="button">Consultar DataJud</button>}</ActionMenu> : null}
       {!extrajudicial ? <span><b>Número do processo:</b> {processo.numero_processo || "Não informado"}</span> : null}
       <span><b>Parte contrária:</b> {processo.reu || processo.banco_reu || "Não informada"}</span>
     </div>
@@ -591,12 +594,12 @@ function FichaProcessual({ usuario, showToast, onOpenProcess, processo, cliente,
       <FormActions><button className="btn-secondary" onClick={() => setEncaminhamento(null)} disabled={salvando} type="button">Cancelar</button><button className="btn-primary" disabled={salvando} type="submit">{salvando ? "Encaminhando..." : "Enviar para Protocolos"}</button></FormActions>
     </FormSection> : null}
     {registrando ? <FormularioMovimentacao movimento={movimento} setMovimento={setMovimento} acao={acao} setAcao={setAcao} concluir={concluir} salvando={salvando} cancelar={() => setRegistrando(false)} /> : null}
-    <section className="processual-timeline"><div className="processual-progress-title"><div><h3>Progresso da ação</h3><p>Jornada processual organizada por fase.</p></div><div className="processual-timeline-order"><FormField><span>Ordem do histórico</span><Select value={maisRecentesPrimeiro ? "recentes" : "antigos"} onChange={(e) => setMaisRecentesPrimeiro(e.target.value === "recentes")}><option value="recentes">Mais recentes primeiro</option><option value="antigos">Mais antigos primeiro</option></Select></FormField><strong>{timeline.length} {timeline.length === 1 ? "registro" : "registros"}</strong></div></div>{timeline.length ? agruparTimelineProcessual(timeline, maisRecentesPrimeiro).map((fase) => <section className="timeline-phase" key={fase.id}><header className="timeline-phase-header"><div><strong>{fase.titulo}</strong>{fase.subtitulo ? <span>{fase.subtitulo}</span> : null}</div><small>{fase.itens.length} {fase.itens.length === 1 ? "movimentação" : "movimentações"}</small></header><div className="timeline-phase-list">{fase.itens.map((item) => { const automatico = ["escavador", "datajud"].includes(item.origem); return <article className={`timeline-item timeline-done timeline-${automatico ? "automatico" : "manual"}`} key={item.id}>{item.data ? <time dateTime={item.data}>{dataBR(item.data)}</time> : null}<div><header><strong>{item.titulo}</strong><div className="timeline-header-actions">{item.possuiAnexo ? <span className="timeline-attachment" title="Anexo disponível no Drive do cliente" aria-label="Anexo disponível no Drive do cliente">Anexo</span> : null}{automatico ? <span className="timeline-badge">{item.origem === "datajud" ? "DataJud/CNJ" : "Captura automática"}</span> : null}{(item.movimentacao || item.tarefa) && !automatico ? <details className="timeline-actions-menu"><summary aria-label="Ações do registro" title="Ações">•••</summary><div><button disabled={salvando} onClick={() => iniciarEdicaoRegistro(item)} type="button">Modificar</button><button className="danger" disabled={salvando} onClick={() => void excluirRegistro(item)} type="button">Excluir</button></div></details> : null}</div></header>{registroEditando?.id === item.id ? <FormSection as="form" className="timeline-edit-form" onSubmit={concluirEdicaoRegistro}>{registroEditando.tarefa ? <CamposEdicaoAtividade registro={registroEditando} setRegistro={setRegistroEditando} /> : null}<FormField><span>{registroEditando.tarefa ? "Prazo/data" : "Data"}</span><Input required={Boolean(registroEditando.tarefa)} type="date" value={registroEditando.data} onChange={(e) => setRegistroEditando((atual) => ({ ...atual, data: e.target.value }))} /></FormField><FormField><span>Responsável</span><Input value={registroEditando.responsavel} onChange={(e) => setRegistroEditando((atual) => ({ ...atual, responsavel: e.target.value }))} /></FormField><div><button className="btn-secondary" disabled={salvando} onClick={() => setRegistroEditando(null)} type="button">Cancelar</button><button className="btn-primary" disabled={salvando} type="submit">{salvando ? "Salvando..." : "Salvar"}</button></div></FormSection> : <>{descricoesDiferentes(item.titulo, item.descricao) ? <p>{item.descricao}</p> : null}{item.detalhe ? <span>{item.detalhe}</span> : null}<small>{automatico ? "Registro automático, somente leitura" : `Responsável: ${item.responsavel || "Não informado"}`}</small></>}</div></article>; })}</div></section>) : <div className="empty-row">Nenhuma movimentação registrada.</div>}</section>
+    <section className="processual-timeline"><div className="processual-progress-title"><div><h3>Progresso da ação</h3><p>Jornada processual organizada por fase.</p></div><div className="processual-timeline-order"><FormField><span>Ordem do histórico</span><Select value={maisRecentesPrimeiro ? "recentes" : "antigos"} onChange={(e) => { setMaisRecentesPrimeiro(e.target.value === "recentes"); setPaginaHistorico(1); }}><option value="recentes">Mais recentes primeiro</option><option value="antigos">Mais antigos primeiro</option></Select></FormField><strong>{timeline.length} {timeline.length === 1 ? "registro" : "registros"}</strong></div></div>{timeline.length ? agruparTimelineProcessual(timelinePaginada, maisRecentesPrimeiro).map((fase) => <section className="timeline-phase" key={fase.id}><header className="timeline-phase-header"><div><strong>{fase.titulo}</strong>{fase.subtitulo ? <span>{fase.subtitulo}</span> : null}</div><small>{fase.itens.length} {fase.itens.length === 1 ? "movimentação" : "movimentações"}</small></header><div className="timeline-phase-list">{fase.itens.map((item) => { const automatico = ["escavador", "datajud"].includes(item.origem); return <article className={`timeline-item timeline-done timeline-${automatico ? "automatico" : "manual"}`} key={item.id}>{item.data ? <time dateTime={item.data}>{dataBR(item.data)}</time> : null}<div><header><strong>{item.titulo}</strong><div className="timeline-header-actions">{item.possuiAnexo ? <span className="timeline-attachment" title="Anexo disponível no Drive do cliente" aria-label="Anexo disponível no Drive do cliente">Anexo</span> : null}{automatico ? <span className="timeline-badge">{item.origem === "datajud" ? "DataJud/CNJ" : "Captura automática"}</span> : null}{(item.movimentacao || item.tarefa) && !automatico ? <ActionMenu className="timeline-actions-menu"><button disabled={salvando} onClick={() => iniciarEdicaoRegistro(item)} type="button">Modificar</button><button className="danger" disabled={salvando} onClick={() => void excluirRegistro(item)} type="button">Excluir</button></ActionMenu> : null}</div></header>{registroEditando?.id === item.id ? <FormSection as="form" className="timeline-edit-form" onSubmit={concluirEdicaoRegistro}>{registroEditando.tarefa ? <CamposEdicaoAtividade registro={registroEditando} setRegistro={setRegistroEditando} /> : null}<FormField><span>{registroEditando.tarefa ? "Prazo/data" : "Data"}</span><Input required={Boolean(registroEditando.tarefa)} type="date" value={registroEditando.data} onChange={(e) => setRegistroEditando((atual) => ({ ...atual, data: e.target.value }))} /></FormField><FormField><span>Responsável</span><Input value={registroEditando.responsavel} onChange={(e) => setRegistroEditando((atual) => ({ ...atual, responsavel: e.target.value }))} /></FormField><div><button className="btn-secondary" disabled={salvando} onClick={() => setRegistroEditando(null)} type="button">Cancelar</button><button className="btn-primary" disabled={salvando} type="submit">{salvando ? "Salvando..." : "Salvar"}</button></div></FormSection> : <>{descricoesDiferentes(item.titulo, item.descricao) ? <p>{item.descricao}</p> : null}{item.detalhe ? <span>{item.detalhe}</span> : null}<small>{automatico ? "Registro automático, somente leitura" : `Responsável: ${item.responsavel || "Não informado"}`}</small></>}</div></article>; })}</div></section>) : <div className="empty-row">Nenhuma movimentação registrada.</div>}<Pagination pagina={paginaAtual} total={timeline.length} tamanho={8} onChange={setPaginaHistorico} rotulo="movimentações" /></section>
   </section>;
   return cliente ? <>
     <button className="btn-secondary compact" onClick={voltar} disabled={salvando || salvandoInformacoes || sincronizandoDataJud} type="button">Voltar</button>
-    <ClientesModule fichaInline clienteFicha={cliente} processoAtual={processo} usuario={usuario} showToast={showToast} onOpenProcess={onOpenProcess}>{conteudo}</ClientesModule>
-  </> : conteudo;
+    <ClientesModule fichaInline clienteFicha={cliente} processoAtual={processo} timelineRelatorio={timeline} esferaRelatorio={extrajudicial ? "Extrajudicial" : "Processual"} usuario={usuario} showToast={showToast} onOpenProcess={onOpenProcess}>{conteudo}</ClientesModule>
+  </> : <><nav className="cliente-ficha-tabs" aria-label="Abas do acompanhamento"><button type="button" className={abaAcompanhamento === "historico" ? "active" : ""} onClick={() => setAbaAcompanhamento("historico")}>Histórico</button><button type="button" className={abaAcompanhamento === "relatorio" ? "active" : ""} onClick={() => setAbaAcompanhamento("relatorio")}>Relatório</button></nav>{abaAcompanhamento === "relatorio" ? <AcompanhamentoReport processo={processo} timeline={timeline} esfera={extrajudicial ? "Extrajudicial" : "Processual"} /> : conteudo}</>;
 }
 
 function FormularioNovoProcesso({ form, setForm, salvando, erro, naturezaFixa, onSubmit, onClose }) {
@@ -638,24 +641,4 @@ function CamposEdicaoAtividade({ registro, setRegistro }) {
     <FormField><span>Prioridade</span><Select value={registro.prioridade} onChange={alterar("prioridade")}>{["Baixa", "Normal", "Alta", "Crítica"].map((valor) => <option key={valor}>{valor}</option>)}</Select></FormField>
     <FormField><span>Status</span><Select value={registro.status} onChange={alterar("status")}>{["Pendente", "Em andamento", "Concluída", "Cancelada", "Atrasada"].map((valor) => <option key={valor}>{valor}</option>)}</Select></FormField>
   </>;
-}
-
-function AcompanhamentoModal({ children, onClose }) {
-  const dialog = useRef(null);
-  useEffect(() => {
-    const elemento = dialog.current;
-    const focoAnterior = document.activeElement;
-    const overflowAnterior = document.body.style.overflow;
-    elemento.showModal();
-    document.body.style.overflow = "hidden";
-    return () => {
-      elemento.close();
-      document.body.style.overflow = overflowAnterior;
-      focoAnterior?.focus();
-    };
-  }, []);
-  return <dialog ref={dialog} className="processual-acompanhamento-modal" aria-labelledby="acompanhamento-title" onCancel={(evento) => { evento.preventDefault(); onClose(); }}>
-    <header className="processual-modal-heading"><h2 id="acompanhamento-title">Acompanhamento processual</h2><button type="button" className="btn-secondary compact" aria-label="Fechar acompanhamento" onClick={onClose}>Fechar</button></header>
-    {children}
-  </dialog>;
 }

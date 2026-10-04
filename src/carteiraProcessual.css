@@ -910,3 +910,8 @@
 .processual-modal-heading { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 20px; }
 .processual-modal-heading h2 { font-size: 18px; margin: 0; }
 @media (max-width: 600px) { .processual-acompanhamento-modal { padding: 12px; } }
+
+.processual-timeline { max-height: none; overflow: visible; }
+.processual-contexto { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
+.processual-contexto > .processual-actions-menu { order: 10; margin-left: auto; }
+.processual-contexto > .processual-actions-menu > div { left: auto; right: 0; }

@@ -1,3 +1,5 @@
+import AcompanhamentoReport from "../common/AcompanhamentoReport";
+import DetailWindow from "../common/DetailWindow";
 import { FormActions, FormField, FormGrid, FormSection, Input, Select, Textarea } from "../common/FormControls";
 import { FormEvent, lazy, Suspense, useEffect, useMemo, useState } from "react";
 import { supabase } from "../../lib/supabase";
@@ -103,7 +105,7 @@ const RESULTADOS = [
 const JUSTICA_GRATUITA = ["Não analisada", "Deferida", "Indeferida"];
 const EMENDA = ["Não solicitada", "Solicitada", "Pendente", "Juntada", "Prazo decorrido", "Não se aplica"];
 const SIM_NAO = ["Todos", "Sim", "Não"];
-const ABAS_FICHA = ["Resumo", "Histórico", "Movimentações", "Tarefas e Prazos", "Atendimentos", "Documentos", "Ocorrências", "Relatórios", "Auditoria"];
+const ABAS_FICHA = ["Resumo", "Histórico", "Movimentações", "Tarefas e Prazos", "Atendimentos", "Documentos", "Ocorrências", "Relatório", "Auditoria"];
 const CATEGORIAS_TIMELINE = [
   "Movimentação processual",
   "Atendimento",
@@ -1008,6 +1010,7 @@ export default function PainelJudicial({
         </table>
       </div>
       {fichaAberta && (
+        <DetailWindow entityId={processoAberto?.id || "novo"} context="processual" title={modalCadastro ? "Novo processo" : "Ficha processual"} onClose={fecharFicha}>
         <section className="judicial-drawer process-drawer process-page-view" aria-label="Ficha do processo">
           <FormSection as="form" className="judicial-drawer-panel process-ficha" onSubmit={salvarProcesso}>
             <button className="modal-close" aria-label="Fechar ficha" title="Fechar" onClick={fecharFicha} type="button">×</button>
@@ -1216,6 +1219,7 @@ export default function PainelJudicial({
                   <ListaAtendimentosProcesso atendimentos={atendimentosProcesso} />
                 </FormSection>
               ) : null}
+              {abaFicha === "Relatório" ? <AcompanhamentoReport processo={processoAberto || {}} timeline={movimentacoes} esfera="Processual" /> : null}
               {abaFicha === "Auditoria" ? <FormSection className="process-form-section"><h4>Auditoria</h4>{auditoria.length === 0 ? <div className="empty-row">Nenhum registro de auditoria.</div> : auditoria.map((item) => <article className="audit-row" key={item.id}><strong>{item.campo}</strong><span>{item.valor_anterior || "vazio"} → {item.valor_novo || "vazio"}</span><small>{item.usuario || "Usuário"} · {formatarDataHora(item.created_at)}</small></article>)}</FormSection> : null}
               {abaFicha === "Documentos" ? (
                 <FormSection className="process-form-section">
@@ -1248,7 +1252,7 @@ export default function PainelJudicial({
                   </section>
                 </FormSection>
               ) : null}
-              {!["Resumo", "Histórico", "Movimentações", "Tarefas e Prazos", "Atendimentos", "Documentos", "Auditoria"].includes(abaFicha) ? <FormSection className="process-form-section"><h4>{abaFicha}</h4><div className="empty-row">Área preparada para vincular {abaFicha.toLowerCase()} do processo.</div></FormSection> : null}
+              {!["Resumo", "Histórico", "Movimentações", "Tarefas e Prazos", "Atendimentos", "Documentos", "Relatório", "Auditoria"].includes(abaFicha) ? <FormSection className="process-form-section"><h4>{abaFicha}</h4><div className="empty-row">Área preparada para vincular {abaFicha.toLowerCase()} do processo.</div></FormSection> : null}
             </div>
 
             <FormActions className="process-ficha-actions">
@@ -1260,6 +1264,7 @@ export default function PainelJudicial({
             </FormActions>
           </FormSection>
         </section>
+        </DetailWindow>
       )}
       {geradorAberto && processoAberto ? (
         <div className="document-generator-backdrop">

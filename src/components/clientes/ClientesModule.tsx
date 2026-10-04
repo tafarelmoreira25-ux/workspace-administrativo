@@ -1,3 +1,5 @@
+import AcompanhamentoReport from "../common/AcompanhamentoReport";
+import DetailWindow from "../common/DetailWindow";
 import { FormActions, FormField, FormGrid, FormSection, Input, Textarea } from "../common/FormControls";
 import { FormEvent, type ReactNode, lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { supabase, invalidarConsultas } from "../../lib/supabase";
@@ -94,6 +96,8 @@ type Props = {
   fichaInline?: boolean;
   clienteFicha?: Cliente | null;
   processoAtual?: ProcessoResumo | null;
+  timelineRelatorio?: Array<Record<string, unknown>>;
+  esferaRelatorio?: string;
   children?: ReactNode;
 };
 
@@ -178,7 +182,7 @@ function extrairNomeImportacao(linha: string) {
   return nome;
 }
 
-export default function ClientesModule({ usuario, showToast, buscaExterna, clienteInicialId, onOpenProcess, fichaInline = false, clienteFicha, processoAtual, children }: Props) {
+export default function ClientesModule({ usuario, showToast, buscaExterna, clienteInicialId, onOpenProcess, fichaInline = false, clienteFicha, processoAtual, timelineRelatorio, esferaRelatorio, children }: Props) {
   const [clientes, setClientes] = useState<ClienteListagem[]>([]);
   const [processos, setProcessos] = useState<ProcessoResumo[]>([]);
   const [documentos, setDocumentos] = useState<DocumentoResumo[]>([]);
@@ -654,8 +658,8 @@ export default function ClientesModule({ usuario, showToast, buscaExterna, clien
         ) : null}
 
         {clienteAberto ? (
-          <div className={fichaInline ? "cliente-ficha-inline" : "cliente-ficha-backdrop"} role="presentation" onMouseDown={(evento) => { if (!fichaInline && evento.target === evento.currentTarget) fecharFicha(); }}>
-          <section className="cliente-ficha-panel cliente-ficha-page" role={fichaInline ? "region" : "dialog"} aria-modal={fichaInline ? undefined : true} aria-label={`Ficha de ${clienteAberto.nome_completo}`}>
+          <DetailWindow inline={fichaInline} entityId={clienteAberto.id} context="clientes" title={`Ficha de ${clienteAberto.nome_completo}`} onClose={fecharFicha}>
+          <section className="cliente-ficha-panel cliente-ficha-page" role="region" aria-label={`Ficha de ${clienteAberto.nome_completo}`}>
             <header>
               {!fichaInline ? <button type="button" className="cliente-back-button" onClick={fecharFicha}>← Voltar para clientes</button> : null}
               <div className="cliente-ficha-heading">
@@ -678,9 +682,9 @@ export default function ClientesModule({ usuario, showToast, buscaExterna, clien
             </header>
 
             <nav className="cliente-ficha-tabs" aria-label="Abas da ficha do cliente">
-              {["resumo", "processos", "atendimentos", "documentos", "historico"].map((item) => (
+              {["resumo", "processos", "atendimentos", "documentos", "historico", "relatorio"].map((item) => (
                 <button key={item} type="button" className={abaFicha === item ? "active" : ""} onClick={() => setAbaFicha(item)}>
-                  {item === "historico" ? "Histórico" : item[0].toUpperCase() + item.slice(1)}
+                  {item === "relatorio" ? "Relatório" : item === "historico" ? "Histórico" : item[0].toUpperCase() + item.slice(1)}
                 </button>
               ))}
             </nav>
@@ -688,6 +692,7 @@ export default function ClientesModule({ usuario, showToast, buscaExterna, clien
             <div className="cliente-ficha-content">
               {erroFicha ? <div className="client-warning" role="alert">{erroFicha}</div> : null}
               {carregandoFicha ? <div className="empty-row">Carregando informações da ficha...</div> : null}
+              {abaFicha === "relatorio" ? processoAtual ? <AcompanhamentoReport cliente={clienteAberto} processo={processoAtual} timeline={timelineRelatorio || []} esfera={esferaRelatorio || "Processual"} /> : <section className="ficha-section"><p>Abra o acompanhamento de um processo ou protocolo para gerar o relatório com os dados da esfera correspondente.</p><button className="btn-secondary" type="button" onClick={() => setAbaFicha("processos")}>Ver processos e protocolos</button></section> : null}
               {abaFicha === "resumo" ? (
                 <section className="ficha-section">
                   <div className="ficha-resumo-grid">
@@ -808,7 +813,7 @@ export default function ClientesModule({ usuario, showToast, buscaExterna, clien
               {(abaFicha === "resumo" || abaFicha === "historico") ? children : null}
             </div>
           </section>
-          </div>
+          </DetailWindow>
         ) : null}
       </div>
 

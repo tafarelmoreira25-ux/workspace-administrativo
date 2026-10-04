@@ -21,7 +21,7 @@ function ambiente({ pendente = false, erroDetalhe = false, erroInsercao = false 
   let stateIndex = 0, refIndex = 0;
   const context = vm.createContext({
     React: { createElement: (type, props, ...children) => ({ type, props, children }) },
-    AbortController, console, crypto: { randomUUID: () => 'arquivo-id' },
+    DetailWindow: 'DetailWindow', AbortController, console, crypto: { randomUUID: () => 'arquivo-id' },
     window: { alert() {} }, invalidarConsultas() {},
     FormSection: 'FormSection', FormField: 'FormField', FormGrid: 'FormGrid', FormActions: 'FormActions', Input: 'Input', Select: 'Select', Textarea: 'Textarea',
     useState(initial) {
@@ -74,7 +74,7 @@ function ambiente({ pendente = false, erroDetalhe = false, erroInsercao = false 
 }
 async function listar(env) { env.render().effects[0](); await tick(); return env.render().tree; }
 function abrir(tree, id) { elementos(tree).find(n => n.props?.['aria-label'] === `Abrir ficha de Cliente ${id}`).props.onClick(); }
-function drawer(tree) { return elementos(tree).find(n => n.props?.className === 'homologacao-drawer'); }
+function drawer(tree) { return elementos(tree).find(n => n.type === 'DetailWindow'); }
 function campo(tree, label) { const node = elementos(tree).find(n => n.type === 'FormField' && elementos(n).some(c => c.type === 'span' && c.children.includes(label))); return elementos(node).find(n => ['Input','Select','Textarea'].includes(n.type)); }
 
 test('lista busca só resumo, sem históricos nem cadastros auxiliares', async () => {
@@ -102,7 +102,7 @@ test('fechar e abrir outra ficha ignora respostas atrasadas e não mistura hist�
   env.resolver('b'); await tick();
   env.resolver('a'); await tick();
   const ficha = drawer(env.render().tree);
-  assert.equal(ficha.props.label, 'Ficha de Cliente b');
+  assert.equal(ficha.props.title, 'Ficha de Cliente b');
   const overview = elementos(ficha).find(n => n.props?.value === 'Em negociação');
   assert.ok(overview);
 });

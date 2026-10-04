@@ -26,7 +26,7 @@ function ambiente({ detalhePendente = false, erroDetalhe = null } = {}) {
     React: { createElement: (type, props, ...children) => ({ type, props, children }) },
     AbortController, console,
     window: { setTimeout: () => 1, clearTimeout() {}, alert() {} },
-    lazy: () => 'Lazy', Suspense: 'Suspense', Pagination: 'Pagination',
+    lazy: () => 'Lazy', Suspense: 'Suspense', Pagination: 'Pagination', DetailWindow: 'DetailWindow',
     FormSection: 'FormSection', FormField: 'FormField', FormGrid: 'FormGrid', FormActions: 'FormActions', Input: 'Input', Textarea: 'Textarea',
     useState(initial) {
       const id = stateIndex++;

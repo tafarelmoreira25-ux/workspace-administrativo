@@ -1,0 +1,16 @@
+.detail-window { position: fixed; inset: 0; margin: auto; width: min(1120px, calc(100vw - 32px)); height: min(850px, calc(100dvh - 32px)); z-index: 800; display: flex; flex-direction: column; background: #fff; color: #1e293b; border: 1px solid #cbd5e1; border-radius: 14px; box-shadow: 0 24px 70px #0f172a40; overflow: hidden; }
+.detail-window[hidden] { display: none; }
+.detail-window.is-maximized { width: 100%; height: 100dvh; border-radius: 0; }
+.detail-window-titlebar { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 16px; background: #f1f5f9; border-bottom: 1px solid #e2e8f0; cursor: grab; touch-action: none; user-select: none; }
+.detail-window-titlebar:active { cursor: grabbing; }
+.detail-window-titlebar h2 { margin: 0; font-size: 15px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.detail-window-controls { display: flex; gap: 4px; }
+.detail-window-controls button, .detail-window-dock button { border: 0; border-radius: 6px; background: transparent; color: inherit; padding: 6px 12px; cursor: pointer; font-size: 20px; }
+.detail-window-controls button:hover { background: #e2e8f0; }
+.detail-window-controls button:last-child:hover { background: #fee2e2; color: #b91c1c; }
+.detail-window-content { flex: 1; min-height: 0; overflow: auto; padding: 20px; }
+.detail-window-content .cliente-ficha-panel, .detail-window-content .homologacao-drawer, .detail-window-content .process-page-view { width: 100%; max-height: none; height: auto; position: static; border: 0; box-shadow: none; margin: 0; }
+.detail-window-content .cliente-ficha-content { max-height: none; overflow: visible; }
+.detail-window-dock { position: fixed; bottom: 12px; right: 16px; z-index: 800; display: flex; max-width: calc(100vw - 32px); border: 1px solid #cbd5e1; border-radius: 10px; background: #f1f5f9; box-shadow: 0 4px 20px #0f172a30; }
+.detail-window-dock button:first-child { font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+@media (max-width: 600px) { .detail-window { width: calc(100vw - 16px); height: calc(100dvh - 16px); } .detail-window-content { padding: 10px; } }
