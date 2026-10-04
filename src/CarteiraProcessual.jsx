@@ -144,7 +144,10 @@ export default function CarteiraProcessual({ showToast, usuario, processoInicial
       const { data, error } = await supabase.functions.invoke("processual-datajud-sync", { body: { processo_id: processo.id } });
       let detalhe = "";
       if (error?.context && typeof error.context.json === "function") {
-        try { detalhe = (await error.context.clone().json())?.erro || ""; } catch { detalhe = ""; }
+        try {
+          const resposta = await error.context.clone().json();
+          detalhe = [resposta?.erro, resposta?.detalhe].filter(Boolean).join(" ");
+        } catch { detalhe = ""; }
       }
       if (error) showToast?.(`Não foi possível consultar o DataJud: ${detalhe || error.message}`);
       else if (data?.erro) showToast?.(data.detalhe ? `${data.erro} ${data.detalhe}` : data.erro);

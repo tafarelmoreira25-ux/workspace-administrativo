@@ -99,7 +99,7 @@ Deno.serve(async (request) => {
       descricao: titulo,
       titulo,
       tipo: "andamento",
-      categoria: "Movimentacao processual",
+      categoria: "Movimentação processual",
       origem: "datajud",
       fonte: `DataJud/CNJ - ${source.tribunal || alias.toUpperCase()}`,
     };
