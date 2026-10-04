@@ -12,6 +12,35 @@ import { gerarPdfModelo, pendenciaModeloOriginal } from "./documentPdf.js";
 globalThis.DOMParser = DOMParser;
 globalThis.XMLSerializer = XMLSerializer;
 
+test('substitui Aptos ausente e fontes locais indisponíveis preservando as variantes', async () => {
+  const w = 'http://schemas.openxmlformats.org/wordprocessingml/2006/main';
+  const bytes = zipSync({
+    'word/document.xml': strToU8(`<w:document xmlns:w="${w}"><w:body><w:p>${['', '<w:b/>', '<w:i/>', '<w:b/><w:i/>'].map(estilo => `<w:r><w:rPr><w:rFonts w:ascii="Aptos"/>${estilo}<w:sz w:val="24"/></w:rPr><w:t>Texto </w:t></w:r>`).join('')}</w:p><w:sectPr/></w:body></w:document>`),
+  });
+  const fetchOriginal = globalThis.fetch;
+  const drawText = PDFPage.prototype.drawText;
+  const textos = [];
+  globalThis.fetch = async path => String(path).includes('calibri')
+    ? new Response('', { status: 404 })
+    : new Response(await readFile(new URL('../../public' + path, import.meta.url)));
+  PDFPage.prototype.drawText = function(texto, opcoes) {
+    textos.push({ fonte: opcoes.font.name, tamanho: opcoes.size });
+    return drawText.call(this, texto, opcoes);
+  };
+  try {
+    const pdf = await PDFDocument.load(await gerarPdfDoWordOficial(bytes));
+    assert.equal(pdf.getPageCount(), 1);
+    assert.equal(textos.length, 4);
+    assert.ok(textos.every(t => /Arial/i.test(t.fonte) && t.tamanho === 12));
+    assert.match(textos[1].fonte, /Bold/);
+    assert.match(textos[2].fonte, /Italic/);
+    assert.match(textos[3].fonte, /BoldItalic/);
+  } finally {
+    globalThis.fetch = fetchOriginal;
+    PDFPage.prototype.drawText = drawText;
+  }
+});
+
 function dadosTeste(modelo, genero) {
   const dados = Object.fromEntries(modelo.campos.map((c) => [c.nome,
     c.tipo === "date" ? "2026-10-04" : c.tipo === "number" ? "12" : c.tipo === "select" ? c.opcoes[0].valor :
@@ -30,7 +59,7 @@ function dadosTeste(modelo, genero) {
   };
 }
 
-test("modelos preservam a estrutura original e bloqueiam PDF sem as fontes originais", async (t) => {
+test("modelos preservam a estrutura original e geram PDF com fontes disponíveis", async (t) => {
   const fetchOriginal = globalThis.fetch;
   const chamadas = [];
   globalThis.fetch = async (path) => {
@@ -63,7 +92,7 @@ test("modelos preservam a estrutura original e bloqueiam PDF sem as fontes origi
           try {
             pdfBytes = await gerarPdfModelo(dados, modelo);
           } catch (error) {
-            assert.match(error.message, /Geração bloqueada: (a fonte original|o modelo declara)/);
+            assert.match(error.message, /Geração bloqueada: o modelo declara/);
           }
           if (pdfBytes) {
             const pdf = await PDFDocument.load(pdfBytes);

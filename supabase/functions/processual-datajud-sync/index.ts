@@ -1,4 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { aliasTribunal, apenasDigitos, consultarDataJud, DataJudError } from "./datajud.ts";
 
 type Processo = { id: string; numero_processo: string | null; tribunal: string | null };
 type DataJudMovimento = { codigo?: number | string; nome?: string; dataHora?: string };
@@ -11,18 +12,11 @@ type DataJudSource = {
   movimentos?: DataJudMovimento[];
 };
 
-const DATAJUD_PUBLIC_KEY = "cDZHYzlZa0JadVREZDJCendQbXY6SkJlTzNjLV9TRENyQk1RdnFKZGRQdw==";
 const headers = {
   "Content-Type": "application/json; charset=utf-8",
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-};
-const estaduais: Record<string, string> = {
-  "01": "tjac", "02": "tjal", "03": "tjam", "04": "tjap", "05": "tjba", "06": "tjce",
-  "07": "tjdft", "08": "tjes", "09": "tjgo", "10": "tjma", "11": "tjmg", "12": "tjms",
-  "13": "tjmt", "14": "tjpa", "15": "tjpb", "16": "tjpe", "17": "tjpi", "18": "tjpr",
-  "19": "tjrj", "20": "tjrn", "21": "tjrs", "22": "tjro", "23": "tjrr", "24": "tjsc",
-  "25": "tjse", "26": "tjsp", "27": "tjto",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
 function json(body: unknown, status = 200) {
@@ -31,26 +25,6 @@ function json(body: unknown, status = 200) {
 
 function limpar(valor: unknown, limite = 120) {
   return typeof valor === "string" ? valor.trim().slice(0, limite) : "";
-}
-
-function apenasDigitos(valor: unknown) {
-  return limpar(valor, 80).replace(/\D/g, "");
-}
-
-function aliasTribunal(processo: Processo) {
-  const tribunal = limpar(processo.tribunal, 40).toLowerCase().replace(/[^a-z0-9-]/g, "");
-  if (tribunal.startsWith("api_publica_")) return tribunal.replace("api_publica_", "");
-  if (/^(tj|trf|trt|tre-|tst|tse|stj|stm)/.test(tribunal)) return tribunal;
-
-  const cnj = apenasDigitos(processo.numero_processo);
-  if (cnj.length !== 20) return "";
-  const ramo = cnj.slice(13, 14);
-  const codigo = cnj.slice(14, 16);
-  if (ramo === "8") return estaduais[codigo] || "";
-  if (ramo === "4") return `trf${Number(codigo)}`;
-  if (ramo === "5") return `trt${Number(codigo)}`;
-  if (ramo === "6") return codigo === "00" ? "tse" : `tre-${codigo}`;
-  return "";
 }
 
 Deno.serve(async (request) => {
@@ -73,19 +47,21 @@ Deno.serve(async (request) => {
     .maybeSingle<Processo>();
   if (processoError) return json({ erro: "Falha ao localizar processo." }, 500);
   if (!processo?.numero_processo) return json({ erro: "Processo sem numero CNJ." }, 422);
+  const numero = apenasDigitos(processo.numero_processo);
+  if (numero.length !== 20) return json({ erro: "Numero CNJ invalido: informe os 20 digitos do processo." }, 422);
 
   const alias = aliasTribunal(processo);
   if (!alias) return json({ erro: "Nao foi possivel identificar o tribunal para consulta no DataJud." }, 422);
 
-  const resposta = await fetch(`https://api-publica.datajud.cnj.jus.br/api_publica_${alias}/_search`, {
-    method: "POST",
-    headers: { Authorization: `APIKey ${DATAJUD_PUBLIC_KEY}`, "Content-Type": "application/json" },
-    body: JSON.stringify({ size: 1, query: { match: { numeroProcesso: apenasDigitos(processo.numero_processo) } } }),
-  });
-  if (!resposta.ok) return json({ erro: "Falha na consulta ao DataJud.", status: resposta.status, tribunal: alias }, 502);
-
-  const data = await resposta.json();
-  const source = data?.hits?.hits?.[0]?._source as DataJudSource | undefined;
+  let source: DataJudSource | undefined;
+  try {
+    source = await consultarDataJud(alias, numero, Deno.env.get("DATAJUD_API_KEY")?.trim() || undefined);
+  } catch (error) {
+    if (error instanceof DataJudError) {
+      return json({ erro: error.message, status: error.upstreamStatus, tribunal: alias }, error.status);
+    }
+    return json({ erro: "Falha inesperada na consulta ao DataJud/CNJ.", tribunal: alias }, 502);
+  }
   if (!source) return json({ sincronizado: false, tribunal: alias, movimentos: 0, motivo: "Processo nao encontrado no DataJud." });
 
   const movimentos = (source.movimentos || []).slice(-80).map((movimento) => {

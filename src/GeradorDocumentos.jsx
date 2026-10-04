@@ -10,6 +10,7 @@ import {
 import { criarOpcoesIniciaisProcuracao, listarDocumentosProcuracao, mensagemConjuntoGerado } from "./lib/procuracaoConjunto";
 import { supabase } from "./lib/supabase";
 import { DOCUMENT_TEMPLATES, valorInicialCampo } from "./config/documentTemplates";
+import { UPDATED_DOCUMENT_MODELS } from "./config/updatedDocumentModels";
 import { gerarPdfModelo, pendenciaModeloOriginal } from "./lib/documentPdf";
 import "./documentWorkspace.css";
 
@@ -17,7 +18,8 @@ const MODELO_PROCURACAO = {
   id: "procuracao-ad-judicia", nome: "Procuração Ad Judicia", titulo: "Procuração Ad Judicia", modo: "procuracao",
   categoria: "procuracoes", categoriaNome: "Procurações", icone: "signature",
   descricao: "Procuração para representação judicial do cliente.",
-  templateDocx: "/modelos/procuracoes/procuracao-ad-judicia-2026.docx",
+  ...UPDATED_DOCUMENT_MODELS.procuracao,
+  conflitosFixos: [{ campo: "dataEmissao", tipo: "ano", esperado: "2025", trecho: "A procuração recebida fixa a assinatura em 2025." }],
   campos: [...DOCUMENT_TEMPLATES.find((modelo) => modelo.modo === "declaracao-hipossuficiencia").campos,
     { nome: "banco", rotulo: "Banco", obrigatorio: true },
     { nome: "numeroContrato", rotulo: "Número do contrato", obrigatorio: true }],

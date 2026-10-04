@@ -153,7 +153,9 @@ export default function CarteiraProcessual({ showToast, usuario, processoInicial
       else if (data?.erro) showToast?.(data.detalhe ? `${data.erro} ${data.detalhe}` : data.erro);
       else if (data?.sincronizado === false) showToast?.(data.motivo || "Processo não localizado no DataJud.");
       else showToast?.(`DataJud atualizado: ${data?.movimentos || 0} nova(s) movimentação(ões) importada(s).`);
-      await abrirProcesso(processo);
+      if (!error && data?.sincronizado === true) await abrirProcesso(processo);
+    } catch (error) {
+      showToast?.(`Não foi possível consultar o DataJud: ${error.message || "Falha de conexão. Tente novamente."}`);
     } finally {
       setSincronizandoDataJud(false);
     }

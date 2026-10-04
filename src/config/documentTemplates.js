@@ -1,3 +1,5 @@
+import { UPDATED_DOCUMENT_MODELS } from "./updatedDocumentModels.js";
+
 const campoGenero = {
   nome: "genero",
   rotulo: "Gênero gramatical",
@@ -174,11 +176,11 @@ export const DOCUMENT_TEMPLATES = [
     modo: "declaracao-isencao-irpf",
     titulo: "Declaração de Isenção do Imposto de Renda Pessoa Física (IRPF)",
     formato: "pdf",
-    templateDocx: "/modelos/declaracoes/declaracao-isencao-irpf-2026.docx",
+    ...UPDATED_DOCUMENT_MODELS["declaracao-isencao-irpf"],
     identidadeVisual: true,
     conflitosFixos: [
       { campo: "exercicios", tipo: "texto", esperado: "2023, 2024 e 2025", trecho: "O corpo do DOCX fixa os exercícios de 2023, 2024 e 2025." },
-      { campo: "dataDocumento", tipo: "ano", esperado: "2025", trecho: "A data de assinatura do DOCX original termina em 2025." },
+      { campo: "dataDocumento", tipo: "ano", esperado: "2026", trecho: "A data de assinatura do DOCX atualizado termina em 2026." },
     ],
     campos: [
       { nome: "nomeCliente", rotulo: "Nome completo", obrigatorio: true, largura: "total" },

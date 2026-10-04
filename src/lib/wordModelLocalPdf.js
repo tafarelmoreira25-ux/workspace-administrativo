@@ -140,21 +140,42 @@ async function fontesDoModelo(pdf, arquivos, estilos) {
   const necessarias = new Set();
   for (const parte of Object.keys(arquivos).filter(p => /^word\/(document|header\d*|footer\d*)\.xml$/.test(p))) {
     for (const p of Array.from(xml(arquivos, parte)?.getElementsByTagNameNS(W, "p") || [])) {
-      for (const s of lerParagrafo(p, estilos).segmentos.filter(s => s.texto.trim())) {
+      for (const s of lerParagrafo(p, estilos).segmentos.filter(s => s.texto)) {
         necessarias.add(String(s.familia || "").toLowerCase() + ':' + (s.negrito ? '1' : '0') + (s.italico ? '1' : '0'));
       }
     }
   }
+  const indisponiveis = new Set();
+  const carregar = async (chave) => {
+    if (fontes.has(chave)) return fontes.get(chave);
+    if (!DOCUMENT_FONTS[chave] || indisponiveis.has(chave)) return null;
+    try {
+      const resposta = await fetch('/assets/fonts/' + DOCUMENT_FONTS[chave]);
+      if (!resposta.ok) throw new Error(`HTTP ${resposta.status}`);
+      const fonte = await pdf.embedFont(await resposta.arrayBuffer(), { subset: true });
+      fontes.set(chave, fonte);
+      return fonte;
+    } catch {
+      indisponiveis.add(chave);
+      return null;
+    }
+  };
   for (const chave of necessarias) {
-    if (fontes.has(chave) || !DOCUMENT_FONTS[chave]) continue;
-    const resposta = await fetch('/assets/fonts/' + DOCUMENT_FONTS[chave]);
-    if (!resposta.ok) throw new Error('Gera\u00e7\u00e3o bloqueada: a fonte original ' + chave + ' n\u00e3o p\u00f4de ser carregada (' + resposta.status + ').');
-    fontes.set(chave, await pdf.embedFont(await resposta.arrayBuffer(), { subset: true }));
+    if (await carregar(chave)) continue;
+    const variante = chave.split(':').at(-1);
+    const alternativas = [...new Set([
+      ...['calibri', 'arial', 'times new roman'].map(f => `${f}:${variante}`),
+      ...Object.keys(DOCUMENT_FONTS).filter(k => k.endsWith(`:${variante}`)),
+    ])];
+    for (const alternativa of alternativas) {
+      const fonte = await carregar(alternativa);
+      if (fonte) { fontes.set(chave, fonte); break; }
+    }
   }
   return (s) => {
     const f = String(s.familia || "").toLowerCase(); const key = `${f}:${s.negrito ? 1 : 0}${s.italico ? 1 : 0}`;
     const fonte = fontes.get(key);
-    if (!fonte) throw new Error(`Geração bloqueada: a fonte original “${s.familia}” (${s.negrito ? "negrito" : "normal"}${s.italico ? ", itálico" : ""}) não está disponível no DOCX ou nos arquivos locais. Não é permitido substituir a fonte do modelo.`);
+    if (!fonte) throw new Error(`Não foi possível carregar uma fonte local disponível (${s.negrito ? "negrito" : "normal"}${s.italico ? ", itálico" : ""}) para gerar o PDF.`);
     return fonte;
   };
 }

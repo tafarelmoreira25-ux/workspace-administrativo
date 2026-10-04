@@ -131,16 +131,20 @@ function regrasProcuracaoDeclaracoes(d, modo) {
   if (modo === "procuracao") {
     return [
       regra("XXXXXXXXXXXXXXXXXX", d.nomeCliente, { contexto: "OUTORGANTE: " }),
+      regra("Nome do titular", d.nomeCliente),
       regra("nacionalidade", concordarCampoPerfil(d.nacionalidade, d)),
       regra("estado cívil", concordarCampoPerfil(d.estadoCivil, d)),
+      regra("estado civil", concordarCampoPerfil(d.estadoCivil, d)),
       regra("profissão", concordarCampoPerfil(d.profissao, d)),
       regra("portadora da Cédula", `${f.portador} da Cédula`),
+      regra("portador (a) da Cédula", `${f.portador} da Cédula`),
       regra("R.G. n° XXXXXXXXX", `R.G. n° ${t(d.rg)}`),
       regra("inscrito(a) no C.P.F./M.F. sob n° XXXXXXXXXX", `${f.inscrito} no C.P.F./M.F. sob n° ${t(d.cpfCnpj)}`),
       regra("endereço eletrônico: XXXXXXXXXXXXXXXXXX", `endereço eletrônico: ${t(d.email)}`),
       regra("residente e domiciliado na Rua XXXXXXXXXXXXXXXXXXXXXXXXX", `residente e ${f.domiciliado} na ${t(d.endereco)}`),
       regra("CEP: XXXXX-XXX", `CEP: ${t(d.cep)}`),
       regra("Banco XXXXXXXX", `Banco ${nomeBancoNoModelo(d.banco)}`),
+      regra("Banco ____________", `Banco ${nomeBancoNoModelo(d.banco)}`),
       regra("BANCO XXXXXXXX", `BANCO ${nomeBancoNoModelo(d.banco)}`),
       regra("contrato XXXXXXXXX", `contrato ${t(d.numeroContrato)}`),
       regra("Estado, XX de XXXXXXX de 2025.", `${t(d.cidade)}-${t(d.uf).toUpperCase()}, ${partesData(d.dataEmissao).dia} de ${partesData(d.dataEmissao).nomeMes} de 2025.`),
@@ -167,16 +171,22 @@ function regrasProcuracaoDeclaracoes(d, modo) {
 
   return [
     regra("Eu, XXXXXXXXXXXXXXXXXXXXXX", `Eu, ${t(d.nomeCliente)}`),
+    regra("nacionalidade", concordarCampoPerfil(d.nacionalidade, d)),
+    regra("estado civil", concordarCampoPerfil(d.estadoCivil, d)),
+    regra("profissão", concordarCampoPerfil(d.profissao, d)),
     regra("NACIONALIDADE", concordarCampoPerfil(d.nacionalidade, d).toUpperCase()),
     regra("ESTADO CIVIL", concordarCampoPerfil(d.estadoCivil, d).toUpperCase()),
     regra("PROFISSÃO", concordarCampoPerfil(d.profissao, d).toUpperCase()),
     regra("portadora da Cédula", `${f.portador} da Cédula`),
+    regra("portador(a) da Cédula", `${f.portador} da Cédula`),
     regra("R.G. nº XXXXXXXXXXXX", `R.G. nº ${t(d.rg)}`),
     regra("inscrito(a)", f.inscrito),
     regra("C.P.F./M.F. sob nº XXXXXXXXXXXX", `C.P.F./M.F. sob nº ${t(d.cpfCnpj)}`),
     regra("endereço eletrônico: XXXXXXXXXXXXXXXXXXXXXXXXXXX", `endereço eletrônico: ${t(d.email)}`),
     regra("residente e domiciliado na XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX", `residente e ${f.domiciliado} na ${t(d.endereco)}${d.cep ? ` – CEP: ${t(d.cep)}` : ""}`),
+    regra("isento(a)", f.isento, { contexto: "Declara ser " }),
     regra("Declara ser isento", `Declara ser ${f.isento}`),
+    regra("ESTADO-UF  XX DE XXXXXXXXXX DE 2026.", `${t(d.cidade)}-${t(d.uf).toUpperCase()}  ${partesData(dataDocumento).dia} DE ${partesData(dataDocumento).nomeMes.toUpperCase()} DE 2026.`),
     regra("ESTADO-UF  XX DE XXXXXXXXXX DE 2025.", `${t(d.cidade)}-${t(d.uf).toUpperCase()}  ${partesData(dataDocumento).dia} DE ${partesData(dataDocumento).nomeMes.toUpperCase()} DE 2025.`),
     regra("Nome do cliente", d.nomeCliente),
     regra("XXXXXXXXXX NOME XXXXXXXXXXX", t(d.nomeCliente).toUpperCase()),
@@ -268,11 +278,13 @@ function regrasModelosOriginais(d, modo) {
     regra("inscrito(a)", f.inscrito), regra("informado(a)", f.informado), regra("NOME DO CLIENTE", t(d.nomeCliente).toUpperCase()),
   ];
   if (modo === "declaracao-ausencia-carteira-trabalho") return [
+    regra("[Nome Completo Do Cliente]", d.nomeCliente),
     regra("[NOME COMPLETO DO CLIENTE]", t(d.nomeCliente).toUpperCase()), regra("[nacionalidade]", concordarCampoPerfil(d.nacionalidade, d)),
     regra("[estado civil]", concordarCampoPerfil(d.estadoCivil, d)), regra("[profissão]", concordarCampoPerfil(d.profissao, d)),
     regra("portador(a)", f.portador), regra("[número do RG]", d.rg), regra("inscrito(a)", f.inscrito), regra("[número do CPF]", d.cpfCnpj),
     regra("[e-mail]", d.email), regra("domiciliado(a)", f.domiciliado), regra("[endereço completo, número, bairro, cidade/UF, CEP]", d.endereco),
     regra("Estado, dia de mês de 2026.", `${t(d.localEmissao)}, ${data.dia} de ${data.nomeMes} de 2026.`), regra("NOME COMPLETO DO CLIENTE", t(d.nomeCliente).toUpperCase()),
+    regra("Nome Completo Do Cliente", d.nomeCliente),
   ];
   if (modo === "recibo-prestacao-servicos") return [
     regra("Nome do cliente", d.nomeCliente), regra("xxx.xxx.xxx-xx", d.cpfCnpj), regra("x.xxx,xx", null, { valores: [semReal(d.valorPagamento), semReal(d.valorPagamento)] }),
@@ -297,6 +309,7 @@ function regrasModelosOriginais(d, modo) {
 }
 
 function regrasDoModelo(dados, modelo) {
+  if (modelo.modo === "declaracao-isencao-comprovante-endereco") return regrasComprovanteEndereco(dados);
   if (["procuracao", "declaracao-hipossuficiencia", "declaracao-isencao-irpf"].includes(modelo.modo)) return regrasProcuracaoDeclaracoes(dados, modelo.modo);
   if (modelo.modo === "requerimento-postergacao-parcela") return regrasPostergacao(dados);
   if (["notificacao-extrajudicial", "citacao-judicial", "intimacao-extrajudicial", "chargeback", "termo-compromisso-pagamento", "termo-ciencia-seguranca", "declaracao-ausencia-carteira-trabalho", "recibo-prestacao-servicos", "relatorio-negociacao-homologacao", "termo-recompra"].includes(modelo.modo)) return regrasModelosOriginais(dados, modelo.modo);
@@ -306,6 +319,27 @@ function regrasDoModelo(dados, modelo) {
   if (modelo.modo.startsWith("notificacao-")) return regrasNotificacao(dados, modelo.modo);
   if (modelo.modo.startsWith("liminar-")) return regrasLiminar(dados);
   return [];
+}
+
+function regrasComprovanteEndereco(d) {
+  const f = formasPessoa(d);
+  const parentescos = { esposa: "Esposa", marido: "Marido", mae: "Mãe", pai: "Pai", outro: "Outro" };
+  return [
+    regra("____________________________________________", d.nomeCliente, { contexto: "Eu, " }),
+    regra("____________________________", d.cpfCnpj, { contexto: "CPF nº " }),
+    regra("__________________________", d.rg, { contexto: "" }),
+    regra("________________________________________________________________", d.endereco, { contexto: "Endereço: " }),
+    regra("______________________________", d.bairro, { contexto: "Bairro: " }),
+    regra("______________________________", d.cidade, { contexto: "Cidade: " }),
+    regra("______________________________", d.uf, { contexto: "Estado: " }),
+    regra("_________________________________", d.cep, { contexto: "CEP: " }),
+    ...Object.entries(parentescos).map(([valor, rotulo]) => regra(`(   ) ${rotulo}`, `(${d.parentesco === valor ? " X " : "   "}) ${rotulo}`)),
+    regra("___________________________________________", d.parentesco === "outro" ? d.outroParentesco : "—", { contexto: "Outro: " }),
+    regra("__________________________________________", d.nomeTitularComprovante, { contexto: "Nome do titular do comprovante: " }),
+    regra("___________________________________________", d.cpfTitularComprovante, { contexto: "CPF do titular do comprovante: " }),
+    regra("portador(a)", f.portador),
+    regra("Estado, dia de mês de 2026.", `${t(d.localEmissao)}, ${partesData(d.dataDocumento).dia} de ${partesData(d.dataDocumento).nomeMes} de 2026.`),
+  ];
 }
 
 function substituirNoParagrafo(paragrafo, item, indiceInicial) {
@@ -394,9 +428,15 @@ function removerMarcadoresAmarelos(xml) {
 
 export async function gerarWordOficial(dados, modelo) {
   if (!modelo?.templateDocx) throw new Error("Arquivo do modelo oficial não configurado.");
-  const resposta = await fetch(modelo.templateDocx);
+  const resposta = await fetch(modelo.templateDocx, { cache: "no-store" });
   if (!resposta.ok) throw new Error(`Não foi possível carregar o modelo oficial (${resposta.status}).`);
-  const arquivos = unzipSync(new Uint8Array(await resposta.arrayBuffer()));
+  const bytesOriginal = new Uint8Array(await resposta.arrayBuffer());
+  if (modelo.templateSha256) {
+    const digest = await crypto.subtle.digest("SHA-256", bytesOriginal);
+    const hash = Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("");
+    if (hash !== modelo.templateSha256) throw new Error("Geração bloqueada: o arquivo carregado diverge do modelo atualizado. Atualize os arquivos da aplicação.");
+  }
+  const arquivos = unzipSync(bytesOriginal);
   const regras = regrasDoModelo(dados, modelo);
   const contadores = {};
   for (const caminho of Object.keys(arquivos)) {
