@@ -4,7 +4,7 @@ import test from 'node:test';
 import vm from 'node:vm';
 import { transformWithOxc } from 'vite';
 import * as documentWorkspace from '../src/lib/documentWorkspace.js';
-import { DOCUMENT_TEMPLATES } from '../src/config/documentTemplates.js';
+import { DOCUMENT_TEMPLATES, valorInicialCampo } from '../src/config/documentTemplates.js';
 
 async function carregarCodigo(caminho) {
   const source = await readFile(new URL(caminho, import.meta.url), 'utf8');
@@ -153,10 +153,12 @@ function ambienteTela(code, componente, props, armazenados = new Map()) {
   let effects = [];
   let consultas = 0;
   const context = vm.createContext({
-    ...documentWorkspace, DOCUMENT_TEMPLATES, React, env: {},
-    FormSection: 'FormSection', FormField: 'FormField', Input: 'Input',
+    ...documentWorkspace, DOCUMENT_TEMPLATES, valorInicialCampo, React, env: {},
+    FormSection: 'FormSection', FormField: 'FormField', FormGrid: 'FormGrid', Input: 'Input', Select: 'Select', Textarea: 'Textarea',
+    navigator: { onLine: true }, useRef: value => ({ current: value }),
+    pendenciaModeloOriginal: () => '', listarDocumentosProcuracao: () => [], criarOpcoesIniciaisProcuracao: () => ({}),
     ModelLibraryModal: 'ModelLibraryModal', Suspense: 'Suspense',
-    window: { localStorage: { getItem: () => null } },
+    window: { ...alvoEventos(), localStorage: { getItem: () => null }, setTimeout() {}, clearTimeout() {}, confirm: () => true },
     localStorage: { getItem: key => armazenados.get(key), setItem: (key, value) => armazenados.set(key, value), removeItem: key => armazenados.delete(key) },
     useState(initial) {
       const id = index++;
@@ -187,37 +189,40 @@ function elementos(node) {
   return [node, ...elementos(node.children)];
 }
 
-test('gerador abre sem modelo, consulta ou PDF mesmo quando existe rascunho anterior', () => {
+test('gerador abre direto no formulário sem restaurar o rascunho nem gerar PDF', () => {
   const modelo = documentWorkspace.enriquecerModelos(DOCUMENT_TEMPLATES)[1];
-  const storage = new Map([[documentWorkspace.DOCUMENT_DRAFT_KEY, JSON.stringify({ schema: 2, salvoEm: new Date().toISOString(), dados: { modeloId: modelo.id } })], [documentWorkspace.DOCUMENT_HISTORY_KEY, '[{}]']]);
-  const env = ambienteTela(generatorCode, 'GeradorDocumentos', { usuario: {} }, storage);
+  const storage = new Map([[documentWorkspace.DOCUMENT_DRAFT_KEY, JSON.stringify({ schema: 2, salvoEm: new Date().toISOString(), dados: { modeloId: modelo.id, nomeContratante: 'Rascunho' } })], [documentWorkspace.DOCUMENT_HISTORY_KEY, '[{}]']]);
+  const entrada = ambienteTela(generatorCode, 'GeradorDocumentos', { usuario: {} }, storage).render().tree;
+  assert.equal(entrada.type.name, 'EditorDocumento');
+  const env = ambienteTela(generatorCode, 'EditorDocumento', entrada.props, storage);
+  let pdfCalls = 0;
+  env.context.gerarPdfModelo = () => { pdfCalls++; throw new Error('PDF inesperado'); };
   const { tree, effects } = env.render();
   effects.forEach(fn => fn());
-  const modal = elementos(tree).find(node => node.type === 'ModelLibraryModal');
-  assert.equal(modal.props.selecionadoId, null);
-  assert.equal(modal.props.aberto, false);
-  assert.equal(env.consultas(), 0);
+  const nodes = elementos(tree);
+  assert.ok(nodes.some(node => node.type === 'Select' && node.props.id === 'document-model'));
+  assert.ok(nodes.some(node => node.type === 'FormSection' && node.props.as === 'form' && typeof node.props.onSubmit === 'function'));
+  assert.ok(!nodes.some(node => node.type === 'iframe' || /Previa|Progresso|Etapas|Assistente/.test(node.type?.name || '')));
+  const nome = nodes.find(node => node.type?.name === 'CampoDocumento' && node.props.campo.nome === 'nomeContratante');
+  assert.notEqual(nome.props.valor, 'Rascunho');
+  nome.props.onChange({ target: { name: 'nomeContratante', type: 'text', value: 'Cliente novo' } });
+  env.render().effects.forEach(fn => fn());
+  assert.equal(pdfCalls, 0);
   assert.equal(storage.has(documentWorkspace.DOCUMENT_HISTORY_KEY), false);
   assert.equal(storage.has(documentWorkspace.DOCUMENT_DRAFT_KEY), true);
-  modal.props.onSelect(modelo);
-  const editor = env.render().tree;
-  assert.equal(editor.type.name, 'EditorDocumento');
-  assert.equal(editor.props.modeloInicial.id, modelo.id);
-  assert.equal(editor.props.dadosIniciais, undefined);
-  editor.props.onEncerrar();
-  assert.equal(elementos(env.render().tree).find(node => node.type === 'ModelLibraryModal').props.selecionadoId, null);
 });
 
 test('o rascunho só é restaurado por escolha explícita e rascunhos vencidos são descartados', () => {
   const modelo = documentWorkspace.enriquecerModelos(DOCUMENT_TEMPLATES)[1];
   const chave = documentWorkspace.DOCUMENT_DRAFT_KEY;
-  const storage = new Map([[chave, JSON.stringify({ schema: 2, salvoEm: new Date().toISOString(), dados: { modeloId: modelo.id, nomeCliente: 'Cliente de teste' } })]]);
-  const env = ambienteTela(generatorCode, 'GeradorDocumentos', {}, storage);
-  const retomar = elementos(env.render().tree).find(node => node.type === 'button' && node.children.includes('Retomar rascunho salvo'));
+  const storage = new Map([[chave, JSON.stringify({ schema: 2, salvoEm: new Date().toISOString(), dados: { modeloId: modelo.id, nomeContratante: 'Cliente de teste' } })]]);
+  const env = ambienteTela(generatorCode, 'EditorDocumento', { modeloInicial: modelo }, storage);
+  const retomar = elementos(env.render().tree).find(node => node.type === 'button' && node.children.includes('Retomar rascunho'));
   retomar.props.onClick();
-  assert.equal(env.render().tree.props.dadosIniciais.nomeCliente, 'Cliente de teste');
+  const restored = elementos(env.render().tree).find(node => node.type?.name === 'CampoDocumento' && node.props.campo.nome === 'nomeContratante');
+  assert.equal(restored.props.valor, 'Cliente de teste');
   storage.set(chave, JSON.stringify({ schema: 2, salvoEm: '2020-01-01', dados: { modeloId: modelo.id } }));
-  const nova = ambienteTela(generatorCode, 'GeradorDocumentos', {}, storage);
+  const nova = ambienteTela(generatorCode, 'EditorDocumento', { modeloInicial: modelo }, storage);
   nova.render().effects.forEach(fn => fn());
   assert.equal(storage.has(chave), false);
 });

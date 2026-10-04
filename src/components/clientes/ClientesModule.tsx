@@ -27,6 +27,10 @@ type Cliente = {
   updated_by: string | null;
 };
 
+type ClienteListagem = Pick<Cliente, "id" | "nome_completo" | "id_crm"> & {
+  esferas: Array<"extrajudicial" | "judicial">;
+};
+
 type ProcessoResumo = {
   id: string | number;
   cliente_id?: string | null;
@@ -119,10 +123,6 @@ const CAMPOS_HISTORICO_CLIENTE = "id,tipo,descricao,origem,processo_id,created_a
 const PROCESSO_FORM_INICIAL = { id: "", numero_processo: "", reu: "", banco_reu: "", tipo_acao: "", tribunal: "", comarca: "", vara: "", data_distribuicao: "", responsavel: "", situacao: "Em andamento", observacoes: "" };
 const ATENDIMENTO_FORM_INICIAL = { id: "", tipo: "Retorno", data: new Date().toISOString().slice(0, 10), hora: "", canal: "Telefone", descricao: "", responsavel: "" };
 
-function termoPostgrest(valor: string) {
-  return valor.trim().replace(/[,()"']/g, " ").replace(/\s+/g, " ").slice(0, 120);
-}
-
 function normalizarBusca(valor = "") {
   return String(valor)
     .normalize("NFD")
@@ -179,7 +179,7 @@ function extrairNomeImportacao(linha: string) {
 }
 
 export default function ClientesModule({ usuario, showToast, buscaExterna, clienteInicialId, onOpenProcess, fichaInline = false, clienteFicha, processoAtual, children }: Props) {
-  const [clientes, setClientes] = useState<Cliente[]>([]);
+  const [clientes, setClientes] = useState<ClienteListagem[]>([]);
   const [processos, setProcessos] = useState<ProcessoResumo[]>([]);
   const [documentos, setDocumentos] = useState<DocumentoResumo[]>([]);
   const [atendimentos, setAtendimentos] = useState<AtendimentoResumo[]>([]);
@@ -198,8 +198,9 @@ export default function ClientesModule({ usuario, showToast, buscaExterna, clien
   const [formulario, setFormulario] = useState(() => criarFormulario(null, usuario.nome || ""));
   const [carregando, setCarregando] = useState(true);
   const [carregandoFicha, setCarregandoFicha] = useState(false);
+  const [clienteCarregando, setClienteCarregando] = useState<Pick<Cliente, "id" | "nome_completo"> | null>(null);
+  const [erroFicha, setErroFicha] = useState("");
   const fichaRequisicao = useRef(0);
-  const fichaClienteId = useRef<string | number | null>(null);
   const clienteInicialCarregado = useRef<string | null>(null);
   const listaRequisicao = useRef(0);
   const [salvando, setSalvando] = useState(false);
@@ -224,35 +225,12 @@ export default function ClientesModule({ usuario, showToast, buscaExterna, clien
     const requisicao = ++listaRequisicao.current;
     setCarregando(true);
     setErro("");
-    const termo = termoPostgrest(buscaAplicada);
-    let clientesPorProcesso: Array<string | number> = [];
-
-    if (termo) {
-      const { data: encontrados } = await supabase
-        .from("processos")
-        .select("cliente_id")
-        .ilike("numero_processo", `%${termo}%`)
-        .not("cliente_id", "is", null)
-        .limit(500).abortSignal(signal);
-      if (signal.aborted) return;
-      clientesPorProcesso = [...new Set((encontrados || []).map((item) => item.cliente_id).filter(Boolean))] as Array<string | number>;
-    }
-
-    let consulta = supabase.from("clientes").select(CAMPOS_CLIENTE, { count: "exact" });
-    if (termo) {
-      const filtros = [
-        `nome_completo.ilike.%${termo}%`,
-        `cpf.ilike.%${termo}%`,
-        `id_crm.ilike.%${termo}%`,
-      ];
-      if (clientesPorProcesso.length) filtros.push(`id.in.(${clientesPorProcesso.join(",")})`);
-      consulta = consulta.or(filtros.join(","));
-    }
-
     const inicio = (pagina - 1) * CLIENTES_POR_PAGINA;
-    const { data, count, error } = await consulta
-      .order("nome_completo", { ascending: true })
-      .range(inicio, inicio + CLIENTES_POR_PAGINA - 1).abortSignal(signal);
+    const { data, error } = await supabase.rpc("listar_clientes_resumo", {
+      p_busca: buscaAplicada.trim().slice(0, 120),
+      p_limit: CLIENTES_POR_PAGINA,
+      p_offset: inicio,
+    }, { get: true }).abortSignal(signal);
     if (signal.aborted) return;
 
     if (requisicao !== listaRequisicao.current) return;
@@ -262,26 +240,15 @@ export default function ClientesModule({ usuario, showToast, buscaExterna, clien
       return;
     }
 
-    const paginaClientes = (data || []) as Cliente[];
-    setClientes(paginaClientes);
-    setTotalClientes(count || 0);
-    setCarregando(false);
-    const ids = paginaClientes.map((cliente) => cliente.id);
-    if (ids.length) {
-      const { data: processosPagina } = await supabase
-        .from("processos")
-        .select("id, cliente_id, nome_cliente, cpf_cliente, reu, banco_reu, numero_processo, fase_atual, situacao, resultado, status_judicial, justica_gratuita, responsavel, updated_at")
-        .in("cliente_id", ids)
-        .order("updated_at", { ascending: false }).abortSignal(signal);
-      if (signal.aborted) return;
-      if (requisicao !== listaRequisicao.current) return;
-      if (!processosPagina) return;
-      setProcessos((atuais) => [
-        ...(processosPagina as ProcessoResumo[]).map((item) => ({ ...atuais.find((atual) => String(atual.id) === String(item.id)), ...item })),
-        ...atuais.filter((item) => String(item.cliente_id) === String(fichaClienteId.current) && !ids.some((id) => String(id) === String(item.cliente_id))),
-      ]);
-    if (signal.aborted) return;
+    const resultado = data as { clientes: ClienteListagem[]; total: number };
+    const total = resultado?.total || 0;
+    if (pagina > Math.max(1, Math.ceil(total / CLIENTES_POR_PAGINA))) {
+      setPagina(Math.max(1, Math.ceil(total / CLIENTES_POR_PAGINA)));
+      return;
     }
+    setClientes(resultado?.clientes || []);
+    setTotalClientes(total);
+    setCarregando(false);
 
   }, [buscaAplicada, pagina]);
 
@@ -290,6 +257,8 @@ export default function ClientesModule({ usuario, showToast, buscaExterna, clien
     if (!fichaInline) void carregarDados(controller.signal);
     return () => controller.abort();
   }, [carregarDados, fichaInline]);
+
+  useEffect(() => () => { fichaRequisicao.current += 1; }, []);
 
   useEffect(() => {
     if (clienteFicha) void abrirFicha(clienteFicha);
@@ -307,9 +276,7 @@ export default function ClientesModule({ usuario, showToast, buscaExterna, clien
     if (!clienteInicialId) { clienteInicialCarregado.current = null; return; }
     if (clienteInicialCarregado.current === String(clienteInicialId)) return;
     clienteInicialCarregado.current = String(clienteInicialId);
-    void supabase.from("clientes").select(CAMPOS_CLIENTE).eq("id", clienteInicialId).maybeSingle().then(({ data }) => {
-      if (data) void abrirFicha(data as Cliente);
-    });
+    void abrirFicha({ id: clienteInicialId, nome_completo: "Cliente" });
   }, [clienteInicialId]);
 
   const clientesFiltrados = clientes;
@@ -384,18 +351,35 @@ export default function ClientesModule({ usuario, showToast, buscaExterna, clien
     setModalAberto(true);
   }
 
-  async function abrirFicha(cliente: Cliente) {
-    fichaClienteId.current = cliente.id;
-    setClienteAberto(cliente);
-    setAbaFicha("resumo");
-    setCarregandoFicha(true);
+  async function abrirFicha(resumo: Pick<Cliente, "id" | "nome_completo">) {
     const requisicao = ++fichaRequisicao.current;
+    setClienteCarregando(resumo);
+    setClienteAberto(null);
+    setErroFicha("");
+    setCarregandoFicha(true);
+    setProcessos([]);
     setDocumentos([]);
     setAtendimentos([]);
     setHistoricos([]);
+    const { data, error } = await supabase.from("clientes").select(CAMPOS_CLIENTE).eq("id", resumo.id).maybeSingle();
+    if (requisicao !== fichaRequisicao.current) return;
+    if (error || !data) {
+      setErroFicha(error ? `Não foi possível abrir a pasta: ${error.message}` : "Cliente não encontrado ou acesso indisponível.");
+      setCarregandoFicha(false);
+      return;
+    }
+    const cliente = data as Cliente;
+    setClienteCarregando(null);
+    setClienteAberto(cliente);
+    setAbaFicha("resumo");
+    setCarregandoFicha(true);
     // Libera os dados de cada consulta sem esperar a mais lenta.
     const aplicar = <T,>(consulta: PromiseLike<{ data: T[] | null; error: unknown }>, atualizar: (dados: T[]) => void) => Promise.resolve(consulta).then(({ data, error }) => {
-      if (requisicao === fichaRequisicao.current && !error) atualizar(data || []);
+      if (requisicao !== fichaRequisicao.current) return;
+      if (error) setErroFicha("Alguns dados da pasta não puderam ser carregados. Feche e abra a pasta para tentar novamente.");
+      else atualizar(data || []);
+    }).catch(() => {
+      if (requisicao === fichaRequisicao.current) setErroFicha("Alguns dados da pasta não puderam ser carregados. Feche e abra a pasta para tentar novamente.");
     });
     await Promise.allSettled([
       aplicar(supabase.from("processos").select("id, cliente_id, nome_cliente, cpf_cliente, reu, banco_reu, numero_processo, fase_atual, situacao, resultado, status_judicial, justica_gratuita, responsavel, tipo_acao, tribunal, comarca, vara, data_distribuicao, observacoes, documentacao_status, procuracao_status, protocolo_status, updated_at").eq("cliente_id", cliente.id).order("updated_at", { ascending: false }).limit(DETALHES_FICHA_LIMITE), (dados) => setProcessos((atuais) => [...dados, ...atuais.filter((item) => String(item.cliente_id) !== String(cliente.id) && !dados.some((processo) => String(processo.id) === String(item.id)))])),
@@ -409,8 +393,9 @@ export default function ClientesModule({ usuario, showToast, buscaExterna, clien
 
   function fecharFicha() {
     fichaRequisicao.current += 1;
-    fichaClienteId.current = null;
     setClienteAberto(null);
+    setClienteCarregando(null);
+    setErroFicha("");
     setCarregandoFicha(false);
   }
 
@@ -443,6 +428,7 @@ export default function ClientesModule({ usuario, showToast, buscaExterna, clien
     });
     setProcessos((atuais) => [data as ProcessoResumo, ...atuais.filter((item) => String(item.id) !== String(data.id))]);
     setProcessoFormAberto(false); avisar(numero ? "Processo salvo e disponível em Processos e Processual." : "Protocolo salvo para ajuizamento.");
+    if (!fichaInline) void carregarDados();
   }
 
   function editarAtendimento(atendimento?: AtendimentoResumo) {
@@ -538,10 +524,7 @@ export default function ClientesModule({ usuario, showToast, buscaExterna, clien
     void sincronizarProcessosDoCliente(supabase, clienteSalvo, usuario).catch((erro) => {
       console.warn("Falha ao sincronizar processos do cliente", erro);
     });
-    setClientes((atuais) => {
-      const semAtual = atuais.filter((cliente) => String(cliente.id) !== String(clienteSalvo.id));
-      return [clienteSalvo, ...semAtual];
-    });
+    if (!fichaInline) void carregarDados();
     setClienteAberto((atual) => atual && String(atual.id) === String(clienteSalvo.id) ? clienteSalvo : atual);
     setModalAberto(false);
     avisar(clienteEditando ? "Cliente atualizado." : "Cliente cadastrado.");
@@ -608,17 +591,6 @@ export default function ClientesModule({ usuario, showToast, buscaExterna, clien
     avisar("Importação concluída. Confira o relatório antes de fechar.");
   }
 
-  function processosCount(cliente: Cliente) {
-    const id = String(cliente.id);
-    const cpf = normalizarBusca(cliente.cpf || "");
-    const nome = normalizarBusca(cliente.nome_completo || "");
-    return processos.filter((processo) => (
-      String(processo.cliente_id || "") === id ||
-      (cpf && normalizarBusca(processo.cpf_cliente || "") === cpf) ||
-      (nome && normalizarBusca(processo.nome_cliente || "") === nome)
-    )).length;
-  }
-
   return (
     <section className={`clientes-workspace${fichaInline ? " clientes-workspace-inline" : ""}`}>
       {!fichaInline ? <header className="module-page-header">
@@ -638,37 +610,30 @@ export default function ClientesModule({ usuario, showToast, buscaExterna, clien
           {erro ? <div className="client-warning">{erro}</div> : null}
 
           <div className="clientes-table-wrap">
-            <table className="clientes-table">
+            <table className="clientes-table clientes-directory-table" aria-busy={carregando}>
               <thead>
                 <tr>
-                  <th>Cliente</th>
-                  <th>CPF</th>
+                  <th>Nome do Cliente</th>
                   <th>ID CRM</th>
-                  <th>Telefone</th>
-                  <th>Processos</th>
-                  <th>Responsável</th>
-                  <th>Última atualização</th>
+                  <th>Esfera do Processo</th>
                   <th>Ações</th>
                 </tr>
               </thead>
               <tbody>
                 {carregando && !clientes.length ? (
-                  <tr><td colSpan={8}><div className="empty-row">Carregando clientes...</div></td></tr>
+                  <tr><td colSpan={4}><div className="empty-row">Carregando clientes...</div></td></tr>
                 ) : clientesFiltrados.length === 0 ? (
-                  <tr><td colSpan={8}><div className="empty-row">Nenhum cliente encontrado.</div></td></tr>
+                  <tr><td colSpan={4}><div className="empty-row">Nenhum cliente encontrado.</div></td></tr>
                 ) : clientesFiltrados.map((cliente) => (
-                  <tr key={cliente.id}>
-                    <td><strong>{cliente.nome_completo}</strong><small>{cliente.email || "E-mail não informado"}</small></td>
-                    <td>{cliente.cpf || "—"}</td>
+                  <tr key={cliente.id} className="cliente-directory-row" onClick={() => void abrirFicha(cliente)}>
+                    <td><strong>{cliente.nome_completo}</strong></td>
                     <td>{cliente.id_crm || "—"}</td>
-                    <td>{cliente.telefone || "—"}</td>
-                    <td><span className="table-chip">{processosCount(cliente)}</span></td>
-                    <td>{cliente.responsavel || "—"}</td>
-                    <td>{formatarDataHora(cliente.updated_at || cliente.created_at)}</td>
+                    <td><div className="cliente-esferas">{cliente.esferas.length ? cliente.esferas.map((esfera) => (
+                      <span key={esfera} className={`table-chip cliente-esfera-${esfera}`}>{esfera === "extrajudicial" ? "Ação Extrajudicial de Revisão" : "Processo Judicial"}</span>
+                    )) : <span className="cliente-esfera-vazia">Sem processo vinculado</span>}</div></td>
                     <td>
                       <div className="table-actions">
-                        <button type="button" className="btn-secondary compact" onClick={() => abrirFicha(cliente)}>Abrir ficha</button>
-                        <button type="button" className="btn-secondary compact" onClick={() => abrirEdicao(cliente)}>Editar</button>
+                        <button type="button" className="btn-secondary compact" aria-label={`Abrir pasta de ${cliente.nome_completo}`} onClick={(evento) => { evento.stopPropagation(); void abrirFicha(cliente); }}>Abrir Pasta</button>
                       </div>
                     </td>
                   </tr>
@@ -678,6 +643,15 @@ export default function ClientesModule({ usuario, showToast, buscaExterna, clien
           </div>
           <Pagination pagina={pagina} total={totalClientes} tamanho={CLIENTES_POR_PAGINA} onChange={setPagina} rotulo="clientes" />
         </section> : null}
+
+        {clienteCarregando ? (
+          <div className={fichaInline ? "cliente-ficha-inline" : "cliente-ficha-backdrop"}>
+            <section className="cliente-ficha-panel cliente-ficha-page" role={fichaInline ? "region" : "dialog"} aria-modal={fichaInline ? undefined : true} aria-label={`Pasta de ${clienteCarregando.nome_completo}`}>
+              <header><button type="button" className="cliente-back-button" onClick={fecharFicha}>← Voltar para clientes</button><h3>{clienteCarregando.nome_completo}</h3></header>
+              {erroFicha ? <div className="client-warning" role="alert">{erroFicha}<button type="button" className="btn-secondary" onClick={() => void abrirFicha(clienteCarregando)}>Tentar novamente</button></div> : <div className="empty-row" role="status">Carregando pasta do cliente...</div>}
+            </section>
+          </div>
+        ) : null}
 
         {clienteAberto ? (
           <div className={fichaInline ? "cliente-ficha-inline" : "cliente-ficha-backdrop"} role="presentation" onMouseDown={(evento) => { if (!fichaInline && evento.target === evento.currentTarget) fecharFicha(); }}>
@@ -712,6 +686,7 @@ export default function ClientesModule({ usuario, showToast, buscaExterna, clien
             </nav>
 
             <div className="cliente-ficha-content">
+              {erroFicha ? <div className="client-warning" role="alert">{erroFicha}</div> : null}
               {carregandoFicha ? <div className="empty-row">Carregando informações da ficha...</div> : null}
               {abaFicha === "resumo" ? (
                 <section className="ficha-section">

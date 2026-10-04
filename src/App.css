@@ -2267,6 +2267,69 @@ textarea:focus {
   font-size: 11px;
 }
 
+.clientes-directory-table {
+  border-collapse: separate;
+  border-spacing: 0 8px;
+  padding: 0 12px;
+}
+
+.clientes-directory-table .cliente-directory-row td {
+  padding: 18px 16px;
+  background: var(--surface, #fff);
+  border-top: 1px solid #edf0f4;
+  border-bottom: 1px solid #edf0f4;
+  transition: background .15s ease;
+}
+
+.cliente-directory-row {
+  cursor: pointer;
+}
+
+.cliente-directory-row td:first-child {
+  border-left: 1px solid #edf0f4;
+  border-radius: 10px 0 0 10px;
+}
+
+.cliente-directory-row td:last-child {
+  border-right: 1px solid #edf0f4;
+  border-radius: 0 10px 10px 0;
+  width: 1%;
+  white-space: nowrap;
+}
+
+.clientes-directory-table .cliente-directory-row:hover td,
+.clientes-directory-table .cliente-directory-row:focus-within td {
+  background: #f3f6fb;
+}
+
+.cliente-directory-row button:focus-visible {
+  outline: 2px solid #2563eb;
+  outline-offset: 3px;
+}
+
+.cliente-esferas {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.cliente-esferas .cliente-esfera-extrajudicial {
+  color: #166534;
+  background: #f0fdf4;
+  border-color: #bbf7d0;
+}
+
+.cliente-esferas .cliente-esfera-judicial {
+  color: #1e40af;
+  background: #eff6ff;
+  border-color: #bfdbfe;
+}
+
+.cliente-esfera-vazia {
+  color: var(--muted);
+  font-size: 12px;
+}
+
 .table-chip {
   display: inline-flex;
   align-items: center;
@@ -2373,9 +2436,12 @@ textarea:focus {
 .dashboard-icone-protocolo { background: #fff4dc; color: #a76700; }
 .dashboard-icone-judicial { background: #f0edff; color: #6948b5; }
 .dashboard-urgencia-grid { display: grid; gap: 10px; grid-template-columns: repeat(4, minmax(0, 1fr)); margin-top: 14px; }
-.dashboard-urgencia-grid > button { align-items: center; background: #fff; border: 1px solid #e4eaf1; border-radius: 12px; color: inherit; cursor: pointer; display: grid; gap: 10px; grid-template-columns: auto minmax(0, 1fr) auto; padding: 13px; text-align: left; }
-.dashboard-urgencia-grid > button:hover { border-color: #8ba7cc; }
+.dashboard-urgencia-grid > button { align-items: center; background: #fff; border: 1px solid #e4eaf1; border-radius: 12px; color: inherit; cursor: pointer; display: grid; gap: 10px; grid-template-columns: 36px minmax(0, 1fr) auto; min-height: 100px; padding: 16px; text-align: left; transition: background-color .16s ease, border-color .16s ease, box-shadow .16s ease; }
+.dashboard-urgencia-grid > button:hover { background: #f8fafc; border-color: #cbd5e1; box-shadow: 0 3px 10px rgba(30, 41, 59, .06); }
+.dashboard-urgencia-grid > button:focus-visible { outline: 2px solid #2563eb; outline-offset: 3px; }
+.dashboard-urgencia-grid > button:disabled { cursor: wait; }
 .dashboard-urgencia-grid > button.com-alerta { background: #fffaf7; border-color: #f2c5ae; }
+.dashboard-urgencia-grid > button.com-alerta:hover { background: #fff1eb; border-color: #e6aa8b; }
 .dashboard-urgencia-icone { background: #f1f5f9; color: #47627e; height: 36px; width: 36px; }
 .dashboard-urgencia-grid .com-alerta .dashboard-urgencia-icone { background: #ffebe3; color: #bd3b23; }
 .dashboard-urgencia-grid > button > span:nth-child(2) { display: grid; gap: 2px; }
@@ -2383,6 +2449,13 @@ textarea:focus {
 .dashboard-urgencia-grid small { color: var(--muted); }
 .dashboard-urgencia-grid strong { color: #123e73; font-size: 1.4rem; }
 .dashboard-urgencia-grid .com-alerta > strong { color: #b42318; }
+.dashboard-urgencia-grid .sem-alerta b, .dashboard-urgencia-grid .sem-alerta strong { color: #7b8796; }
+.dashboard-urgencia-grid .sem-alerta small { color: #8591a0; }
+.dashboard-urgencia-grid .sem-alerta .dashboard-urgencia-icone { background: #f5f6f8; color: #8995a4; }
+.dashboard-urgencia-grid b, .dashboard-urgencia-grid small { overflow-wrap: anywhere; }
+.dashboard-urgencia-grid strong { font-variant-numeric: tabular-nums; }
+.dashboard-filtro-ativo { align-items: center; display: flex; gap: 12px; justify-content: space-between; margin-bottom: 12px; padding: 12px 16px; background: #f1f5f9; border-radius: 10px; color: #47627e; }
+.dashboard-filtro-ativo button { background: transparent; border: 0; color: #2563eb; cursor: pointer; font: inherit; }
 .dashboard-atencao-lista { padding-bottom: 8px; }
 .dashboard-atencao-lista > header { align-items: center; display: flex; justify-content: space-between; padding-bottom: 10px; }
 .dashboard-atencao-lista > header button { background: none; border: 0; color: #175c9f; cursor: pointer; font-weight: 700; }
@@ -3103,19 +3176,21 @@ body,
 
 .login-page-liquid {
   min-height: 100svh !important;
-  width: 100vw !important;
+  width: 100% !important;
   max-width: none !important;
   margin: 0 !important;
   position: relative !important;
   overflow: hidden !important;
   display: flex !important;
-  align-items: center !important;
+  align-items: flex-start !important;
   justify-content: flex-start !important;
-  padding: clamp(28px, 4vh, 50px) clamp(85px, 9vw, 150px) !important;
+  /* The heading is baked into the artwork: keep its scale and reserve its height. */
+  flex-direction: row !important;
+  padding: max(160px, 18vw) clamp(24px, 10.5vw, 176px) 32px !important;
   border-radius: 0 !important;
   background-image: url('/assets/platino-login-background.png') !important;
-  background-size: cover !important;
-  background-position: center top !important;
+  background-size: max(100vw, 760px) auto !important;
+  background-position: left top !important;
   background-repeat: no-repeat !important;
   background-color: #eaf3ff !important;
 }
@@ -3125,7 +3200,8 @@ body,
 .login-page-liquid .login-card {
   position: relative !important; z-index: 2 !important;
   width: min(100%, 380px) !important; max-width: 380px !important;
-  margin: clamp(92px, 14vh, 145px) 0 0 !important; padding: 32px !important;
+  align-self: flex-start !important;
+  margin: 0 !important; padding: 32px !important;
   border-radius: 18px !important; background: rgba(255,255,255,.90) !important;
   border: 1px solid rgba(200,215,235,.9) !important;
   box-shadow: 0 18px 48px rgba(26,63,118,.13) !important;
@@ -3137,16 +3213,65 @@ body,
 .login-page-liquid .login-heading,
 .login-page-liquid .forgot-password { display: none !important; }
 .login-page-liquid .login-form { display:flex !important; flex-direction:column !important; gap:16px !important; margin:0 !important; }
-.login-page-liquid .glass-input { height:52px; min-height:52px; padding:0 14px; border:1px solid #d7e0eb; border-radius:12px; background:#f8fafc; box-shadow:none; }
-.login-page-liquid .glass-input input { height:auto; padding:0; border:0; background:transparent; box-shadow:none; }
-.login-page-liquid .login-submit { min-height:52px !important; height:52px !important; margin-top:3px !important; border-radius:10px !important; background:linear-gradient(135deg,#2f73df,#1e5fc9) !important; box-shadow:0 10px 24px rgba(37,99,201,.22) !important; font-size:14px !important; }
+#root .login-page-liquid .login-form {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  --form-label: #284568;
+  --form-focus: #2f73df;
+  --form-focus-ring: #2f73df26;
+}
+#root .login-page-liquid .login-logo-image {
+  width: 48px;
+  height: 48px;
+  margin: 0 auto 8px;
+  object-fit: contain;
+}
+#root .login-page-liquid .glass-field { gap: 7px !important; }
+#root .login-page-liquid .glass-input {
+  position: relative;
+  min-width: 0;
+  height: 52px;
+  min-height: 52px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  transform: none;
+}
+#root .login-page-liquid .glass-input .ui-input {
+  width: 100%;
+  height: 52px;
+  min-height: 52px;
+  padding: 12px 14px;
+  border: 1px solid #d7e0eb;
+  border-radius: 12px;
+  background: #f8fafc;
+  color: #162f52;
+  font-size: 16px;
+  line-height: 1.5;
+}
+#root .login-page-liquid .glass-input .ui-input:focus {
+  border-color: #2f73df;
+  box-shadow: 0 0 0 3px #2f73df26;
+}
+#root .login-page-liquid .glass-input:has(.password-visibility) .ui-input { padding-right: 52px; }
+#root .login-page-liquid .password-visibility {
+  position: absolute;
+  right: 6px;
+  top: 4px;
+  width: 44px;
+  height: 44px;
+}
+.login-page-liquid .glass-button.login-submit { min-height:52px !important; height:52px !important; margin-top:3px !important; border-radius:10px !important; background:linear-gradient(135deg,#2f73df,#1e5fc9) !important; box-shadow:0 10px 24px rgba(37,99,201,.22) !important; font-size:14px !important; gap:8px !important; }
 .login-page-liquid .login-submit::before { display:none !important; }
 @media (max-width:880px) {
-  .login-page-liquid { justify-content:center !important; padding:24px !important; background-image:url('/assets/platino-login-background.png') !important; background-size:cover !important; background-position:center top !important; }
+  .login-page-liquid { justify-content:center !important; padding: max(160px, 18vw) 24px 32px !important; }
   .login-page-liquid .login-card { margin-top:0 !important; width:min(100%,410px) !important; max-width:410px !important; }
 }
 @media (max-width:520px) {
-  .login-page-liquid { min-height:100svh !important; padding:18px !important; }
+  .login-page-liquid { min-height:100svh !important; padding:160px 18px 24px !important; }
   .login-page-liquid .login-card { width:100% !important; padding:28px 22px !important; }
 }
 

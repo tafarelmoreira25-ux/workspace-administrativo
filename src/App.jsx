@@ -304,42 +304,45 @@ function Login({ onLogin }) {
       <section className="glass-card login-card" aria-label="Login Platino equipe">
         <FormSection as="form" className="login-form" onSubmit={fazerLogin}>
           <img className="login-logo-image" src="/assets/platino-orbital-logo.png" alt="Platino" />
-          <FormField className="glass-field floating-field">
+          <FormField className="glass-field floating-field" htmlFor="login-email">
             <span>E-mail corporativo</span>
             <div className="glass-input">
               <UiIcon name="equipe" size={19} />
               <div className="floating-input-wrap">
                 <Input
+                  id="login-email"
+                  name="email"
                   autoComplete="email"
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder=" "
                 />
-                <span>E-mail corporativo</span>
               </div>
             </div>
           </FormField>
 
-          <FormField className="glass-field floating-field">
+          <FormField className="glass-field floating-field" htmlFor="login-password">
             <span>Senha</span>
             <div className="glass-input">
               <UiIcon name="logout" size={19} />
               <div className="floating-input-wrap">
                 <Input
+                  id="login-password"
+                  name="password"
                   autoComplete="current-password"
                   type={mostrarSenha ? "text" : "password"}
                   value={senha}
                   onChange={(e) => setSenha(e.target.value)}
                   placeholder=" "
                 />
-                <span>Senha</span>
               </div>
               <button
                 type="button"
                 className="password-visibility"
                 onClick={() => setMostrarSenha((atual) => !atual)}
                 aria-label={mostrarSenha ? "Ocultar senha" : "Exibir senha"}
+                aria-pressed={mostrarSenha}
                 title={mostrarSenha ? "Ocultar senha" : "Exibir senha"}
               >
                 <UiIcon name="olho" size={19} />
@@ -417,6 +420,7 @@ function Workspace({ usuario, onLogout, showToast }) {
   const [menuRecolhido, setMenuRecolhido] = useState(() => window.localStorage.getItem("platino-menu-recolhido") === "1");
   const [menuContaAberto, setMenuContaAberto] = useState(false);
   const [processosSelecionados, setProcessosSelecionados] = useState({});
+  const [alertaSelecionado, setAlertaSelecionado] = useState(null);
   const [clienteSelecionadoId, setClienteSelecionadoId] = useState(null);
   const [feedbacks, setFeedbacks] = useState([]);
   const carregarFeedbacks = useCallback(async () => {
@@ -456,6 +460,7 @@ function Workspace({ usuario, onLogout, showToast }) {
   function navegar(id, opcoes = {}) {
     if (id === "processos") id = "processual";
     setAba(id);
+    setAlertaSelecionado(opcoes.alerta || null);
     setBuscaModulo("");
     setClienteSelecionadoId(id === "clientes" ? opcoes.clienteId || null : null);
     setProcessosSelecionados(["processual", "processual-extrajudiciais"].includes(id) ? { [id]: opcoes.processoId || null } : {});
@@ -515,9 +520,9 @@ function Workspace({ usuario, onLogout, showToast }) {
       {aba === "homologacao-quitacao" && <Suspense fallback={<section className="panel">Carregando Homologação e Quitação...</section>}><HomologacaoQuitacaoModule usuario={usuario} showToast={showToast} /></Suspense>}
       {aba === "documentos" && <Suspense fallback={<section className="panel">Carregando documentos...</section>}><GeradorDocumentos usuario={usuario} responsavel={usuario.nome} onSuccess={showToast} /></Suspense>}
       {aba === "processual-extrajudiciais" && <Suspense fallback={<section className="panel">Carregando ações extrajudiciais...</section>}><CarteiraProcessual showToast={showToast} usuario={usuario} processoInicialId={processosSelecionados["processual-extrajudiciais"]} modo="extrajudicial" /></Suspense>}
-      {aba === "processual-protocolos" && <Suspense fallback={<section className="panel">Carregando protocolos...</section>}><EsteiraProcessualPlatino usuario={usuario} showToast={showToast} initialView="protocolos" /></Suspense>}
-      {aba === "processual" && <Suspense fallback={<section className="panel">Carregando Processual...</section>}><CarteiraProcessual showToast={showToast} usuario={usuario} processoInicialId={processosSelecionados.processual} modo="judicial" /></Suspense>}
-      {aba === "agenda-atividades" && <Suspense fallback={<section className="panel">Carregando agenda...</section>}><OperacionalProcessualModule usuario={usuario} showToast={showToast} initialView="agenda" /></Suspense>}
+      {aba === "processual-protocolos" && <Suspense fallback={<section className="panel">Carregando protocolos...</section>}><EsteiraProcessualPlatino usuario={usuario} showToast={showToast} initialView="protocolos" alerta={alertaSelecionado} onLimparAlerta={() => setAlertaSelecionado(null)} /></Suspense>}
+      {aba === "processual" && <Suspense fallback={<section className="panel">Carregando Processual...</section>}><CarteiraProcessual showToast={showToast} usuario={usuario} processoInicialId={processosSelecionados.processual} modo="judicial" alerta={alertaSelecionado} onLimparAlerta={() => setAlertaSelecionado(null)} /></Suspense>}
+      {aba === "agenda-atividades" && <Suspense fallback={<section className="panel">Carregando agenda...</section>}><OperacionalProcessualModule usuario={usuario} showToast={showToast} initialView="agenda" alerta={alertaSelecionado} onLimparAlerta={() => setAlertaSelecionado(null)} /></Suspense>}
       {aba === "indicadores" && <Suspense fallback={<section className="panel">Carregando indicadores...</section>}><GerencialProcessualModule usuario={usuario} showToast={showToast} initialView="indicadores" onNavigate={navegar} /></Suspense>}
       {aba === "treinamentos" && <Suspense fallback={<section className="panel">Carregando treinamentos...</section>}><TreinamentosOperacionais usuario={usuario} /></Suspense>}
       {aba === "feedbacks" && <section className="panel"><h2>Meus feedbacks</h2><button className="btn-secondary" onClick={() => { invalidarConsultas(); void carregarFeedbacks(); }}>Atualizar</button><ListaFeedbacks feedbacks={feedbacks} /></section>}

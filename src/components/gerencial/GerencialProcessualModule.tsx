@@ -22,6 +22,7 @@ const RESPONSABILIDADES = ["Cliente", "Platino", "Elite", "Advogado", "Terceiro"
 const STATUS_CUSTAS = ["Pendente", "Cliente informado", "Pago", "Não pago", "Vencido", "Dispensado"];
 const METRICAS_SECUNDARIAS_ZERADAS = new Set([
   "Elite",
+  "Próximo prazo",
   "Próximo SLA",
   "PrÃ³ximo SLA",
   "Pastas retornadas",
@@ -87,7 +88,7 @@ function criarCustaForm(usuario: Usuario) {
 function etiquetaProcesso(processo: Processo) {
   const etiquetas: string[] = [];
   const prazo = calcularPrazoElite(processo.data_envio_elite);
-  if (["vermelho", "atrasado"].includes(prazo.sinalizacao)) etiquetas.push("SLA ATRASADO");
+  if (["vermelho", "atrasado"].includes(prazo.sinalizacao)) etiquetas.push("PRAZO ATRASADO");
   if (processo.pasta_retornada || processo.pasta_retorno_status === "Retornada") etiquetas.push("PASTA RETORNADA");
   if (processo.custas_status && !["Pago", "Dispensado", "Não informado"].includes(processo.custas_status)) etiquetas.push("CUSTAS PENDENTES");
   if (["Solicitada", "Pendente", "Prazo decorrido"].includes(processo.emenda_status || processo.emenda_inicial || "")) etiquetas.push("EMENDA PENDENTE");
@@ -147,8 +148,8 @@ export default function GerencialProcessualModule({ usuario, showToast, initialV
     const lista: Array<{ id: string; tipo: string; titulo: string; detalhe: string; prioridade: number; entidade: string; entidadeId?: string }> = [];
     processos.forEach((processo) => {
       const prazo = calcularPrazoElite(processo.data_envio_elite);
-      if (["vermelho", "atrasado"].includes(prazo.sinalizacao)) lista.push({ id: `sla-${processo.id}`, tipo: "SLA", titulo: "SLA de protocolo atrasado", detalhe: processo.nome_cliente, prioridade: 95, entidade: "processo", entidadeId: processo.id });
-      else if (["critico", "atencao", "amarelo"].includes(prazo.sinalizacao)) lista.push({ id: `sla-prox-${processo.id}`, tipo: "SLA", titulo: "SLA próximo do fim", detalhe: processo.nome_cliente, prioridade: 72, entidade: "processo", entidadeId: processo.id });
+      if (["vermelho", "atrasado"].includes(prazo.sinalizacao)) lista.push({ id: `sla-${processo.id}`, tipo: "Prazo", titulo: "Prazo de protocolo excedido", detalhe: processo.nome_cliente, prioridade: 95, entidade: "processo", entidadeId: processo.id });
+      else if (["critico", "atencao", "amarelo"].includes(prazo.sinalizacao)) lista.push({ id: `sla-prox-${processo.id}`, tipo: "Prazo", titulo: "Prazo próximo do fim", detalhe: processo.nome_cliente, prioridade: 72, entidade: "processo", entidadeId: processo.id });
       if (processo.pasta_retornada || processo.pasta_retorno_status === "Retornada") lista.push({ id: `pasta-${processo.id}`, tipo: "Pasta retornada", titulo: "Pasta retornada pendente", detalhe: processo.nome_cliente, prioridade: 80, entidade: "processo", entidadeId: processo.id });
       etiquetaProcesso(processo).forEach((etiqueta) => lista.push({ id: `${etiqueta}-${processo.id}`, tipo: "Processo", titulo: etiqueta, detalhe: processo.nome_cliente, prioridade: etiqueta.includes("ATRASADO") ? 90 : 60, entidade: "processo", entidadeId: processo.id }));
     });
@@ -171,7 +172,7 @@ export default function GerencialProcessualModule({ usuario, showToast, initialV
     const concluidos15 = processos.filter((p) => Number(p.sla_dias_uteis_utilizados || 999) <= 15 && p.numero_processo).length;
     return {
       protocolos: [
-        ["Total", protocolos.length], ["Preparação", protocolos.filter((p) => ["Documentação", "Procuração", "CRM"].includes(p.fase_atual)).length], ["Elite", protocolos.filter((p) => p.fase_atual === "Enviado para Elite").length], ["Dentro SLA", slas.filter((s) => ["neutro", "verde"].includes(s.sinalizacao)).length], ["Próximo SLA", slas.filter((s) => ["atencao", "critico", "amarelo"].includes(s.sinalizacao)).length], ["Atrasados", slas.filter((s) => ["vermelho", "atrasado"].includes(s.sinalizacao)).length], ["% dentro 15 dias", protocolados.length ? `${Math.round((concluidos15 / protocolados.length) * 100)}%` : "0%"], ["Pastas retornadas", processos.filter((p) => p.pasta_retornada).length],
+        ["Total", protocolos.length], ["Preparação", protocolos.filter((p) => ["Documentação", "Procuração", "CRM"].includes(p.fase_atual)).length], ["Elite", protocolos.filter((p) => p.fase_atual === "Enviado para Elite").length], ["Dentro do prazo", slas.filter((s) => ["neutro", "verde"].includes(s.sinalizacao)).length], ["Próximo prazo", slas.filter((s) => ["atencao", "critico", "amarelo"].includes(s.sinalizacao)).length], ["Atrasados", slas.filter((s) => ["vermelho", "atrasado"].includes(s.sinalizacao)).length], ["% dentro 15 dias", protocolados.length ? `${Math.round((concluidos15 / protocolados.length) * 100)}%` : "0%"], ["Pastas retornadas", processos.filter((p) => p.pasta_retornada).length],
       ],
       processos: [
         ["Ativos", processos.filter((p) => ["Em andamento", "Pendente de protocolo"].includes(p.situacao)).length], ["Encerrados", processos.filter((p) => p.situacao === "Encerrado").length], ["Suspensos", processos.filter((p) => p.situacao === "Suspenso / Sobrestado").length], ["Procedentes", processos.filter((p) => p.resultado === "Procedente").length], ["Parciais", processos.filter((p) => p.resultado === "Parcialmente procedente").length], ["Improcedentes", processos.filter((p) => p.resultado === "Improcedente").length], ["Extintos sem mérito", processos.filter((p) => p.resultado === "Extinto sem resolução do mérito").length], ["Recursais", processos.filter((p) => p.recursal).length], ["Custas", custas.filter((c) => !["Pago", "Dispensado"].includes(c.status)).length], ["Emendas", processos.filter((p) => ["Solicitada", "Pendente"].includes(p.emenda_status)).length],

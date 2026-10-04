@@ -42,7 +42,7 @@ type Atendimento = {
 };
 type ProcessoOpcao = { id: string; nome_cliente: string; cpf_cliente: string | null; numero_processo: string | null; banco_reu: string | null; cliente_id?: string | null };
 
-type Props = { usuario: Usuario; showToast?: (mensagem: string) => void; initialView?: View };
+type Props = { usuario: Usuario; showToast?: (mensagem: string) => void; initialView?: View; alerta?: { titulo: string; ids: string[] } | null; onLimparAlerta?: () => void };
 
 const TIPOS_TAREFA = ["Contato cliente", "Revisar processo", "Verificar protocolo", "Cobrar assinatura", "Solicitar documento", "Custas", "Reunião", "Audiência", "Prazo processual", "Tarefa interna", "Outro"];
 const PRIORIDADES = ["Baixa", "Normal", "Alta", "Crítica"];
@@ -133,9 +133,9 @@ function estaNoPeriodo(data: string, visao: string) {
   return alvo.getMonth() === hoje.getMonth() && alvo.getFullYear() === hoje.getFullYear();
 }
 
-export default function OperacionalProcessualModule({ usuario, showToast, initialView = "agenda" }: Props) {
+export default function OperacionalProcessualModule({ usuario, showToast, initialView = "agenda", alerta, onLimparAlerta }: Props) {
   const [view, setView] = useState<View>(initialView);
-  const [agendaView, setAgendaView] = useState("Hoje");
+  const [agendaView, setAgendaView] = useState(alerta ? "Lista" : "Hoje");
   const [tarefas, setTarefas] = useState<Tarefa[]>([]);
   const [atendimentos, setAtendimentos] = useState<Atendimento[]>([]);
   const [processos, setProcessos] = useState<ProcessoOpcao[]>([]);
@@ -180,8 +180,8 @@ export default function OperacionalProcessualModule({ usuario, showToast, initia
 
   const tarefasFiltradas = useMemo(() => {
     const termo = normalizar(busca);
-    return tarefas.filter((tarefa) => !termo || normalizar(`${tarefa.titulo} ${tarefa.cliente_nome || ""} ${tarefa.processo_numero || ""} ${tarefa.responsavel || ""} ${tarefa.tipo}`).includes(termo));
-  }, [busca, tarefas]);
+    return tarefas.filter((tarefa) => (!alerta || alerta.ids.includes(tarefa.id)) && (!termo || normalizar(`${tarefa.titulo} ${tarefa.cliente_nome || ""} ${tarefa.processo_numero || ""} ${tarefa.responsavel || ""} ${tarefa.tipo}`).includes(termo)));
+  }, [alerta, busca, tarefas]);
 
   const atendimentosFiltrados = useMemo(() => {
     const termo = normalizar(busca);
@@ -334,6 +334,7 @@ export default function OperacionalProcessualModule({ usuario, showToast, initia
         </div>
       </header>
 
+      {alerta ? <div className="dashboard-filtro-ativo"><span>{alerta.titulo}</span><button type="button" onClick={() => { setPaginaLista(1); onLimparAlerta?.(); }}>Mostrar todos</button></div> : null}
       <div className="operacional-toolbar">
         <Input type="search" value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar cliente, processo, responsável ou tipo..." />
         <button className="btn-secondary" onClick={() => { invalidarConsultas(); void carregarDados(); }} type="button">Atualizar</button>
