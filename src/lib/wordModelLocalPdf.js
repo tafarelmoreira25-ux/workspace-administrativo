@@ -2,6 +2,7 @@ import { unzipSync } from "fflate";
 import { PDFDocument, rgb } from "pdf-lib";
 import fontkit from "@pdf-lib/fontkit";
 import { DOCUMENT_FONTS } from "../config/documentFonts.js";
+import { DOCUMENT_IMAGE_REPLACEMENTS, DOCUMENT_IMAGE_COMPOSITE } from "../config/documentImageReplacements.js";
 
 const W = "http://schemas.openxmlformats.org/wordprocessingml/2006/main";
 const R = "http://schemas.openxmlformats.org/officeDocument/2006/relationships";
@@ -118,7 +119,7 @@ function lerParagrafo(node, estilos) {
     for (const filho of filhos(run)) {
       if (filho.localName === "t") segmentos.push({ ...formato, texto: filho.textContent });
       if (filho.localName === "tab") segmentos.push({ ...formato, texto: "    " });
-      if (filho.localName === "br") segmentos.push({ ...formato, texto: atributo(filho, "type") === "page" ? "\f" : "\n" });
+      if (filho.localName === "br") segmentos.push({ ...formato, texto: atributo(filho, "type") === "page" ? "\f" : atributo(filho, "type") === "column" ? "\v" : "\n" });
     }
   }
   return { ...props, segmentos, base, node };
@@ -184,8 +185,9 @@ function montarLinhas(p, largura, fonte) {
   const linhas = []; let tokens = []; let usado = 0; let espaco = 0;
   const concluir = (forcada = false) => { linhas.push({ tokens, largura: usado, forcada }); tokens = []; usado = 0; espaco = 0; };
   for (const s of p.segmentos) {
-    for (const palavra of s.texto.split(/(\f|\n|\s+)/).filter(Boolean)) {
+    for (const palavra of s.texto.split(/(\f|\v|\n|\s+)/).filter(Boolean)) {
       if (palavra === "\f") { if (tokens.length) concluir(true); linhas.push({ quebraPagina: true }); continue; }
+      if (palavra === "\v") { if (tokens.length) concluir(true); linhas.push({ quebraColuna: true }); continue; }
       if (palavra === "\n") { concluir(true); continue; }
       const font = fonte(s);
       if (/^\s+$/.test(palavra)) { espaco += font.widthOfTextAtSize(palavra.replace(/\s/g, " "), s.tamanho); continue; }
@@ -220,6 +222,7 @@ function desenharLinha(pagina, l, p, x, topo, largura, indice, ultima) {
   if (p.alinhamento === "right") cursor += Math.max(0, disponivel - l.largura);
   const justificar = ["both", "distribute"].includes(p.alinhamento) && !ultima && !l.forcada;
   const extra = justificar && tokens.length > 1 ? Math.max(0, (disponivel - l.largura) / (tokens.length - 1)) : 0;
+  if (tokens.length) (pagina.textosModelo ||= []).push({ texto: tokens.map(t => t.texto).join(" "), x: cursor, topo, largura: l.largura, tamanho });
   for (const t of tokens) {
     cursor += t.espaco + (t.espaco ? extra : 0); const y = pagina.getHeight() - topo - tamanho;
     pagina.drawText(t.texto, { x: cursor, y, size: t.tamanho, font: t.font, color: cor(t.cor) });
@@ -228,11 +231,26 @@ function desenharLinha(pagina, l, p, x, topo, largura, indice, ultima) {
   }
 }
 
-async function imagensDaParte(pdf, arquivos, parte) {
+async function imagensDaParte(pdf, arquivos, parte, cache = new Map()) {
   const imagens = new Map();
+  imagens.compostas = new Map();
   for (const [id, caminho] of relacoes(arquivos, parte)) {
     const bytes = arquivos[caminho]; if (!bytes || !/\.(png|jpe?g)$/i.test(caminho)) continue;
-    imagens.set(id, /\.png$/i.test(caminho) ? await pdf.embedPng(bytes) : await pdf.embedJpg(bytes));
+    const digest = await crypto.subtle.digest("SHA-256", bytes);
+    const hash = Array.from(new Uint8Array(digest), b => b.toString(16).padStart(2, "0")).join("");
+    const tipo = DOCUMENT_IMAGE_REPLACEMENTS[hash];
+    if (DOCUMENT_IMAGE_COMPOSITE[hash]) imagens.compostas.set(id, DOCUMENT_IMAGE_COMPOSITE[hash]);
+    const chave = tipo ? `empresarial:${tipo}` : hash;
+    if (cache.has(chave)) { imagens.set(id, cache.get(chave)); continue; }
+    let image;
+    if (tipo) {
+      const resposta = await fetch(`/assets/documentos/${tipo}.png`);
+      if (!resposta.ok) throw new Error(`Não foi possível carregar a imagem original de ${tipo}.`);
+      image = await pdf.embedPng(await resposta.arrayBuffer());
+      image.tipoDocumento = tipo;
+    } else image = /\.png$/i.test(caminho) ? await pdf.embedPng(bytes) : await pdf.embedJpg(bytes);
+    cache.set(chave, image);
+    imagens.set(id, image);
   }
   return imagens;
 }
@@ -253,11 +271,18 @@ function desenharImagens(pagina, node, imagens, config, topo, x = config.esquerd
     const left = pos("positionH", x); const top = pos("positionV", topo);
     const grouped = Boolean(primeiro(drawing, "grpSpPr", "http://schemas.microsoft.com/office/word/2010/wordprocessingGroup"));
     for (const pic of Array.from(drawing.getElementsByTagNameNS(PIC, "pic"))) {
-      const image = imagens.get(atributo(primeiro(pic, "blip", A), "embed", R)); if (!image) continue;
+      const imageId = atributo(primeiro(pic, "blip", A), "embed", R);
+      const image = imagens.get(imageId); if (!image) continue;
       const transform = primeiro(pic, "xfrm", A); const ext = primeiro(transform, "ext", A); const off = primeiro(transform, "off", A);
       const width = numero(ext?.getAttribute("cx") || extent?.getAttribute("cx"), image.width * EMU) / EMU;
       const height = numero(ext?.getAttribute("cy") || extent?.getAttribute("cy"), image.height * EMU) / EMU;
-      pagina.drawImage(image, { x: left + (grouped ? numero(off?.getAttribute("x")) / EMU : 0), y: config.altura - top - height - (grouped ? numero(off?.getAttribute("y")) / EMU : 0), width, height });
+      const imageX = left + (grouped ? numero(off?.getAttribute("x")) / EMU : 0);
+      const imageTop = top + (grouped ? numero(off?.getAttribute("y")) / EMU : 0);
+      if (image.tipoDocumento) {
+        (pagina.imagensEmpresariais ||= []).push({ image, x: imageX, topo: imageTop, width, height,
+          composta: imagens.compostas.get(imageId),
+          relativaPagina: primeiro(anchor, "positionV", WP)?.getAttribute("relativeFrom") === "page" });
+      } else pagina.drawImage(image, { x: imageX, y: pagina.getHeight() - imageTop - height, width, height });
       if (inline) altura = Math.max(altura, height);
     }
     if (estilos && fonte) {
@@ -282,20 +307,37 @@ export async function gerarPdfDoWordOficial(bytesDocx) {
   const arquivos = unzipSync(bytesDocx instanceof Uint8Array ? bytesDocx : new Uint8Array(bytesDocx));
   const doc = xml(arquivos, "word/document.xml"); if (!doc) throw new Error("O conteúdo do modelo não pôde ser lido.");
   const pdf = await PDFDocument.create(); const estilos = estilosDoModelo(arquivos); const fonte = await fontesDoModelo(pdf, arquivos, estilos);
-  const corpo = primeiro(doc, "body"); const secao = filhos(corpo, "sectPr")[0] || primeiro(doc, "sectPr");
-  const size = primeiro(secao, "pgSz"); const margin = primeiro(secao, "pgMar");
-  const config = { largura: numero(atributo(size, "w"), 11906) / 20, altura: numero(atributo(size, "h"), 16838) / 20 };
-  for (const [tag, key, padrao] of [["top", "topo", 1417], ["bottom", "baixo", 1417], ["left", "esquerda", 1701], ["right", "direita", 1701], ["header", "cabecalho", 708], ["footer", "rodape", 708]]) config[key] = numero(atributo(margin, tag), padrao) / 20;
-  const largura = config.largura - config.esquerda - config.direita;
-  const refs = relacoes(arquivos, "word/document.xml"); const imagens = await imagensDaParte(pdf, arquivos, "word/document.xml"); const partes = [];
+  const corpo = primeiro(doc, "body");
+  // sectPr no parágrafo descreve a seção que termina ali, e não a seguinte.
+  const secoes = []; let conteudo = [];
+  for (const node of filhos(corpo)) {
+    if (node.localName === "sectPr") { secoes.push({ nodes: conteudo, secao: node }); conteudo = []; }
+    else {
+      conteudo.push(node);
+      const secao = filhos(filhos(node, "pPr")[0], "sectPr")[0];
+      if (secao) { secoes.push({ nodes: conteudo, secao }); conteudo = []; }
+    }
+  }
+  if (conteudo.length || !secoes.length) secoes.push({ nodes: conteudo, secao: null });
+  const config = {};
+  const configurar = (secao) => {
+    const size = primeiro(secao, "pgSz"); const margin = primeiro(secao, "pgMar");
+    config.largura = numero(atributo(size, "w"), (config.largura || 595.3) * 20) / 20;
+    config.altura = numero(atributo(size, "h"), (config.altura || 841.9) * 20) / 20;
+    for (const [tag, key, padrao] of [["top", "topo", 1417], ["bottom", "baixo", 1417], ["left", "esquerda", 1701], ["right", "direita", 1701], ["header", "cabecalho", 708], ["footer", "rodape", 708]]) config[key] = numero(atributo(margin, tag), (config[key] ?? padrao / 20) * 20) / 20;
+  };
+  configurar(secoes[0].secao);
+  let largura = config.largura - config.esquerda - config.direita;
+  const cacheImagens = new Map();
+  const refs = relacoes(arquivos, "word/document.xml"); const imagens = await imagensDaParte(pdf, arquivos, "word/document.xml", cacheImagens); const partes = [];
   for (const tipo of ["header", "footer"]) {
     const ref = Array.from(doc.getElementsByTagNameNS(W, `${tipo}Reference`)).find((n) => atributo(n, "type") === "default");
     const caminho = refs.get(atributo(ref, "id", R));
-    if (caminho) partes.push({ tipo, doc: xml(arquivos, caminho), imagens: await imagensDaParte(pdf, arquivos, caminho) });
+    if (caminho) partes.push({ tipo, doc: xml(arquivos, caminho), imagens: await imagensDaParte(pdf, arquivos, caminho, cacheImagens) });
   }
   const visual = texto(arquivos["word/document.xml"]) + partes.map((p) => new XMLSerializer().serializeToString(p.doc)).join("");
   const barraAzul = /00359E|0038A8|Retângulo 2/i.test(visual);
-  let pagina; let y;
+  let pagina; let y; let coluna = 0; let colunas = 1; let espacoColunas = 0; let larguraColuna = largura; let inicioColunas; let limiteColunas;
   const novaPagina = () => {
     pagina = pdf.addPage([config.largura, config.altura]); y = config.topo;
     if (barraAzul) pagina.drawRectangle({ x: 0, y: 0, width: 20.25, height: config.altura, color: cor("00359E") });
@@ -311,35 +353,119 @@ export async function gerarPdfDoWordOficial(bytesDocx) {
       }
     }
   };
-  const desenharParagrafo = (node, x = config.esquerda, width = largura) => {
+  const avancarColuna = () => {
+    if (coluna + 1 < colunas) { coluna++; y = inicioColunas; }
+    else { novaPagina(); coluna = 0; inicioColunas = config.topo; limiteColunas = config.altura - config.baixo; }
+  };
+  const desenharParagrafo = (node, x, width = larguraColuna) => {
     const p = lerParagrafo(node, estilos); const linhas = montarLinhas(p, width - p.esquerda - p.direita, fonte);
     const temTexto = linhas.some((l) => l.tokens?.length);
     const height = p.antes + p.depois + linhas.reduce((h, l) => h + alturaLinha(l, p), 0);
     if (temTexto && (p.quebraAntes || (p.manterLinhas && y + height > config.altura - config.baixo)) && y > config.topo + 1) novaPagina();
+    x ??= config.esquerda + coluna * (larguraColuna + espacoColunas);
     y += p.antes; const imageHeight = desenharImagens(pagina, node, imagens, config, y, x, estilos, fonte);
     for (let i = 0; i < linhas.length; i++) {
       const l = linhas[i]; if (l.quebraPagina) { novaPagina(); continue; }
-      const h = alturaLinha(l, p); if (l.tokens?.length && y + h > config.altura - config.baixo) novaPagina();
+      if (l.quebraColuna) { avancarColuna(); x = config.esquerda + coluna * (larguraColuna + espacoColunas); continue; }
+      const h = alturaLinha(l, p); if (l.tokens?.length && y + h > config.altura - config.baixo) { avancarColuna(); x = config.esquerda + coluna * (larguraColuna + espacoColunas); }
       desenharLinha(pagina, l, p, x + p.esquerda, y, width - p.esquerda - p.direita, i, i === linhas.length - 1); y += h;
     }
     y += Math.max(0, imageHeight - (height - p.antes - p.depois)) + p.depois;
   };
   novaPagina();
-  const nodes = filhos(corpo);
-  // A posi??o de assinaturas e notas segue os par?grafos do DOCX.
-  for (const node of nodes) {
-    if (node.localName === "p") desenharParagrafo(node);
-    else if (node.localName === "tbl") {
-      for (const row of filhos(node, "tr")) {
-        const cells = filhos(row, "tc"); const topo = y; let fim = y; let x = config.esquerda;
-        const widths = cells.map((c) => numero(atributo(primeiro(c, "tcW"), "w"), largura * 20 / cells.length) / 20);
-        const total = widths.reduce((a, b) => a + b, 0);
-        for (let i = 0; i < cells.length; i++) {
-          y = topo; const w = widths[i] * largura / total;
-          for (const p of filhos(cells[i], "p")) desenharParagrafo(p, x + 4, w - 8);
-          fim = Math.max(fim, y); x += w;
+  for (const [indice, { nodes, secao }] of secoes.entries()) {
+    const anterior = { ...config };
+    configurar(secao); largura = config.largura - config.esquerda - config.direita;
+    const tipo = val(secao, "type");
+    if (indice && (tipo !== "continuous" || config.largura !== anterior.largura || config.altura !== anterior.altura)) novaPagina();
+    colunas = Math.max(1, numero(atributo(primeiro(secao, "cols"), "num"), 1));
+    espacoColunas = numero(atributo(primeiro(secao, "cols"), "space"), 720) / 20;
+    larguraColuna = (largura - espacoColunas * (colunas - 1)) / colunas;
+    coluna = 0; inicioColunas = y;
+    const alturas = nodes.map(node => {
+      if (node.localName !== "p") return 0;
+      const marcaSecao = filhos(filhos(node, "pPr")[0], "sectPr")[0];
+      if (colunas > 1 && marcaSecao && !Array.from(node.getElementsByTagNameNS(W, "t")).some(t => t.textContent.trim()) && !primeiro(node, "drawing")) return 0;
+      const p = lerParagrafo(node, estilos);
+      return p.antes + p.depois + montarLinhas(p, larguraColuna - p.esquerda - p.direita, fonte).reduce((h, l) => h + alturaLinha(l, p), 0);
+    });
+    // Seções contínuas com várias colunas são balanceadas ao final da seção.
+    const totalAltura = alturas.reduce((a, b) => a + b, 0);
+    limiteColunas = config.altura - config.baixo;
+    const cortes = new Set();
+    const quebrasExplicitas = nodes.some(n => Array.from(n.getElementsByTagNameNS(W, "br")).some(br => atributo(br, "type") === "column"));
+    if (colunas > 1 && !quebrasExplicitas && totalAltura <= (limiteColunas - inicioColunas) * colunas) {
+      const prefixos = [0]; for (const h of alturas) prefixos.push(prefixos.at(-1) + h);
+      let anteriorCorte = 0;
+      for (let c = 1; c < colunas; c++) {
+        let melhor = anteriorCorte + 1;
+        for (let i = melhor; i <= nodes.length - (colunas - c); i++) {
+          if (Math.abs(prefixos[i] - totalAltura * c / colunas) < Math.abs(prefixos[melhor] - totalAltura * c / colunas)) melhor = i;
         }
-        y = fim;
+        cortes.add(melhor); anteriorCorte = melhor;
+      }
+    }
+    let fimSecao = y; let paginaAnterior = pagina;
+    for (const [indiceNode, node] of nodes.entries()) {
+      if (cortes.has(indiceNode)) avancarColuna();
+      if (colunas > 1 && alturas[indiceNode] === 0 && node.localName === "p") continue;
+      if (node.localName === "p") desenharParagrafo(node);
+      else if (node.localName === "tbl") {
+        for (const row of filhos(node, "tr")) {
+          const cells = filhos(row, "tc"); const topo = y; let fim = y; let x = config.esquerda;
+          const widths = cells.map((c) => numero(atributo(primeiro(c, "tcW"), "w"), largura * 20 / cells.length) / 20);
+          const total = widths.reduce((a, b) => a + b, 0);
+          for (let i = 0; i < cells.length; i++) {
+            y = topo; const w = widths[i] * largura / total;
+            for (const p of filhos(cells[i], "p")) desenharParagrafo(p, x + 4, w - 8);
+            fim = Math.max(fim, y); x += w;
+          }
+          y = fim;
+        }
+      }
+      fimSecao = pagina === paginaAnterior ? Math.max(fimSecao, y) : y;
+      paginaAnterior = pagina;
+    }
+    y = fimSecao;
+  }
+  const paginas = pdf.getPages();
+  const ancoraEmpresa = folha => {
+    const candidatos = (folha.textosModelo || []).filter(t => t.topo > folha.getHeight() * .35);
+    return candidatos.filter(t => /^CONTRATADA$/.test(t.texto.trim())).at(-1)
+      || candidatos.filter(t => /^PLATINO SOLUÇÕES FINANCEIRAS(?: LTDA)?(?:\s+CNPJ.*)?$/.test(t.texto.trim())).at(-1);
+  };
+  for (const origem of paginas) {
+    let folha = origem;
+    let contratada = ancoraEmpresa(folha);
+    if (!contratada && origem.imagensEmpresariais?.length) {
+      const proxima = paginas.slice(paginas.indexOf(origem) + 1).find(ancoraEmpresa);
+      if (proxima) { folha = proxima; contratada = ancoraEmpresa(folha); }
+    }
+    const textos = folha.textosModelo || [];
+    for (const { image, x, topo, width, height, relativaPagina, composta } of origem.imagensEmpresariais || []) {
+      const caixa = composta?.caixa || [0, 0, 1, 1];
+      const boxX = x + width * caixa[0]; const boxTop = topo + height * caixa[1];
+      const boxWidth = width * (caixa[2] - caixa[0]); const boxHeight = height * (caixa[3] - caixa[1]);
+      const scale = Math.min(boxWidth / image.width, boxHeight / image.height);
+      const w = image.width * scale; const h = image.height * scale;
+      let left = boxX + (boxWidth - w) / 2; let top = boxTop + (boxHeight - h) / 2;
+      if (contratada && (relativaPagina || image.tipoDocumento === "assinatura" || folha !== origem || top + h > folha.getHeight())) {
+        const linhaAssinatura = textos.find(t => /^_+$/.test(t.texto.trim()) && t.topo < contratada.topo
+          && contratada.topo - t.topo < 30 && Math.abs(t.x - contratada.x) < 120);
+        const centro = linhaAssinatura ? linhaAssinatura.x + linhaAssinatura.largura / 2 : contratada.x + contratada.largura / 2;
+        left = centro - w / 2;
+        if (image.tipoDocumento === "assinatura") top = (linhaAssinatura?.topo ?? contratada.topo) - h - 4;
+        else {
+          const cnpj = textos.find(t => /52\.807\.405\/0001-30/.test(t.texto) && t.topo >= contratada.topo && Math.abs(t.x + t.largura / 2 - centro) < 50);
+          top = (cnpj?.topo ?? contratada.topo + contratada.tamanho * 3) + (cnpj?.tamanho ?? contratada.tamanho) + 8;
+        }
+      }
+      if (left < 0 || top < 0 || left + w > folha.getWidth() || top + h > folha.getHeight()) throw new Error("A assinatura ou o carimbo ficaram fora da página. Confira o layout do modelo original.");
+      folha.drawImage(image, { x: left, y: folha.getHeight() - top - h, width: w, height: h });
+      if (composta) {
+        const [inicio, vertical, fim] = composta.linha;
+        const linhaY = folha.getHeight() - topo - height * vertical;
+        folha.drawLine({ start: { x: x + width * inicio, y: linhaY }, end: { x: x + width * fim, y: linhaY }, thickness: height * 2 / 522, color: rgb(0, 0, 0) });
       }
     }
   }

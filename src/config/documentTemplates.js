@@ -832,6 +832,7 @@ export const DOCUMENT_TEMPLATES = [
     titulo: "Termo de Recompra / Repagamento",
     identidadeVisual: true,
     templateDocx: "/modelos/termo-recompra.docx",
+    conflitosFixos: [{ campo: "dataDocumento", tipo: "ano", esperado: "2026", trecho: "A assinatura do original fixa 2026." }],
     campos: [
       { nome: "nomeCliente", rotulo: "Nome completo do cliente", obrigatorio: true, largura: "total" },
       { nome: "cpfCnpj", rotulo: "CPF", obrigatorio: true },
@@ -840,6 +841,7 @@ export const DOCUMENT_TEMPLATES = [
       { nome: "valorRecompraExtenso", rotulo: "Valor por extenso", obrigatorio: true, largura: "total" },
       { nome: "modalidade", rotulo: "Modalidade de pagamento", obrigatorio: true },
       { nome: "cidade", rotulo: "Cidade", obrigatorio: true, valorInicial: "São Paulo" },
+      { nome: "dataDocumento", rotulo: "Data", tipo: "date", obrigatorio: true, valorInicial: "hoje" },
     ],
   },
   {
@@ -1036,9 +1038,6 @@ export const DOCUMENT_TEMPLATES = [
   const registro = UPDATED_DOCUMENT_MODELS[modelo.modo];
   if (!registro) return modelo;
   const atualizado = { ...modelo, ...registro };
-  if (modelo.modo.startsWith("recibo-servicos-")) {
-    atualizado.revisaoWordPendente = "O original utiliza seções com duas colunas. O conversor local ainda não preserva essa disposição e cria uma página adicional; a geração está bloqueada até a correção da paginação.";
-  }
   if (modelo.modo === "termo-consentimento-compras-2026") atualizado.nome = "Termo de Produto 2026";
   if (modelo.modo === "termo-ciencia-consentimento-contratacao") atualizado.nome = "Termo de Ciência da Compra no Crédito";
   const titularCartao = ["termo-consentimento-compras-2026", "termo-ciencia-consentimento-contratacao", "termo-pagamento-cartao-terceiro"].includes(modelo.modo);

@@ -12,12 +12,96 @@ import { gerarPdfModelo, pendenciaModeloOriginal } from "./documentPdf.js";
 globalThis.DOMParser = DOMParser;
 globalThis.XMLSerializer = XMLSerializer;
 
-test("bloqueia os três recibos cuja paginação diverge do original", async () => {
-  for (const modo of ["recibo-servicos-boleto", "recibo-servicos-cartao", "recibo-servicos-pix"]) {
-    const modelo = DOCUMENT_TEMPLATES.find(m => m.modo === modo);
-    assert.match(pendenciaModeloOriginal(modelo), /duas colunas/);
-    await assert.rejects(gerarPdfModelo({}, modelo), /Geração bloqueada:.*duas colunas/);
-  }
+test("os três recibos geram uma página paisagem com assinatura azul e carimbo sem distorção", async () => {
+  const fetchOriginal = globalThis.fetch;
+  const drawImage = PDFPage.prototype.drawImage;
+  const imagens = [];
+  globalThis.fetch = async path => new Response(await readFile(new URL('../../public' + path, import.meta.url)));
+  PDFPage.prototype.drawImage = function(image, options) {
+    if (image.tipoDocumento) imagens.push({ image, options });
+    return drawImage.call(this, image, options);
+  };
+  try {
+    for (const modo of ["recibo-servicos-boleto", "recibo-servicos-cartao", "recibo-servicos-pix"]) {
+      const modelo = DOCUMENT_TEMPLATES.find(m => m.modo === modo);
+      assert.equal(pendenciaModeloOriginal(modelo), '');
+      const pdf = await PDFDocument.load(await gerarPdfModelo(dadosTeste(modelo, 'feminino'), modelo));
+      assert.equal(pdf.getPageCount(), 1, modo);
+      assert.ok(pdf.getPage(0).getWidth() > pdf.getPage(0).getHeight());
+    }
+    assert.equal(imagens.filter(i => i.image.tipoDocumento === 'assinatura').length, 3);
+    assert.equal(imagens.filter(i => i.image.tipoDocumento === 'carimbo').length, 3);
+    for (const { image, options } of imagens) {
+      assert.ok(image.width > 1000 && image.height > 1000);
+      assert.ok(Math.abs(options.width / options.height - image.width / image.height) < .0001);
+      assert.ok(options.y >= 0);
+    }
+  } finally { globalThis.fetch = fetchOriginal; PDFPage.prototype.drawImage = drawImage; }
+});
+
+test('distrato mantém três páginas de conteúdo e assinaturas nas duas colunas', async () => {
+  const fetchOriginal = globalThis.fetch;
+  const drawText = PDFPage.prototype.drawText;
+  const rotulos = [];
+  globalThis.fetch = async path => new Response(await readFile(new URL('../../public' + path, import.meta.url)));
+  PDFPage.prototype.drawText = function(text, options) {
+    if (text === 'CONTRATANTE' || text === 'CONTRATADA') rotulos.push({ text, x: options.x, y: options.y, page: this });
+    return drawText.call(this, text, options);
+  };
+  try {
+    const modelo = DOCUMENT_TEMPLATES.find(m => m.modo === 'distrato-com-multa');
+    const pdf = await PDFDocument.load(await gerarPdfModelo(dadosTeste(modelo, 'feminino'), modelo));
+    assert.equal(pdf.getPageCount(), 3);
+    const contratante = rotulos.filter(t => t.text === 'CONTRATANTE').at(-1);
+    const contratada = rotulos.filter(t => t.text === 'CONTRATADA').at(-1);
+    assert.equal(contratante.page, contratada.page);
+    assert.ok(contratada.x - contratante.x > 200);
+    assert.ok(Math.abs(contratante.y - contratada.y) < 20);
+  } finally { globalThis.fetch = fetchOriginal; PDFPage.prototype.drawText = drawText; }
+});
+
+test('cada seção conserva suas margens e volta à largura inteira depois das colunas', async () => {
+  const w = 'http://schemas.openxmlformats.org/wordprocessingml/2006/main';
+  const secao = (left, cols = '') => `<w:sectPr><w:type w:val="continuous"/><w:pgSz w:w="12000" w:h="16000"/><w:pgMar w:top="800" w:left="${left}" w:right="800" w:bottom="800"/><w:cols ${cols}/></w:sectPr>`;
+  const p = (text, section = '') => `<w:p><w:pPr>${section}</w:pPr><w:r><w:t>${text}</w:t></w:r></w:p>`;
+  const bytes = zipSync({ 'word/document.xml': strToU8(`<w:document xmlns:w="${w}"><w:body>` +
+    p('Principal', secao(1600)) + p('ColunaA') + p('ColunaB') + p('ColunaC') + p('ColunaD', secao(600, 'w:num="2" w:space="400"')) +
+    p('Final') + secao(600) + '</w:body></w:document>') });
+  const fetchOriginal = globalThis.fetch;
+  const drawText = PDFPage.prototype.drawText;
+  const textos = [];
+  globalThis.fetch = async path => new Response(await readFile(new URL('../../public' + path, import.meta.url)));
+  PDFPage.prototype.drawText = function(text, options) { textos.push({ text, ...options }); return drawText.call(this, text, options); };
+  try {
+    const pdf = await PDFDocument.load(await gerarPdfDoWordOficial(bytes));
+    assert.equal(pdf.getPageCount(), 1);
+    const find = text => textos.find(t => t.text === text);
+    assert.equal(find('Principal').x, 80);
+    assert.equal(find('ColunaA').x, 30);
+    assert.equal(find('ColunaC').x, 305);
+    assert.equal(find('ColunaA').y, find('ColunaC').y);
+    assert.equal(find('Final').x, 30);
+    assert.ok(find('Final').y < find('ColunaB').y);
+  } finally { globalThis.fetch = fetchOriginal; PDFPage.prototype.drawText = drawText; }
+});
+
+test('substitui a assinatura de uma imagem composta sem apagar sua linha', async () => {
+  const fetchOriginal = globalThis.fetch;
+  const drawImage = PDFPage.prototype.drawImage;
+  const drawLine = PDFPage.prototype.drawLine;
+  const assinaturas = [], linhas = [];
+  globalThis.fetch = async path => new Response(await readFile(new URL('../../public' + path, import.meta.url)));
+  PDFPage.prototype.drawImage = function(image, options) {
+    if (image.tipoDocumento === 'assinatura') assinaturas.push(options);
+    return drawImage.call(this, image, options);
+  };
+  PDFPage.prototype.drawLine = function(options) { linhas.push(options); return drawLine.call(this, options); };
+  try {
+    const bytes = await readFile(new URL('../../public/modelos/termo-ciencia-autorizacao-seguranca.docx', import.meta.url));
+    await gerarPdfDoWordOficial(bytes);
+    assert.equal(assinaturas.length, 1);
+    assert.ok(linhas.some(l => l.end.x - l.start.x > assinaturas[0].width * 2 && l.thickness > 0 && l.thickness < 1));
+  } finally { globalThis.fetch = fetchOriginal; PDFPage.prototype.drawImage = drawImage; PDFPage.prototype.drawLine = drawLine; }
 });
 
 test('substitui Aptos ausente e fontes locais indisponíveis preservando as variantes', async () => {
@@ -71,7 +155,7 @@ test("modelos preservam a estrutura original e geram PDF com fontes disponíveis
   const fetchOriginal = globalThis.fetch;
   const chamadas = [];
   globalThis.fetch = async (path) => {
-    assert.ok(String(path).startsWith("/modelos/") || String(path).startsWith("/assets/fonts/"), `Acesso externo inesperado: ${path}`);
+    assert.ok(String(path).startsWith("/modelos/") || String(path).startsWith("/assets/fonts/") || String(path).startsWith("/assets/documentos/"), `Acesso externo inesperado: ${path}`);
     chamadas.push(path);
     const bytes = await readFile(new URL(`../../public${path}`, import.meta.url));
     return new Response(bytes);
