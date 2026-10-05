@@ -16,10 +16,10 @@ import "./documentWorkspace.css";
 
 const MODELO_PROCURACAO = {
   id: "procuracao-ad-judicia", nome: "Procuração Ad Judicia", titulo: "Procuração Ad Judicia", modo: "procuracao",
-  categoria: "procuracoes", categoriaNome: "Procurações", icone: "signature",
+  categoria: "procuracao-declaracao", categoriaNome: "Procuração e Declaração", icone: "signature",
   descricao: "Procuração para representação judicial do cliente.",
   ...UPDATED_DOCUMENT_MODELS.procuracao,
-  conflitosFixos: [{ campo: "dataEmissao", tipo: "ano", esperado: "2025", trecho: "A procuração recebida fixa a assinatura em 2025." }],
+  conflitosFixos: [{ campo: "dataEmissao", tipo: "ano", esperado: "2026", trecho: "A procuração recebida fixa a assinatura em 2026." }],
   campos: [...DOCUMENT_TEMPLATES.find((modelo) => modelo.modo === "declaracao-hipossuficiencia").campos,
     { nome: "banco", rotulo: "Banco", obrigatorio: true },
     { nome: "numeroContrato", rotulo: "Número do contrato", obrigatorio: true }],
@@ -49,7 +49,7 @@ function montarNomesDoConjunto(modelo, dados) {
 }
 
 function destinoPadrao(modelo) {
-  const pastas = { procuracoes: "PROCURAÇÕES", declaracoes: "DECLARAÇÕES", notificacoes: "NOTIFICAÇÕES_E_INTIMAÇÕES", contestacoes: "CONTESTAÇÕES", termos: "TERMOS", distratos: "DISTRATOS", relatorios: "RELATÓRIOS", "recibos-certidoes": "RECIBOS_E_CERTIDÕES" };
+  const pastas = { "procuracao-declaracao": "PROCURAÇÃO E DECLARAÇÃO", "notificacao-extrajudicial": "NOTIFICAÇÃO EXTRAJUDICIAL", "intimacao-judicial": "INTIMAÇÃO JUDICIAL", termos: "TERMOS DE CIENCIA", distratos: "DISTRATOS", recibos: "RECIBOS DE PRESTAÇÃO DE SERVIÇOS", relatorios: "RELATÓRIOS" };
   return `Drive do cliente / ${pastas[modelo.categoria] || "DOCUMENTOS"}`;
 }
 
@@ -200,9 +200,8 @@ export default function GeradorDocumentos(props) {
     });
     return () => { ativo = false; };
   }, []);
-  const kit = ["procuracao", "declaracao-hipossuficiencia", "declaracao-isencao-irpf"];
-  const categorias = [{ id: "kit-inicial", nome: "Kit Processual Inicial", icone: "signature" }, ...DOCUMENT_CATEGORIES.filter((item) => !["todos", "mais-utilizados", "favoritos"].includes(item.id))]
-    .map((item) => ({ ...item, nome: item.id === "notificacao-extrajudicial" ? "Notificações Extrajudiciais" : item.nome, modelos: MODELOS.filter((documento) => item.id === "kit-inicial" ? kit.includes(documento.modo) : !kit.includes(documento.modo) && documento.categoria === item.id) }))
+  const categorias = DOCUMENT_CATEGORIES.filter((item) => !["todos", "mais-utilizados", "favoritos"].includes(item.id))
+    .map((item) => ({ ...item, modelos: MODELOS.filter((documento) => documento.categoria === item.id) }))
     .filter((item) => item.modelos.length);
   const nomes = { ...nomesCompartilhados, ...lerJsonLocal(DOCUMENT_MODEL_NAMES_KEY, {}) };
   if (modelo) return <EditorDocumento {...props} modeloInicial={modelo} modelosDaCategoria={categoria.modelos} onVoltar={() => setModelo(null)} onNovaSelecao={() => { setModelo(null); setCategoria(null); }} />;

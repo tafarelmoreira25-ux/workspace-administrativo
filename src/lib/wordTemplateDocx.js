@@ -86,8 +86,40 @@ function regrasDistrato(d, modo) {
 }
 
 function regrasTermo(d, modo) {
-  if (["termo-ciencia-consentimento-contratacao", "termo-consentimento-compras-2026"].includes(modo)) return [regra("NOME DO TITULAR DO CARTÃO", t(d.nomeTitularCartao).toUpperCase()), regra("XXX.XXX.XXX-XX", d.cpfTitularCartao), regra("5447 **** **** 9904", d.numeroCartaoMascarado), regra("X.XXX, XX", semReal(d.valorPagamento)), regra("XX parcelas", `${t(d.quantidadeParcelas)} parcelas`), regra("x0map21h37by7922jor97rfoec", d.codigoTransacao), regra("XX/XX/2026", dataCurta(d.dataDocumento))];
-  if (modo === "termo-pagamento-cartao-terceiro") return [regra("NOME DO TITULAR DO CARTÃO", t(d.nomeTitularCartao).toUpperCase()), regra("NOME DO CONTRATANTE", t(d.nomeContratante).toUpperCase()), regra("XXX.XXX.XXX-XX", null, { valores: [d.cpfTitularCartao, d.cpfContratante] }), regra("5447 **** **** 9904", d.numeroCartaoMascarado), regra("X.XXX, XX", semReal(d.valorPagamento)), regra("XX parcelas", `${t(d.quantidadeParcelas)} parcelas`), regra("x0map21h37by7922jor97rfoec", d.codigoTransacao), regra("XX/XX/2026", dataCurta(d.dataDocumento))];
+  if (modo === "termo-acesso-portal-gov") return [
+    regra("[NOME DO CLIENTE]", t(d.nomeCliente).toUpperCase()), regra("[XXX.XXX.XXX-XX]", d.cpfCnpj),
+    regra("inscrito(a)", formasPessoa(d).inscrito),
+    regra("[Dia]", partesData(d.dataDocumento).dia), regra("[Mês]", partesData(d.dataDocumento).nomeMes),
+  ];
+  if (modo === "termo-entrega-laudo-pericial") return [
+    regra("[Nome Do Cliente]", d.nomeCliente), regra("Nome Do Cliente", d.nomeCliente),
+    regra("[Nacionalidade]", concordarCampoPerfil(d.nacionalidade, d)),
+    regra("[Estado Civil]", concordarCampoPerfil(d.estadoCivil, d)),
+    regra("[Profissão]", concordarCampoPerfil(d.profissao, d)),
+    regra("[XXXXXXX-UF]", d.rg), regra("[XXX.XXX.XXX-XX]", d.cpfCnpj),
+    regra("[Rua XXXXXXXX, n.º XXX — Bairro — Cidade/UF — CEP: XXXXX-XXX]", d.endereco),
+    regra("portador(a)", formasPessoa(d).portador), regra("domiciliado(a)", formasPessoa(d).domiciliado),
+    regra("orientado(a)", d.genero === "feminino" ? "orientada" : "orientado"),
+  ];
+  if (modo === "termo-ciencia-consentimento-contratacao") return [
+    regra("NOME DO TITULAR DO CARTÃO", t(d.nomeTitularCartao).toUpperCase()), regra("XXX.XXX.XXX-XX", d.cpfTitularCartao),
+    regra("5447 **** **** 9904", d.numeroCartaoMascarado), regra("X.XXX, XX", semReal(d.valorPagamento)),
+    regra("XX parcelas", `${t(d.quantidadeParcelas)} parcelas`), regra("XXXXXXXXXXXXXXXXXX", d.codigoTransacao),
+    regra("x0map21h37by7922jor97rfoec", d.codigoTransacao), regra("XX/XX/2026", dataCurta(d.dataDocumento)),
+    regra("inscrito(a)", formasPessoa({ genero: d.generoTitularCartao }).inscrito),
+    regra("informado(a)", formasPessoa({ genero: d.generoTitularCartao }).informado),
+  ];
+  if (modo === "termo-consentimento-compras-2026") return [regra("NOME DO TITULAR DO CARTÃO", t(d.nomeTitularCartao).toUpperCase()), regra("XXX.XXX.XXX-XX", d.cpfTitularCartao), regra("5447 **** **** 9904", d.numeroCartaoMascarado), regra("X.XXX, XX", semReal(d.valorPagamento)), regra("XX parcelas", `${t(d.quantidadeParcelas)} parcelas`), regra("x0map21h37by7922jor97rfoec", d.codigoTransacao), regra("XX/XX/2026", dataCurta(d.dataDocumento)), regra("inscrito(a)", formasPessoa({ genero: d.generoTitularCartao }).inscrito), regra("informado(a)", formasPessoa({ genero: d.generoTitularCartao }).informado)];
+  if (modo === "termo-pagamento-cartao-terceiro") return [
+    regra("Nome Do Titular Do Cartão", d.nomeTitularCartao), regra("NOME DO TITULAR DO CARTÃO", t(d.nomeTitularCartao).toUpperCase()),
+    regra("Nome Do Contratante", d.nomeContratante), regra("NOME DO CONTRATANTE", t(d.nomeContratante).toUpperCase()),
+    regra("XXX.XXX.XXX-XX", null, { valores: [d.cpfTitularCartao, d.cpfContratante, d.cpfTitularCartao] }),
+    regra("5447 **** **** 9904", d.numeroCartaoMascarado), regra("X.XXX, XX", semReal(d.valorPagamento)),
+    regra("XX parcelas", `${t(d.quantidadeParcelas)} parcelas`), regra("número do código", d.codigoTransacao),
+    regra("x0map21h37by7922jor97rfoec", d.codigoTransacao), regra("XX/XX/2026", dataCurta(d.dataDocumento)),
+    regra("inscrito(a)", formasPessoa({ genero: d.generoTitularCartao }).inscrito),
+    regra("informado(a)", formasPessoa({ genero: d.generoTitularCartao }).informado),
+  ];
   if (modo === "termo-reconhecimento-recompra") return [regra("Nome do contratante", d.nomeContratante), regra("NOME DO CONTRATANTE", t(d.nomeContratante).toUpperCase()), regra("XXX.XXX.XXX-XX", d.cpfContratante), regra("X.XXX, XX", semReal(d.valorRecompra)), regra("(valor por extenso)", `(${t(d.valorRecompraExtenso)})`), regra("FORMA DE PAGAMENTO", t(d.formaPagamento).toUpperCase()), regra("São Paulo/SP, dia de mês de 2026", `${t(d.localEmissao)}, ${dataLonga(d.dataDocumento)}`)];
   return [regra("Nome do cliente", d.nomeCliente), regra("Nome Completo Do Cliente", t(d.nomeCliente).toUpperCase()), regra("RG nº ____________,", `RG nº ${t(d.rg)},`), regra("CPF/CNPJ -MF sob o nº___________________,", `CPF/CNPJ -MF sob o nº ${t(d.cpfCnpj)},`), regra("rua _______________________", t(d.logradouro)), regra("Nº____", `Nº ${t(d.numeroEndereco)}`), regra("Bairro:________________", `Bairro: ${t(d.bairro)}`), regra("Cidade/Estado: ____________________________", `Cidade/Estado: ${t(d.cidadeEstado)}`), regra("Estado/UF, dia de mês de 2026", `${t(d.localEmissao)}, ${dataLonga(d.dataDocumento)}`), regra("XXX.XXX.XXX-XX", d.cpfCnpj)];
 }
@@ -100,6 +132,9 @@ function regrasRecibo(d, modo) {
     "recibo-servicos-pix": [regra("[ID da transação]", d.idTransacao), regra("[E2E]", d.identificadorE2e)],
   };
   return [
+    regra("[NºXXXXXX]", d.numeroRecibo, { parte: /^word\/header/i }),
+    regra("Nome - CPF: XXX.XXX.XXX-XX", `${t(d.nomePagador)} - CPF: ${t(d.cpfPagador)}`),
+    regra("X.XXX, XX", semReal(d.valorRecebido)), regra("XX:XX:XX", d.horarioTransacao),
     regra("Estado, dia de mês de 2026", `${t(d.localEmissao)}, ${dataLonga(d.dataPagamento)}`),
     regra("Documento assinado por Platino Soluções Financeiras em dia/mês/2026 às xx:xx.", `Documento assinado por Platino Soluções Financeiras em ${dataCurta(d.dataAssinatura)} às ${t(d.horarioAssinatura)}.`),
     ...comuns, ...(extras[modo] || []),
@@ -107,6 +142,41 @@ function regrasRecibo(d, modo) {
 }
 
 function regrasNotificacao(d, modo) {
+  const f = formasPessoa(d);
+  if (["notificacao-exibicao-documentos-bancarios", "notificacao-contestacao-revisao-contratual"].includes(modo)) return [
+    regra("[Nome da Instituição Financeira / Banco]", d.banco), regra("[Endereço da Agência ou Sede]", d.enderecoBanco),
+    regra("[Número do Contrato]", d.numeroContrato), regra("[Nome Completo / Razão Social]", d.nomeCliente),
+    regra("[Número do CPF ou CNPJ]", d.cpfCnpj), regra("[Nome Do Cliente]", d.nomeCliente), regra("[CPF do cliente]", d.cpfCnpj),
+    regra("[Seu E-mail]", d.emailResposta), regra("[São Paulo - SP]", d.localEmissao), regra("[Data]", dataLonga(d.dataDocumento)),
+    regra("inscrito(a)", f.inscrito), regra("qualificado(a)", f.qualificado),
+    regra("do(a) consumidor(a)", d.genero === "feminino" ? "da consumidora" : "do consumidor"),
+    regra("acima identificado(a)", `acima ${d.genero === "feminino" ? "identificada" : "identificado"}`),
+    regra("[X.XXX,XX]", null, { valores: [semReal(d.valorSeguro), semReal(d.valorRegistro), semReal(d.valorAvaliacao), semReal(d.valorIof), semReal(d.valorIofAdicional)] }),
+  ];
+  if (["notificacao-formalizacao-acordo", "notificacao-manifestacao-composicao-acordo"].includes(modo)) return [
+    regra("Nome do Banco", d.banco), regra("NOME DO BANCO", t(d.banco).toUpperCase()),
+    regra("XXXXX", d.numeroContrato), regra("[Nome Do Cliente]", d.nomeCliente), regra("[CPF do cliente]", d.cpfCnpj),
+    regra("Data do contrato", dataCurta(d.dataContrato)),
+    regra("Valor (número por escrito)", `${semReal(d.saldoDevedor)} (${t(d.saldoDevedorExtenso)})`),
+    regra("XX (número por escrito)", `${t(d.quantidadeParcelas)} (${t(d.quantidadeParcelasExtenso)})`, { contexto: "Quantidade total de parcelas: " }),
+    regra("XX (número por escrito)", `${t(d.parcelasPagas)} (${t(d.parcelasPagasExtenso)})`, { contexto: "Parcelas pagas: " }),
+    regra("Quantidade", d.parcelasAbertas, { contexto: "Parcelas eventualmente em aberto: " }),
+    regra("X.XXX,XX (número por escrito)", `${semReal(d.valorParcela)} (${t(d.valorParcelaExtenso)})`),
+    regra("valor (número por escrito)", `${semReal(d.valorQuitacao)} (${t(d.valorQuitacaoExtenso)})`),
+    regra("valor da parcela corrigida", semReal(d.valorParcelaCorrigida)), regra("XX meses/parcelas", `${t(d.prazoReestruturacao)} meses/parcelas`),
+    regra("[DATA DO ENVIO]", dataCurta(d.dataEnvioParecer)), regra("[XX]", d.diasSemResposta),
+    regra("O requerente", d.genero === "feminino" ? "A requerente" : "O requerente"),
+    regra("o requerente", d.genero === "feminino" ? "a requerente" : "o requerente"),
+    regra("acima identificado", `acima ${d.genero === "feminino" ? "identificada" : "identificado"}`),
+    regra("O solicitante", d.genero === "feminino" ? "A solicitante" : "O solicitante"),
+    regra("o solicitante", d.genero === "feminino" ? "a solicitante" : "o solicitante"),
+  ];
+  if (modo === "notificacao-respaldo-parecer-tecnico") return [
+    regra("[NOME DO CLIENTE]", t(d.nomeCliente).toUpperCase()), regra("[XXXXXX]", d.protocolo),
+    regra("[IDENTIFICAÇÃO]", d.numeroContrato), regra("Nome do Perito", d.nomePerito), regra("[VALOR]", semReal(d.valorHonorarios)),
+    regra("[DATA]", dataCurta(d.dataLimiteAceite)), regra("[HORÁRIO — BRASÍLIA]", d.horarioLimiteAceite),
+    regra("[dia]", partesData(d.dataDocumento).dia), regra("[mês]", partesData(d.dataDocumento).nomeMes),
+  ];
   const comuns = [regra("[Data]", dataLonga(d.dataDocumento), { parte: /^word\/header/i }), regra("[Nome Do Banco]", d.banco), regra("XX.XXX.XXX/XXXX-XX", d.cnpjBanco), regra("Endereço completo do banco ou canal eletrônico oficial.", d.enderecoBanco), regra("[Nome Do Cliente]", d.nomeCliente), regra("[NOME DO CLIENTE]", t(d.nomeCliente).toUpperCase()), regra("[CPF do cliente]", d.cpfCnpj), regra("[valor]", semReal(d.valorContrato)), regra("[valor por extenso]", null, { valores: [d.valorContratoExtenso, d.valorParcelaExtenso] }), regra("[quantidade]", d.quantidadeParcelas), regra("[valor da parcela]", semReal(d.valorParcela)), regra("[número do contrato, se houver]", d.numeroContrato)];
   const extras = {
     "notificacao-prosseguimento-acao": [regra("[Protocolo]", d.protocolo), regra("[Data]", dataCurta(d.dataInicio)), regra("[Datas e canais]", d.datasCanais), regra("[PROTOCOLO E DATA]", `${t(d.protocoloAnterior)} - ${dataCurta(d.dataSolicitacaoAnterior)}`), regra("[IDENTIFICAÇÃO]", d.documentosPendentes), regra("[Descrever a pendência]", d.pendencia)],
@@ -114,7 +184,8 @@ function regrasNotificacao(d, modo) {
     "notificacao-finalizacao-conciliacao": [regra("[Protocolo e data]", `${t(d.protocolo)} - ${dataCurta(d.dataProtocolo)}`), regra("[Síntese da revisão]", d.sinteseRevisao), regra("[Data e horário]", `${dataCurta(d.dataReuniao)} ${t(d.horarioReuniao)}`), regra("[Canal ou local]", d.canalReuniao)],
     "notificacao-requerimento-taxas": [regra("[Identificação das taxas e valores]", d.taxasQuestionadas)],
   };
-  return [...comuns, ...(extras[modo] || [])];
+  if (modo === "notificacao-intimacao-finalizacao-conciliacao") modo = "notificacao-finalizacao-conciliacao";
+  return [...comuns, ...(extras[modo] || []), regra("inscrito no CPF sob o nº", `${f.inscrito} no CPF sob o nº`)];
 }
 
 function regrasLiminar(d) {
@@ -129,8 +200,33 @@ function regrasProcuracaoDeclaracoes(d, modo) {
   const f = formasPessoa(d);
   const dataDocumento = d.dataDocumento || d.dataEmissao;
   const dataLocal = `${t(d.cidade)}${d.uf ? `-${t(d.uf).toUpperCase()}` : ""}, ${dataLonga(dataDocumento)}.`;
+  if (modo === "declaracao-residencia-gov") {
+    const titular = formasPessoa({ genero: d.generoTitularResidencia });
+    return [
+      regra("[NOME COMPLETO DO DECLARANTE]", t(d.nomeCliente).toUpperCase()),
+      regra("[NOME COMPLETO DO TITULAR DA RESIDÊNCIA]", t(d.nomeTitularResidencia).toUpperCase()),
+      regra("[nacionalidade]", concordarCampoPerfil(d.nacionalidade, d)), regra("[estado civil]", concordarCampoPerfil(d.estadoCivil, d)),
+      regra("[profissão]", concordarCampoPerfil(d.profissao, d)),
+      regra("[número do RG]", null, { valores: [d.rg, d.rgTitularResidencia] }),
+      regra("[número do CPF]", null, { valores: [d.cpfCnpj, d.cpfTitularResidencia] }),
+      regra("________________________________________________", d.nomeTitularResidencia, { contexto: "resido com " }),
+      regra("______________________________", d.cpfTitularResidencia, { contexto: "inscrito(a) no CPF sob o nº " }),
+      regra("[endereço completo, número, complemento, bairro, cidade/UF e CEP]", d.endereco),
+      regra("______________________________", d.cpfCnpj, { contexto: "DECLARANTE — CPF nº " }),
+      regra("______________________________", d.cpfTitularResidencia, { contexto: "TITULAR DA RESIDÊNCIA — CPF nº " }),
+      regra("portador(a)", null, { valores: [f.portador, titular.portador] }),
+      regra("inscrito(a)", null, { valores: [f.inscrito, titular.inscrito, titular.inscrito] }),
+      regra("o(a) declarante", `${f.artigo} declarante`),
+      regra("declarante acima identificado(a)", `declarante acima ${d.genero === "feminino" ? "identificada" : "identificado"}`),
+      regra("[Cidade/UF]", d.localEmissao), regra("[dia]", partesData(dataDocumento).dia),
+      regra("[mês]", partesData(dataDocumento).nomeMes), regra("[ano]", partesData(dataDocumento).ano),
+    ];
+  }
   if (modo === "procuracao") {
     return [
+      regra("Estado, dia de mês de 2026.", `${t(d.cidade)}-${t(d.uf).toUpperCase()}, ${dataLonga(d.dataEmissao)}.`),
+      regra("portador (a) da cédula", `${f.portador} da cédula`),
+      regra("residente e domiciliado na XXXXXXXXXXXXXXXXXXXXXXXXX", `residente e ${f.domiciliado} na ${t(d.endereco)}`),
       regra("XXXXXXXXXXXXXXXXXX", d.nomeCliente, { contexto: "OUTORGANTE: " }),
       regra("Nome do titular", d.nomeCliente),
       regra("o(a) OUTORGANTE", `${f.artigo} OUTORGANTE`),
@@ -156,6 +252,11 @@ function regrasProcuracaoDeclaracoes(d, modo) {
   }
 
   if (modo === "declaracao-hipossuficiencia") return [
+    regra("nacionalidade", concordarCampoPerfil(d.nacionalidade, d)),
+    regra("estado Civil", concordarCampoPerfil(d.estadoCivil, d)), regra("profissão", concordarCampoPerfil(d.profissao, d)),
+    regra("RG n.º XXXXXXXXX SSP XX", `RG n.º ${t(d.rg)} ${t(d.orgaoExpedidor)}`),
+    regra("CPF/MF sob n.º XXXXXXXXXXX", `CPF/MF sob n.º ${t(d.cpfCnpj)}`),
+    regra("ESTADO, dia de mês de 2026.", dataLocal),
     regra("Eu, XXXXXXXXXXXXXX", `Eu, ${t(d.nomeCliente)}`),
     regra("NACIONALIDADE", concordarCampoPerfil(d.nacionalidade, d).toUpperCase()),
     regra("ESTADO CIVIL", concordarCampoPerfil(d.estadoCivil, d).toUpperCase()),
@@ -181,6 +282,7 @@ function regrasProcuracaoDeclaracoes(d, modo) {
     regra("PROFISSÃO", concordarCampoPerfil(d.profissao, d).toUpperCase()),
     regra("portadora da Cédula", `${f.portador} da Cédula`),
     regra("portador(a) da Cédula", `${f.portador} da Cédula`),
+    regra("portador (a) da Cédula", `${f.portador} da Cédula`),
     regra("R.G. nº XXXXXXXXXXXX", `R.G. nº ${t(d.rg)}`),
     regra("inscrito(a)", f.inscrito),
     regra("C.P.F./M.F. sob nº XXXXXXXXXXXX", `C.P.F./M.F. sob nº ${t(d.cpfCnpj)}`),
@@ -189,6 +291,7 @@ function regrasProcuracaoDeclaracoes(d, modo) {
     regra("isento(a)", f.isento, { contexto: "Declara ser " }),
     regra("Declara ser isento", `Declara ser ${f.isento}`),
     regra("ESTADO-UF  XX DE XXXXXXXXXX DE 2026.", `${t(d.cidade)}-${t(d.uf).toUpperCase()}  ${partesData(dataDocumento).dia} DE ${partesData(dataDocumento).nomeMes.toUpperCase()} DE 2026.`),
+    regra("Estado-UF  XX de XXXXXXXXXX de 2026.", `${t(d.cidade)}-${t(d.uf).toUpperCase()}  ${partesData(dataDocumento).dia} de ${partesData(dataDocumento).nomeMes} de 2026.`),
     regra("ESTADO-UF  XX DE XXXXXXXXXX DE 2025.", `${t(d.cidade)}-${t(d.uf).toUpperCase()}  ${partesData(dataDocumento).dia} DE ${partesData(dataDocumento).nomeMes.toUpperCase()} DE 2025.`),
     regra("Nome do cliente", d.nomeCliente),
     regra("XXXXXXXXXX NOME XXXXXXXXXXX", t(d.nomeCliente).toUpperCase()),
@@ -242,6 +345,15 @@ function regrasModelosOriginais(d, modo) {
   const local = t(d.localEmissao || d.cidade || "São Paulo");
   const localUf = d.uf && !local.toUpperCase().endsWith(`/${t(d.uf).toUpperCase()}`) ? `${local}/${t(d.uf).toUpperCase()}` : local;
   const dataFixa2026 = `${localUf}, ${data.dia} de ${data.nomeMes} de 2026.`;
+  if (modo === "peticao-revelia-julgamento") return [
+    regra("[NÚMERO DA VARA]", d.vara), regra("[NOME DA CIDADE/ESTADO]", d.comarca),
+    regra("[inserir o número do processo]", d.numeroProcesso), regra("[Nome Do Autor]", d.nomeCliente),
+    regra("[Nome Do Banco Réu]", d.banco), regra("[Data da leitura da citação eletrônica]", dataCurta(d.dataLeituraCitacao)),
+    regra("[Data de início do prazo]", dataCurta(d.dataInicioPrazo)), regra("[Data final do prazo]", dataCurta(d.dataFinalPrazo)),
+    regra("[São Paulo - SP]", d.localEmissao), regra("[Data de hoje]", dataLonga(dataEmissao)),
+    regra("já devidamente qualificado", `já devidamente ${f.qualificado}`),
+    regra("pelo Autor", d.genero === "feminino" ? "pela Autora" : "pelo Autor"),
+  ];
 
   if (modo === "notificacao-extrajudicial") return [
     regra("São Paulo/SP, [dia] de [mês] de 2026.", dataFixa2026), regra("[NOME DO BANCO]", t(d.banco).toUpperCase()),
@@ -312,7 +424,8 @@ function regrasModelosOriginais(d, modo) {
 
 function regrasDoModelo(dados, modelo) {
   if (modelo.modo === "declaracao-isencao-comprovante-endereco") return regrasComprovanteEndereco(dados);
-  if (["procuracao", "declaracao-hipossuficiencia", "declaracao-isencao-irpf"].includes(modelo.modo)) return regrasProcuracaoDeclaracoes(dados, modelo.modo);
+  if (["procuracao", "declaracao-hipossuficiencia", "declaracao-isencao-irpf", "declaracao-residencia-gov"].includes(modelo.modo)) return regrasProcuracaoDeclaracoes(dados, modelo.modo);
+  if (modelo.modo === "peticao-revelia-julgamento") return regrasModelosOriginais(dados, modelo.modo);
   if (modelo.modo === "requerimento-postergacao-parcela") return regrasPostergacao(dados);
   if (["notificacao-extrajudicial", "citacao-judicial", "intimacao-extrajudicial", "chargeback", "termo-compromisso-pagamento", "termo-ciencia-seguranca", "declaracao-ausencia-carteira-trabalho", "recibo-prestacao-servicos", "relatorio-negociacao-homologacao", "termo-recompra"].includes(modelo.modo)) return regrasModelosOriginais(dados, modelo.modo);
   if (modelo.modo.startsWith("distrato-")) return regrasDistrato(dados, modelo.modo);
@@ -331,6 +444,7 @@ function regrasComprovanteEndereco(d) {
     regra("____________________________", d.cpfCnpj, { contexto: "CPF nº " }),
     regra("__________________________, declaro", `${t(d.rg)}, declaro`),
     regra("________________________________________________________________", d.endereco, { contexto: "Endereço: " }),
+    regra("________________________________________________________________", d.endereco, { contexto: "Rua: " }),
     regra("______________________________", d.bairro, { contexto: "Bairro: " }),
     regra("______________________________", d.cidade, { contexto: "Cidade: " }),
     regra("______________________________", d.uf, { contexto: "Estado: " }),
@@ -407,7 +521,7 @@ function validar(arquivos, modelo) {
     const documento = new DOMParser().parseFromString(strFromU8(bytes), "application/xml");
     const texto = Array.from(documento.getElementsByTagNameNS(W_NS, "t")).map((no) => no.textContent || "").join("");
     (texto.match(/\[[^\]]+\]/g) || []).forEach((token) => pendencias.add(token));
-    const validarSequenciasX = ["procuracao", "declaracao-hipossuficiencia", "declaracao-isencao-irpf", "requerimento-postergacao-parcela"].includes(modelo?.modo);
+    const validarSequenciasX = Boolean(modelo?.templateOriginal) || ["procuracao", "declaracao-hipossuficiencia", "declaracao-isencao-irpf", "requerimento-postergacao-parcela"].includes(modelo?.modo);
     const marcador = texto.match(/X{3,}|XXX\.XXX\.XXX|xxx\.xxx\.xxx|X\.XXX,?\s?XX|dia\/mês\/(?:ano|2026)|Nome do contratante|NOME DO CONTRATANTE|Nome do cliente|NOME DO CLIENTE|numero por extenso|Numero do contrato|NUMERO DO CONTRATO/);
     if ((validarSequenciasX && marcador) || (!validarSequenciasX && marcador && !/^X{3,}$/.test(marcador[0]))) pendencias.add(`campo de exemplo “${marcador[0]}”`);
   }
@@ -430,6 +544,7 @@ function removerMarcadoresAmarelos(xml) {
 
 export async function gerarWordOficial(dados, modelo) {
   if (!modelo?.templateDocx) throw new Error("Arquivo do modelo oficial não configurado.");
+  if (modelo.revisaoWordPendente) throw new Error(`Geração bloqueada: ${modelo.revisaoWordPendente}`);
   if (modelo.templateSha256) {
     const vazios = (modelo.campos || []).filter((campo) => campo.obrigatorio && !t(dados[campo.nome]));
     if (vazios.length) throw new Error(`Preencha os campos obrigatórios do modelo: ${vazios.map((campo) => campo.rotulo).join(", ")}.`);

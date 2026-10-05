@@ -231,18 +231,19 @@ test('nao exibe acoes de rascunho e descarta rascunhos vencidos', () => {
   assert.equal(storage.has(chave), false);
 });
 
-test('kit inicial reune exatamente os tres documentos solicitados', () => {
+test('procuração e declarações ficam na categoria recebida', () => {
   const env = ambienteTela(generatorCode, 'GeradorDocumentos', {});
-  const kit = elementos(env.render().tree).find(node => node.type === 'button' && elementos(node).some(child => child.type === 'strong' && child.children.includes('Kit Processual Inicial')));
+  const kit = elementos(env.render().tree).find(node => node.type === 'button' && elementos(node).some(child => child.type === 'strong' && child.children.includes('Procuração e Declaração')));
   kit.props.onClick();
   const nomes = elementos(env.render().tree).filter(node => node.type === 'strong').map(node => node.children[0]);
-  assert.deepEqual(nomes.sort(), ['Procuração Ad Judicia', 'Declaração de Hipossuficiência', 'Declaração de Isenção de Imposto de Renda'].sort());
+  const esperados = documentWorkspace.enriquecerModelos(DOCUMENT_TEMPLATES).filter(m => m.categoria === 'procuracao-declaracao').map(m => m.nome);
+  assert.deepEqual(nomes.sort(), [...esperados, 'Procuração Ad Judicia'].sort());
 });
 
 test('biblioteca usa a procuração atualizada e oferece as duas declarações recebidas', () => {
   const env = ambienteTela(generatorCode, 'GeradorDocumentos', { usuario: {} });
   let nodes = elementos(env.render().tree);
-  nodes.find(node => node.type === 'button' && elementos(node).some(child => child.type === 'strong' && child.children.includes('Kit Processual Inicial'))).props.onClick();
+  nodes.find(node => node.type === 'button' && elementos(node).some(child => child.type === 'strong' && child.children.includes('Procuração e Declaração'))).props.onClick();
   nodes = elementos(env.render().tree);
   nodes.find(node => node.type === 'button' && elementos(node).some(child => child.type === 'strong' && child.children.includes('Procuração Ad Judicia'))).props.onClick();
   const procuracao = env.render().tree.props.modeloInicial;
@@ -250,12 +251,24 @@ test('biblioteca usa a procuração atualizada e oferece as duas declarações r
   assert.equal(procuracao.templateSha256, UPDATED_DOCUMENT_MODELS.procuracao.templateSha256);
   const biblioteca = ambienteTela(generatorCode, 'GeradorDocumentos', { usuario: {} });
   nodes = elementos(biblioteca.render().tree);
-  nodes.find(node => node.type === 'button' && elementos(node).some(child => child.type === 'strong' && child.children.includes('Declarações'))).props.onClick();
+  nodes.find(node => node.type === 'button' && elementos(node).some(child => child.type === 'strong' && child.children.includes('Procuração e Declaração'))).props.onClick();
   nodes = elementos(biblioteca.render().tree);
   for (const modo of ['declaracao-isencao-comprovante-endereco', 'declaracao-ausencia-carteira-trabalho']) {
     const modelo = DOCUMENT_TEMPLATES.find(item => item.modo === modo);
     assert.ok(nodes.some(node => node.type === 'strong' && node.children.includes(modelo.nome)));
   }
+});
+
+test('as notificações novas aparecem separadas na categoria da pasta', () => {
+  const env = ambienteTela(generatorCode, 'GeradorDocumentos', { usuario: {} });
+  let nodes = elementos(env.render().tree);
+  nodes.find(node => node.type === 'button' && elementos(node).some(child => child.type === 'strong' && child.children.includes('Notificação Extrajudicial'))).props.onClick();
+  nodes = elementos(env.render().tree);
+  for (const modo of ['notificacao-exibicao-documentos-bancarios', 'notificacao-contestacao-revisao-contratual', 'notificacao-formalizacao-acordo', 'notificacao-manifestacao-composicao-acordo', 'notificacao-respaldo-parecer-tecnico']) {
+    const modelo = DOCUMENT_TEMPLATES.find(item => item.modo === modo);
+    assert.ok(nodes.some(node => node.type === 'strong' && node.children.includes(modelo.nome)), modo);
+  }
+  assert.equal(DOCUMENT_TEMPLATES.some(m => m.modo === 'notificacao-intimacao-finalizacao-conciliacao'), false);
 });
 
 test('renomear modelo fica disponivel apenas para Tafarel ou administrador', () => {

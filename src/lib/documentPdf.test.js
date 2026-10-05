@@ -12,6 +12,14 @@ import { gerarPdfModelo, pendenciaModeloOriginal } from "./documentPdf.js";
 globalThis.DOMParser = DOMParser;
 globalThis.XMLSerializer = XMLSerializer;
 
+test("bloqueia os três recibos cuja paginação diverge do original", async () => {
+  for (const modo of ["recibo-servicos-boleto", "recibo-servicos-cartao", "recibo-servicos-pix"]) {
+    const modelo = DOCUMENT_TEMPLATES.find(m => m.modo === modo);
+    assert.match(pendenciaModeloOriginal(modelo), /duas colunas/);
+    await assert.rejects(gerarPdfModelo({}, modelo), /Geração bloqueada:.*duas colunas/);
+  }
+});
+
 test('substitui Aptos ausente e fontes locais indisponíveis preservando as variantes', async () => {
   const w = 'http://schemas.openxmlformats.org/wordprocessingml/2006/main';
   const bytes = zipSync({
@@ -52,10 +60,10 @@ function dadosTeste(modelo, genero) {
     nacionalidade: "brasileira", estadoCivil: "solteira", profissao: "advogada", email: "teste@example.com",
     rg: "12.345.678-9", orgaoExpedidor: "SSP/SP", cep: "01001-000", cidade: "São Paulo", uf: "SP",
     cidadeEstado: "São Paulo/SP", localEmissao: "São Paulo/SP", banco: "Banco de Teste",
-    exercicios: "2023, 2024 e 2025", responsavel: "Responsável de teste", dataEmissao: "2026-10-04",
+    exercicios: "2024, 2025 e 2026", responsavel: "Responsável de teste", dataEmissao: "2026-10-04",
     dataDocumento: "2026-10-04", parentesco: "mae",
     numeroParcela: "12", numeroParcelaExtenso: "doze", quantidadeParcelasExtenso: "doze", dataVencimento: "2026-10-10", numeroProcesso: "0000000-00.2026.8.26.0000",
-    horarioAssinatura: "10:30",
+    horarioAssinatura: "10:30", horarioTransacao: "10:15:30", generoTitularCartao: genero, generoTitularResidencia: genero,
   };
 }
 
@@ -69,7 +77,7 @@ test("modelos preservam a estrutura original e geram PDF com fontes disponíveis
     return new Response(bytes);
   };
   try {
-    assert.equal(DOCUMENT_TEMPLATES.length, 34);
+    assert.equal(DOCUMENT_TEMPLATES.length, 43);
     for (const modelo of DOCUMENT_TEMPLATES) {
       await t.test(modelo.nome, async () => {
         for (const genero of ["feminino", "masculino"]) {

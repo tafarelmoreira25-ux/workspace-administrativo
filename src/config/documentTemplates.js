@@ -6,6 +6,7 @@ const campoGenero = {
   tipo: "select",
   obrigatorio: true,
   opcoes: [
+    { valor: "", rotulo: "Selecione" },
     { valor: "feminino", rotulo: "Feminino" },
     { valor: "masculino", rotulo: "Masculino" },
   ],
@@ -16,7 +17,7 @@ const valoresPadrao = {
   orgaoExpedidor: "SSP/SP",
   cidade: "São Paulo",
   uf: "SP",
-  exercicios: "2023, 2024 e 2025",
+  exercicios: "2024, 2025 e 2026",
 };
 
 const camposComunsDistrato = [
@@ -231,7 +232,7 @@ export const DOCUMENT_TEMPLATES = [
     ...UPDATED_DOCUMENT_MODELS["declaracao-isencao-irpf"],
     identidadeVisual: true,
     conflitosFixos: [
-      { campo: "exercicios", tipo: "texto", esperado: "2023, 2024 e 2025", trecho: "O corpo do DOCX fixa os exercícios de 2023, 2024 e 2025." },
+      { campo: "exercicios", tipo: "texto", esperado: "2024, 2025 e 2026", trecho: "O corpo do DOCX fixa os exercícios de 2024, 2025 e 2026." },
       { campo: "dataDocumento", tipo: "ano", esperado: "2026", trecho: "A data de assinatura do DOCX atualizado termina em 2026." },
     ],
     campos: [
@@ -598,7 +599,7 @@ export const DOCUMENT_TEMPLATES = [
   {
     id: "recibo-servicos-cartao",
     nome: "Recibo de Prestação de Serviços — Cartão de Crédito",
-    descricao: "Recibo oficial para cartão de crédito, com parcelas, NSU e autorização.",
+    descricao: "Recibo oficial para cartão de crédito, com parcelas, horário e autorização.",
     modo: "recibo-servicos-cartao",
     titulo: "Recibo de Prestação de Serviços — Cartão de Crédito",
     formato: "pdf",
@@ -606,21 +607,21 @@ export const DOCUMENT_TEMPLATES = [
     campos: [...camposComunsReciboNovo,
       { nome: "quantidadeParcelas", rotulo: "Quantidade de parcelas", tipo: "number", obrigatorio: true, min: "1" },
       { nome: "valorParcela", rotulo: "Valor de cada parcela (R$)", obrigatorio: true },
-      { nome: "nsu", rotulo: "Código NSU", obrigatorio: true },
+      { nome: "horarioTransacao", rotulo: "Horário da transação", tipo: "time", obrigatorio: true },
       { nome: "codigoAutorizacao", rotulo: "Código de autorização", obrigatorio: true },
     ],
   },
   {
     id: "recibo-servicos-pix",
     nome: "Recibo de Prestação de Serviços — PIX",
-    descricao: "Recibo oficial para PIX, com identificação da transação e E2E.",
+    descricao: "Recibo oficial para PIX, com identificação e horário da transação.",
     modo: "recibo-servicos-pix",
     titulo: "Recibo de Prestação de Serviços — PIX",
     formato: "pdf",
     templateDocx: "/modelos/recibos/recibo-pix.docx",
     campos: [...camposComunsReciboNovo,
       { nome: "idTransacao", rotulo: "ID da transação", obrigatorio: true, largura: "total" },
-      { nome: "identificadorE2e", rotulo: "Identificador PIX (E2E)", obrigatorio: true, largura: "total" },
+      { nome: "horarioTransacao", rotulo: "Horário da transação", tipo: "time", obrigatorio: true },
     ],
   },
   {
@@ -841,4 +842,214 @@ export const DOCUMENT_TEMPLATES = [
       { nome: "cidade", rotulo: "Cidade", obrigatorio: true, valorInicial: "São Paulo" },
     ],
   },
-];
+  {
+    id: "peticao-revelia-julgamento",
+    nome: "Petição — Decretação da Revelia com Requerimento do Julgamento",
+    descricao: "Requer a decretação da revelia e o julgamento antecipado, com as datas da citação e do prazo.",
+    modo: "peticao-revelia-julgamento", titulo: "Petição — Decretação da Revelia com Requerimento do Julgamento",
+    categoria: "intimacao-judicial", formato: "pdf",
+    campos: [
+      { nome: "vara", rotulo: "Número da vara", obrigatorio: true },
+      { nome: "comarca", rotulo: "Cidade/estado da comarca", obrigatorio: true },
+      { nome: "numeroProcesso", rotulo: "Número do processo", obrigatorio: true },
+      { nome: "nomeCliente", rotulo: "Nome do autor", obrigatorio: true, largura: "total" },
+      { nome: "genero", rotulo: "Gênero gramatical", tipo: "select", obrigatorio: true, opcoes: [{ valor: "", rotulo: "Selecione" }, { valor: "feminino", rotulo: "Feminino" }, { valor: "masculino", rotulo: "Masculino" }] },
+      { nome: "banco", rotulo: "Banco réu", obrigatorio: true },
+      { nome: "dataLeituraCitacao", rotulo: "Data da leitura da citação eletrônica", tipo: "date", obrigatorio: true },
+      { nome: "dataInicioPrazo", rotulo: "Data de início do prazo", tipo: "date", obrigatorio: true },
+      { nome: "dataFinalPrazo", rotulo: "Data final do prazo", tipo: "date", obrigatorio: true },
+      { nome: "localEmissao", rotulo: "Local de emissão", obrigatorio: true },
+      { nome: "dataDocumento", rotulo: "Data", tipo: "date", obrigatorio: true, valorInicial: "hoje" },
+    ],
+  },
+  {
+    id: "notificacao-exibicao-documentos-bancarios",
+    nome: "Notificação Extrajudicial para Exibição de Documentos Bancários",
+    descricao: "Solicita contrato integral, evolução da dívida, apólice de seguro e discriminação das tarifas.",
+    modo: "notificacao-exibicao-documentos-bancarios", titulo: "Notificação Extrajudicial para Exibição de Documentos Bancários",
+    categoria: "notificacao-extrajudicial", formato: "pdf",
+    campos: [
+      { nome: "banco", rotulo: "Instituição financeira", obrigatorio: true, largura: "total" },
+      { nome: "enderecoBanco", rotulo: "Endereço da agência ou sede", obrigatorio: true, largura: "total" },
+      { nome: "nomeCliente", rotulo: "Nome completo / razão social", obrigatorio: true, largura: "total" },
+      { nome: "genero", rotulo: "Gênero gramatical", tipo: "select", obrigatorio: true, opcoes: [{ valor: "", rotulo: "Selecione" }, { valor: "feminino", rotulo: "Feminino" }, { valor: "masculino", rotulo: "Masculino" }] },
+      { nome: "cpfCnpj", rotulo: "CPF/CNPJ", obrigatorio: true },
+      { nome: "numeroContrato", rotulo: "Número do contrato", obrigatorio: true },
+      { nome: "emailResposta", rotulo: "E-mail para recebimento dos documentos", tipo: "email", obrigatorio: true },
+      { nome: "dataDocumento", rotulo: "Data", tipo: "date", obrigatorio: true, valorInicial: "hoje" },
+      { nome: "localEmissao", rotulo: "Cidade/UF de emissão", obrigatorio: true },
+    ],
+  },
+  {
+    id: "notificacao-contestacao-revisao-contratual",
+    nome: "Notificação Extrajudicial para Contestação de Cobranças e Revisão Contratual",
+    descricao: "Contesta seguro, registro, avaliação do bem, IOF e IOF adicional, com pedido de revisão contratual.",
+    modo: "notificacao-contestacao-revisao-contratual", titulo: "Notificação Extrajudicial para Contestação de Cobranças e Revisão Contratual",
+    categoria: "notificacao-extrajudicial", formato: "pdf",
+    campos: [
+      { nome: "banco", rotulo: "Instituição financeira", obrigatorio: true, largura: "total" },
+      { nome: "enderecoBanco", rotulo: "Endereço da agência ou sede", obrigatorio: true, largura: "total" },
+      { nome: "nomeCliente", rotulo: "Nome completo / razão social", obrigatorio: true, largura: "total" },
+      { nome: "genero", rotulo: "Gênero gramatical", tipo: "select", obrigatorio: true, opcoes: [{ valor: "", rotulo: "Selecione" }, { valor: "feminino", rotulo: "Feminino" }, { valor: "masculino", rotulo: "Masculino" }] },
+      { nome: "cpfCnpj", rotulo: "CPF/CNPJ", obrigatorio: true },
+      { nome: "numeroContrato", rotulo: "Número do contrato", obrigatorio: true },
+      { nome: "emailResposta", rotulo: "E-mail para recebimento dos documentos", tipo: "email", obrigatorio: true },
+      { nome: "dataDocumento", rotulo: "Data", tipo: "date", obrigatorio: true, valorInicial: "hoje" },
+      { nome: "valorSeguro", rotulo: "Seguro (R$)", obrigatorio: true },
+      { nome: "valorRegistro", rotulo: "Registro do contrato (R$)", obrigatorio: true },
+      { nome: "valorAvaliacao", rotulo: "Avaliação do bem (R$)", obrigatorio: true },
+      { nome: "valorIof", rotulo: "IOF (R$)", obrigatorio: true },
+      { nome: "valorIofAdicional", rotulo: "IOF adicional (R$)", obrigatorio: true },
+    ],
+  },
+  {
+    id: "notificacao-formalizacao-acordo",
+    nome: "Intimação para Formalização de Acordo Extrajudicial",
+    descricao: "Apresenta alternativas de quitação e reestruturação para formalização de acordo extrajudicial.",
+    modo: "notificacao-formalizacao-acordo", titulo: "Intimação para Formalização de Acordo Extrajudicial",
+    categoria: "notificacao-extrajudicial", formato: "pdf",
+    campos: [
+      { nome: "banco", rotulo: "Instituição financeira", obrigatorio: true },
+      { nome: "nomeCliente", rotulo: "Nome do cliente", obrigatorio: true, largura: "total" },
+      { nome: "genero", rotulo: "Gênero gramatical", tipo: "select", obrigatorio: true, opcoes: [{ valor: "", rotulo: "Selecione" }, { valor: "feminino", rotulo: "Feminino" }, { valor: "masculino", rotulo: "Masculino" }] },
+      { nome: "cpfCnpj", rotulo: "CPF", obrigatorio: true },
+      { nome: "numeroContrato", rotulo: "Número do contrato", obrigatorio: true },
+      { nome: "dataContrato", rotulo: "Data do contrato", tipo: "date", obrigatorio: true },
+      { nome: "saldoDevedor", rotulo: "Saldo devedor (R$)", obrigatorio: true },
+      { nome: "saldoDevedorExtenso", rotulo: "Saldo devedor por extenso", obrigatorio: true },
+      { nome: "quantidadeParcelas", rotulo: "Total de parcelas", tipo: "number", obrigatorio: true },
+      { nome: "quantidadeParcelasExtenso", rotulo: "Total de parcelas por extenso", obrigatorio: true },
+      { nome: "parcelasPagas", rotulo: "Parcelas pagas", tipo: "number", obrigatorio: true },
+      { nome: "parcelasPagasExtenso", rotulo: "Parcelas pagas por extenso", obrigatorio: true },
+      { nome: "parcelasAbertas", rotulo: "Parcelas em aberto", tipo: "number", obrigatorio: true, min: "0" },
+      { nome: "valorParcela", rotulo: "Valor atual da parcela (R$)", obrigatorio: true },
+      { nome: "valorParcelaExtenso", rotulo: "Valor atual da parcela por extenso", obrigatorio: true },
+      { nome: "valorQuitacao", rotulo: "Proposta de quitação (R$)", obrigatorio: true },
+      { nome: "valorQuitacaoExtenso", rotulo: "Proposta de quitação por extenso", obrigatorio: true },
+      { nome: "valorParcelaCorrigida", rotulo: "Proposta de parcela corrigida (R$)", obrigatorio: true },
+      { nome: "prazoReestruturacao", rotulo: "Prazo de reestruturação em meses/parcelas", tipo: "number", obrigatorio: true },
+    ],
+  },
+  {
+    id: "notificacao-manifestacao-composicao-acordo",
+    nome: "Manifestação para Composição de Acordo Extrajudicial",
+    descricao: "Reitera a composição após o envio do parecer técnico e a ausência de resposta do banco.",
+    modo: "notificacao-manifestacao-composicao-acordo", titulo: "Manifestação para Composição de Acordo Extrajudicial",
+    categoria: "notificacao-extrajudicial", formato: "pdf",
+    campos: [
+      { nome: "banco", rotulo: "Instituição financeira", obrigatorio: true },
+      { nome: "nomeCliente", rotulo: "Nome do cliente", obrigatorio: true, largura: "total" },
+      { nome: "genero", rotulo: "Gênero gramatical", tipo: "select", obrigatorio: true, opcoes: [{ valor: "", rotulo: "Selecione" }, { valor: "feminino", rotulo: "Feminino" }, { valor: "masculino", rotulo: "Masculino" }] },
+      { nome: "cpfCnpj", rotulo: "CPF", obrigatorio: true },
+      { nome: "numeroContrato", rotulo: "Número do contrato", obrigatorio: true },
+      { nome: "dataContrato", rotulo: "Data do contrato", tipo: "date", obrigatorio: true },
+      { nome: "saldoDevedor", rotulo: "Saldo devedor (R$)", obrigatorio: true },
+      { nome: "saldoDevedorExtenso", rotulo: "Saldo devedor por extenso", obrigatorio: true },
+      { nome: "quantidadeParcelas", rotulo: "Total de parcelas", tipo: "number", obrigatorio: true },
+      { nome: "quantidadeParcelasExtenso", rotulo: "Total de parcelas por extenso", obrigatorio: true },
+      { nome: "parcelasPagas", rotulo: "Parcelas pagas", tipo: "number", obrigatorio: true },
+      { nome: "parcelasPagasExtenso", rotulo: "Parcelas pagas por extenso", obrigatorio: true },
+      { nome: "parcelasAbertas", rotulo: "Parcelas em aberto", tipo: "number", obrigatorio: true, min: "0" },
+      { nome: "valorParcela", rotulo: "Valor atual da parcela (R$)", obrigatorio: true },
+      { nome: "valorParcelaExtenso", rotulo: "Valor atual da parcela por extenso", obrigatorio: true },
+      { nome: "valorQuitacao", rotulo: "Proposta de quitação (R$)", obrigatorio: true },
+      { nome: "valorQuitacaoExtenso", rotulo: "Proposta de quitação por extenso", obrigatorio: true },
+      { nome: "valorParcelaCorrigida", rotulo: "Proposta de parcela corrigida (R$)", obrigatorio: true },
+      { nome: "prazoReestruturacao", rotulo: "Prazo de reestruturação em meses/parcelas", tipo: "number", obrigatorio: true },
+      { nome: "dataEnvioParecer", rotulo: "Data de envio do parecer técnico", tipo: "date", obrigatorio: true },
+      { nome: "diasSemResposta", rotulo: "Dias decorridos sem resposta", tipo: "number", obrigatorio: true },
+    ],
+  },
+  {
+    id: "notificacao-respaldo-parecer-tecnico",
+    nome: "Notificação de Respaldo Parecer Técnico — 2026",
+    descricao: "Comunica a designação do perito e as condições para aceite, contratação e pagamento do parecer.",
+    modo: "notificacao-respaldo-parecer-tecnico", titulo: "Notificação de Respaldo Parecer Técnico — 2026",
+    categoria: "notificacao-extrajudicial", formato: "pdf",
+    conflitosFixos: [{"campo":"dataDocumento","tipo":"ano","esperado":"2026","trecho":"A assinatura do original fixa 2026."}],
+    campos: [
+      { nome: "nomeCliente", rotulo: "Nome do contratante", obrigatorio: true, largura: "total" },
+      { nome: "protocolo", rotulo: "Protocolo", obrigatorio: true },
+      { nome: "numeroContrato", rotulo: "Identificação do contrato", obrigatorio: true },
+      { nome: "nomePerito", rotulo: "Nome do perito", obrigatorio: true },
+      { nome: "valorHonorarios", rotulo: "Honorários do profissional (R$)", obrigatorio: true },
+      { nome: "dataLimiteAceite", rotulo: "Data de encerramento do prazo de aceite", tipo: "date", obrigatorio: true },
+      { nome: "horarioLimiteAceite", rotulo: "Horário de encerramento — Brasília", tipo: "time", obrigatorio: true },
+      { nome: "dataDocumento", rotulo: "Data de emissão", tipo: "date", obrigatorio: true, valorInicial: "hoje" },
+    ],
+  },
+  {
+    id: "declaracao-residencia-gov",
+    nome: "Declaração de Endereço — Assinar pelo GOV",
+    descricao: "Declara a residência com terceiro, com identificação e assinatura do declarante e do titular do imóvel.",
+    modo: "declaracao-residencia-gov", titulo: "Declaração de Endereço — Assinar pelo GOV",
+    categoria: "procuracao-declaracao", formato: "pdf",
+    campos: [
+      { nome: "nomeCliente", rotulo: "Nome completo", obrigatorio: true, largura: "total" },
+      { nome: "genero", rotulo: "Gênero gramatical", tipo: "select", obrigatorio: true, opcoes: [{ valor: "", rotulo: "Selecione" }, { valor: "feminino", rotulo: "Feminino" }, { valor: "masculino", rotulo: "Masculino" }] },
+      { nome: "cpfCnpj", rotulo: "CPF", obrigatorio: true },
+      { nome: "rg", rotulo: "RG", obrigatorio: true },
+      { nome: "nacionalidade", rotulo: "Nacionalidade", obrigatorio: true },
+      { nome: "estadoCivil", rotulo: "Estado civil", obrigatorio: true },
+      { nome: "profissao", rotulo: "Profissão", obrigatorio: true },
+      { nome: "endereco", rotulo: "Endereço completo", obrigatorio: true, largura: "total" },
+      { nome: "nomeTitularResidencia", rotulo: "Nome completo do titular da residência", obrigatorio: true, largura: "total" },
+      { nome: "generoTitularResidencia", rotulo: "Gênero do titular da residência", tipo: "select", obrigatorio: true, opcoes: [{ valor: "", rotulo: "Selecione" }, { valor: "feminino", rotulo: "Feminino" }, { valor: "masculino", rotulo: "Masculino" }] },
+      { nome: "cpfTitularResidencia", rotulo: "CPF do titular da residência", obrigatorio: true },
+      { nome: "rgTitularResidencia", rotulo: "RG do titular da residência", obrigatorio: true },
+      { nome: "localEmissao", rotulo: "Cidade/UF", obrigatorio: true },
+      { nome: "dataDocumento", rotulo: "Data", tipo: "date", obrigatorio: true, valorInicial: "hoje" },
+    ],
+  },
+  {
+    id: "termo-acesso-portal-gov",
+    nome: "Termo de Ciência ao Acesso do Portal GOV",
+    descricao: "Registra a ciência e a autorização do titular para o acesso assistido ao portal GOV.",
+    modo: "termo-acesso-portal-gov", titulo: "Termo de Ciência ao Acesso do Portal GOV",
+    categoria: "termos", formato: "pdf",
+    conflitosFixos: [{"campo":"dataDocumento","tipo":"ano","esperado":"2026","trecho":"O original fixa a assinatura em 2026."}],
+    campos: [
+      { nome: "nomeCliente", rotulo: "Nome completo do cliente", obrigatorio: true, largura: "total" },
+      { nome: "genero", rotulo: "Gênero gramatical", tipo: "select", obrigatorio: true, opcoes: [{ valor: "", rotulo: "Selecione" }, { valor: "feminino", rotulo: "Feminino" }, { valor: "masculino", rotulo: "Masculino" }] },
+      { nome: "cpfCnpj", rotulo: "CPF", obrigatorio: true },
+      { nome: "dataDocumento", rotulo: "Data", tipo: "date", obrigatorio: true, valorInicial: "hoje" },
+    ],
+  },
+  {
+    id: "termo-entrega-laudo-pericial",
+    nome: "Termo de Entrega do Laudo Pericial — Parecer Técnico e Declaração de Responsabilidade",
+    descricao: "Registra a entrega do laudo, a ciência do contratante e a responsabilidade pelas informações fornecidas.",
+    modo: "termo-entrega-laudo-pericial", titulo: "Termo de Entrega do Laudo Pericial — Parecer Técnico e Declaração de Responsabilidade",
+    categoria: "termos", formato: "pdf",
+    campos: [
+      { nome: "nomeCliente", rotulo: "Nome completo", obrigatorio: true, largura: "total" },
+      { nome: "genero", rotulo: "Gênero gramatical", tipo: "select", obrigatorio: true, opcoes: [{ valor: "", rotulo: "Selecione" }, { valor: "feminino", rotulo: "Feminino" }, { valor: "masculino", rotulo: "Masculino" }] },
+      { nome: "cpfCnpj", rotulo: "CPF", obrigatorio: true },
+      { nome: "rg", rotulo: "RG", obrigatorio: true },
+      { nome: "nacionalidade", rotulo: "Nacionalidade", obrigatorio: true },
+      { nome: "estadoCivil", rotulo: "Estado civil", obrigatorio: true },
+      { nome: "profissao", rotulo: "Profissão", obrigatorio: true },
+      { nome: "endereco", rotulo: "Endereço completo", obrigatorio: true, largura: "total" },
+    ],
+  },
+].map((modelo) => {
+  const registro = UPDATED_DOCUMENT_MODELS[modelo.modo];
+  if (!registro) return modelo;
+  const atualizado = { ...modelo, ...registro };
+  if (modelo.modo.startsWith("recibo-servicos-")) {
+    atualizado.revisaoWordPendente = "O original utiliza seções com duas colunas. O conversor local ainda não preserva essa disposição e cria uma página adicional; a geração está bloqueada até a correção da paginação.";
+  }
+  if (modelo.modo === "termo-consentimento-compras-2026") atualizado.nome = "Termo de Produto 2026";
+  if (modelo.modo === "termo-ciencia-consentimento-contratacao") atualizado.nome = "Termo de Ciência da Compra no Crédito";
+  const titularCartao = ["termo-consentimento-compras-2026", "termo-ciencia-consentimento-contratacao", "termo-pagamento-cartao-terceiro"].includes(modelo.modo);
+  if (titularCartao) atualizado.campos = [...modelo.campos, { ...campoGenero, nome: "generoTitularCartao", rotulo: "Gênero do titular do cartão" }];
+  if (["notificacao-prosseguimento-acao", "notificacao-via-oficial-justica", "notificacao-finalizacao-conciliacao"].includes(modelo.modo)) {
+    atualizado.campos = [...modelo.campos, campoGenero, { nome: "dataDocumento", rotulo: "Data de emissão", tipo: "date", obrigatorio: true, valorInicial: "hoje" }];
+  }
+  if (modelo.modo === "citacao-judicial") atualizado.campos = [...modelo.campos, { nome: "dataDocumento", rotulo: "Data", tipo: "date", obrigatorio: true, valorInicial: "hoje" }];
+  const datasFixas = modelo.modo.startsWith("recibo-servicos-") ? ["dataPagamento", "dataAssinatura"]
+    : modelo.modo.startsWith("distrato-") ? ["dataContrato"]
+      : ["citacao-judicial", "declaracao-hipossuficiencia", "termo-consentimento-compras-2026", "termo-ciencia-consentimento-contratacao", "termo-pagamento-cartao-terceiro", "termo-reconhecimento-recompra", "termo-responsabilidade-parcelas-atraso"].includes(modelo.modo) ? ["dataDocumento"] : [];
+  atualizado.conflitosFixos = [...(modelo.conflitosFixos || []), ...datasFixas.map(campo => ({ campo, tipo: "ano", esperado: "2026", trecho: "O original fixa 2026 neste campo de data." }))];
+  return atualizado;
+});

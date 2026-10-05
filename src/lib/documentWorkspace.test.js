@@ -27,15 +27,15 @@ test("todos os modelos são entregues em PDF", () => {
 test("as declarações e o requerimento usam seus modelos oficiais", () => {
   assert.equal(
     modelos.find((modelo) => modelo.modo === "declaracao-hipossuficiencia").templateDocx,
-    "/modelos/declaracoes/declaracao-hipossuficiencia-2026.docx",
+    "/modelos/atualizados-2026-10-05/declaracao-hipossuficiencia.docx",
   );
   assert.equal(
     modelos.find((modelo) => modelo.modo === "declaracao-isencao-irpf").templateDocx,
-    "/modelos/declaracao-isencao-irpf-atualizado-2026-10-04.docx",
+    "/modelos/atualizados-2026-10-05/declaracao-isencao-irpf.docx",
   );
   assert.equal(
     modelos.find((modelo) => modelo.modo === "requerimento-postergacao-parcela").templateDocx,
-    "/modelos/requerimentos/requerimento-postergacao-parcela-2026.docx",
+    "/modelos/atualizados-2026-10-05/requerimento-postergacao-parcela.docx",
   );
 });
 
@@ -54,7 +54,7 @@ test("bloqueia dados que contradizem textos fixos dos modelos oficiais", () => {
 
   const irpf = modelos.find((modelo) => modelo.modo === "declaracao-isencao-irpf");
   assert.equal(listarConflitosFixos(irpf, {
-    exercicios: "2023, 2024 e 2025",
+    exercicios: "2024, 2025 e 2026",
     dataDocumento: "2026-10-04",
   }).length, 0);
 });

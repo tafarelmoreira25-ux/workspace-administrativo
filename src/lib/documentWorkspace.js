@@ -34,26 +34,26 @@ export const DOCUMENT_CATEGORIES = [
   { id: "todos", nome: "Todos", icone: "library" },
   { id: "mais-utilizados", nome: "Mais Usados", icone: "trend" },
   { id: "favoritos", nome: "Favoritos", icone: "star" },
-  { id: "termos", nome: "Termos", icone: "shield" },
   { id: "distratos", nome: "Distratos", icone: "signature" },
-  { id: "notificacao-extrajudicial", nome: "Notificação Extrajudicial", icone: "send" },
   { id: "intimacao-judicial", nome: "Intimação Judicial", icone: "scale" },
-  { id: "declaracoes", nome: "Declarações", icone: "statement" },
-  { id: "procuracoes", nome: "Procurações", icone: "signature" },
-  { id: "recibos", nome: "Recibos", icone: "report" },
+  { id: "notificacao-extrajudicial", nome: "Notificação Extrajudicial", icone: "send" },
+  { id: "procuracao-declaracao", nome: "Procuração e Declaração", icone: "signature" },
+  { id: "recibos", nome: "Recibos de Prestação de Serviços", icone: "report" },
+  { id: "termos", nome: "Termos de Ciência", icone: "shield" },
   { id: "relatorios", nome: "Relatórios", icone: "report" },
   { id: "laudos", nome: "Laudos", icone: "report" },
   { id: "outros", nome: "Outros Documentos", icone: "file" },
 ];
 
 const CATEGORY_LABELS = {
+  "procuracao-declaracao": "Procuração e Declaração",
   procuracoes: "Procurações",
   declaracoes: "Declarações",
   "notificacao-extrajudicial": "Notificação Extrajudicial",
   "intimacao-judicial": "Intimação Judicial",
-  termos: "Termos",
+  termos: "Termos de Ciência",
   distratos: "Distratos",
-  recibos: "Recibos",
+  recibos: "Recibos de Prestação de Serviços",
   relatorios: "Relatórios",
   laudos: "Laudos",
   outros: "Outros Documentos",
@@ -192,7 +192,8 @@ const FIELD_GROUPS = [
 export function enriquecerModelos(modelos) {
   return modelos.map((modelo, indice) => {
     const meta = MODEL_META[modelo.modo] || {};
-    const categoria = meta.categoria || modelo.categoria || "relatorios";
+    const originalCategoria = modelo.categoria || meta.categoria || "relatorios";
+    const categoria = ["declaracoes", "procuracoes"].includes(originalCategoria) ? "procuracao-declaracao" : originalCategoria;
     return {
       ...modelo,
       ...meta,

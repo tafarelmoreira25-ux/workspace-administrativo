@@ -4,7 +4,7 @@ export const DOCUMENTO_ISENCAO_IRPF = "isencao-irpf";
 
 export function exerciciosIrpfPadrao(dataIso) {
   void dataIso;
-  return "2023, 2024 e 2025";
+  return "2024, 2025 e 2026";
 }
 
 export function criarOpcoesIniciaisProcuracao(dataIso) {

@@ -10,7 +10,7 @@ test("marca as duas declarações por padrão", () => {
   assert.deepEqual(criarOpcoesIniciaisProcuracao("2026-08-16"), {
     gerarHipossuficiencia: true,
     gerarIsencaoIrpf: true,
-    exercicios: "2023, 2024 e 2025",
+    exercicios: "2024, 2025 e 2026",
     dataDocumentoIrpf: "",
   });
 });
