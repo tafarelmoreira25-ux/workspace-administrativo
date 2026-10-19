@@ -4,7 +4,7 @@ Estas regras são obrigatórias em toda inclusão ou manutenção de modelos do 
 
 - O arquivo DOCX recebido é a fonte oficial. Preserve o original sem sobrescrevê-lo e preencha uma cópia.
 - Preserve integralmente texto, estrutura e identidade visual do Word: fontes, tamanhos, estilos, cores, alinhamentos, margens, recuos, espaçamentos, tabelas, imagens, logotipos, cabeçalhos, rodapés, seções, quebras de página e espaços de assinatura.
-- Não reescreva, resuma ou reconstrua o documento em HTML, canvas ou PDF genérico. A saída final deve resultar da conversão do DOCX preenchido por um mecanismo compatível com Microsoft Word.
+- Não reescreva nem resuma o documento. A saída final deve ser gerada localmente a partir de uma cópia preenchida do DOCX oficial, sem Microsoft Graph, Word Online, OneDrive ou credenciais externas.
 - Todo destaque amarelo é um campo variável ou marcador de concordância. Considere campos fragmentados entre vários `runs` do Word, inclusive pontuação não destacada. Remova o amarelo somente depois de preencher e validar todos os campos.
 - Não invente informações e não emita arquivos com placeholders, destaques amarelos ou campos obrigatórios vazios.
 - Use exclusivamente o sexo feminino ou masculino informado no cadastro/formulário; nunca deduza pelo nome. Aplique concordância somente às palavras referentes à pessoa correspondente e nunca por substituição global indiscriminada.

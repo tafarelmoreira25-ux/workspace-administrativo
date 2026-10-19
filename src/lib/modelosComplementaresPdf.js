@@ -169,18 +169,7 @@ export async function gerarModeloComplementarPdf(dados, modelo) {
   const data = dataBrasileira(dados.dataEmissao);
   let blocos = [];
 
-  if (modelo.modo === "certidao-diligencia") {
-    blocos = [
-      { tipo: "titulo", texto: "CERTIDÃO DE DILIGÊNCIA E CONTATO PROFISSIONAL" },
-      { texto: `Certifico, para os devidos fins, que em ${data} foi realizada diligência e contato profissional entre a empresa representante Platino Soluções Financeiras e a Dra. Juliana Cristina Galzo, com a finalidade de obter esclarecimentos acerca do andamento e das providências processuais necessárias para a conclusão do caso envolvendo o(a) Sr(a). ${cliente}, ${dados.nacionalidade || "brasileiro(a)"}, ${dados.estadoCivil || "estado civil não informado"}, ${dados.profissao || "profissão não informada"}, inscrito(a) no CPF nº ${dados.cpfCnpj || "não informado"}, em trâmite perante ${dados.vara || "a Vara competente"} da Comarca de ${dados.comarca || cidade}.` },
-      { texto: "Durante a tratativa, foi informado pela patrona que o processo se encontra atualmente em fase de conclusão. Para viabilizar o encerramento da demanda, poderá ser necessária a adoção de medida processual complementar e a respectiva certificação nos autos." },
-      { texto: `Para a emissão do mandado, deverá ser observada a necessidade de pagamento da guia de diligência do Oficial de Justiça, quando aplicável. ${dados.observacoes || "A prestação de contas e o comprovante deverão ser anexados ao processo para conferência."}` },
-      { texto: "Nada mais havendo a certificar, lavra-se a presente certidão para registro das informações obtidas junto à patrona responsável." },
-      { tipo: "assinatura", nome: dados.responsavel || "Responsável pela certidão" },
-      { tipo: "assinatura", nome: "PLATINO SOLUÇÕES FINANCEIRAS" },
-      { texto: `${cidade}, ${data}.`, centralizar: true },
-    ];
-  } else if (modelo.modo === "recibo-prestacao-servicos") {
+  if (modelo.modo === "recibo-prestacao-servicos") {
     blocos = [
       { tipo: "titulo", texto: "RECIBO DE PRESTAÇÃO DE SERVIÇOS" },
       { texto: `Recebi de ${cliente} — CPF: ${dados.cpfCnpj || "não informado"}, a importância de ${moeda(dados.valorPagamento)} (${dados.valorPorExtenso || "valor por extenso não informado"}), referente à prestação de serviços contratados.` },

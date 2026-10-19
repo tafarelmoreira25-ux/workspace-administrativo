@@ -207,12 +207,6 @@ const MODEL_META = {
     descricao: "Formaliza a recompra ou o repagamento após uma contestação de pagamento.",
     minutos: 3,
   },
-  "certidao-diligencia": {
-    nome: "Certidão de Diligência e Contato Profissional",
-    categoria: "outros",
-    descricao: "Registra diligências, contatos profissionais e providências processuais adotadas.",
-    minutos: 4,
-  },
   "recibo-prestacao-servicos": {
     nome: "Recibo de Prestação de Serviços",
     categoria: "recibos",

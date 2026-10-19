@@ -4,9 +4,9 @@ Data da revisão: 2026-10-04.
 
 ## Padrão adotado
 
-O sistema preenche uma cópia do DOCX oficial, remove os destaques amarelos depois do preenchimento, aplica concordância contextual pelo sexo informado e envia o DOCX preenchido à Edge Function `converter-docx-pdf`. A função usa o Microsoft Graph/Word Online para produzir o PDF e apaga a cópia temporária do drive ao final.
+O sistema preenche uma cópia do DOCX oficial, remove os destaques amarelos depois do preenchimento, aplica concordância contextual pelo sexo informado e gera o PDF localmente no navegador a partir dessa cópia. O fluxo não usa Microsoft Graph, Word Online, OneDrive ou credenciais externas.
 
-A prévia rápida do navegador é apenas uma prévia de preenchimento. O download final não usa HTML nem canvas como fonte do documento.
+A prévia e o download final usam a mesma cópia preenchida do modelo Word.
 
 ## Modelos adicionados nesta revisão
 
@@ -17,7 +17,7 @@ Os anexos foram copiados integralmente para `modelos-originais/` e `public/model
 
 ## Modelos revisados e aptos ao fluxo Word
 
-35 dos 40 modelos cadastrados possuem DOCX oficial configurado e passaram pela validação automática de preenchimento:
+35 dos 39 modelos cadastrados possuem DOCX oficial configurado e passaram pela validação automática de preenchimento:
 
 - 6 distratos;
 - Procuração;
@@ -40,11 +40,10 @@ Os anexos foram copiados integralmente para `modelos-originais/` e `public/model
 
 ## Pendências registradas
 
-Os cinco modelos abaixo continuam no gerador legado e exibem um aviso de revisão. Nenhum DOCX substituto foi inventado:
+Os quatro modelos abaixo continuam no gerador legado e exibem um aviso de revisão. Nenhum DOCX substituto foi inventado:
 
 - **Contestação das taxas - E-mail:** o DOCX possui cinco campos de encargos, enquanto o formulário possui sete; é preciso definir onde entram tarifa de cadastro e demais tarifas.
 - **Termo de Ciência de Pagamento:** o único Word localizado contém dados reais de cliente, banco, contrato e processo, sem marcações variáveis.
-- **Certidão de Diligência e Contato Profissional:** o DOCX solicita instituição financeira e consultor, ausentes no formulário; a vara também aparece como texto fixo.
 - **Relatório de Negociação e Acordo / Homologação:** o DOCX possui quatro caixas de manifestação (`[   ]`), mas o formulário atual tem um único campo livre; é preciso definir a regra de seleção.
 - **Relatório de Atualização Processual:** não foi localizado um DOCX original utilizável; existe somente um arquivo temporário de bloqueio do Word.
 
@@ -68,13 +67,6 @@ Os cinco modelos abaixo continuam no gerador legado e exibem um aviso de revisã
 - Inspeção visual da página preenchida do Requerimento: texto, alinhamentos, margens, quebras e fim de página sem corte ou sobreposição.
 - `npm run lint`, 42 testes automatizados e `npm run build` concluídos com sucesso.
 
-## Configuração necessária para produção
+## Configuração de produção
 
-Publicar a Edge Function `converter-docx-pdf` e cadastrar os segredos:
-
-- `MS_GRAPH_TENANT_ID`
-- `MS_GRAPH_CLIENT_ID`
-- `MS_GRAPH_CLIENT_SECRET`
-- `MS_GRAPH_DRIVE_ID`
-
-O aplicativo do Microsoft Entra deve ter permissão de aplicação ao drive usado para a conversão. Sem esses segredos, a geração final informa que o conversor ainda não está configurado e não recorre ao PDF simplificado.
+Nenhuma conta, licença ou credencial Microsoft é necessária. O preenchimento e a geração do PDF acontecem no próprio gerador.

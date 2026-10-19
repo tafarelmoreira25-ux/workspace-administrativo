@@ -154,11 +154,7 @@ function criarArquivo(tipo, nome, bytes, criarUrl = true, mime = "application/pd
   return { tipo, nome, bytes, mime, url: criarUrl ? URL.createObjectURL(new Blob([bytes], { type: mime })) : "" };
 }
 
-async function converterWordPreenchido(arquivoWord, nome, conversaoFinal) {
-  if (conversaoFinal) {
-    const { converterDocxParaPdfOficial } = await import("./lib/wordToPdfService");
-    return converterDocxParaPdfOficial(arquivoWord.bytes, `${nome}.docx`);
-  }
+async function converterWordPreenchido(arquivoWord) {
   const { gerarPdfDoWordOficial } = await import("./lib/wordTemplatePdf");
   return gerarPdfDoWordOficial(arquivoWord.bytes);
 }
@@ -181,7 +177,7 @@ async function gerarArquivos(dados, modelo, nomeDocumento, criarUrls = true, nom
         ? { ...dados, dataDocumento: dados.dataDocumentoIrpf || dados.dataDocumento }
         : dados;
       const arquivoWord = await gerarWordOficial(dadosDocumento, modeloDoDocumento);
-      const bytes = await converterWordPreenchido(arquivoWord, nome.replace(/\.pdf$/i, ""), criarUrls);
+      const bytes = await converterWordPreenchido(arquivoWord);
       return criarArquivo(tipo, nome, bytes, criarUrls);
     }));
   }
@@ -189,7 +185,7 @@ async function gerarArquivos(dados, modelo, nomeDocumento, criarUrls = true, nom
   if (modelo.templateDocx) {
     const { gerarWordOficial } = await import("./lib/wordTemplateDocx");
     const arquivoWord = await gerarWordOficial(dados, modelo);
-    bytes = await converterWordPreenchido(arquivoWord, base, criarUrls);
+    bytes = await converterWordPreenchido(arquivoWord);
   } else if (modelo.modo === "relatorio-atualizacao-processual") {
     const { gerarRelatorioAtualizacaoProcessualPdf } = await import("./lib/relatorioAtualizacaoProcessualPdf");
     bytes = await gerarRelatorioAtualizacaoProcessualPdf(dados);
@@ -211,7 +207,7 @@ async function gerarArquivos(dados, modelo, nomeDocumento, criarUrls = true, nom
     const { gerarTermoCienciaSegurancaPdf } = await import("./lib/termoCienciaSegurancaPdf"); bytes = await gerarTermoCienciaSegurancaPdf(dados);
   } else if (modelo.modo === "declaracao-ausencia-carteira-trabalho") {
     const { gerarDeclaracaoAusenciaCarteiraTrabalhoPdf } = await import("./lib/declaracaoAusenciaCarteiraTrabalhoPdf"); bytes = await gerarDeclaracaoAusenciaCarteiraTrabalhoPdf(dados);
-  } else if (["certidao-diligencia", "recibo-prestacao-servicos", "relatorio-negociacao-homologacao", "termo-recompra"].includes(modelo.modo)) {
+  } else if (["recibo-prestacao-servicos", "relatorio-negociacao-homologacao", "termo-recompra"].includes(modelo.modo)) {
     const { gerarModeloComplementarPdf } = await import("./lib/modelosComplementaresPdf"); bytes = await gerarModeloComplementarPdf(dados, modelo);
   } else {
     throw new Error(`Gerador não configurado para o modelo ${modelo.nome}.`);
@@ -264,7 +260,7 @@ function AssistentePreenchimento({ dados, pendentes, errosVisiveis, onCorrigir }
 function PainelPrevia({ modelo, nomeDocumento, numeroDocumento, atualizadoEm, gerando, pdfUrl, erroPrevia, fullscreen, onFullscreen, onRefresh }) {
   const [zoom, setZoom] = useState(0.78);
   const origem = pdfUrl ? `${pdfUrl}#zoom=${Math.round(zoom * 100)}&view=FitH` : "";
-  return <section className={`legal-doc-preview-panel ${fullscreen ? "fullscreen" : ""}`}><header><div><span className="eyebrow">Prévia de preenchimento — sem validade jurídica</span><h3>{nomeDocumento || modelo.nome}</h3><p>{modelo.nome} · {numeroDocumento}</p></div>{fullscreen ? <button type="button" className="legal-doc-preview-close" onClick={onFullscreen} aria-label="Fechar prévia">×</button> : null}</header><div className="legal-doc-preview-status"><span className={gerando ? "loading" : "ready"}>{gerando ? "Atualizando" : "Pronta para conferência"}</span><small>Atualizada {formatarDataHora(atualizadoEm)}</small></div><div className="legal-doc-preview-tools"><button type="button" onClick={() => setZoom((valor) => Math.max(.58, valor - .1))} aria-label="Diminuir zoom">−</button><span>{Math.round(zoom * 100)}%</span><button type="button" onClick={() => setZoom((valor) => Math.min(1.08, valor + .1))} aria-label="Aumentar zoom">+</button><i /><button type="button" onClick={onRefresh}>↻ <span>Atualizar</span></button><button type="button" onClick={onFullscreen}>⛶ <span>Tela cheia</span></button></div><div className="legal-doc-preview-render">{gerando ? <div className="legal-doc-preview-skeleton" aria-label="Atualizando prévia"><span /><span /><span /><span /><span /></div> : null}{origem ? <iframe className="legal-doc-pdf-preview" title={`Prévia de preenchimento: ${nomeDocumento || modelo.nome}`} src={origem} /> : <div className="legal-doc-preview-placeholder">{erroPrevia || "Preparando a prévia de preenchimento…"}</div>}</div><footer><span>O PDF final é convertido do Word preenchido pelo Microsoft 365</span></footer></section>;
+  return <section className={`legal-doc-preview-panel ${fullscreen ? "fullscreen" : ""}`}><header><div><span className="eyebrow">Prévia de preenchimento — sem validade jurídica</span><h3>{nomeDocumento || modelo.nome}</h3><p>{modelo.nome} · {numeroDocumento}</p></div>{fullscreen ? <button type="button" className="legal-doc-preview-close" onClick={onFullscreen} aria-label="Fechar prévia">×</button> : null}</header><div className="legal-doc-preview-status"><span className={gerando ? "loading" : "ready"}>{gerando ? "Atualizando" : "Pronta para conferência"}</span><small>Atualizada {formatarDataHora(atualizadoEm)}</small></div><div className="legal-doc-preview-tools"><button type="button" onClick={() => setZoom((valor) => Math.max(.58, valor - .1))} aria-label="Diminuir zoom">−</button><span>{Math.round(zoom * 100)}%</span><button type="button" onClick={() => setZoom((valor) => Math.min(1.08, valor + .1))} aria-label="Aumentar zoom">+</button><i /><button type="button" onClick={onRefresh}>↻ <span>Atualizar</span></button><button type="button" onClick={onFullscreen}>⛶ <span>Tela cheia</span></button></div><div className="legal-doc-preview-render">{gerando ? <div className="legal-doc-preview-skeleton" aria-label="Atualizando prévia"><span /><span /><span /><span /><span /></div> : null}{origem ? <iframe className="legal-doc-pdf-preview" title={`Prévia de preenchimento: ${nomeDocumento || modelo.nome}`} src={origem} /> : <div className="legal-doc-preview-placeholder">{erroPrevia || "Preparando a prévia de preenchimento…"}</div>}</div><footer><span>PDF gerado localmente a partir de uma cópia preenchida do modelo Word</span></footer></section>;
 }
 function ModalSucesso({ resultado, onClose, onDownload, onOpen, onCopy, onSignature, onLibrary, onAnother }) {
   if (!resultado) return null;
