@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { supabase } from "../lib/supabase";
 import { FormField, Input, Select, Textarea } from "./common/FormControls";
-import WorkspaceHome from "./WorkspaceHome";
 import "./workspaceJuridico.css";
 
 const PAGE_SIZE = 25;
@@ -12,7 +11,7 @@ const MONEY = (value) => value === "" || value == null ? null : Number(String(va
 const dateLabel = (value) => value ? new Intl.DateTimeFormat("pt-BR", { dateStyle: "short" }).format(new Date(value)) : "—";
 const numberLabel = (value) => value == null ? "—" : new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(value);
 
-export default function WorkspaceJuridico({ view, usuario, notify, onNavigate, searchValue = "", onSearchChange = () => {} }) {
+export default function WorkspaceJuridico({ view, usuario, notify, searchValue = "", onSearchChange = () => {} }) {
   const [rows, setRows] = useState([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(0);
@@ -159,7 +158,7 @@ export default function WorkspaceJuridico({ view, usuario, notify, onNavigate, s
     notify("Negociação registrada.");
   }
 
-  if (view === "inicio") return <WorkspaceHome nome={usuario.nome} onNavigate={onNavigate} />;
+  if (view === "inicio") return null;
 
   return <section className="workspace-juridico">
     <div className="workspace-heading"><div><p className="workspace-eyebrow">Atendimento e acompanhamento</p><h1>{title}</h1><p>{view === "homologacao" ? "Negociações novas, antigas e pendentes de reconciliação." : "Cadastro único e histórico compartilhado por cliente."}</p></div>{view === "clientes" && <button className="primary-action" type="button" onClick={() => setFormOpen((value) => !value)}>{formOpen ? "Fechar" : "Cadastrar cliente"}</button>}</div>

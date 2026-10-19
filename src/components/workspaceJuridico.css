@@ -7,3 +7,24 @@
 #root .workspace-juridico .ui-form-field{color:#455767;font-family:inherit;font-size:13px;font-weight:600;line-height:normal}
 #root .workspace-juridico .ui-form-field>span{color:#455767;font-size:13px;font-weight:600;line-height:normal}
 .notification-panel-actions{display:flex;align-items:center;gap:12px}.notification-refresh{padding:5px 7px;border:0;border-radius:5px;background:transparent;color:#70695f;font:inherit;font-size:12px;cursor:pointer}.notification-refresh:hover{background:#f5f2ed}.header-avatar{cursor:default}
+
+/* Navegação clara: mantém a estrutura atual e recupera a aparência leve do workspace. */
+.legal-app{background:#f7f9fb;color:#273444}
+.legal-sidebar{background:#fff;color:#425365;border-right:1px solid #e7ebef;box-shadow:1px 0 0 rgb(31 49 66 / 2%)}
+.legal-brand{color:#253a50;font-size:15px;font-weight:750;letter-spacing:.11em}
+.legal-brand small{color:#8492a0;font-size:9px;letter-spacing:.18em}
+.legal-sidebar nav{gap:5px}
+.legal-sidebar nav button{position:relative;display:flex;align-items:center;gap:11px;min-height:43px;padding:11px 13px;color:#536477;border-radius:8px;font-size:13px;font-weight:500;transition:background-color .16s ease,color .16s ease}
+.legal-sidebar nav button:hover{background:#f5f8fb;color:#263d54}
+.legal-sidebar nav button.selected{background:#edf3f8;color:#1f486b;font-weight:650}
+.legal-sidebar nav button.selected::before{position:absolute;left:0;width:3px;height:20px;border-radius:0 3px 3px 0;background:#4f86b5;content:""}
+.sidebar-nav-icon{flex:0 0 18px;width:18px;height:18px;stroke-width:1.45}
+.legal-user{padding:17px 13px 5px;border-top:1px solid #eef1f4;color:#667587;font-size:12px}
+.legal-user button{color:#667587;font-size:12px}.legal-user button:hover{color:#2f4962}
+.legal-main{min-height:100vh;background:#f9fafb}
+.legal-main>header.legal-topbar{background:#fff;border-bottom:1px solid #e8edf1;box-shadow:0 1px 2px rgb(31 49 66 / 2%)}
+.legal-page-heading>span{color:#8a97a4}.legal-page-heading>strong{color:#2a3c4f;font-weight:600}
+.global-search{border-color:#e2e8ee;background:#fbfcfd}.global-search:focus-within{border-color:#adc5d8;box-shadow:0 0 0 3px rgb(93 143 182 / 10%)}
+.global-search svg{stroke:#718195}.global-search button{color:#657588}.header-icon-button,.header-avatar{border-color:#e2e8ee;background:#fff;color:#4d5f72}.header-avatar{background:#f1f4f6;border-color:#e2e8ee;color:#415367}
+
+@media(max-width:760px){.legal-sidebar{border-right:0;border-bottom:1px solid #e7ebef}.legal-sidebar nav{gap:4px}.legal-sidebar nav button{gap:7px;min-height:38px;padding:9px 10px}.legal-sidebar nav button.selected::before{top:auto;bottom:0;left:50%;width:18px;height:2px;transform:translateX(-50%);border-radius:2px}.sidebar-nav-icon{width:16px;height:16px}.legal-user{border-top:0;padding-top:8px}.legal-main{min-height:calc(100vh - 1px)}}

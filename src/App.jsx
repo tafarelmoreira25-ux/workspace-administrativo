@@ -85,6 +85,15 @@ function Login({ onLogin }) {
   );
 }
 
+function SidebarIcon({ name }) {
+  const common = { fill: "none", stroke: "currentColor", strokeLinecap: "round", strokeLinejoin: "round" };
+  if (name === "inicio") return <svg className="sidebar-nav-icon" viewBox="0 0 24 24" aria-hidden="true" {...common}><path d="m4 10 8-6 8 6v9.5a.5.5 0 0 1-.5.5h-15a.5.5 0 0 1-.5-.5z" /><path d="M9.5 20v-6h5v6" /></svg>;
+  if (name === "extrajudicial") return <svg className="sidebar-nav-icon" viewBox="0 0 24 24" aria-hidden="true" {...common}><path d="M6 3.5h8l4 4V20H6z" /><path d="M14 3.5v4h4M9 12h6M9 16h6" /></svg>;
+  if (name === "processual") return <svg className="sidebar-nav-icon" viewBox="0 0 24 24" aria-hidden="true" {...common}><path d="M4 20h16M6 17h12M12 4v13M5 8h14M8 8l-3 5h6L8 8Zm8 0-3 5h6l-3-5Z" /></svg>;
+  if (name === "homologacao") return <svg className="sidebar-nav-icon" viewBox="0 0 24 24" aria-hidden="true" {...common}><circle cx="12" cy="12" r="8.5" /><path d="m8 12 2.5 2.5L16 9" /></svg>;
+  return <svg className="sidebar-nav-icon" viewBox="0 0 24 24" aria-hidden="true" {...common}><path d="M6 3.5h8l4 4V20H6z" /><path d="M14 3.5v4h4M9 12h6M9 16h6" /></svg>;
+}
+
 export default function App() {
   const [usuario, setUsuario] = useState(null);
   const [aba, setAba] = useState("inicio");
@@ -107,22 +116,19 @@ export default function App() {
   async function sair() { await supabase.auth.signOut(); setUsuario(null); setAba("inicio"); setHomeScreen("home"); }
   if (loading) return <main className="auvel-login auvel-login--loading">Carregando…</main>;
   if (!usuario) return <Login onLogin={setUsuario}/>;
-  const abas = [["inicio", "Início"], ["extrajudicial", "Extrajudicial"], ["processual", "Processual"], ["homologacao", "Homologação"], ["documentos", "Gerador de Documentos"]];
-  const view = aba === "inicio" ? homeScreen : aba;
-  const pageTitle = view === "inicio" ? "Área de Trabalho" : view === "clientes" ? "Clientes" : abas.find(([id]) => id === aba)?.[1];
-  function navigate(destination) {
-    if (destination === "clientes") {
-      setAba("inicio");
-      setHomeScreen("clientes");
-      return;
-    }
-    setHomeScreen("home");
-    setAba(destination);
-  }
+  const abas = [
+    { id: "inicio", title: "Início" },
+    { id: "extrajudicial", title: "Extrajudicial" },
+    { id: "processual", title: "Processual" },
+    { id: "homologacao", title: "Homologação" },
+    { id: "documentos", title: "Gerador de Documentos" },
+  ];
+  const view = aba === "inicio" ? (homeScreen === "home" ? "inicio" : homeScreen) : aba;
+  const pageTitle = view === "inicio" ? "Início" : view === "clientes" ? "Clientes" : abas.find((tab) => tab.id === aba)?.title;
   function searchWorkspace(event) {
     event.preventDefault();
     setHomeScreen("clientes");
     setAba("inicio");
   }
-  return <div className="legal-app"><aside className="legal-sidebar"><a className="legal-brand" href="#inicio" onClick={e => { e.preventDefault(); setAba("inicio"); setHomeScreen("home"); }}>{"PLATINO "}<small>JURÍDICO</small></a><nav aria-label="Menu principal">{abas.map(([id, title]) => <button key={id} className={aba === id ? "selected" : ""} onClick={() => { setAba(id); if (id === "inicio") setHomeScreen("home"); }}>{title}</button>)}</nav><div className="legal-user"><span>{usuario.nome || usuario.email}</span><button onClick={sair}>Sair</button></div></aside><main className="legal-main"><header className="legal-topbar"><div className="legal-page-heading"><span>Workspace jurídico</span><strong>{pageTitle}</strong></div><div className="legal-top-actions"><form className="global-search" role="search" onSubmit={searchWorkspace}><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.8" cy="10.8" r="6.8"/><path d="m16 16 5 5"/></svg><Input aria-label="Buscar clientes" placeholder="Buscar clientes" value={workspaceSearch} onChange={event => setWorkspaceSearch(event.target.value)}/><button type="submit">Buscar</button></form><Suspense fallback={<span className="header-icon-placeholder" />}><NotificationPanel /></Suspense><span className="header-avatar" aria-label={`Usuário ${usuario.nome || usuario.email}`} title={usuario.nome || usuario.email}>{(usuario.nome || usuario.email || "U").trim().charAt(0).toLocaleUpperCase("pt-BR")}</span></div></header><Suspense fallback={<section className="legal-panel">Carregando…</section>}>{aba === "documentos" ? <GeradorDocumentos usuario={usuario} responsavel={usuario.nome} onSuccess={avisar}/> : <WorkspaceJuridico view={view} usuario={usuario} notify={avisar} onNavigate={navigate} searchValue={workspaceSearch} onSearchChange={setWorkspaceSearch}/>}</Suspense></main>{toast && <div className="toast-message" role="status">{toast}</div>}</div>;
+  return <div className="legal-app"><aside className="legal-sidebar"><a className="legal-brand" href="#inicio" onClick={e => { e.preventDefault(); setAba("inicio"); setHomeScreen("home"); }}>{"PLATINO "}<small>JURÍDICO</small></a><nav aria-label="Menu principal">{abas.map((tab) => <button key={tab.id} className={aba === tab.id ? "selected" : ""} onClick={() => { setAba(tab.id); if (tab.id === "inicio") setHomeScreen("home"); }}><SidebarIcon name={tab.id} /><span>{tab.title}</span></button>)}</nav><div className="legal-user"><span>{usuario.nome || usuario.email}</span><button onClick={sair}>Sair</button></div></aside><main className="legal-main"><header className="legal-topbar"><div className="legal-page-heading"><span>Workspace jurídico</span><strong>{pageTitle}</strong></div><div className="legal-top-actions"><form className="global-search" role="search" onSubmit={searchWorkspace}><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.8" cy="10.8" r="6.8"/><path d="m16 16 5 5"/></svg><Input aria-label="Buscar clientes" placeholder="Buscar clientes" value={workspaceSearch} onChange={event => setWorkspaceSearch(event.target.value)}/><button type="submit">Buscar</button></form><Suspense fallback={<span className="header-icon-placeholder" />}><NotificationPanel /></Suspense><span className="header-avatar" aria-label={`Usuário ${usuario.nome || usuario.email}`} title={usuario.nome || usuario.email}>{(usuario.nome || usuario.email || "U").trim().charAt(0).toLocaleUpperCase("pt-BR")}</span></div></header><Suspense fallback={<section className="legal-panel">Carregando…</section>}>{aba === "documentos" ? <GeradorDocumentos usuario={usuario} responsavel={usuario.nome} onSuccess={avisar}/> : <WorkspaceJuridico view={view} usuario={usuario} notify={avisar} searchValue={workspaceSearch} onSearchChange={setWorkspaceSearch}/>}</Suspense></main>{toast && <div className="toast-message" role="status">{toast}</div>}</div>;
 }
