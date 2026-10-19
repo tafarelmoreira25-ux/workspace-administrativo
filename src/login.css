@@ -147,6 +147,30 @@
   letter-spacing: 0.015em;
 }
 
+#root .auvel-login-card > .ui-form-field,
+#root .auvel-login-password-group > .ui-form-field {
+  display: grid;
+  gap: 9px;
+  color: #57534e;
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.015em;
+}
+
+#root .auvel-login-card .ui-form-field > span,
+#root .auvel-login-password-group .ui-form-field > span {
+  color: #57534e;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: normal;
+  letter-spacing: 0.015em;
+}
+
+#root .auvel-login-card .ui-form-field[data-required="true"] > span:first-child::before {
+  content: none;
+}
+
 .auvel-login-password-group {
   display: grid;
   gap: 9px;
