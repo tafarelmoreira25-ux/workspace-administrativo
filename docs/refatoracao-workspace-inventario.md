@@ -8,7 +8,7 @@
 
 ## Inventário anterior às alterações
 
-- Dependências de produção: React 19, React DOM 19, `@supabase/supabase-js`, `fflate` e `pdf-lib`.
+- Dependências de produção: React 19, React DOM 19, `@supabase/supabase-js` e `pdf-lib`.
 - Build e ferramenta: Vite 8 e plugin React. Não há roteador dedicado; a navegação era feita por estado em `src/App.jsx`.
 - Entradas carregadas sob demanda: clientes, carteira processual, esteira, agenda operacional, gerencial, busca global, dashboard, homologação e gerador. Treinamentos eram importados diretamente.
 - Autenticação: Supabase Auth; perfil consultado em `funcionarios` por e-mail e estado `ativo`. O cliente frontend usa somente `VITE_SUPABASE_ANON_KEY`.

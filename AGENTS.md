@@ -1,18 +1,18 @@
 # Gerador de documentos jurídicos
 
-Estas regras são obrigatórias em toda inclusão ou manutenção de modelos do gerador:
+Estas regras se aplicam somente ao Gerador de Documentos:
 
-- O arquivo DOCX recebido é a fonte oficial. Preserve o original sem sobrescrevê-lo e preencha uma cópia.
-- Preserve integralmente texto, estrutura e identidade visual do Word: fontes, tamanhos, estilos, cores, alinhamentos, margens, recuos, espaçamentos, tabelas, imagens, logotipos, cabeçalhos, rodapés, seções, quebras de página e espaços de assinatura.
-- Não reescreva nem resuma o documento. A saída final deve ser gerada localmente a partir de uma cópia preenchida do DOCX oficial, sem Microsoft Graph, Word Online, OneDrive ou credenciais externas.
-- Todo destaque amarelo é um campo variável ou marcador de concordância. Considere campos fragmentados entre vários `runs` do Word, inclusive pontuação não destacada. Remova o amarelo somente depois de preencher e validar todos os campos.
-- Não invente informações e não emita arquivos com placeholders, destaques amarelos ou campos obrigatórios vazios.
-- Use exclusivamente o sexo feminino ou masculino informado no cadastro/formulário; nunca deduza pelo nome. Aplique concordância somente às palavras referentes à pessoa correspondente e nunca por substituição global indiscriminada.
-- Preserve termos referentes a empresas, instituições, assessoria, ações, parcelas, textos legais genéricos e outras pessoas. Em documentos com várias pessoas, trate a concordância de cada uma separadamente.
-- Nacionalidade, estado civil e profissão devem concordar quando a palavra admitir flexão, sem alterar palavras invariáveis.
-- Dados repetidos devem usar uma única origem e permanecer consistentes, respeitando a caixa de cada ocorrência.
-- Antes da geração, detecte e exponha conflitos entre os dados informados e textos fixos do modelo (por exemplo, parcela, ano ou exercícios). Nunca altere texto fixo silenciosamente nem gere documento contraditório.
-- Valide cada modelo com perfis feminino e masculino, nomes longos, campos repetidos, datas, valores e números por extenso. Compare visualmente o PDF com o DOCX e verifique texto, formatação, paginação, assinaturas, ausência de cortes/sobreposições, marcadores e amarelos.
-- Se o DOCX original estiver ausente, contiver dados reais fixos, ou houver mapeamento ambíguo, registre a pendência e não crie um substituto por conta própria.
+- A biblioteca começa vazia. Não reative nem trate como oficiais os modelos antigos guardados em backup.
+- O DOCX recebido é a referência visual oficial. Preserve-o sem sobrescrever e mantenha os originais fora de diretórios públicos quando contiverem dados pessoais ou informação confidencial.
+- A arquitetura ativa é de um renderizador PDF local e específico para cada novo modelo, com seus próprios campos, validações e regras de diagramação. O `pdf-lib` pode ser usado para desenhar PDFs individuais; isso não converte automaticamente DOCX nem garante fidelidade a qualquer Word.
+- Use o Word como referência para reproduzir e revisar o layout. Preserve texto, fontes, tamanhos, estilos, cores, alinhamentos, margens, recuos, espaçamentos, tabelas, imagens, logotipos, cabeçalhos, rodapés, seções, quebras de página e assinaturas que existam no novo original. Identifique limites do renderizador e ajuste aquele modelo antes de ativá-lo.
+- Não reescreva nem resuma conteúdo jurídico, não invente dados e não gere arquivos com campos obrigatórios vazios ou placeholders.
+- Trate todo destaque amarelo como campo variável ou marcador de concordância, inclusive quando o texto estiver fragmentado entre vários `runs`. Mapeie os campos e pontuação de cada modelo antes de habilitá-lo.
+- Use somente o sexo informado no formulário; nunca deduza pelo nome. Aplique concordância apenas à pessoa correspondente, sem substituição global. Preserve menções a empresas, instituições, ações, parcelas, textos legais e outras pessoas. Nacionalidade, estado civil e profissão concordam quando flexionáveis.
+- Mantenha campos repetidos consistentes e detecte conflitos entre dados preenchidos e texto fixo (por exemplo, parcela, ano ou exercícios). Exponha conflitos e bloqueie a geração até serem resolvidos; nunca altere texto fixo silenciosamente.
+- Valide cada novo modelo com perfis feminino e masculino, nomes longos, campos repetidos, datas, valores e números por extenso. Compare o PDF com o DOCX e confira texto, formatação, paginação, assinaturas, cortes, sobreposições, placeholders e destaques antes de ativá-lo.
+- Se o DOCX estiver ausente, contiver dados pessoais fixos, ou houver mapeamento ambíguo, registre a pendência e não crie um substituto.
+- Gere o PDF localmente e entregue-o para download. Não salve PDFs gerados, rascunhos ou histórico no Supabase ou Storage.
+- Não use Microsoft Graph, Microsoft 365, Word Online, OneDrive nem credenciais externas. LibreOffice pode ser avaliado em execução local, container ou worker, mas a compatibilidade de layout deve ser validada por modelo; não presuma que o resultado seja idêntico ao Word.
 
-Fluxo permanente: **receber o Word -> identificar os destaques amarelos -> preencher uma cópia -> aplicar concordância contextual -> validar conflitos e pendências -> converter para PDF preservando o formato do Word**.
+Fluxo: **receber DOCX -> identificar campos e regras -> criar formulário e renderizador específicos -> validar conteúdo e concordância -> comparar visualmente com o original -> ativar e permitir download**.
