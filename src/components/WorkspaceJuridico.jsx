@@ -3,7 +3,7 @@ import { supabase } from "../lib/supabase";
 import { FormField, Input, Select, Textarea } from "./common/FormControls";
 import "./workspaceJuridico.css";
 
-const PAGE_SIZE = 25;
+const PAGE_SIZE = 10;
 const CLIENT_COLS = "id,nome,nome_completo,cpf,banco,numero_acao_extrajudicial,numero_processo_judicial,representante,created_at";
 const HISTORY_COLS = "registro_id,cliente_id,processo_id,data,descricao,etapa,autor,origem";
 const DEAL_COLS = "registro_id,cliente_id,cliente_nome,banco,data,divida,saldo_atual,parcelas_atrasadas,desconto,observacao,desfecho,status,origem";
