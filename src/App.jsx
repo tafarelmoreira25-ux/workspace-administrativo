@@ -51,15 +51,11 @@ function Login({ onLogin }) {
       <img className="auvel-login-background" src="/assets/auvel/login-background.png" alt="" aria-hidden="true" fetchPriority="high" />
       <div className="auvel-login-wash" aria-hidden="true" />
       <div className="auvel-login-layout">
-        <header className="auvel-login-brand" aria-label="AUVEL">
-          <span className="auvel-wordmark-crop"><img src="/assets/auvel/logo-wordmark.png" alt="auvel." /></span>
-        </header>
         <section className="auvel-login-editorial" aria-labelledby="auvel-login-title">
           <h1 id="auvel-login-title">Gestão inteligente<br />e alta performance.</h1>
           <p><span>PROCESSOS</span><i /><span>PESSOAS</span><i /><span>RESULTADOS</span></p>
         </section>
         <form className="auvel-login-card" onSubmit={enviar}>
-          <span className="auvel-monogram-crop" aria-hidden="true"><img src="/assets/auvel/logo-monogram.png" alt="" /></span>
           <FormField className="auvel-login-field" htmlFor="login-email">
             <span>E-mail corporativo</span>
             <Input id="login-email" type="email" autoComplete="username" required value={email} onChange={(e) => setEmail(e.target.value)} />
