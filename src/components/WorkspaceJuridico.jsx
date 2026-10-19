@@ -48,7 +48,6 @@ export default function WorkspaceJuridico({ view, usuario, notify, onNavigate, s
     if (!listMode || view === "inicio") return null;
     let req = supabase.from("clientes").select(CLIENT_COLS, { count: "exact" }).order("created_at", { ascending: false });
     if (processMode) req = req.not("numero_processo_judicial", "is", null).neq("numero_processo_judicial", "");
-    if (view === "extrajudicial") req = req.not("numero_acao_extrajudicial", "is", null).neq("numero_acao_extrajudicial", "");
     if (query) req = req.or(`nome_completo.ilike.%${query}%,nome.ilike.%${query}%,cpf.ilike.%${query}%,banco.ilike.%${query}%,numero_acao_extrajudicial.ilike.%${query}%,numero_processo_judicial.ilike.%${query}%`);
     req = req.range(page * PAGE_SIZE, page * PAGE_SIZE + PAGE_SIZE - 1);
     return await req;

@@ -1,5 +1,6 @@
 import { useRef, useState } from "react";
 import { DOCUMENT_GENERATORS, generateDocumentPdf } from "./lib/documentGeneratorRegistry";
+import { FormField, Input, Select } from "./components/common/FormControls";
 import "./documentGeneratorEmpty.css";
 
 export default function GeradorDocumentos() {
@@ -53,8 +54,9 @@ export default function GeradorDocumentos() {
       </p>
       {DOCUMENT_GENERATORS.length > 0 && (
         <form className="legal-doc-empty-card" onSubmit={gerar}>
-          <label htmlFor="legal-document-template">Modelo</label>
-          <select
+          <FormField>
+            Modelo
+          <Select
             id="legal-document-template"
             value={modeloId}
             onChange={(event) => {
@@ -69,24 +71,25 @@ export default function GeradorDocumentos() {
                 {modelo.category} · {modelo.name}
               </option>
             ))}
-          </select>
+          </Select>
+          </FormField>
           {modeloSelecionado?.fields?.map((campo) => (
-            <label key={campo.id}>
+            <FormField key={campo.id}>
               {campo.label}
               {campo.type === "select" ? (
-                <select required={Boolean(campo.required)} value={dados[campo.id] || ""} onChange={(event) => setDados((atual) => ({ ...atual, [campo.id]: event.target.value }))}>
+                <Select required={Boolean(campo.required)} value={dados[campo.id] || ""} onChange={(event) => setDados((atual) => ({ ...atual, [campo.id]: event.target.value }))}>
                   <option value="">Selecione</option>
                   {(campo.options || []).map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
-                </select>
+                </Select>
               ) : (
-                <input
+                <Input
                   type={campo.type || "text"}
                   required={Boolean(campo.required)}
                   value={dados[campo.id] || ""}
                   onChange={(event) => setDados((atual) => ({ ...atual, [campo.id]: event.target.value }))}
                 />
               )}
-            </label>
+            </FormField>
           ))}
           {modeloSelecionado && <button type="submit" disabled={gerando}>{gerando ? "Gerando…" : "Gerar e baixar PDF"}</button>}
           {mensagemGeracao && <p role="status">{mensagemGeracao}</p>}
@@ -99,7 +102,7 @@ export default function GeradorDocumentos() {
           sessão; selecioná-lo ainda não o cadastra nem ativa a geração. Documentos
           gerados, rascunhos e históricos não são enviados ao Supabase.
         </p>
-        <input
+        <Input
           ref={inputRef}
           type="file"
           accept=".docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
