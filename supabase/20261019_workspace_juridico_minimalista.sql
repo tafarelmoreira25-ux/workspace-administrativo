@@ -14,6 +14,40 @@ alter table public.clientes_historico
   add column if not exists updated_at timestamptz not null default now();
 alter table public.funcionarios add column if not exists ativo boolean not null default true;
 
+-- Confere a identidade canônica antes de usar o histórico. Versões antigas do
+-- script de clientes declaravam este vínculo como UUID; só é convertido se
+-- estiver vazio, preservando e bloqueando qualquer dado que exija reconciliação.
+do $$
+declare
+  v_cliente_id_type oid;
+begin
+  select a.atttypid into v_cliente_id_type
+  from pg_attribute a
+  where a.attrelid = 'public.clientes'::regclass
+    and a.attname = 'id'
+    and not a.attisdropped;
+
+  if v_cliente_id_type is distinct from 'bigint'::regtype::oid then
+    raise exception 'public.clientes.id precisa ser bigint para esta migration; nenhum dado foi alterado.';
+  end if;
+
+  select a.atttypid into v_cliente_id_type
+  from pg_attribute a
+  where a.attrelid = 'public.clientes_historico'::regclass
+    and a.attname = 'cliente_id'
+    and not a.attisdropped;
+
+  if v_cliente_id_type is distinct from 'bigint'::regtype::oid then
+    if exists (select 1 from public.clientes_historico limit 1) then
+      raise exception 'clientes_historico.cliente_id não é bigint e contém dados; reconcilie os vínculos antes de aplicar esta migration.';
+    end if;
+
+    alter table public.clientes_historico
+      alter column cliente_id type bigint using null::bigint;
+  end if;
+end;
+$$;
+
 do $$
 begin
   if to_regclass('public.modelos_juridicos_config') is not null then
@@ -66,7 +100,7 @@ for each row execute function public.proteger_cpf_duplicado_workspace();
 
 create table if not exists public.clientes_homologacoes (
   id uuid primary key default gen_random_uuid(),
-  cliente_id uuid not null references public.clientes(id) on delete restrict,
+  cliente_id bigint not null references public.clientes(id) on delete restrict,
   data date not null default current_date,
   divida numeric(14,2),
   saldo_atual numeric(14,2),
@@ -77,6 +111,60 @@ create table if not exists public.clientes_homologacoes (
   created_by uuid references auth.users(id) on delete set null,
   created_at timestamptz not null default now()
 );
+
+-- Se uma execução anterior deixou a tabela criada com tipo incompatível, só
+-- converte quando ela está vazia. Dados existentes exigem reconciliação
+-- explícita por identificador confiável; nunca convertemos UUID por tentativa.
+do $$
+declare
+  v_cliente_id_type oid;
+begin
+  select a.atttypid into v_cliente_id_type
+  from pg_attribute a
+  where a.attrelid = 'public.clientes_homologacoes'::regclass
+    and a.attname = 'cliente_id'
+    and not a.attisdropped;
+
+  if v_cliente_id_type is distinct from 'bigint'::regtype::oid then
+    if exists (select 1 from public.clientes_homologacoes limit 1) then
+      raise exception 'clientes_homologacoes.cliente_id não é bigint e contém dados; reconcilie os vínculos antes de aplicar esta migration.';
+    end if;
+
+    alter table public.clientes_homologacoes
+      alter column cliente_id type bigint using null::bigint;
+  end if;
+
+  if not exists (
+    select 1
+    from pg_constraint fk
+    join pg_attribute source_col
+      on source_col.attrelid = fk.conrelid and source_col.attnum = any(fk.conkey)
+    join pg_attribute target_col
+      on target_col.attrelid = fk.confrelid and target_col.attnum = any(fk.confkey)
+    where fk.contype = 'f'
+      and fk.conrelid = 'public.clientes_homologacoes'::regclass
+      and fk.confrelid = 'public.clientes'::regclass
+      and source_col.attname = 'cliente_id'
+      and target_col.attname = 'id'
+  ) then
+    if exists (
+      select 1 from pg_constraint fk
+      join pg_attribute source_col
+        on source_col.attrelid = fk.conrelid and source_col.attnum = any(fk.conkey)
+      where fk.contype = 'f'
+        and fk.conrelid = 'public.clientes_homologacoes'::regclass
+        and source_col.attname = 'cliente_id'
+    ) then
+      raise exception 'clientes_homologacoes.cliente_id possui uma FK para outra coluna; revise a constraint antes de aplicar esta migration.';
+    end if;
+
+    alter table public.clientes_homologacoes
+      add constraint clientes_homologacoes_cliente_id_fkey
+      foreign key (cliente_id) references public.clientes(id) on delete restrict;
+  end if;
+end;
+$$;
+
 create index if not exists clientes_homologacoes_timeline_idx
   on public.clientes_homologacoes (cliente_id, data desc, created_at desc);
 
@@ -102,6 +190,16 @@ grant select, insert on public.clientes to authenticated;
 revoke update on public.clientes from authenticated;
 grant update (nome_completo, cpf, banco, numero_acao_extrajudicial, numero_processo_judicial, representante, ativo, updated_at, updated_by) on public.clientes to authenticated;
 grant select, insert on public.clientes_historico, public.clientes_homologacoes to authenticated;
+
+do $$
+declare v_id_sequence text;
+begin
+  v_id_sequence := pg_get_serial_sequence('public.clientes', 'id');
+  if v_id_sequence is not null then
+    execute format('grant usage, select on sequence %s to authenticated', v_id_sequence);
+  end if;
+end;
+$$;
 
 do $$
 declare t text; policy_row record;
@@ -183,12 +281,19 @@ begin
       on conflict (tabela_origem, registro_origem) do nothing
     $sql$;
   end if;
-  if to_regclass('public.homologacoes') is not null then
+  if to_regclass('public.homologacoes') is not null
+     and exists (select 1 from information_schema.columns where table_schema='public' and table_name='homologacoes' and column_name='id')
+     and exists (select 1 from information_schema.columns where table_schema='public' and table_name='homologacoes' and column_name='cliente_id')
+     and exists (select 1 from information_schema.columns where table_schema='public' and table_name='homologacoes' and column_name='cpf_cnpj') then
     execute $sql$
       insert into public.workspace_reconciliacao_pendencias(tabela_origem, registro_origem, identificador_confiavel)
       select 'homologacoes', h.id::text, nullif(regexp_replace(coalesce(h.cpf_cnpj, ''), '\D', '', 'g'), '')
       from public.homologacoes h
-      where h.cliente_id is null or h.cliente_id::text !~ '^[0-9a-fA-F-]{36}$'
+      where h.cliente_id is null
+        or not exists (
+          select 1 from public.clientes c
+          where c.id::text = h.cliente_id::text
+        )
       on conflict (tabela_origem, registro_origem) do nothing
     $sql$;
   end if;

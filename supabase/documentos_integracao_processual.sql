@@ -6,7 +6,7 @@
 begin;
 
 alter table if exists public.documentos_juridicos
-  add column if not exists cliente_id uuid,
+  add column if not exists cliente_id bigint,
   add column if not exists processo_id uuid,
   add column if not exists tipo_documento text,
   add column if not exists assinado boolean not null default false,
