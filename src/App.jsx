@@ -1,130 +1,628 @@
+import { FormField, FormSection, Input } from "./components/common/FormControls";
 import { lazy, Suspense, useCallback, useEffect, useState } from "react";
-import { supabase } from "./lib/supabase";
+import { supabase, invalidarConsultas } from "./lib/supabase";
 import { resolverTipoAcesso } from "./lib/userAccess";
-import { FormField, Input } from "./components/common/FormControls";
 import "./App.css";
-import "./login.css";
-
-const WorkspaceJuridico = lazy(() => import("./components/WorkspaceJuridico"));
-const GeradorDocumentos = lazy(() => import("./GeradorDocumentos"));
-const NotificationPanel = lazy(() => import("./components/NotificationPanel"));
+const carregadores = {
+  TreinamentosOperacionais: () => import("./components/TreinamentosOperacionais"),
+  GeradorDocumentos: () => import("./GeradorDocumentos"),
+  EsteiraProcessualPlatino: () => import("./components/esteira/EsteiraProcessualPlatino"),
+  ClientesModule: () => import("./components/clientes/ClientesModule"),
+  OperacionalProcessualModule: () => import("./components/operacional/OperacionalProcessualModule"),
+  GerencialProcessualModule: () => import("./components/gerencial/GerencialProcessualModule"),
+  GlobalSearch: () => import("./components/gerencial/GlobalSearch"),
+  DashboardModule: () => import("./components/dashboard/DashboardModule"),
+  CarteiraProcessual: () => import("./CarteiraProcessual"),
+  HomologacaoQuitacaoModule: () => import("./components/homologacao/HomologacaoQuitacaoModule"),
+};
+const carregadoresPorAba = { inicio: carregadores.DashboardModule, clientes: carregadores.ClientesModule, "homologacao-quitacao": carregadores.HomologacaoQuitacaoModule, documentos: carregadores.GeradorDocumentos, "processual-extrajudiciais": carregadores.CarteiraProcessual, "processual-protocolos": carregadores.EsteiraProcessualPlatino, processual: carregadores.CarteiraProcessual, "agenda-atividades": carregadores.OperacionalProcessualModule, indicadores: carregadores.GerencialProcessualModule, treinamentos: carregadores.TreinamentosOperacionais };
+function anteciparAba(id) { carregadoresPorAba[id]?.().catch(() => {}); }
+const TreinamentosOperacionais = lazy(carregadores.TreinamentosOperacionais);
+const GeradorDocumentos = lazy(carregadores.GeradorDocumentos);
+const EsteiraProcessualPlatino = lazy(carregadores.EsteiraProcessualPlatino);
+const ClientesModule = lazy(carregadores.ClientesModule);
+const OperacionalProcessualModule = lazy(carregadores.OperacionalProcessualModule);
+const GerencialProcessualModule = lazy(carregadores.GerencialProcessualModule);
+const GlobalSearch = lazy(carregadores.GlobalSearch);
+const DashboardModule = lazy(carregadores.DashboardModule);
+const CarteiraProcessual = lazy(carregadores.CarteiraProcessual);
+const HomologacaoQuitacaoModule = lazy(carregadores.HomologacaoQuitacaoModule);
 const ADMIN_EMAIL = (import.meta.env.VITE_ADMIN_EMAIL || "tafarel@platino.com").toLowerCase();
 
-async function carregarPerfil(usuario) {
-  const email = usuario?.email?.trim().toLowerCase();
-  if (!email) throw new Error("Conta autenticada sem e-mail válido.");
-  const { data, error } = await supabase.from("funcionarios")
-    .select("id,nome,email,perfil,cargo,setor,ativo").ilike("email", email).maybeSingle();
+function normalizarDataColada(valor, tipo) {
+  const texto = String(valor || "").trim();
+  const partes = texto.match(/^(\d{1,2})[/.-](\d{1,2})[/.-](\d{4})$/);
+  let data = texto.match(/^(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})$/);
+  let iso;
+  if (partes) iso = `${partes[3]}-${partes[2].padStart(2, "0")}-${partes[1].padStart(2, "0")}`;
+  else if (data) iso = `${data[1]}-${data[2].padStart(2, "0")}-${data[3].padStart(2, "0")}`;
+  else return "";
+
+  const objeto = new Date(`${iso}T00:00:00`);
+  if (Number.isNaN(objeto.getTime()) || objeto.toISOString().slice(0, 10) !== iso) return "";
+  if (tipo !== "datetime-local") return iso;
+  const hora = texto.match(/(?:[T\s])(\d{1,2}):(\d{2})(?::(\d{2}))?/);
+  return `${iso}T${hora ? `${hora[1].padStart(2, "0")}:${hora[2]}${hora[3] ? `:${hora[3]}` : ""}` : "00:00"}`;
+}
+
+async function buscarPerfilUsuario(usuarioAuth) {
+  const email = usuarioAuth?.email?.trim().toLowerCase();
+
+  if (!email) {
+    throw new Error("A conta autenticada não possui um e-mail válido.");
+  }
+
+  const { data, error } = await supabase
+    .from("funcionarios")
+    .select("id,nome,email,perfil,cargo,setor,ativo")
+    .ilike("email", email)
+    .maybeSingle();
+
   if (error) throw error;
-  if (!data || data.ativo === false) throw new Error("Conta sem perfil ativo autorizado.");
-  return { ...data, auth_id: usuario.id, tipo: resolverTipoAcesso(data, ADMIN_EMAIL) };
+  if (!data && email === ADMIN_EMAIL) {
+    return {
+      id: usuarioAuth.id,
+      auth_id: usuarioAuth.id,
+      nome: "Tafarel Moreira",
+      email,
+      tipo: "admin",
+      perfil: "supervisor",
+      cargo: "Supervisor",
+      setor: "Administrativo",
+    };
+  }
+  if (!data) throw new Error("Usuário não encontrado no cadastro da equipe.");
+  if (data.ativo === false) {
+    throw new Error("Este perfil está inativo. Procure o supervisor responsável.");
+  }
+
+  const tipo = resolverTipoAcesso(data, ADMIN_EMAIL);
+  return {
+    ...data,
+    auth_id: usuarioAuth.id,
+    tipo,
+  };
+}
+
+function formatarDataHora(data) {
+  if (!data) return "Data não registrada";
+  return new Intl.DateTimeFormat("pt-BR", {
+    dateStyle: "short",
+    timeStyle: "short",
+  }).format(new Date(data));
+}
+
+function rotuloTipoFeedback(tipo) {
+  return tipo === "construtivo"
+    ? "Ponto de melhoria"
+    : "Reconhecimento positivo";
+}
+
+function Toast({ message, onClose }) {
+  if (!message) return null;
+  return (
+    <div className="toast-message" onClick={onClose}>
+      {message}
+    </div>
+  );
+}
+
+function UiIcon({ name, size = 20 }) {
+  const paths = {
+    dashboard: <><rect x="3" y="3" width="7" height="7" rx="2" /><rect x="14" y="3" width="7" height="7" rx="2" /><rect x="3" y="14" width="7" height="7" rx="2" /><rect x="14" y="14" width="7" height="7" rx="2" /></>,
+    equipe: <><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M22 21v-2a4 4 0 0 0-3-3.87" /><path d="M16 3.13a4 4 0 0 1 0 7.75" /></>,
+    clientes: <><circle cx="12" cy="8" r="4" /><path d="M4 21a8 8 0 0 1 16 0" /></>,
+    documentos: <><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z" /><path d="M14 2v6h6" /><path d="M8 13h8" /><path d="M8 17h6" /></>,
+    planner: <><rect x="3" y="5" width="18" height="16" rx="2" /><path d="M16 3v4" /><path d="M8 3v4" /><path d="M3 11h18" /><path d="m8 16 2 2 4-4" /></>,
+    feedback: <><path d="M21 15a4 4 0 0 1-4 4H8l-5 3V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4Z" /><path d="M8 9h8" /><path d="M8 13h5" /></>,
+    treinamento: <><path d="m3 9 9-5 9 5-9 5-9-5Z" /><path d="M7 11.5V16c3 2 7 2 10 0v-4.5" /><path d="M21 9v6" /></>,
+    esteira: <><path d="M4 6h16" /><path d="M4 12h10" /><path d="M4 18h7" /><path d="m15 16 2 2 4-5" /></>,
+    extrajudicial: <><path d="M7 3h10v4H7z" /><path d="M5 7h14v14H5z" /><path d="M8 12h8" /><path d="M8 16h5" /></>,
+    protocolo: <><path d="M9 11h6" /><path d="M9 15h4" /><path d="M8 3h8l3 3v15H5V3Z" /><path d="M16 3v4h4" /></>,
+    prazos: <><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" /></>,
+    agenda: <><rect x="3" y="5" width="18" height="16" rx="2" /><path d="M16 3v4" /><path d="M8 3v4" /><path d="M3 10h18" /></>,
+    indicadores: <><path d="M4 19V5" /><path d="M4 19h16" /><path d="M8 15l3-4 3 2 5-7" /></>,
+    alertas: <><path d="M12 9v4" /><path d="M12 17h.01" /><path d="M10.3 3.9 2.8 17a2 2 0 0 0 1.7 3h15a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z" /></>,
+    homologacao: <><path d="M7 3h10a2 2 0 0 1 2 2v14l-4-2-3 2-3-2-4 2V5a2 2 0 0 1 2-2Z" /><path d="M9 8h6" /><path d="M9 12h6" /><path d="M9 16h3" /></>,
+    busca: <><circle cx="11" cy="11" r="7" /><path d="m20 20-3.5-3.5" /></>,
+    sino: <><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9" /><path d="M10 21h4" /></>,
+    admin: <><path d="M12 2 4 5v6c0 5 3.4 9 8 11 4.6-2 8-6 8-11V5Z" /><path d="M9 12l2 2 4-5" /></>,
+    ocorrencias: <><path d="M4 5h16" /><path d="M4 12h16" /><path d="M4 19h10" /><circle cx="18" cy="19" r="2" /></>,
+    olho: <><path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6S2 12 2 12Z" /><circle cx="12" cy="12" r="2.5" /></>,
+    logout: <><path d="M10 17l5-5-5-5" /><path d="M15 12H3" /><path d="M21 19V5a2 2 0 0 0-2-2h-6" /></>,
+    spark: <><path d="m12 3-1.8 4.5L6 9l4.2 1.5L12 15l1.8-4.5L18 9l-4.2-1.5Z" /><path d="m5 15-.8 2L2 18l2.2.8L5 21l.8-2.2L8 18l-2.2-1Z" /></>,
+  };
+
+  return (
+    <svg
+      aria-hidden="true"
+      className="ui-icon"
+      fill="none"
+      height={size}
+      stroke="currentColor"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth="1.8"
+      viewBox="0 0 24 24"
+      width={size}
+    >
+      {paths[name] || paths.spark}
+    </svg>
+  );
+}
+
+function NavItem({ active, icon, children, onClick, onPreload, disabled = false }) {
+  return (
+    <button className={`nav-item ${active ? "active-tab" : ""}`} disabled={disabled} onClick={onClick} onPointerEnter={onPreload} onFocus={onPreload} title={String(children)}>
+      <UiIcon name={icon} size={18} />
+      <span>{children}</span>
+    </button>
+  );
+}
+
+function AreaTrabalho({ usuario, onNavigate }) {
+  return <Suspense fallback={<section className="panel">Carregando área de trabalho...</section>}><DashboardModule usuario={usuario} onNavigate={onNavigate} /></Suspense>;
+}
+
+function PlaceholderModulo({ titulo, descricao }) {
+  return (
+    <section className="module-placeholder">
+      <span className="eyebrow">Módulo preparado</span>
+      <h2>{titulo}</h2>
+      <p>{descricao}</p>
+      <div className="placeholder-panel">A estrutura visual já está disponível. A lógica será conectada em uma próxima etapa.</div>
+    </section>
+  );
+}
+
+function ListaFeedbacks({
+  feedbacks,
+  funcionarios = [],
+  mostrarDestinataria = false,
+  vazio = "Nenhum feedback registrado.",
+}) {
+  if (feedbacks.length === 0) return <p>{vazio}</p>;
+
+  return (
+    <div className="feedback-list">
+      {feedbacks.map((feedback) => {
+        const destinataria = funcionarios.find(
+          (item) =>
+            String(item.id) === String(feedback.funcionaria_id),
+        );
+
+        return (
+          <article
+            className={`feedback-card feedback-${feedback.tipo}`}
+            key={feedback.id}
+          >
+            <div className="feedback-card-heading">
+              <span>{rotuloTipoFeedback(feedback.tipo)}</span>
+              <time dateTime={feedback.created_at}>
+                {formatarDataHora(feedback.created_at)}
+              </time>
+            </div>
+            {mostrarDestinataria ? (
+              <strong>
+                Para: {destinataria?.nome || "Colaboradora não identificada"}
+              </strong>
+            ) : (
+              <strong>Enviado por Tafarel Moreira</strong>
+            )}
+            <p>{feedback.mensagem}</p>
+          </article>
+        );
+      })}
+    </div>
+  );
 }
 
 function Login({ onLogin }) {
   const [email, setEmail] = useState("");
   const [senha, setSenha] = useState("");
-  const [erro, setErro] = useState("");
-  const [busy, setBusy] = useState(false);
-  const [senhaVisivel, setSenhaVisivel] = useState(false);
+  const [mostrarSenha, setMostrarSenha] = useState(false);
+  const [carregando, setCarregando] = useState(false);
+  const [, setEnviandoRecuperacao] = useState(false);
+  const [, setAvisoRecuperacao] = useState("");
 
-  async function enviar(event) {
+  async function fazerLogin(event) {
     event.preventDefault();
-    setBusy(true);
-    setErro("");
+    setCarregando(true);
+    const emailNormalizado = email.trim().toLowerCase();
+
+    if (!emailNormalizado || !senha) {
+      alert("Por favor, preencha e-mail e senha.");
+      setCarregando(false);
+      return;
+    }
+
     try {
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email: email.trim().toLowerCase(),
+      const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
+        email: emailNormalizado,
         password: senha,
       });
-      if (error) throw error;
-      await onLogin(await carregarPerfil(data.user));
-    } catch (e) {
+
+      if (authError) throw authError;
+
+      const perfil = await buscarPerfilUsuario(authData.user);
+      await onLogin(perfil);
+    } catch (error) {
+      console.error("Erro de login:", error);
       await supabase.auth.signOut();
-      setErro(e.message || "Não foi possível entrar.");
+      alert(
+        error.message === "Invalid login credentials"
+          ? "E-mail ou senha incorretos."
+          : `Não foi possível entrar: ${error.message}`,
+      );
     } finally {
-      setBusy(false);
+      setCarregando(false);
     }
   }
 
+  async function solicitarRecuperacao() {
+    const emailNormalizado = email.trim().toLowerCase();
+    if (!emailNormalizado) {
+      setAvisoRecuperacao("Informe seu e-mail corporativo para recuperar a senha.");
+      return;
+    }
+
+    setEnviandoRecuperacao(true);
+    setAvisoRecuperacao("");
+    const destino = `${window.location.origin}${window.location.pathname}`;
+    const { error } = await supabase.auth.resetPasswordForEmail(emailNormalizado, {
+      redirectTo: destino,
+    });
+    setEnviandoRecuperacao(false);
+
+    setAvisoRecuperacao(
+      error
+        ? `Não foi possível enviar a recuperação: ${error.message}`
+        : "Se o e-mail estiver cadastrado, você receberá um link para criar uma nova senha.",
+    );
+  }
+
+  void solicitarRecuperacao;
+
   return (
-    <main className="auvel-login">
-      <img className="auvel-login-background" src="/assets/auvel/login-background.png" alt="" aria-hidden="true" fetchPriority="high" />
-      <div className="auvel-login-wash" aria-hidden="true" />
-      <div className="auvel-login-layout">
-        <section className="auvel-login-editorial" aria-labelledby="auvel-login-title">
-          <h1 id="auvel-login-title">Gestão inteligente<br />e alta performance.</h1>
-          <p><span>PROCESSOS</span><i /><span>PESSOAS</span><i /><span>RESULTADOS</span></p>
-        </section>
-        <form className="auvel-login-card" onSubmit={enviar}>
-          <FormField className="auvel-login-field" htmlFor="login-email">
-            <span>E-mail corporativo</span>
-            <Input id="login-email" type="email" autoComplete="username" required value={email} onChange={(e) => setEmail(e.target.value)} />
-          </FormField>
-          <div className="auvel-login-password-group">
-            <FormField className="auvel-login-field" htmlFor="login-password"><span>Senha</span></FormField>
-            <span className="auvel-password-field">
-              <Input id="login-password" type={senhaVisivel ? "text" : "password"} autoComplete="current-password" required value={senha} onChange={(e) => setSenha(e.target.value)} />
-              <button className="auvel-password-toggle" type="button" aria-label={senhaVisivel ? "Ocultar senha" : "Mostrar senha"} aria-pressed={senhaVisivel} onClick={() => setSenhaVisivel((visivel) => !visivel)}>
-                {senhaVisivel ? (
-                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 3l18 18M10.6 10.6a2 2 0 002.8 2.8M9.9 5.2A10.8 10.8 0 0112 5c5.3 0 8.8 5 9.5 6-.3.5-1.5 2.2-3.7 3.7M6.2 6.2C3.9 7.7 2.8 9.5 2.5 10c.7 1 4.2 6 9.5 6 1 0 1.9-.2 2.7-.5" /></svg>
-                ) : (
-                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6-9.5-6-9.5-6z" /><circle cx="12" cy="12" r="2.5" /></svg>
-                )}
-              </button>
-            </span>
-          </div>
-          {erro && <p className="auvel-login-error" role="alert">{erro}</p>}
-          <button className="auvel-login-submit" type="submit" disabled={busy}>{busy ? "Entrando…" : "Entrar"}</button>
-        </form>
+    <div className="login-page login-page-liquid">
+      <div className="liquid-bg" aria-hidden="true">
+        <span className="ambient ambient-one" />
+        <span className="ambient ambient-two" />
+        <span className="ambient ambient-three" />
+        <span className="orbital-line orbital-one" />
+        <span className="orbital-line orbital-two" />
+
+        <span className="blue-focus blue-focus-one" />
+        <span className="blue-focus blue-focus-two" />
+        <span className="glow-dot dot-a" />
+        <span className="glow-dot dot-b" />
+        <span className="glow-dot dot-c" />
+        <span className="energy-line line-a" />
+        <span className="energy-line line-b" />
       </div>
-    </main>
+
+      <section className="glass-card login-card" aria-label="Login Platino equipe">
+        <FormSection as="form" className="login-form" onSubmit={fazerLogin}>
+          <img className="login-logo-image" src="/assets/platino-orbital-logo.png" alt="Platino" />
+          <FormField className="glass-field floating-field" htmlFor="login-email">
+            <span>E-mail corporativo</span>
+            <div className="glass-input">
+              <UiIcon name="equipe" size={19} />
+              <div className="floating-input-wrap">
+                <Input
+                  id="login-email"
+                  name="email"
+                  autoComplete="email"
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder=" "
+                />
+              </div>
+            </div>
+          </FormField>
+
+          <FormField className="glass-field floating-field" htmlFor="login-password">
+            <span>Senha</span>
+            <div className="glass-input">
+              <UiIcon name="logout" size={19} />
+              <div className="floating-input-wrap">
+                <Input
+                  id="login-password"
+                  name="password"
+                  autoComplete="current-password"
+                  type={mostrarSenha ? "text" : "password"}
+                  value={senha}
+                  onChange={(e) => setSenha(e.target.value)}
+                  placeholder=" "
+                />
+              </div>
+              <button
+                type="button"
+                className="password-visibility"
+                onClick={() => setMostrarSenha((atual) => !atual)}
+                aria-label={mostrarSenha ? "Ocultar senha" : "Exibir senha"}
+                aria-pressed={mostrarSenha}
+                title={mostrarSenha ? "Ocultar senha" : "Exibir senha"}
+              >
+                <UiIcon name="olho" size={19} />
+              </button>
+            </div>
+          </FormField>
+
+          <button
+            type="submit"
+            className="glass-button full login-submit"
+            disabled={carregando}
+          >
+            {carregando && <span className="login-spinner" aria-hidden="true" />}
+            <span>{carregando ? "Entrando..." : "Entrar"}</span>
+          </button>
+
+        </FormSection>
+      </section>
+
+    </div>
   );
 }
 
-function SidebarIcon({ name }) {
-  const common = { fill: "none", stroke: "currentColor", strokeLinecap: "round", strokeLinejoin: "round" };
-  if (name === "inicio") return <svg className="sidebar-nav-icon" viewBox="0 0 24 24" aria-hidden="true" {...common}><path d="m4 10 8-6 8 6v9.5a.5.5 0 0 1-.5.5h-15a.5.5 0 0 1-.5-.5z" /><path d="M9.5 20v-6h5v6" /></svg>;
-  if (name === "extrajudicial") return <svg className="sidebar-nav-icon" viewBox="0 0 24 24" aria-hidden="true" {...common}><path d="M6 3.5h8l4 4V20H6z" /><path d="M14 3.5v4h4M9 12h6M9 16h6" /></svg>;
-  if (name === "processual") return <svg className="sidebar-nav-icon" viewBox="0 0 24 24" aria-hidden="true" {...common}><path d="M4 20h16M6 17h12M12 4v13M5 8h14M8 8l-3 5h6L8 8Zm8 0-3 5h6l-3-5Z" /></svg>;
-  if (name === "homologacao") return <svg className="sidebar-nav-icon" viewBox="0 0 24 24" aria-hidden="true" {...common}><circle cx="12" cy="12" r="8.5" /><path d="m8 12 2.5 2.5L16 9" /></svg>;
-  return <svg className="sidebar-nav-icon" viewBox="0 0 24 24" aria-hidden="true" {...common}><path d="M6 3.5h8l4 4V20H6z" /><path d="M14 3.5v4h4M9 12h6M9 16h6" /></svg>;
+function RedefinirSenha({ onConcluida }) {
+  const [senha, setSenha] = useState("");
+  const [confirmacao, setConfirmacao] = useState("");
+  const [mensagem, setMensagem] = useState("");
+  const [salvando, setSalvando] = useState(false);
+
+  async function salvarNovaSenha(evento) {
+    evento.preventDefault();
+    if (senha.length < 8) {
+      setMensagem("A nova senha deve ter pelo menos 8 caracteres.");
+      return;
+    }
+    if (senha !== confirmacao) {
+      setMensagem("A confirmação não corresponde à nova senha.");
+      return;
+    }
+
+    setSalvando(true);
+    setMensagem("");
+    const { error } = await supabase.auth.updateUser({ password: senha });
+    setSalvando(false);
+
+    if (error) {
+      setMensagem(`Não foi possível atualizar a senha: ${error.message}`);
+      return;
+    }
+
+    await supabase.auth.signOut();
+    window.history.replaceState({}, "", `${window.location.origin}${window.location.pathname}`);
+    onConcluida();
+  }
+
+  return (
+    <div className="login-page login-page-liquid">
+      <section className="glass-card login-card" aria-label="Criar nova senha">
+        <div className="login-brand"><img className="login-logo-image" src="/assets/platino-orbital-logo.png" alt="Platino" /><div><strong>Platino equipe</strong><span>Workspace Administrativo</span></div></div>
+        <div className="login-heading"><span>Recuperação de acesso</span><h1>Crie uma nova senha</h1><p>Use pelo menos 8 caracteres.</p></div>
+        <FormSection as="form" className="login-form" onSubmit={salvarNovaSenha}>
+          <FormField className="glass-field"><span>Nova senha</span><div className="glass-input"><UiIcon name="logout" size={20} /><Input autoComplete="new-password" onChange={(evento) => setSenha(evento.target.value)} required type="password" value={senha} /></div></FormField>
+          <FormField className="glass-field"><span>Confirmar nova senha</span><div className="glass-input"><UiIcon name="logout" size={20} /><Input autoComplete="new-password" onChange={(evento) => setConfirmacao(evento.target.value)} required type="password" value={confirmacao} /></div></FormField>
+          {mensagem && <p className="auth-message" role="alert">{mensagem}</p>}
+          <button className="glass-button full" disabled={salvando} type="submit">{salvando ? "Salvando..." : "Salvar nova senha"}</button>
+        </FormSection>
+      </section>
+    </div>
+  );
 }
 
-export default function App() {
-  const [usuario, setUsuario] = useState(null);
+function Workspace({ usuario, onLogout, showToast }) {
   const [aba, setAba] = useState("inicio");
-  const [homeScreen, setHomeScreen] = useState("home");
-  const [workspaceSearch, setWorkspaceSearch] = useState("");
-  const [toast, setToast] = useState("");
-  const [loading, setLoading] = useState(true);
-  const avisar = useCallback(m => { setToast(m); window.setTimeout(() => setToast(""), 3500); }, []);
-  useEffect(() => {
-    let active = true;
-    supabase.auth.getSession().then(async ({ data }) => {
-      if (data.session?.user) {
-        try { const perfil = await carregarPerfil(data.session.user); if (active) setUsuario(perfil); }
-        catch { await supabase.auth.signOut(); }
-      }
-      if (active) setLoading(false);
-    });
-    return () => { active = false; };
-  }, []);
-  async function sair() { await supabase.auth.signOut(); setUsuario(null); setAba("inicio"); setHomeScreen("home"); }
-  if (loading) return <main className="auvel-login auvel-login--loading">Carregando…</main>;
-  if (!usuario) return <Login onLogin={setUsuario}/>;
-  const abas = [
-    { id: "inicio", title: "Início" },
-    { id: "extrajudicial", title: "Extrajudicial" },
-    { id: "processual", title: "Processual" },
-    { id: "homologacao", title: "Homologação" },
-    { id: "documentos", title: "Gerador de Documentos" },
+  const [buscaModulo, setBuscaModulo] = useState("");
+  const [menuRecolhido, setMenuRecolhido] = useState(() => window.localStorage.getItem("platino-menu-recolhido") === "1");
+  const [menuContaAberto, setMenuContaAberto] = useState(false);
+  const [processosSelecionados, setProcessosSelecionados] = useState({});
+  const [alertaSelecionado, setAlertaSelecionado] = useState(null);
+  const [clienteSelecionadoId, setClienteSelecionadoId] = useState(null);
+  const [feedbacks, setFeedbacks] = useState([]);
+  const carregarFeedbacks = useCallback(async () => {
+    const { data, error } = await supabase.from("feedbacks").select("*").eq("funcionaria_id", usuario.id).order("created_at", { ascending: false });
+    if (error) showToast("Não foi possível carregar os feedbacks.");
+    else setFeedbacks(data || []);
+  }, [usuario.id, showToast]);
+  const permissoes = usuario.permissoes || {};
+  const admin = usuario.tipo === "admin";
+  const podeVerDocumentos = admin || permissoes.documentos !== false;
+  const podeVerProcessual = admin || permissoes.esteira_processual !== false;
+  const navGroups = [
+    {
+      titulo: "Operação",
+      itens: [
+        ["inicio", "Área de Trabalho", "dashboard"],
+        ["clientes", "Clientes", "clientes"],
+        ["homologacao-quitacao", "Homologação e Quitação", "homologacao"],
+        ...(podeVerProcessual ? [["processual-extrajudiciais", "Extrajudiciais", "extrajudicial"], ["processual-protocolos", "Protocolos", "protocolo"], ["processual", "Processual", "esteira"]] : []),
+        ["agenda-atividades", "Agenda e Atividades", "agenda"],
+      ],
+    },
+    {
+      titulo: "Produção",
+      itens: [
+        ...(podeVerDocumentos ? [["documentos", "Gerador de Documentos", "documentos"]] : []),
+        ["indicadores", "Indicadores", "indicadores"],
+        ["treinamentos", "Treinamentos", "treinamento"],
+      ],
+    },
   ];
-  const view = aba === "inicio" ? (homeScreen === "home" ? "inicio" : homeScreen) : aba;
-  const pageTitle = view === "inicio" ? "Início" : view === "clientes" ? "Clientes" : abas.find((tab) => tab.id === aba)?.title;
-  function searchWorkspace(event) {
-    event.preventDefault();
-    setHomeScreen("clientes");
-    setAba("inicio");
+  const abas = navGroups.flatMap((grupo) => grupo.itens);
+  const rotuloAtual = abas.find(([id]) => id === aba)?.[1] || "Área de Trabalho";
+  const placeholderTextos = {
+    administracao: ["Administração", "Gestão administrativa preparada para permissões, usuários e parâmetros."],
+  };
+  function navegar(id, opcoes = {}) {
+    if (id === "processos") id = "processual";
+    setAba(id);
+    setAlertaSelecionado(opcoes.alerta || null);
+    setBuscaModulo("");
+    setClienteSelecionadoId(id === "clientes" ? opcoes.clienteId || null : null);
+    setProcessosSelecionados(["processual", "processual-extrajudiciais"].includes(id) ? { [id]: opcoes.processoId || null } : {});
+    if (id === "feedbacks") carregarFeedbacks();
   }
-  return <div className="legal-app"><aside className="legal-sidebar"><a className="legal-brand" href="#inicio" onClick={e => { e.preventDefault(); setAba("inicio"); setHomeScreen("home"); }}>{"PLATINO "}<small>JURÍDICO</small></a><nav aria-label="Menu principal">{abas.map((tab) => <button key={tab.id} className={aba === tab.id ? "selected" : ""} onClick={() => { setAba(tab.id); if (tab.id === "inicio") setHomeScreen("home"); }}><SidebarIcon name={tab.id} /><span>{tab.title}</span></button>)}</nav><div className="legal-user"><span>{usuario.nome || usuario.email}</span><button onClick={sair}>Sair</button></div></aside><main className="legal-main"><header className="legal-topbar"><div className="legal-page-heading"><span>Workspace jurídico</span><strong>{pageTitle}</strong></div><div className="legal-top-actions"><form className="global-search" role="search" onSubmit={searchWorkspace}><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.8" cy="10.8" r="6.8"/><path d="m16 16 5 5"/></svg><Input aria-label="Buscar clientes" placeholder="Buscar clientes" value={workspaceSearch} onChange={event => setWorkspaceSearch(event.target.value)}/></form><Suspense fallback={<span className="header-icon-placeholder" />}><NotificationPanel /></Suspense><span className="header-avatar" aria-label={`Usuário ${usuario.nome || usuario.email}`} title={usuario.nome || usuario.email}>{(usuario.nome || usuario.email || "U").trim().charAt(0).toLocaleUpperCase("pt-BR")}</span></div></header><Suspense fallback={<section className="legal-panel">Carregando…</section>}>{aba === "documentos" ? <GeradorDocumentos usuario={usuario} responsavel={usuario.nome} onSuccess={avisar}/> : <WorkspaceJuridico view={view} usuario={usuario} notify={avisar} searchValue={workspaceSearch} onSearchChange={setWorkspaceSearch}/>}</Suspense></main>{toast && <div className="toast-message" role="status">{toast}</div>}</div>;
+
+  function abrirProcessoNoProcessual(processoId) {
+    navegar("processual", { processoId });
+  }
+
+  function selecionarResultadoBusca(resultado) {
+    if (resultado.grupo === "Clientes") navegar("clientes", { clienteId: resultado.id });
+    else if (resultado.grupo === "Extrajudiciais") navegar("processual-extrajudiciais", { processoId: resultado.id });
+    else if (resultado.grupo === "Processos") navegar(resultado.destino === "protocolos" ? "processual-protocolos" : "processual", { processoId: resultado.id });
+    else navegar("documentos");
+  }
+
+  function alternarMenu() {
+    setMenuRecolhido((atual) => {
+      const proximo = !atual;
+      window.localStorage.setItem("platino-menu-recolhido", proximo ? "1" : "0");
+      return proximo;
+    });
+  }
+
+  return <div className={`app-layout ${menuRecolhido ? "menu-recolhido" : ""}`}>
+    <aside className={`sidebar ${menuRecolhido ? "recolhida" : ""}`}>
+      <div className="brand"><img src="/assets/platino-orbital-logo.png" alt="Platino" className="brand-icon" /><div><strong>Processual</strong><span>Workspace</span></div></div>
+      <button className="sidebar-collapse" onClick={alternarMenu} type="button" title={menuRecolhido ? "Expandir menu" : "Recolher menu"} aria-label={menuRecolhido ? "Expandir menu" : "Recolher menu"}>{menuRecolhido ? "›" : "‹"}</button>
+      <nav aria-label="Menu principal">
+        {navGroups.map((grupo) => (
+          <section className="nav-group" key={grupo.titulo}>
+            <span>{grupo.titulo}</span>
+            {grupo.itens.map(([id, nome, icon]) => (
+              <NavItem key={id} active={aba === id} icon={icon} onClick={() => navegar(id)} onPreload={() => anteciparAba(id)}>{nome}</NavItem>
+            ))}
+          </section>
+        ))}
+      </nav>
+    </aside>
+    <main className="main-content">
+      <header className="topbar">
+        <div>
+          <h1>{rotuloAtual}</h1>
+        </div>
+        <div className="global-search">
+          {aba === "clientes" ? <><UiIcon name="busca" size={17} /><Input type="search" value={buscaModulo} onChange={(evento) => setBuscaModulo(evento.target.value)} placeholder="Buscar cliente, CPF, ID CRM ou processo..." aria-label="Buscar clientes" /></> : <Suspense fallback={<><UiIcon name="busca" size={17} /><Input type="search" placeholder="Buscar cliente, CPF, ID, processo ou banco..." aria-label="Busca global" /></>}><GlobalSearch onSelect={selecionarResultadoBusca} /></Suspense>}
+        </div>
+        <div className="topbar-actions">
+          <button type="button" className="icon-button" aria-label="Notificações"><UiIcon name="sino" size={18} /></button>
+          <button type="button" className="account-avatar" onClick={() => setMenuContaAberto((atual) => !atual)} aria-label="Abrir menu da conta" title="Conta"><img src="/assets/platino-profile-avatar.png" alt="Perfil Platino Assessoria" /></button>
+          {menuContaAberto ? <div className="account-menu"><div className="account-menu-identity"><strong>{usuario.nome || "Usuário"}</strong><span>{usuario.email || "Conta autenticada"}</span></div>{admin ? <button type="button" onClick={() => navegar("administracao")}>Configurações</button> : null}<button type="button" onClick={onLogout}>Sair</button></div> : null}
+        </div>
+      </header>
+      {aba === "inicio" && <AreaTrabalho usuario={usuario} onNavigate={navegar} />}
+      {aba === "clientes" && <Suspense fallback={<section className="panel">Carregando clientes...</section>}><ClientesModule usuario={usuario} showToast={showToast} buscaExterna={buscaModulo} clienteInicialId={clienteSelecionadoId} onOpenProcess={abrirProcessoNoProcessual} /></Suspense>}
+      {aba === "homologacao-quitacao" && <Suspense fallback={<section className="panel">Carregando Homologação e Quitação...</section>}><HomologacaoQuitacaoModule usuario={usuario} showToast={showToast} /></Suspense>}
+      {aba === "documentos" && <Suspense fallback={<section className="panel">Carregando documentos...</section>}><GeradorDocumentos usuario={usuario} responsavel={usuario.nome} onSuccess={showToast} /></Suspense>}
+      {aba === "processual-extrajudiciais" && <Suspense fallback={<section className="panel">Carregando ações extrajudiciais...</section>}><CarteiraProcessual showToast={showToast} usuario={usuario} processoInicialId={processosSelecionados["processual-extrajudiciais"]} modo="extrajudicial" /></Suspense>}
+      {aba === "processual-protocolos" && <Suspense fallback={<section className="panel">Carregando protocolos...</section>}><EsteiraProcessualPlatino usuario={usuario} showToast={showToast} initialView="protocolos" alerta={alertaSelecionado} onLimparAlerta={() => setAlertaSelecionado(null)} /></Suspense>}
+      {aba === "processual" && <Suspense fallback={<section className="panel">Carregando Processual...</section>}><CarteiraProcessual showToast={showToast} usuario={usuario} processoInicialId={processosSelecionados.processual} modo="judicial" alerta={alertaSelecionado} onLimparAlerta={() => setAlertaSelecionado(null)} /></Suspense>}
+      {aba === "agenda-atividades" && <Suspense fallback={<section className="panel">Carregando agenda...</section>}><OperacionalProcessualModule usuario={usuario} showToast={showToast} initialView="agenda" alerta={alertaSelecionado} onLimparAlerta={() => setAlertaSelecionado(null)} /></Suspense>}
+      {aba === "indicadores" && <Suspense fallback={<section className="panel">Carregando indicadores...</section>}><GerencialProcessualModule usuario={usuario} showToast={showToast} initialView="indicadores" onNavigate={navegar} /></Suspense>}
+      {aba === "treinamentos" && <Suspense fallback={<section className="panel">Carregando treinamentos...</section>}><TreinamentosOperacionais usuario={usuario} /></Suspense>}
+      {aba === "feedbacks" && <section className="panel"><h2>Meus feedbacks</h2><button className="btn-secondary" onClick={() => { invalidarConsultas(); void carregarFeedbacks(); }}>Atualizar</button><ListaFeedbacks feedbacks={feedbacks} /></section>}
+      {placeholderTextos[aba] && <PlaceholderModulo titulo={placeholderTextos[aba][0]} descricao={placeholderTextos[aba][1]} />}
+    </main>
+  </div>;
+}
+export default function App() {
+  const [usuarioLogado, setUsuarioLogado] = useState(null);
+  const [toastMessage, setToastMessage] = useState("");
+  const [inicializando, setInicializando] = useState(true);
+  const [modoRecuperacao, setModoRecuperacao] = useState(
+    () => new URLSearchParams(window.location.hash.slice(1)).get("type") === "recovery",
+  );
+
+  const showToast = useCallback((msg) => {
+    setToastMessage(msg);
+    setTimeout(() => setToastMessage(""), 4000);
+  }, []);
+
+  const handleLogin = useCallback(async (perfil) => { setUsuarioLogado(perfil); }, []);
+
+  const handleLogout = useCallback(async () => {
+    await supabase.auth.signOut();
+    setUsuarioLogado(null);
+  }, []);
+
+  useEffect(() => {
+    function aceitarColagemDeData(evento) {
+      const campo = evento.target;
+      if (!(campo instanceof HTMLInputElement) || !["date", "datetime-local"].includes(campo.type)) return;
+      const texto = evento.clipboardData?.getData("text") || "";
+      const valor = normalizarDataColada(texto, campo.type);
+      if (!valor) return;
+      evento.preventDefault();
+      const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")?.set;
+      setter?.call(campo, valor);
+      campo.dispatchEvent(new Event("input", { bubbles: true }));
+      campo.dispatchEvent(new Event("change", { bubbles: true }));
+    }
+    document.addEventListener("paste", aceitarColagemDeData);
+    return () => document.removeEventListener("paste", aceitarColagemDeData);
+  }, []);
+
+  useEffect(() => {
+    const { data } = supabase.auth.onAuthStateChange((evento) => {
+      if (evento === "PASSWORD_RECOVERY") {
+        setModoRecuperacao(true);
+        setUsuarioLogado(null);
+        setInicializando(false);
+      }
+    });
+    return () => data.subscription.unsubscribe();
+  }, []);
+
+  useEffect(() => {
+    let ativo = true;
+
+    async function exigirNovoLogin() {
+      try {
+        if (modoRecuperacao) return;
+        await supabase.auth.signOut({ scope: "local" });
+        if (!ativo) return;
+        setUsuarioLogado(null);
+      } catch (error) {
+        console.error("Erro ao limpar a sessao local:", error);
+      } finally {
+        if (ativo) setInicializando(false);
+      }
+    }
+
+    exigirNovoLogin();
+    return () => {
+      ativo = false;
+    };
+  }, [modoRecuperacao]);
+
+  return (<>
+      <Toast message={toastMessage} onClose={() => setToastMessage("")} />
+
+      {modoRecuperacao ? (
+        <RedefinirSenha onConcluida={() => setModoRecuperacao(false)} />
+      ) : inicializando ? (
+        <div className="login-page login-page-liquid">
+          <section className="glass-card login-card loading-card" aria-label="Carregando Platino equipe">
+            <div className="login-brand">
+              <img className="login-logo-image" src="/assets/platino-orbital-logo.png" alt="Platino" />
+              <div>
+                <strong>Platino equipe</strong>
+                <span>Workspace Administrativo</span>
+              </div>
+            </div>
+            <p>Carregando o workspace...</p>
+          </section>
+        </div>
+      ) : !usuarioLogado ? (
+        <Login onLogin={handleLogin} />
+      ) : (
+        <Workspace key={usuarioLogado.id} usuario={usuarioLogado} onLogout={handleLogout} showToast={showToast} />
+      )}
+    </>
+  );
 }

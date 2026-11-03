@@ -1,6 +1,6 @@
 import { FormField, FormGrid, FormSection, Input, Select, Textarea } from "../common/FormControls";
 import { type Dispatch, type FormEvent, type SetStateAction, useCallback, useEffect, useMemo, useState } from "react";
-import { supabase } from "../../lib/supabase";
+import { supabase, invalidarConsultas } from "../../lib/supabase";
 import GerencialProcessualModule from "../gerencial/GerencialProcessualModule";
 import Pagination from "../common/Pagination";
 import "./operacionalProcessual.css";
@@ -42,7 +42,7 @@ type Atendimento = {
 };
 type ProcessoOpcao = { id: string; nome_cliente: string; cpf_cliente: string | null; numero_processo: string | null; banco_reu: string | null; cliente_id?: string | null };
 
-type Props = { usuario: Usuario; showToast?: (mensagem: string) => void; initialView?: View };
+type Props = { usuario: Usuario; showToast?: (mensagem: string) => void; initialView?: View; alerta?: { titulo: string; ids: string[] } | null; onLimparAlerta?: () => void };
 
 const TIPOS_TAREFA = ["Contato cliente", "Revisar processo", "Verificar protocolo", "Cobrar assinatura", "Solicitar documento", "Custas", "Reunião", "Audiência", "Prazo processual", "Tarefa interna", "Outro"];
 const PRIORIDADES = ["Baixa", "Normal", "Alta", "Crítica"];
@@ -133,9 +133,9 @@ function estaNoPeriodo(data: string, visao: string) {
   return alvo.getMonth() === hoje.getMonth() && alvo.getFullYear() === hoje.getFullYear();
 }
 
-export default function OperacionalProcessualModule({ usuario, showToast, initialView = "agenda" }: Props) {
+export default function OperacionalProcessualModule({ usuario, showToast, initialView = "agenda", alerta, onLimparAlerta }: Props) {
   const [view, setView] = useState<View>(initialView);
-  const [agendaView, setAgendaView] = useState("Hoje");
+  const [agendaView, setAgendaView] = useState(alerta ? "Lista" : "Hoje");
   const [tarefas, setTarefas] = useState<Tarefa[]>([]);
   const [atendimentos, setAtendimentos] = useState<Atendimento[]>([]);
   const [processos, setProcessos] = useState<ProcessoOpcao[]>([]);
@@ -151,14 +151,15 @@ export default function OperacionalProcessualModule({ usuario, showToast, initia
     if (showToast) showToast(mensagem);
   }, [showToast]);
 
-  const carregarDados = useCallback(async () => {
+  const carregarDados = useCallback(async (signal = new AbortController().signal) => {
     setCarregando(true);
     setErro("");
     const [tarefasReq, atendimentosReq, processosReq] = await Promise.allSettled([
-      supabase.from("processual_tarefas").select("*").order("data", { ascending: true }).order("horario", { ascending: true }),
-      supabase.from("processual_atendimentos").select("*").order("data", { ascending: false }).order("hora", { ascending: false }),
-      supabase.from("processos").select("id, nome_cliente, cpf_cliente, numero_processo, banco_reu, cliente_id").order("updated_at", { ascending: false }).limit(500),
+      supabase.from("processual_tarefas").select("*").order("data", { ascending: true }).order("horario", { ascending: true }).abortSignal(signal),
+      supabase.from("processual_atendimentos").select("*").order("data", { ascending: false }).order("hora", { ascending: false }).abortSignal(signal),
+      supabase.from("processos").select("id, nome_cliente, cpf_cliente, numero_processo, banco_reu, cliente_id").order("updated_at", { ascending: false }).limit(500).abortSignal(signal),
     ]);
+    if (signal.aborted) return;
 
     if (tarefasReq.status === "fulfilled" && !tarefasReq.value.error) setTarefas((tarefasReq.value.data || []) as Tarefa[]);
     else setErro("Execute a migration da Etapa 7 para ativar tarefas, agenda e atendimentos.");
@@ -168,7 +169,7 @@ export default function OperacionalProcessualModule({ usuario, showToast, initia
     setCarregando(false);
   }, []);
 
-  useEffect(() => { carregarDados(); }, [carregarDados]);
+  useEffect(() => { const controller = new AbortController(); void carregarDados(controller.signal); return () => controller.abort(); }, [carregarDados]);
   useEffect(() => { setPaginaLista(1); }, [busca, view, agendaView]);
 
   const processosFiltrados = useMemo(() => {
@@ -179,8 +180,8 @@ export default function OperacionalProcessualModule({ usuario, showToast, initia
 
   const tarefasFiltradas = useMemo(() => {
     const termo = normalizar(busca);
-    return tarefas.filter((tarefa) => !termo || normalizar(`${tarefa.titulo} ${tarefa.cliente_nome || ""} ${tarefa.processo_numero || ""} ${tarefa.responsavel || ""} ${tarefa.tipo}`).includes(termo));
-  }, [busca, tarefas]);
+    return tarefas.filter((tarefa) => (!alerta || alerta.ids.includes(tarefa.id)) && (!termo || normalizar(`${tarefa.titulo} ${tarefa.cliente_nome || ""} ${tarefa.processo_numero || ""} ${tarefa.responsavel || ""} ${tarefa.tipo}`).includes(termo)));
+  }, [alerta, busca, tarefas]);
 
   const atendimentosFiltrados = useMemo(() => {
     const termo = normalizar(busca);
@@ -333,9 +334,10 @@ export default function OperacionalProcessualModule({ usuario, showToast, initia
         </div>
       </header>
 
+      {alerta ? <div className="dashboard-filtro-ativo"><span>{alerta.titulo}</span><button type="button" onClick={() => { setPaginaLista(1); onLimparAlerta?.(); }}>Mostrar todos</button></div> : null}
       <div className="operacional-toolbar">
         <Input type="search" value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar cliente, processo, responsável ou tipo..." />
-        <button className="btn-secondary" onClick={carregarDados} type="button">Atualizar</button>
+        <button className="btn-secondary" onClick={() => { invalidarConsultas(); void carregarDados(); }} type="button">Atualizar</button>
       </div>
 
       {erro ? <div className="empty-row">{erro}</div> : null}

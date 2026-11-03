@@ -302,7 +302,7 @@ async function loadImportedProcesses(client) {
   return data ?? [];
 }
 
-function samples(imported) {
+export function samples(imported) {
   const byStatus = (status) => imported.find((item) => item.status_categoria === status) ?? null;
   const incomplete = imported.find((item) => item.incompleto) ?? null;
   const duplicate = imported.find((item) => (item.fontes_linhas?.length ?? 0) > 1) ?? null;
@@ -321,7 +321,7 @@ function samples(imported) {
     tramitando: byStatus("tramitando"),
     improcedente: byStatus("improcedente"),
     procedente: byStatus("procedente"),
-    incompleto,
+    incompleto: incomplete,
     cliente_com_multiplos_processos: multiple,
     processo_duplicado_na_fonte: duplicate,
     inicio_da_fonte: first,

@@ -33,31 +33,51 @@ async function verificarNovaVersao() {
   }
 }
 
-window.addEventListener('focus', verificarNovaVersao)
-document.addEventListener('visibilitychange', () => {
+function verificarAoFicarVisivel() {
   if (document.visibilityState === 'visible') void verificarNovaVersao()
-})
-window.setInterval(verificarNovaVersao, 5 * 60_000)
+}
+
+window.addEventListener('focus', verificarNovaVersao)
+document.addEventListener('visibilitychange', verificarAoFicarVisivel)
+const temporizadorVersao = window.setInterval(verificarNovaVersao, 5 * 60_000)
+const avisosPendentes = new Set()
 
 // Quando um novo deploy troca os nomes com hash dos arquivos carregados sob
 // demanda, uma aba antiga pode tentar buscar um arquivo que já não existe.
 // Não recarregamos automaticamente: uma recarga no meio do preenchimento
 // descartava a tela ativa. O usuário decide após o rascunho ser preservado.
-window.addEventListener('vite:preloadError', (event) => {
+function avisarErroDePrecarregamento(event) {
   event.preventDefault()
   const chave = 'platino-aviso-atualizacao-chunk'
   const ultimoAviso = Number(sessionStorage.getItem(chave) || 0)
 
   if (Date.now() - ultimoAviso > 30_000) {
     sessionStorage.setItem(chave, String(Date.now()))
-    window.setTimeout(() => {
+    const temporizador = window.setTimeout(() => {
+      avisosPendentes.delete(temporizador)
       const atualizarAgora = window.confirm(
         'Uma atualização do sistema está disponível. Seu rascunho foi preservado. Deseja atualizar a página agora?',
       )
       if (atualizarAgora) window.location.reload()
     }, 0)
+    avisosPendentes.add(temporizador)
   }
-})
+}
+
+window.addEventListener('vite:preloadError', avisarErroDePrecarregamento)
+
+// O módulo pode ser reexecutado pelo Vite durante a edição. Descarte os
+// recursos globais antes da próxima execução para não acumular verificações.
+if (import.meta.hot) {
+  import.meta.hot.dispose(() => {
+    window.removeEventListener('focus', verificarNovaVersao)
+    document.removeEventListener('visibilitychange', verificarAoFicarVisivel)
+    window.removeEventListener('vite:preloadError', avisarErroDePrecarregamento)
+    window.clearInterval(temporizadorVersao)
+    avisosPendentes.forEach((temporizador) => window.clearTimeout(temporizador))
+    avisosPendentes.clear()
+  })
+}
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>

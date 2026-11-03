@@ -1,5 +1,3 @@
-import { supabase } from "./supabase";
-
 export const FASES_PROCESSUAIS = [
   "Extrajudicial",
   "Solicitado para Ajuizamento",
@@ -166,25 +164,6 @@ export type MovimentacaoProcessual = {
   created_at?: string;
 };
 
-export const CHECKLIST_ELITE = [
-  { id: "rg_cnh", label: "RG/CNH" },
-  { id: "comprovante_residencia", label: "Comprovante de Residência" },
-  { id: "contrato_integra", label: "Contrato na Íntegra" },
-  { id: "extratos_holerites", label: "Extratos/Holerites" },
-  { id: "procuracao_assinada", label: "Procuração assinada" },
-] as const;
-
-export type ChecklistEliteId = (typeof CHECKLIST_ELITE)[number]["id"];
-
-export type RegistroChecklistElite = {
-  status?: "Pendente" | "Conferido" | "Anexado no Drive" | "Irregular" | string;
-  link_drive?: string | null;
-  observacao?: string | null;
-};
-
-export type ArquivosChecklistElite = Partial<Record<ChecklistEliteId, File>>;
-export type RegistrosChecklistElite = Partial<Record<ChecklistEliteId, RegistroChecklistElite>>;
-
 function normalizarData(data: string | Date) {
   const parsed = data instanceof Date ? new Date(data) : new Date(data);
   if (Number.isNaN(parsed.getTime())) return null;
@@ -299,69 +278,4 @@ export function calcularPrazoElite(
     sinalizacao,
     rotulo,
   };
-}
-
-export function checklistEliteCompleto(checklist?: Record<string, unknown> | null) {
-  return CHECKLIST_ELITE.every((item) => Boolean(checklist?.[item.id]));
-}
-
-export async function registrarChecklistEliteDrive(
-  processoId: string,
-  registros: RegistrosChecklistElite,
-) {
-  const faltantes = CHECKLIST_ELITE.filter((item) => {
-    const registro = registros[item.id];
-    return !registro || !["Conferido", "Anexado no Drive"].includes(String(registro.status || ""));
-  }).map((item) => item.label);
-
-  if (faltantes.length > 0) {
-    throw new Error(`Marque todos os documentos obrigatórios como conferidos/anexados no Drive: ${faltantes.join(", ")}.`);
-  }
-
-  const conferidos: Record<string, string> = {};
-
-  for (const item of CHECKLIST_ELITE) {
-    const registro = registros[item.id];
-    if (!registro) continue;
-
-    const { error: registroError } = await supabase
-      .from("processos_documentos")
-      .upsert(
-        {
-          processo_id: processoId,
-          tipo_documento: item.id,
-          status: registro.status || "Conferido",
-          link_drive: registro.link_drive || null,
-          observacao: registro.observacao || null,
-          armazenamento_oficial: "Drive",
-          conferido_em: new Date().toISOString(),
-        },
-        { onConflict: "processo_id,tipo_documento" },
-      );
-
-    if (registroError) throw registroError;
-    conferidos[item.id] = registro.status || "Conferido";
-  }
-
-  return conferidos;
-}
-
-export async function enviarChecklistElite(
-  processoId: string,
-  arquivosOuRegistros: ArquivosChecklistElite | RegistrosChecklistElite,
-) {
-  const registros = Object.fromEntries(
-    CHECKLIST_ELITE.map((item) => {
-      const valor = arquivosOuRegistros[item.id] as File | RegistroChecklistElite | undefined;
-      const status = valor instanceof File ? "Conferido" : valor?.status;
-      const link_drive = valor instanceof File ? null : valor?.link_drive;
-      const observacao = valor instanceof File
-        ? `Arquivo ${valor.name} conferido. Arquivamento oficial deve ser feito na pasta do cliente no Drive.`
-        : valor?.observacao;
-
-      return [item.id, { status, link_drive, observacao }];
-    }),
-  ) as RegistrosChecklistElite;
-
-  return registrarChecklistEliteDrive(processoId, registros);
 }

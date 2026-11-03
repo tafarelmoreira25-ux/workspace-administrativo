@@ -1,6 +1,6 @@
 import { FormActions, FormField, FormGrid, FormSection, Input, Select, Textarea } from "./components/common/FormControls";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { supabase } from "./lib/supabase";
+import { supabase, invalidarConsultas } from "./lib/supabase";
 import { buscarClienteUnico, sincronizarClienteDoProcesso } from "./lib/processDataSync";
 import ClientesModule from "./components/clientes/ClientesModule";
 import { agruparTimelineProcessual, descricoesDiferentes, mapearMovimentacaoTimeline, ordenarTimelineProcessual } from "./lib/historicoAdministrativo";
@@ -25,7 +25,7 @@ const dataBR = (valor) => valor ? new Intl.DateTimeFormat("pt-BR").format(new Da
 const ehExtrajudicial = (registro) => registro?.status_judicial === "EXTRAJUDICIAL" || (!registro?.status_judicial && registro?.origem_registro === "acao_extrajudicial_manual" && registro?.fase_atual === "Extrajudicial");
 const emFluxoDeProtocolo = (registro) => !registro?.numero_processo && registro?.status_judicial === "AGUARDANDO_PROTOCOLO";
 
-export default function CarteiraProcessual({ showToast, usuario, processoInicialId, modo = "judicial" }) {
+export default function CarteiraProcessual({ showToast, usuario, processoInicialId, modo = "judicial", alerta, onLimparAlerta }) {
   const carteiraExtrajudicial = modo === "extrajudicial";
   const [registros, setRegistros] = useState([]);
   const [total, setTotal] = useState(0);
@@ -49,22 +49,24 @@ export default function CarteiraProcessual({ showToast, usuario, processoInicial
   const [acao, setAcao] = useState(ACAO_INICIAL);
   const processoInicialCarregado = useRef(null);
 
-  const carregar = useCallback(async () => {
+  const carregar = useCallback(async (signal = new AbortController().signal) => {
     setCarregando(true);
     const termo = limparBusca(buscaAplicada);
     let consulta = supabase.from("processos").select("id,cliente_id,nome_cliente,cpf_cliente,id_crm,protocolo_extrajudicial,numero_processo,reu,banco_reu,tipo_acao,tribunal,comarca,vara,data_distribuicao,data_inicio_extrajudicial,responsavel,situacao,status_judicial,fase_atual,protocolo_status,ultima_movimentacao,ultima_movimentacao_data,ultima_revisao,origem_registro,observacoes,created_at,updated_at", { count: "exact" });
+    if (alerta) consulta = alerta.ids.length ? consulta.in("id", alerta.ids) : consulta.eq("id", "00000000-0000-0000-0000-000000000000");
     consulta = carteiraExtrajudicial
       ? consulta.or("status_judicial.eq.EXTRAJUDICIAL,and(status_judicial.is.null,origem_registro.eq.acao_extrajudicial_manual,fase_atual.eq.Extrajudicial)").or("numero_processo.is.null,numero_processo.eq.")
       : consulta.not("numero_processo", "is", null).neq("numero_processo", "");
     if (termo) consulta = consulta.or(`nome_cliente.ilike.%${termo}%,cpf_cliente.ilike.%${termo}%,id_crm.ilike.%${termo}%,protocolo_extrajudicial.ilike.%${termo}%,numero_processo.ilike.%${termo}%,reu.ilike.%${termo}%,banco_reu.ilike.%${termo}%,tipo_acao.ilike.%${termo}%`);
     const inicio = (pagina - 1) * PAGE_SIZE;
-    const { data, count, error } = await consulta.order("updated_at", { ascending: false }).range(inicio, inicio + PAGE_SIZE - 1);
+    const { data, count, error } = await consulta.order("updated_at", { ascending: false }).range(inicio, inicio + PAGE_SIZE - 1).abortSignal(signal);
+    if (signal.aborted) return;
     if (error) showToast?.(`Não foi possível carregar o Processual: ${error.message}`);
     else { setRegistros(data || []); setTotal(count || 0); }
     setCarregando(false);
-  }, [buscaAplicada, carteiraExtrajudicial, pagina, showToast]);
+  }, [alerta, buscaAplicada, carteiraExtrajudicial, pagina, showToast]);
 
-  useEffect(() => { const timer = window.setTimeout(() => void carregar(), 0); return () => window.clearTimeout(timer); }, [carregar]);
+  useEffect(() => { const controller = new AbortController(); const timer = window.setTimeout(() => void carregar(controller.signal), 0); return () => { window.clearTimeout(timer); controller.abort(); }; }, [carregar]);
   useEffect(() => { const timer = window.setTimeout(() => { setPagina(1); setBuscaAplicada(busca); }, 350); return () => window.clearTimeout(timer); }, [busca]);
 
   useEffect(() => {
@@ -412,9 +414,10 @@ export default function CarteiraProcessual({ showToast, usuario, processoInicial
   return <>
     <section className="portfolio-process-section">
       <div className="process-status-section-heading">
-        <div><span>{carteiraExtrajudicial ? "Ações antes do ajuizamento" : "Processos com número judicial"}</span><h2>{carteiraExtrajudicial ? "Extrajudiciais" : "Processual"}</h2><p>{carteiraExtrajudicial ? "Negociações e movimentações extrajudiciais, antes do envio para Protocolos." : "Processos protocolados com todo o histórico extrajudicial preservado."}</p></div>
-        <div className="process-status-heading-actions"><button className="primary" type="button" onClick={abrirCadastro}>{carteiraExtrajudicial ? "Cadastrar ação extrajudicial" : "Cadastrar processo judicial"}</button><button type="button" onClick={carregar}>Atualizar</button></div>
+        {!carteiraExtrajudicial ? <div><span>Processos com número judicial</span></div> : null}
+        <div className="process-status-heading-actions"><button className="primary" type="button" onClick={abrirCadastro}>{carteiraExtrajudicial ? "Cadastrar ação extrajudicial" : "Cadastrar processo judicial"}</button><button type="button" onClick={() => { invalidarConsultas(); void carregar(); }}>Atualizar</button></div>
       </div>
+      {alerta ? <div className="dashboard-filtro-ativo"><span>{alerta.titulo}</span><button type="button" onClick={() => { setPagina(1); onLimparAlerta?.(); }}>Mostrar todos</button></div> : null}
       <div className="process-status-filters"><Input type="search" value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar nome, CPF, ID CRM, CNJ, réu, banco ou ação..." /></div>
       {carregando && !registros.length ? <p className="process-status-empty">Carregando processos...</p> : registros.length ? <div className="portfolio-process-list">{registros.map((item) => {
         const extrajudicial = ehExtrajudicial(item);
